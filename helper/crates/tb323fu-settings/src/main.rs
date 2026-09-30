@@ -315,6 +315,7 @@ impl Ui {
         // Navigation
         let sidebar = gtk::ListBox::new();
         sidebar.add_css_class("navigation-sidebar");
+        sidebar.set_selection_mode(gtk::SelectionMode::Single);
         let defs: [(&str, &str, &'static [&'static str], &adw::PreferencesPage); 9] = [
             ("Battery", "battery-good-symbolic", &["Battery"], &p_bat),
             ("Display", "video-display-symbolic", &["Refresh"], &p_ref),
@@ -465,15 +466,25 @@ impl Ui {
 
     fn connect(self: &Rc<Self>, preset_btn: gtk::Button, export_btn: gtk::Button, gpu_buttons: Vec<gtk::Button>) {
         // Navigation
+        // The selected row decides the page, so the highlight always matches
+        // what is shown; activating a row (a tap, also in collapsed mode)
+        // selects it and brings the content forward.
         let ui = self.clone();
-        self.sidebar.connect_row_activated(move |_, row| {
+        self.sidebar.connect_row_selected(move |_, row| {
+            let Some(row) = row else { return };
             let i = row.index();
             if i >= 0 {
                 if let Some(p) = ui.pages.get(i as usize) {
                     ui.split.set_content(Some(&p.nav));
-                    ui.split.set_show_content(true);
                 }
             }
+        });
+        let ui2 = self.clone();
+        self.sidebar.connect_row_activated(move |lb, row| {
+            if lb.selected_row().as_ref() != Some(row) {
+                lb.select_row(Some(row));
+            }
+            ui2.split.set_show_content(true);
         });
 
         // Battery
@@ -692,7 +703,9 @@ impl Ui {
         if self.daemon_up.get() != Some(up) {
             self.daemon_up.set(Some(up));
             if up {
-                if let Some(first) = self.pages.first() {
+                // first visible page; row_selected shows it
+                if let Some(first) = self.pages.iter().find(|p| p.row.is_visible()).or(self.pages.first()) {
+                    self.sidebar.unselect_all();
                     self.sidebar.select_row(Some(&first.row));
                     self.split.set_content(Some(&first.nav));
                 }

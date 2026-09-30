@@ -21,6 +21,27 @@ const OBJ = name => ({path: `${ROOT}/${name}`, iface: `${BUS}.${name}`});
 
 // ---- small D-Bus layer ---------------------------------------------------
 
+// Keep the quick-settings menu open when a choice is made: PopupBaseMenuItem's
+// activate() emits 'activate', and the menu closes itself via itemActivated.
+// These items run their action and update their check mark in place instead.
+function stayItem(label, group, key, action) {
+    const it = new PopupMenu.PopupMenuItem(label);
+    it.activate = () => {
+        for (const [k, other] of Object.entries(group))
+            other.setOrnament(k === String(key) ? PopupMenu.Ornament.CHECK : PopupMenu.Ornament.NONE);
+        action();
+    };
+    return it;
+}
+
+function staySwitch(label, action) {
+    const it = new PopupMenu.PopupSwitchMenuItem(label, false);
+    // toggle() flips the switch and emits 'toggled'; no super.activate(), so no close
+    it.activate = () => it.toggle();
+    it.connect('toggled', (_i, on) => action(on));
+    return it;
+}
+
 class Helper {
     constructor(onChange) {
         this._onChange = onChange;
@@ -150,13 +171,13 @@ class TabletToggle extends QuickMenuToggle {
         this._batSection.addMenuItem(this._batInfo);
         this._limitItems = {};
         for (const p of [60, 80, 100]) {
-            const it = new PopupMenu.PopupMenuItem(`Charge limit ${p} %`);
-            it.connect('activate', () => this._helper.call('Battery', 'SetChargeLimit', 'u', [p]));
+            const it = stayItem(`Charge limit ${p} %`, this._limitItems, p,
+                () => this._helper.call('Battery', 'SetChargeLimit', 'u', [p]));
             this._limitItems[p] = it;
             this._batSection.addMenuItem(it);
         }
-        this._bypass = new PopupMenu.PopupSwitchMenuItem('Bypass charging (run from the charger)', false);
-        this._bypass.connect('toggled', (_i, on) => this._helper.call('Battery', 'SetBypass', 'b', [on]));
+        this._bypass = staySwitch('Bypass charging (run from the charger)',
+            on => this._helper.call('Battery', 'SetBypass', 'b', [on]));
         this._batSection.addMenuItem(this._bypass);
         this.menu.addMenuItem(this._batSection);
 
@@ -167,15 +188,15 @@ class TabletToggle extends QuickMenuToggle {
         this._refSection.addMenuItem(this._refInfo);
         this._policyItems = {};
         for (const [pol, label] of [['auto', 'Adaptive (lower when idle)'], ['manual', 'Fixed rate'], ['off', 'Always 120 Hz']]) {
-            const it = new PopupMenu.PopupMenuItem(label);
-            it.connect('activate', () => this._helper.call('Refresh', 'SetPolicy', 's', [pol]));
+            const it = stayItem(label, this._policyItems, pol,
+                () => this._helper.call('Refresh', 'SetPolicy', 's', [pol]));
             this._policyItems[pol] = it;
             this._refSection.addMenuItem(it);
         }
         this._presetItems = {};
         for (const [pre, label] of [['power-saver', 'Idle timing: power saver'], ['balanced', 'Idle timing: balanced'], ['smooth', 'Idle timing: smooth']]) {
-            const it = new PopupMenu.PopupMenuItem(label);
-            it.connect('activate', () => this._helper.call('Refresh', 'ApplyPreset', 's', [pre]));
+            const it = stayItem(label, this._presetItems, pre,
+                () => this._helper.call('Refresh', 'ApplyPreset', 's', [pre]));
             this._presetItems[pre] = it;
             this._refSection.addMenuItem(it);
         }
@@ -184,8 +205,7 @@ class TabletToggle extends QuickMenuToggle {
         // torch
         this._torchSection = new PopupMenu.PopupMenuSection();
         this._torchSection.addMenuItem(new PopupMenu.PopupSeparatorMenuItem('Torch'));
-        this._torch = new PopupMenu.PopupSwitchMenuItem('Torch', false);
-        this._torch.connect('toggled', (_i, on) => this._helper.call('Torch', 'Set', 'b', [on]));
+        this._torch = staySwitch('Torch', on => this._helper.call('Torch', 'Set', 'b', [on]));
         this._torchSection.addMenuItem(this._torch);
         const sliderItem = new PopupMenu.PopupBaseMenuItem({activate: false});
         this._torchSlider = new Slider(0);
@@ -201,11 +221,11 @@ class TabletToggle extends QuickMenuToggle {
         // gpu + usb
         this._miscSection = new PopupMenu.PopupMenuSection();
         this._miscSection.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        this._gpuFollow = new PopupMenu.PopupSwitchMenuItem('GPU follows the power mode', false);
-        this._gpuFollow.connect('toggled', (_i, on) => this._helper.call('Gpu', 'SetFollowPowerProfiles', 'b', [on]));
+        this._gpuFollow = staySwitch('GPU follows the power mode',
+            on => this._helper.call('Gpu', 'SetFollowPowerProfiles', 'b', [on]));
         this._miscSection.addMenuItem(this._gpuFollow);
-        this._usbWake = new PopupMenu.PopupSwitchMenuItem('Wake from USB devices', false);
-        this._usbWake.connect('toggled', (_i, on) => this._helper.call('Usb', 'SetWake', 'b', [on]));
+        this._usbWake = staySwitch('Wake from USB devices',
+            on => this._helper.call('Usb', 'SetWake', 'b', [on]));
         this._miscSection.addMenuItem(this._usbWake);
         this.menu.addMenuItem(this._miscSection);
 
