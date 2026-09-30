@@ -19,7 +19,7 @@ column names the source; see that tree's history for the individual authors.
 ## Patches
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111 and 0112 carry no `Signed-off-by` yet; the author adds it before sending them upstream.
+0111-0113 carry no `Signed-off-by` yet; the author adds it before sending them upstream.
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -135,3 +135,4 @@ column names the source; see that tree's history for the individual authors.
 | `0110` | drm/msm/dpu: baldur: lower the refresh rate in the kernel when idle | joonhoekim | this project | local, not intended for upstream | `0f1118cc66ceb91c` |
 | `0111` | media: iris: vpu4x: size the decoder OPB line buffer for 10-bit output | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `60f0f363b5542ed9` |
 | `0112` | media: iris: don't wait for the threaded IRQ handler under core->lock | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `e7c29a4c0e69ba15` |
+| `0113` | wifi: ath12k: keep the RX refill ring from running dry | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `0250a3b8b9b44fb9` |

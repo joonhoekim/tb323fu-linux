@@ -14,7 +14,7 @@ A patch series on top of a fixed upstream base. There is no kernel fork: clone t
 ```sh
 git clone --depth 1 -b v7.3-rc4 https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux-tb323fu
 cd linux-tb323fu
-git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0112, in order
+git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0113, in order
 ```
 
 ## Configuration
@@ -25,7 +25,7 @@ git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0112, in 
 |---|---|
 | `baldur.fragment` | the board fragment, merged after `arch/arm64/configs/kaanapali-oneplus-infiniti_defconfig` (the OnePlus 15 fragment, added by patch 0011) |
 | `baldur-display.fragment`, `baldur-kexec.fragment` | variants for the display bring-up and kexec images |
-| `baldur-netfilter.fragment` | netfilter for distro firewalls and containers (iptables-nft's `nft_compat`, xt matches, REJECT/rpfilter, ipset), merged last; all `=m`, so the modules can be added to an existing build without a new Image. The options that do need a new Image (`NFT_FIB_IPV6`/`NFT_FIB_INET` for firewalld's IPv6 rpfilter, `NF_CT_NETLINK`, legacy iptables tables, conntrack mark) are listed at its end |
+| `baldur-netfilter.fragment` | netfilter for distro firewalls and containers (iptables-nft's `nft_compat`, xt matches, REJECT/rpfilter, ipset), merged last. The first part is `=m` only and can be added to an existing build without a new Image; the second part (`NFT_FIB_IPV6`/`NFT_FIB_INET` for firewalld's IPv6 rpfilter, `NF_CT_NETLINK`, conntrack mark, redirect, the nft bridge and netdev families) changes vmlinux and the core netfilter modules, so it needs a new Image and the whole matching modules set. Still off: legacy iptables tables, conntrack zones/labels, ARP tables |
 | `t21-reference.config` | the full `.config` of the kernel that is tested on the device (see below), for comparison |
 
 The same fragments are also added to the tree by patch 0055 (`arch/arm64/configs/`). The copies here have
