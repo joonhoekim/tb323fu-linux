@@ -1,0 +1,96 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Distro firewalls and container networking (2026-10-01).
+# Merge after baldur.fragment (and baldur-display.fragment).
+#
+# Everything here is a loadable module (=m), so it can be added to a running
+# kernel without a new Image: the built-in code and the modules that are already
+# built stay byte-for-byte what they were. Options that would change built-in
+# code or an existing module are deliberately left out (listed at the end).
+#
+# Already on in the base config (no change): NF_TABLES(_INET/_IPV4/_IPV6),
+# NFT_CT/LOG/LIMIT/MASQ/NAT/REJECT/REJECT_INET, NF_CONNTRACK, NF_NAT,
+# NF_LOG_SYSLOG, NETFILTER_XTABLES, XT_MARK, XT_TARGET_LOG, XT_MATCH_ADDRTYPE/
+# COMMENT/CONNTRACK/IPVS, IP(6)_NF_IPTABLES, BRIDGE, BRIDGE_NETFILTER, VETH,
+# MACVLAN, IPVLAN, VXLAN, OVERLAY_FS.
+
+# --- nftables -----------------------------------------------------------
+# fib expression for ip-family tables. firewalld's IPv6 reverse-path filter
+# ("fib saddr . mark . iif oif missing drop" in table inet) needs nft_fib_inet,
+# which needs NFT_FIB_IPV6 -- and that one cannot be added as a module alone:
+# it uses fib6_lookup, which vmlinux exports only when NFT_FIB_IPV6 is a module
+# (net/ipv6/ip6_fib.c, fib6_rules.c "#if IS_MODULE(CONFIG_NFT_FIB_IPV6)"). So
+# those two wait for the next Image (see the end); until then firewalld needs
+# IPv6_rpfilter=no in /etc/firewalld/firewalld.conf.
+CONFIG_NFT_FIB_IPV4=m
+# iptables-nft (NixOS firewall, ufw, Docker, libvirt): every "-m"/"-j" that has
+# no native nft translation is an xt extension run through nft_compat.
+CONFIG_NFT_COMPAT=m
+# Small nft expressions distro and container rulesets use (quota, ct count,
+# numgen/jhash for load balancing).
+CONFIG_NFT_QUOTA=m
+CONFIG_NFT_CONNLIMIT=m
+CONFIG_NFT_NUMGEN=m
+CONFIG_NFT_HASH=m
+
+# --- xtables targets ----------------------------------------------------
+CONFIG_NETFILTER_XT_NAT=m
+CONFIG_NETFILTER_XT_TARGET_MASQUERADE=m
+CONFIG_NETFILTER_XT_TARGET_CHECKSUM=m
+CONFIG_NETFILTER_XT_TARGET_TCPMSS=m
+CONFIG_IP_NF_TARGET_REJECT=m
+CONFIG_IP6_NF_TARGET_REJECT=m
+
+# --- xtables matches ----------------------------------------------------
+# NixOS nixos-fw: pkttype, conntrack, LOG, rpfilter (mangle). ufw: multiport,
+# limit, recent, state, hl, rt (before6.rules), addrtype, comment. Docker:
+# addrtype, conntrack, physdev (br_netfilter), mark.
+CONFIG_NETFILTER_XT_MATCH_PKTTYPE=m
+CONFIG_NETFILTER_XT_MATCH_MULTIPORT=m
+CONFIG_NETFILTER_XT_MATCH_LIMIT=m
+CONFIG_NETFILTER_XT_MATCH_HASHLIMIT=m
+CONFIG_NETFILTER_XT_MATCH_RECENT=m
+CONFIG_NETFILTER_XT_MATCH_STATE=m
+CONFIG_NETFILTER_XT_MATCH_MARK=m
+CONFIG_NETFILTER_XT_MATCH_IPRANGE=m
+CONFIG_NETFILTER_XT_MATCH_OWNER=m
+CONFIG_NETFILTER_XT_MATCH_PHYSDEV=m
+CONFIG_NETFILTER_XT_MATCH_HL=m
+CONFIG_NETFILTER_XT_MATCH_LENGTH=m
+CONFIG_NETFILTER_XT_MATCH_TCPMSS=m
+CONFIG_NETFILTER_XT_MATCH_CONNLIMIT=m
+CONFIG_NETFILTER_XT_MATCH_STATISTIC=m
+CONFIG_NETFILTER_XT_MATCH_POLICY=m
+CONFIG_NETFILTER_XT_MATCH_MAC=m
+CONFIG_IP_NF_MATCH_RPFILTER=m
+CONFIG_IP6_NF_MATCH_RPFILTER=m
+CONFIG_IP6_NF_MATCH_RT=m
+CONFIG_IP6_NF_MATCH_IPV6HEADER=m
+CONFIG_IP6_NF_MATCH_FRAG=m
+CONFIG_IP6_NF_MATCH_OPTS=m
+CONFIG_IP6_NF_MATCH_HL=m
+
+# --- ipset (fail2ban, firewalld's ipset backend, "-m set") ---------------
+CONFIG_IP_SET=m
+CONFIG_IP_SET_HASH_IP=m
+CONFIG_IP_SET_HASH_NET=m
+CONFIG_IP_SET_HASH_IPPORT=m
+CONFIG_IP_SET_HASH_NETPORT=m
+CONFIG_IP_SET_HASH_NETIFACE=m
+CONFIG_IP_SET_BITMAP_PORT=m
+CONFIG_IP_SET_LIST_SET=m
+CONFIG_NETFILTER_XT_SET=m
+
+# Left out on purpose -- each would change built-in code or an existing module,
+# so it needs a new Image or replaced nf_conntrack/nf_nat/nf_tables/x_tables.
+# Turn these on together with the next Image build:
+#   NFT_FIB_IPV6, NFT_FIB_INET (vmlinux export fib6_lookup, see above).
+#   NF_CT_NETLINK (conntrack(8); Docker flushes stale UDP entries through it):
+#     adds the netlink hooks to nf_conntrack.ko/nf_nat.ko and fields to
+#     struct nf_conntrack_l4proto.
+#   NETFILTER_XTABLES_LEGACY (x_tables.ko) -> IP(6)_NF_FILTER/NAT/MANGLE/RAW,
+#     i.e. iptables-legacy tables; iptables-nft does not need them.
+#   NF_CONNTRACK_MARK/_ZONES/_LABELS/_PROCFS (nf_conntrack.ko) -> connmark,
+#     "ct mark", /proc/net/nf_conntrack.
+#   NF_NAT_REDIRECT (nf_nat.ko) -> NFT_REDIR, XT_TARGET_REDIRECT.
+#   NF_TABLES_BRIDGE / NF_TABLES_NETDEV (nf_tables.ko), NF_TABLES_ARP /
+#     IP_NF_ARPTABLES (NETFILTER_FAMILY_ARP, built-in struct netns_nf).

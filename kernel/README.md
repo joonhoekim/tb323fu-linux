@@ -25,6 +25,7 @@ git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0112, in 
 |---|---|
 | `baldur.fragment` | the board fragment, merged after `arch/arm64/configs/kaanapali-oneplus-infiniti_defconfig` (the OnePlus 15 fragment, added by patch 0011) |
 | `baldur-display.fragment`, `baldur-kexec.fragment` | variants for the display bring-up and kexec images |
+| `baldur-netfilter.fragment` | netfilter for distro firewalls and containers (iptables-nft's `nft_compat`, xt matches, REJECT/rpfilter, ipset), merged last; all `=m`, so the modules can be added to an existing build without a new Image. The options that do need a new Image (`NFT_FIB_IPV6`/`NFT_FIB_INET` for firewalld's IPv6 rpfilter, `NF_CT_NETLINK`, legacy iptables tables, conntrack mark) are listed at its end |
 | `t21-reference.config` | the full `.config` of the kernel that is tested on the device (see below), for comparison |
 
 The same fragments are also added to the tree by patch 0055 (`arch/arm64/configs/`). The copies here have
