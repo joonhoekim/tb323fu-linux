@@ -42,6 +42,12 @@ package_tb323fu-platform() {
 	install=tb323fu-platform.install
 	cd "$pkgbase"
 	DESTDIR="$pkgdir" PREFIX=/usr SYSCONFDIR=/etc sh userspace/platform/install.sh
+	# Arch: /usr/sbin is a symlink to bin owned by the filesystem package
+	if [ -d "$pkgdir/usr/sbin" ]; then
+		install -d "$pkgdir/usr/bin"
+		mv "$pkgdir"/usr/sbin/* "$pkgdir/usr/bin/"
+		rmdir "$pkgdir/usr/sbin"
+	fi
 	install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
 

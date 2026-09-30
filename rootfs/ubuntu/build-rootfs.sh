@@ -163,6 +163,7 @@ if [ "$DEV_ACCESS" = 1 ]; then
 	ch systemctl enable serial-getty@ttyGS0.service >/dev/null 2>&1
 	mkdir -p "$T/etc/ssh/sshd_config.d"
 	printf 'PermitRootLogin yes\n' > "$T/etc/ssh/sshd_config.d/10-tb323fu-dev.conf"
+	ch systemctl enable ssh.service >/dev/null 2>&1   # Ubuntu leaves openssh-server disabled
 	# the PC's key, if this host has one for root
 	[ -e /root/.ssh/authorized_keys ] && { mkdir -p "$T/root/.ssh"; cp /root/.ssh/authorized_keys "$T/root/.ssh/"; chmod 700 "$T/root/.ssh"; }
 fi
