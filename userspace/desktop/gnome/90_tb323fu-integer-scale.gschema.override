@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: MIT
+# OPTIONAL (GNOME): integer UI scales only. Some distributions (Debian's
+# 10_mutter-common) turn on fractional scaling ('scale-monitor-framebuffer');
+# on this 1904x3040 panel mutter then prefers 16/7 = 2.2857, which it passes
+# around as a float and afterwards rejects in its own check ("Scaled logical
+# monitor size is fractional") -- no display change (refresh rate included)
+# can be applied. Install to /usr/share/glib-2.0/schemas/ and run
+# glib-compile-schemas there. The default layout is 200 % at 120 Hz.
+[org.gnome.mutter]
+experimental-features=['xwayland-native-scaling']
