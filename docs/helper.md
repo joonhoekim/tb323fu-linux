@@ -37,7 +37,7 @@ GNOME and apt.
 
 | Feature | Today | Kernel / sysfs interface | Privilege | Layer | Notes and hazards |
 |---|---|---|---|---|---|
-| Charge limit | udev `61-…-battery.rules` sets `CHARGE_LIMIT=70,80` for UPower/GNOME "preserve battery health" | `/sys/class/power_supply/qcom-battmgr-bat/charge_control_end_threshold` | root | 2 (+1 udev hint kept) | GNOME 48 already offers an on/off toggle through UPower. The daemon adds an arbitrary threshold for other desktops and must not fight UPower: if UPower manages the threshold, the daemon only reports it. Firmware may keep reporting `Charging` with 0 A while held (see LED ring). Changing the limit renegotiates PD (9 V ↔ 5 V) — harmless, but it is a charger event |
+| Charge limit | udev `61-…-battery.rules` sets `CHARGE_LIMIT=70,80` for UPower/GNOME "preserve battery health" | `/sys/class/power_supply/qcom-battmgr-bat/charge_control_end_threshold` | root | 2 (+1 udev hint kept) | **Decided: the helper is the only owner.** The `CHARGE_LIMIT` udev hint is dropped so UPower/GNOME's "preserve battery health" switch no longer writes the threshold (two writers would overwrite each other); the helper's app and quick settings replace it |
 | Switch to Android | `baldur-to-android` (zenity dialog → `pkexec back-to-android <sha256>`), GNOME tile `baldur-android@…`, `.desktop` entry | writes the Android boot image kept in `boot_b` back into `boot_a` and reboots; refuses unless `boot_b` matches the recorded SHA-256 | root, **auth required** | 2 (tool in 1) | `back-to-android` itself stays a layer-1 tool (also used by the emergency chord). The daemon method only wraps it: checks the hash file exists, emits a signal, runs it. Irreversible until the user switches back from Android |
 | Emergency chord (volume up+down 10 s → Android) | `baldur-voldown` + `keyhold` | evdev on `pmic_resin` and `gpio-keys` | root | **1** | must work with no desktop and no helper; stays a plain service |
 | Torch | `baldur-torch` + GNOME tile `baldur-torch@…` | `/sys/class/leds/white:flash/brightness` (torch level ~96; never the flash strobe) | `video` group via udev `74-…-leds.rules` | 2 | daemon exposes on/off/level with a safe maximum; front-ends no longer write sysfs |
@@ -58,7 +58,7 @@ Standard `org.freedesktop.DBus.Properties` for properties (with `PropertiesChang
 
 | Object / interface | Properties | Methods | Signals | polkit action (default for the active local user) |
 |---|---|---|---|---|
-| `/…/Battery` · `io.github.joonhoekim.tb323fu.Helper.Battery` | `ChargeLimit` (u, %), `ChargeLimitManagedBy` (s: `helper` / `upower`), `Status` (s), `Capacity` (u) | `SetChargeLimit(u)` | — | `io.github.joonhoekim.tb323fu.helper.charge-limit` — allow (`yes`) |
+| `/…/Battery` · `io.github.joonhoekim.tb323fu.Helper.Battery` | `ChargeLimit` (u, %), `Status` (s), `Capacity` (u) | `SetChargeLimit(u)` | — | `io.github.joonhoekim.tb323fu.helper.charge-limit` — allow (`yes`) |
 | `/…/Android` · `…Android` | `Available` (b: hash file present and `boot_b` recorded), `ImageSha256` (s) | `SwitchToAndroid()` | `SwitchingToAndroid()` | `…android-switch` — allow (`yes`); `…android-switch-auth` — `auth_admin_keep`. The daemon checks the second one only when `android.require_auth = true` in the config (default `false`) |
 | `/…/Torch` · `…Torch` | `On` (b), `Level` (u), `MaxLevel` (u) | `Set(b)`, `SetLevel(u)` | — | `…torch` — allow |
 | `/…/LedRing` · `…LedRing` | `Mode` (s: `charge` / `off`), `Brightness` (u), `LowPercent` (u) | `SetMode(s)`, `SetBrightness(u)`, `SetLowPercent(u)` | — | `…led-ring` — allow |
@@ -74,7 +74,7 @@ Inactive/remote sessions get `no` for everything except reading properties.
 - `android.require_auth` (bool, default `false`): whether switching to Android asks for authentication (polkit `android-switch-auth` instead of `android-switch`). Settable from the app and `tb323fu-ctl`; changing it itself requires authentication.
 - `/etc/tb323fu/helper.toml` — written by the daemon when a setting changes, read at start; defaults when the file or a key is absent.
 - Applied once at daemon start (after the relevant devices exist; the daemon waits on udev for the LED/power-supply/devfreq devices, bounded).
-- Settings that the kernel or desktop already default sensibly (idle refresh auto, UPower-managed charge limit) are only written when the user changes them.
+- Settings that the kernel already defaults sensibly (idle refresh auto) are only written when the user changes them. The charge limit is always applied by the helper at start (default 80 %).
 - The legacy `/etc/baldur/*.conf` files are read once on first start to migrate values, then left untouched.
 
 ## Front-ends
@@ -128,7 +128,7 @@ Without the device
 - CLI golden-output tests against the same fake daemon.
 
 On the device
-- Charge limit: set 60/80 with a PD charger attached; threshold file and charging state follow; UPower-managed case only reports.
+- Charge limit: set 60/80 with a PD charger attached; threshold file and charging state follow; the UPower hint is absent (GNOME's switch gone).
 - Android switch: `Available` false without the hash file; with it, the auth prompt appears and the switch works (then return to Linux).
 - Refresh: policy auto/off/manual, idle presets; the live rate follows (frame-counter check), overview stays open, suspend while stretched resumes at 120 Hz.
 - Torch and LED ring: visual check (a person watches).
@@ -137,6 +137,6 @@ On the device
 ## Open questions
 
 - ~~Final D-Bus name~~ decided: `io.github.joonhoekim.tb323fu.Helper`. Neither the Android switch (default no authentication, `android.require_auth`) nor the GPU limits need a password; the daemon runs as root, so this is only polkit policy.
-- Whether UPower's charge-limit support should be the only path on GNOME (the daemon then just reports).
+- ~~Charge limit owner~~ decided: the helper (UPower's udev hint removed from the platform files).
 - Whether the kernel parameters get distribution-neutral names before the helper depends on them.
 - LED ring effects beyond the charge indicator need a small kernel or register-level interface first.
