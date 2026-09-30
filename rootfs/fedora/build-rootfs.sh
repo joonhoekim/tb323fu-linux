@@ -164,15 +164,20 @@ ssc=""; [ -n "$IIO_SSC_FROM" ] && ssc="libqmi libqrtr-glib protobuf-c libmbim"
 say "installing packages"
 # shellcheck disable=SC2086
 dnf install --allowerasing --skip-unavailable $(echo $base $desk $fexp $ssc)
+# the container base image carries the "Container Image" identity (os-release)
+[ "$DESKTOP" = gnome ] && dnf swap fedora-release-identity-container fedora-release-identity-workstation
 
 # rmtfs `-s` STARTS THE MODEM: started at boot the modem crashed about a minute
 # later (watchdog, cause not yet known) and a modem crash resets the whole SoC
 # (900E). They are excluded above; mask them in case they come in anyway, and
 # the Mobian helpers that hold the boot or poke the Android A/B slots.
 ch systemctl mask rmtfs.service tqftpserv.service droid-juicer.service qbootctl.service \
-	bootmac-bluetooth.service >/dev/null 2>&1 || true
+	bootmac-bluetooth.service ModemManager.service >/dev/null 2>&1 || true
 # Fedora's presets (what a first boot with an empty machine-id also applies)
 ch systemctl preset-all >/dev/null 2>&1 || true
+# firewalld's stock nftables ruleset needs netfilter modules (fib, log, ...)
+# the t24 kernel does not build yet: it fails at boot. Off until they are in.
+ch systemctl disable firewalld.service >/dev/null 2>&1 || true
 
 # 4. kernel modules and firmware of the kernel that boots it
 if [ -d "$MODULES_FROM" ]; then
