@@ -24,7 +24,7 @@ See [docs/hardware-status.md](docs/hardware-status.md). A feature is only marked
 | `kernel/` | patch series, base commit, config, board DT, [`PROVENANCE.md`](kernel/PROVENANCE.md) (where every imported patch came from) |
 | `firmware/` | manifest (file, sha256, source on the device) and a script that extracts the firmware from your own tablet — no firmware files are stored here |
 | `rootfs/` | optional: scripts that build a Debian root filesystem |
-| `userspace/` | optional: services, udev rules, audio (UCM) configuration |
+| `userspace/` | `platform/`: distribution-neutral platform files every install needs (udev, systemd units, audio/UCM, sensors, emergency key) with `install.sh`; `desktop/`: optional desktop extras |
 | `android/` | Android-side helpers (switching between Android and Linux) |
 | `tools/` | build and flash scripts |
 | `docs/` | documentation |
