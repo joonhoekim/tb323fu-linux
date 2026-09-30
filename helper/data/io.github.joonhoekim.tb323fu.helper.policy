@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!--
+  Actions of tb323fu-helperd (io.github.joonhoekim.tb323fu.Helper). The daemon
+  runs as root, so passwords are a policy choice: everyday device controls are
+  allowed for the active local user; changes that lower security or safety
+  (developer USB access, disabling the emergency way back to Android, admin
+  settings) ask for authentication. Override with rules in
+  /etc/polkit-1/rules.d/ if needed.
+-->
+<policyconfig>
+  <vendor>tb323fu-linux</vendor>
+  <vendor_url>https://github.com/joonhoekim/tb323fu-linux</vendor_url>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.charge-limit">
+    <description>Change the battery charge limit or bypass charging</description>
+    <message>Authentication is required to change the battery charge limit</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.android-switch">
+    <description>Restart into Android</description>
+    <message>Authentication is required to restart into Android</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
+  <!-- used instead of android-switch when android.require_auth = true -->
+  <action id="io.github.joonhoekim.tb323fu.helper.android-switch-auth">
+    <description>Restart into Android (authentication required by the device settings)</description>
+    <message>Authentication is required to restart into Android</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.torch">
+    <description>Switch the flashlight</description>
+    <message>Authentication is required to switch the flashlight</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.led-ring">
+    <description>Configure the LED ring</description>
+    <message>Authentication is required to configure the LED ring</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.refresh">
+    <description>Configure the idle refresh rate</description>
+    <message>Authentication is required to configure the display refresh rate</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.gpu">
+    <description>Configure GPU performance limits</description>
+    <message>Authentication is required to configure the GPU limits</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.usb-wake">
+    <description>Allow or forbid waking up from USB devices</description>
+    <message>Authentication is required to change USB wakeup</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.dev-mode">
+    <description>Enable or disable developer USB access (network and root console)</description>
+    <message>Authentication is required to change developer USB access</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.emergency-key">
+    <description>Enable or configure the emergency key combination</description>
+    <message>Authentication is required to configure the emergency key combination</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.emergency-key-disable">
+    <description>Disable the emergency key combination (volume up + down back to Android)</description>
+    <message>Authentication is required to disable the emergency way back to Android</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.diagnostics">
+    <description>Export a diagnostics bundle</description>
+    <message>Authentication is required to export diagnostics</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.admin">
+    <description>Change administrative helper settings</description>
+    <message>Authentication is required to change the helper's administrative settings</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin</allow_active></defaults>
+  </action>
+</policyconfig>
