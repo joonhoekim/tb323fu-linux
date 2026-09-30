@@ -101,3 +101,7 @@ systemctl --global enable tb323fu-speaker-gain
 - **Development conveniences** (serial console and tty autologin, USB network gadget, NetworkManager tweaks,
   hostname, fstab, first-boot script) — belong to a development image, not to the platform.
 - **Desktop extensions** — layer 3, provided with the helper.
+
+## Conflicts
+
+- **`bootmac` (qcom-phone-utils)**: its `bootmac-bluetooth.service` generates a random Bluetooth address and brings the controller up through the legacy `hciconfig` path, which hides it from the management interface; `tb323fu-btaddr` then cannot set the real address and Bluetooth ends up with a random address or unusable. Mask it: `systemctl mask bootmac-bluetooth.service`.
