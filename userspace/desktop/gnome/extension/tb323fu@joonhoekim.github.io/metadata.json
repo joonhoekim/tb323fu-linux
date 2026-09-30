@@ -1,0 +1,8 @@
+{
+  "uuid": "tb323fu@joonhoekim.github.io",
+  "name": "TB323FU Tablet",
+  "description": "Quick settings for the Lenovo Legion Tab Gen 5 / Y700 5th Gen (TB323FU): charge limit and bypass, refresh policy, torch, GPU profile, USB wake, switch to Android. Talks to the tb323fu-helperd system service; does nothing without it.",
+  "shell-version": ["48", "49"],
+  "url": "https://github.com/joonhoekim/tb323fu-linux",
+  "version-name": "0.1.0"
+}

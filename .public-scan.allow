@@ -6,3 +6,5 @@
 ^email\|[^|]*@(vger\.kernel\.org|lists\.linux\.dev|lists\.freedesktop\.org|kernel\.org|linaro\.org|oss\.qualcomm\.com|quicinc\.com)
 # GNOME Shell extension UUIDs look like e-mail addresses
 ^email\|[^|]*:[0-9]+:.*extensions/[A-Za-z0-9._-]+@[A-Za-z0-9._-]+/
+# this repository's GNOME Shell extension UUID
+^email\|[^|]*:[0-9]+:.*tb323fu@joonhoekim\.github\.io
