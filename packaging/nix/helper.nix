@@ -3,7 +3,8 @@
 rustPlatform.buildRustPackage {
   pname = "tb323fu-helper";
   version = "0.1.0";
-  src = "${src}/helper";
+  # only the helper tree, so edits elsewhere in the repository do not rebuild it
+  src = builtins.path { path = "${src}/helper"; name = "tb323fu-helper-src"; };
   cargoLock.lockFile = "${src}/helper/Cargo.lock";
   # tests start a private D-Bus daemon; run them outside the sandbox
   doCheck = false;

@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: MIT
 { lib, stdenvNoCC, src }:
-stdenvNoCC.mkDerivation rec {
+let
+  uuid = "tb323fu@joonhoekim.github.io";
+in
+stdenvNoCC.mkDerivation {
   pname = "gnome-shell-extension-tb323fu";
   version = "0.1.0";
-  uuid = "tb323fu@joonhoekim.github.io";
-  src = "${src}/userspace/desktop/gnome/extension/tb323fu@joonhoekim.github.io";
+  src = "${src}/userspace/desktop/gnome/extension/${uuid}";
   dontBuild = true;
   installPhase = ''
     install -Dm644 -t $out/share/gnome-shell/extensions/${uuid} extension.js metadata.json
