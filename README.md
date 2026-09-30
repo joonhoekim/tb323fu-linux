@@ -25,6 +25,8 @@ See [docs/hardware-status.md](docs/hardware-status.md). A feature is only marked
 | `firmware/` | manifest (file, sha256, source on the device) and a script that extracts the firmware from your own tablet — no firmware files are stored here |
 | `rootfs/` | optional: scripts that build a Debian root filesystem |
 | `userspace/` | `platform/`: distribution-neutral platform files every install needs (udev, systemd units, audio/UCM, sensors, emergency key) with `install.sh`; `desktop/`: optional desktop extras |
+| `helper/` | device helper: `tb323fu-helperd` (system D-Bus), `tb323fu-ctl`, the `tb323fu-settings` app ([docs/helper.md](docs/helper.md)) |
+| `packaging/` | Debian (`build-debs.sh`), Arch (`PKGBUILD`) and Nix (`flake.nix` at the root) recipes |
 | `android/` | Android-side helpers (switching between Android and Linux) |
 | `tools/` | build and flash scripts |
 | `docs/` | documentation |

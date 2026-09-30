@@ -102,18 +102,27 @@ Files (paths for a normal FHS distribution):
 
 | File | Path |
 |---|---|
-| daemon | `/usr/libexec/tb323fu-helperd` |
+| daemon | `/usr/libexec/tb323fu/tb323fu-helperd` (packages; `/usr/local/libexec/` for a manual install) |
 | CLI | `/usr/bin/tb323fu-ctl` |
 | systemd unit | `/usr/lib/systemd/system/tb323fu-helperd.service` (`Type=dbus`, `BusName=io.github.joonhoekim.tb323fu.Helper`, `WantedBy=multi-user.target`, hardening: `ProtectSystem=strict`, `ReadWritePaths=/etc/tb323fu /sys`) |
 | D-Bus policy | `/usr/share/dbus-1/system.d/io.github.joonhoekim.tb323fu.Helper.conf` (own: root; send: everyone; polkit decides) |
 | D-Bus activation | `/usr/share/dbus-1/system-services/io.github.joonhoekim.tb323fu.Helper.service` (`SystemdService=`) |
 | polkit | `/usr/share/polkit-1/actions/io.github.joonhoekim.tb323fu.helper.policy` |
-| GNOME extension | `/usr/share/gnome-shell/extensions/tb323fu@tb323fu.github.io/` (separate package) |
+| GNOME extension | `/usr/share/gnome-shell/extensions/tb323fu@joonhoekim.github.io/` (separate package) |
 | settings app | `/usr/bin/tb323fu-settings`, `.desktop`, icons (separate package) |
 
-- **Debian / Ubuntu**: `tb323fu-helper` (daemon + CLI), `tb323fu-helper-gnome`, `tb323fu-settings`; `Depends: dbus, polkitd`. Platform files ship as `tb323fu-platform`.
-- **Arch Linux ARM**: one PKGBUILD with split packages (same split); `depends=(dbus polkit)`.
-- **NixOS**: a module `services.tb323fu.helper.enable` that adds the package, `systemd.packages`, `services.dbus.packages`, `security.polkit` actions, and optional declarative settings rendered to `/etc/tb323fu/helper.toml` (read-only in that case; the daemon then reports settings as managed and refuses writes).
+Recipes (in `packaging/`, plus `flake.nix` at the repository root):
+
+| Distribution | Recipe | Packages | Status |
+|---|---|---|---|
+| Debian / Ubuntu | `packaging/debian/build-debs.sh` (dpkg-deb, no debhelper) | `tb323fu-platform`, `tb323fu-helper`, `tb323fu-settings`, `tb323fu-helper-gnome` | built on the device (arm64), contents checked with `dpkg -c`; `tb323fu-settings` install + remove tested |
+| Arch Linux ARM | `packaging/arch/PKGBUILD` (split package, aarch64) | same four | syntax only (`bash -n`); no Arch system tried |
+| NixOS | `flake.nix` → `packaging/nix/*.nix`, module `nixosModules.default` (`services.tb323fu`) | same four | untested (no Nix available when written) |
+
+- Debian: `tb323fu-helper` `Depends: dbus, polkitd | policykit-1, systemd`, enables `tb323fu-helperd`; `tb323fu-platform` `Depends: systemd, udev, bluez`, `Recommends:` PipeWire/WirePlumber, alsa-ucm-conf, iio-sensor-proxy, hexagonrpcd, qrtr-tools, rmtfs, tqftpserv; its postinst enables the platform units and masks `bootmac-bluetooth` when present. `/etc/tb323fu/*` are conffiles.
+- Arch installs the daemon under `/usr/lib/tb323fu/` (Arch has no libexec); `.install` files print the enable commands.
+- NixOS: the platform package is installed with `PREFIX=$out` (install.sh rewrites `/usr/libexec/tb323fu` to the store path); `/etc/tb323fu` stays mutable and gets its defaults once through `systemd.tmpfiles` `C` rules. The module wires udev rules, systemd units (with `path` for the tools the scripts call), D-Bus, polkit, PipeWire/WirePlumber `configPackages`, a merged `ALSA_CONFIG_UCM2`, `LIBCAMERA_IPA_CONFIG_PATH`, and options `helper.enable`, `settingsApp.enable`, `gnome.enable`, `android.requireAuth` (initial value), `androidBootSha256`.
+- `back-to-android` ships with the platform package (`/usr/sbin`); the helper looks it up in `PATH` first, then `/usr/local/sbin`, `/usr/sbin`, `/usr/libexec/tb323fu`. The Android image hash is read from `/etc/tb323fu/android-boot.sha256` (older `/etc/android-boot.sha256` as fallback).
 
 ## Migration from today's pieces
 

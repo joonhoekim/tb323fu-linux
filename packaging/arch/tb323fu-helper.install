@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: MIT
+post_install() {
+	echo ">> systemctl enable --now tb323fu-helperd"
+}
+post_upgrade() {
+	systemctl daemon-reload 2>/dev/null
+	systemctl try-restart tb323fu-helperd 2>/dev/null
+}
+pre_remove() {
+	systemctl disable --now tb323fu-helperd 2>/dev/null
+}

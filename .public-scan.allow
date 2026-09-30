@@ -8,3 +8,5 @@
 ^email\|[^|]*:[0-9]+:.*extensions/[A-Za-z0-9._-]+@[A-Za-z0-9._-]+/
 # this repository's GNOME Shell extension UUID
 ^email\|[^|]*:[0-9]+:.*tb323fu@joonhoekim\.github\.io
+# package maintainer field (the author's public address, same as in commits)
+^email\|packaging/[^|]*:[0-9]+:MAINT=

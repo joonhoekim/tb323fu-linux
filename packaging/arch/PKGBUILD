@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: MIT
+# Arch Linux ARM split package for the TB323FU (Lenovo Legion Tab Gen 5) helper
+# suite and platform files. Build on aarch64 with `makepkg -s`.
+# Untested: no Arch Linux ARM system was available when this was written.
+pkgbase=tb323fu-linux
+pkgname=(tb323fu-platform tb323fu-helper tb323fu-settings tb323fu-helper-gnome)
+pkgver=0.1.0
+pkgrel=1
+arch=(aarch64)
+url=https://github.com/joonhoekim/tb323fu-linux
+license=(MIT)
+makedepends=(git cargo gcc pkgconf gtk4 libadwaita)
+source=("$pkgbase::git+$url.git")
+sha256sums=(SKIP)
+options=(!lto)
+
+prepare() {
+	cd "$pkgbase/helper"
+	cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+	cd crates/tb323fu-settings
+	cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+	cd "$pkgbase/helper"
+	cargo build --release --frozen
+	cd crates/tb323fu-settings
+	cargo build --release --frozen
+}
+
+package_tb323fu-platform() {
+	pkgdesc="TB323FU platform files: udev rules, systemd units, audio/UCM, sensors, emergency key"
+	depends=(systemd bluez)
+	optdepends=('pipewire: speaker protection filter'
+	            'wireplumber: raw speaker sink rule'
+	            'alsa-ucm-conf: base UCM'
+	            'iio-sensor-proxy: rotation and light sensors'
+	            'hexagonrpcd: sensor DSP'
+	            'qrtr: QRTR tools'
+	            'tb323fu-helper: charge limit, refresh, torch, ...')
+	backup=(etc/tb323fu/audio.conf etc/tb323fu/emergency-key.conf etc/udev/rules.d/90-feedbackd.rules)
+	install=tb323fu-platform.install
+	cd "$pkgbase"
+	DESTDIR="$pkgdir" PREFIX=/usr SYSCONFDIR=/etc sh userspace/platform/install.sh
+	install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_tb323fu-helper() {
+	pkgdesc="TB323FU device helper daemon (D-Bus + polkit) and CLI"
+	depends=(dbus polkit systemd)
+	optdepends=('tb323fu-platform: platform files')
+	install=tb323fu-helper.install
+	cd "$pkgbase/helper"
+	DESTDIR="$pkgdir" PREFIX=/usr LIBEXECDIR=/usr/lib/tb323fu sh install.sh
+	install -Dm644 ../LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_tb323fu-settings() {
+	pkgdesc="Settings app for the TB323FU helper (GTK4/libadwaita)"
+	depends=(gtk4 libadwaita tb323fu-helper)
+	cd "$pkgbase/helper/crates/tb323fu-settings"
+	DESTDIR="$pkgdir" PREFIX=/usr sh install.sh
+	install -Dm644 ../../../LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_tb323fu-helper-gnome() {
+	pkgdesc="GNOME Shell quick settings for the TB323FU helper"
+	arch=(any)
+	license=(GPL-2.0-or-later)
+	depends=('gnome-shell>=48' tb323fu-helper)
+	optdepends=('tb323fu-settings: the settings app the tile opens')
+	local uuid=tb323fu@joonhoekim.github.io
+	cd "$pkgbase/userspace/desktop/gnome/extension/$uuid"
+	install -Dm644 -t "$pkgdir/usr/share/gnome-shell/extensions/$uuid" extension.js metadata.json
+}
