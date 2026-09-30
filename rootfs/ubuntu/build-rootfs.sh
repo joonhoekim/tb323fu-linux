@@ -91,6 +91,13 @@ say "installing packages"
 ch $NICE apt-get -y -q --no-install-recommends install $(echo $base $desk | tr ' ' '\n' | grep -v -- '-$')
 ch apt-get -y -q purge snapd 2>/dev/null || true
 
+
+# rmtfs.service runs `rmtfs -r -P -s`, and -s STARTS THE MODEM. A modem started
+# without its OEM image and TFTP files trips its own watchdog about a minute
+# later and takes the whole SoC down (900E). Keep the modem services off unless
+# GNSS is being set up on purpose (tools/gnss-start.sh starts them by hand).
+ch systemctl disable rmtfs.service tqftpserv.service >/dev/null 2>&1 || true
+
 # 4. kernel modules and firmware of the kernel that boots it
 if [ -d "$MODULES_FROM" ]; then
 	v=$(basename "$MODULES_FROM")

@@ -105,3 +105,4 @@ systemctl --global enable tb323fu-speaker-gain
 ## Conflicts
 
 - **`bootmac` (qcom-phone-utils)**: its `bootmac-bluetooth.service` generates a random Bluetooth address and brings the controller up through the legacy `hciconfig` path, which hides it from the management interface; `tb323fu-btaddr` then cannot set the real address and Bluetooth ends up with a random address or unusable. Mask it: `systemctl mask bootmac-bluetooth.service`.
+- **`rmtfs.service` (Debian/Ubuntu `rmtfs` package)**: runs `rmtfs -r -P -s`, and `-s` starts the modem. On this tablet the modem only serves GNSS, and started without its OEM image and TFTP files it trips its own watchdog about a minute later, which resets the whole SoC. Keep `rmtfs` and `tqftpserv` disabled unless you are setting up GNSS on purpose.
