@@ -10,3 +10,11 @@
 ^email\|[^|]*:[0-9]+:.*tb323fu@joonhoekim\.github\.io
 # package maintainer field (the author's public address, same as in commits)
 ^email\|packaging/[^|]*:[0-9]+:MAINT=
+# systemd template units (name@instance.service/.d) look like e-mail addresses
+^email\|[^|]*:[0-9]+:.*@[A-Za-z0-9_.-]+\.service
+# public package-signing identity in a comment
+^email\|[^|]*:[0-9]+:.*builder@archlinuxarm\.org
+# the dev-password variable referenced by name only (never a value)
+^password\|[^|]*:[0-9]+:.*(\$\{?BALDUR_DEV_PASSWORD|BALDUR_DEV_PASSWORD=( |\$|\.\.\.))
+# the allowlist itself names the variable in its rules
+^password\|\.public-scan\.allow:
