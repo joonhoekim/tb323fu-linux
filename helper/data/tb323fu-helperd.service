@@ -2,7 +2,7 @@
 [Unit]
 Description=TB323FU device helper (charge limit, torch, LED ring, idle refresh, GPU limits, ...)
 Documentation=https://github.com/joonhoekim/tb323fu-linux/blob/main/docs/helper.md
-After=systemd-udev-trigger.service
+After=systemd-udev-trigger.service systemd-pstore.service
 
 [Service]
 Type=dbus

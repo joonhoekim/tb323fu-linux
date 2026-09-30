@@ -378,37 +378,90 @@ pub fn boot_time() -> Option<u64> {
     Some((now - up) as u64)
 }
 
-/// The previous boot ended cleanly: no panic/oops record (dmesg-ramoops)
-/// archived during this boot, and the previous boot's journal ends with
-/// journald's own "Journal stopped" (a clean shutdown). The journal check
-/// matters because a crash into the Qualcomm dump mode (900E) wipes ramoops,
-/// leaving no pstore record at all. console-ramoops is written on every boot,
-/// clean or not, so it does not count. Computed once per boot.
+/// The previous boot ended cleanly. Clocks and journal boot order are not
+/// trusted: this device boots with its clock near 1970 until NTP, so pstore
+/// file mtimes and `journalctl -b -1` (boots sorted by wall-clock time) point
+/// at the wrong thing. Instead the helper keeps its own state in
+/// /var/lib/tb323fu:
+///   last-boot-id  the boot_id of the boot it last ran in; the previous
+///                 boot's journal is read by that id and must end with an
+///                 orderly shutdown ("Journal stopped", reboot/power-off
+///                 target) -- a crash into the Qualcomm dump mode (900E)
+///                 leaves no pstore record, so this is the main signal;
+///   pstore-seen   the dmesg-* crash records already seen; a record not in
+///                 the list appeared during this boot = the previous boot
+///                 crashed (console-/pmsg-ramoops are written on every boot
+///                 and do not count).
+/// First run (no state yet): clean. Computed once per boot, after
+/// systemd-pstore has archived this boot's records (unit ordering).
 pub fn last_boot_clean() -> bool {
     static CLEAN: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *CLEAN.get_or_init(|| !pstore_crash_this_boot() && previous_journal_clean().unwrap_or(true))
+    *CLEAN.get_or_init(compute_last_boot_clean)
 }
 
-fn pstore_crash_this_boot() -> bool {
-    let bt = boot_time().unwrap_or(0);
-    pstore_files().iter().any(|p| {
-        let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-        name.starts_with("dmesg-") && std::fs::metadata(p).and_then(|m| m.modified()).ok()
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs() + 5 >= bt).unwrap_or(false)
-    })
+pub const STATE_DIR: &str = "/var/lib/tb323fu";
+
+fn compute_last_boot_clean() -> bool {
+    let dir = sys::path(STATE_DIR);
+    let _ = std::fs::create_dir_all(&dir);
+    // previous boot's journal, by boot id
+    let cur = sys::read_opt(&sys::path("/proc/sys/kernel/random/boot_id")).map(|s| s.trim().to_string());
+    let prev = sys::read_opt(&dir.join("last-boot-id")).map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+    let journal_ok = match (&prev, &cur) {
+        (Some(p), Some(c)) if p != c => journal_of_boot(p).map(|t| journal_tail_clean(&t)).unwrap_or(true),
+        _ => true,
+    };
+    if let Some(c) = &cur {
+        let _ = std::fs::write(dir.join("last-boot-id"), format!("{c}\n"));
+    }
+    // new pstore crash records
+    let seen_path = dir.join("pstore-seen");
+    let seen = sys::read_opt(&seen_path);
+    let now = crash_records();
+    let fresh = new_crash_records(seen.as_deref(), &now);
+    let _ = std::fs::write(&seen_path, now.iter().map(|(n, z)| format!("{n} {z}\n")).collect::<String>());
+    journal_ok && fresh.is_empty()
 }
 
-/// `None` when there is no previous boot in the journal (or under a fake root).
-fn previous_journal_clean() -> Option<bool> {
+/// dmesg-* records in the pstore archive / live pstore as (name, size).
+fn crash_records() -> Vec<(String, u64)> {
+    let mut v: Vec<(String, u64)> = pstore_files().iter().filter_map(|p| {
+        let name = p.file_name()?.to_string_lossy().into_owned();
+        if !name.starts_with("dmesg-") { return None; }
+        Some((name, std::fs::metadata(p).map(|m| m.len()).unwrap_or(0)))
+    }).collect();
+    v.sort();
+    v.dedup();
+    v
+}
+
+/// Records in `now` that were not in the `seen` list ("name size" lines).
+/// Without a list (first run) nothing counts as new.
+pub fn new_crash_records(seen: Option<&str>, now: &[(String, u64)]) -> Vec<String> {
+    let Some(seen) = seen else { return Vec::new() };
+    let old: std::collections::HashSet<(String, u64)> = seen.lines().filter_map(|l| {
+        let mut it = l.split_whitespace();
+        Some((it.next()?.to_string(), it.next()?.parse().ok()?))
+    }).collect();
+    now.iter().filter(|r| !old.contains(*r)).map(|(n, _)| n.clone()).collect()
+}
+
+/// The tail of a boot's journal shows an orderly shutdown.
+pub fn journal_tail_clean(text: &str) -> bool {
+    ["Journal stopped", "Reached target reboot.target", "Reached target poweroff.target",
+     "System Reboot.", "System Power Off.", "Shutting down."].iter().any(|m| text.contains(m))
+}
+
+/// Last lines of the journal of the boot with id `boot` (`None`: no such boot
+/// in the journal, journalctl missing, or running under a fake root).
+fn journal_of_boot(boot: &str) -> Option<String> {
     if std::env::var_os("TB323FU_SYSFS_ROOT").is_some_and(|r| !r.is_empty()) {
         return None;
     }
-    let out = std::process::Command::new("journalctl").args(["-b", "-1", "-n", "30", "-o", "cat", "--no-pager"]).output().ok()?;
-    let text = String::from_utf8_lossy(&out.stdout);
-    if !out.status.success() || text.trim().is_empty() {
-        return None;
-    }
-    Some(text.contains("Journal stopped"))
+    let out = std::process::Command::new("journalctl")
+        .args(["-b", boot, "-n", "40", "-o", "cat", "--no-pager"]).output().ok()?;
+    let text = String::from_utf8_lossy(&out.stdout).into_owned();
+    (out.status.success() && !text.trim().is_empty()).then_some(text)
 }
 
 // ---------------------------------------------------------------- versions / firmware
@@ -455,6 +508,26 @@ pub fn firmware_check() -> BTreeMap<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn crash_records_first_run_and_new() {
+        let now = vec![("dmesg-ramoops-0".to_string(), 95662u64)];
+        assert!(new_crash_records(None, &now).is_empty(), "first run: nothing is new");
+        assert!(new_crash_records(Some("dmesg-ramoops-0 95662\n"), &now).is_empty(), "already seen");
+        let now2 = vec![("dmesg-ramoops-0".to_string(), 95662u64), ("dmesg-ramoops-1".to_string(), 1200u64)];
+        assert_eq!(new_crash_records(Some("dmesg-ramoops-0 95662\n"), &now2), vec!["dmesg-ramoops-1"]);
+        // same name, different size = a new record that replaced the old one
+        let now3 = vec![("dmesg-ramoops-0".to_string(), 4000u64)];
+        assert_eq!(new_crash_records(Some("dmesg-ramoops-0 95662\n"), &now3), vec!["dmesg-ramoops-0"]);
+    }
+
+    #[test]
+    fn journal_tail_orderly_shutdown() {
+        let clean = "Stopped target basic.target\nReached target reboot.target - System Reboot.\nsystemd-journald.service: Deactivated\nJournal stopped\n";
+        assert!(journal_tail_clean(clean));
+        let crashed = "New session 31 of user root.\nStarted session-31.scope - Session 31 of User root.\n";
+        assert!(!journal_tail_clean(crashed));
+    }
     fn info(status: &str, cap: u32, ma: i32, limit: u32) -> BatteryInfo {
         BatteryInfo { status: status.into(), capacity: cap, current_ma: ma, voltage_mv: 4000, temperature_c: 25.0,
             health: "Good".into(), cycle_count: 1, design_capacity_mah: -1, charge_limit: limit, online: true }
