@@ -165,8 +165,8 @@ say "installing packages"
 # shellcheck disable=SC2086
 dnf install --allowerasing --skip-unavailable $(echo $base $desk $fexp $ssc)
 
-# rmtfs `-s` STARTS THE MODEM: a modem started without its OEM image and TFTP
-# files trips its own watchdog about a minute later and takes the whole SoC down
+# rmtfs `-s` STARTS THE MODEM: started at boot the modem crashed about a minute
+# later (watchdog, cause not yet known) and a modem crash resets the whole SoC
 # (900E). They are excluded above; mask them in case they come in anyway, and
 # the Mobian helpers that hold the boot or poke the Android A/B slots.
 ch systemctl mask rmtfs.service tqftpserv.service droid-juicer.service qbootctl.service \

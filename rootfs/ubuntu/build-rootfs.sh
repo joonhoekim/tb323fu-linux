@@ -92,11 +92,12 @@ ch $NICE apt-get -y -q --no-install-recommends install $(echo $base $desk | tr '
 ch apt-get -y -q purge snapd 2>/dev/null || true
 
 
-# rmtfs.service runs `rmtfs -r -P -s`, and -s STARTS THE MODEM. A modem started
-# without its OEM image and TFTP files trips its own watchdog about a minute
-# later and takes the whole SoC down (900E). Keep the modem services off unless
-# GNSS is being set up on purpose (tools/gnss-start.sh starts them by hand).
-ch systemctl disable rmtfs.service tqftpserv.service >/dev/null 2>&1 || true
+# rmtfs.service runs `rmtfs -r -P -s`, and -s STARTS THE MODEM. Started at boot
+# the modem crashed about a minute later (watchdog, cause not yet known -- the
+# OEM image was present) and a modem crash resets the whole SoC (900E). The
+# modem has no use on this Wi-Fi tablet: mask the services so nothing pulls
+# them in.
+ch systemctl mask rmtfs.service tqftpserv.service >/dev/null 2>&1 || true
 # Mobian-derived helpers pulled in by hexagonrpcd / qcom-phone-utils: droid-juicer
 # (extracts firmware from Android partitions) waits forever and holds the boot;
 # qbootctl marks Android A/B slots and fails here. Neither applies to this setup.

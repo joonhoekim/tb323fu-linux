@@ -101,7 +101,7 @@ pk="networkmanager pipewire pipewire-pulse pipewire-alsa wireplumber bluez bluez
 [ "$DESKTOP" = gnome ] && pk="$pk gnome-shell gdm gnome-control-center gnome-terminal nautilus
     gnome-settings-daemon gnome-session gnome-keyring xdg-user-dirs-gtk libadwaita gtk4"
 ch "pacman -S --noconfirm --needed $(echo $pk)"
-ch "systemctl disable rmtfs >/dev/null 2>&1 || true"   # only needed with a running modem
+ch "systemctl mask rmtfs tqftpserv >/dev/null 2>&1 || true"   # rmtfs -s starts the modem; a modem crash resets the SoC
 
 # 3. kernel modules and firmware of the device
 k=$(basename "$MODULES_FROM")
