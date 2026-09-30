@@ -51,6 +51,13 @@ GNOME and apt.
 | Haptics test / strength | test script only (evdev `FF_RUMBLE` on the two AW86937 inputs) | evdev | user (input group) | later | on-screen-keyboard haptics belong to the desktop; a test action in the settings app is optional |
 | Board-temperature throttling mode | kernel DT (43–50 °C steps, Android default policy) | none at runtime | — | — | a "game mode" with higher trips would need a runtime knob in the kernel first — noted, not planned |
 
+## Feature phases
+
+- **Phase 1 (daemon + CLI):** Battery (charge limit, bypass, health/state/charger), Android, Refresh, Helper (versions), Torch, LedRing, Gpu, Usb, EmergencyKey, Diagnostics — all on the daemon side with `tb323fu-ctl` commands.
+- **Phase 2 (GNOME quick settings):** charge limit / bypass, refresh policy, torch (with level), Android switch, GPU profile follow, USB wake.
+- **Phase 3 (GTK4/libadwaita app):** every setting, battery/charger details, diagnostics export, developer mode, emergency key, versions.
+- **Deferred (needs kernel work):** runtime thermal profile (Android game-mode skin thresholds), LED ring effects, touch sampling rate. Chip protection trips (95/105 °C) are never exposed. Speaker limits stay in layer 1.
+
 ## D-Bus API (sketch)
 
 System bus name **`io.github.joonhoekim.tb323fu.Helper`**, one object per feature under `/io/github/joonhoekim/tb323fu/Helper/…`.
@@ -58,13 +65,16 @@ Standard `org.freedesktop.DBus.Properties` for properties (with `PropertiesChang
 
 | Object / interface | Properties | Methods | Signals | polkit action (default for the active local user) |
 |---|---|---|---|---|
-| `/…/Battery` · `io.github.joonhoekim.tb323fu.Helper.Battery` | `ChargeLimit` (u, %), `Status` (s), `Capacity` (u) | `SetChargeLimit(u)` | — | `io.github.joonhoekim.tb323fu.helper.charge-limit` — allow (`yes`) |
+| `/…/Battery` · `io.github.joonhoekim.tb323fu.Helper.Battery` | `ChargeLimit` (u, %), `Bypass` (b: limit ≤ capacity with external power → battery idle, current ≈ 0), `Status` (s, raw kernel), `State` (s: `charging` / `discharging` / `bypass` / `full` / `not-charging`, derived from status + current + limit), `Capacity` (u), `CurrentMa` (i), `VoltageMv` (u), `TemperatureC` (d), `Health` (s), `CycleCount` (i, −1 unknown), `DesignCapacityMah` (i, −1 unknown), `ChargerType` (s), `ChargerContract` (s: e.g. `PD 9V 3A`, from UCSI) | `SetChargeLimit(u)`, `SetBypass(b)` | `Changed()` | `…charge-limit` — allow (`yes`) |
 | `/…/Android` · `…Android` | `Available` (b: hash file present and `boot_b` recorded), `ImageSha256` (s) | `SwitchToAndroid()` | `SwitchingToAndroid()` | `…android-switch` — allow (`yes`); `…android-switch-auth` — `auth_admin_keep`. The daemon checks the second one only when `android.require_auth = true` in the config (default `false`) |
 | `/…/Torch` · `…Torch` | `On` (b), `Level` (u), `MaxLevel` (u) | `Set(b)`, `SetLevel(u)` | — | `…torch` — allow |
 | `/…/LedRing` · `…LedRing` | `Mode` (s: `charge` / `off`), `Brightness` (u), `LowPercent` (u) | `SetMode(s)`, `SetBrightness(u)`, `SetLowPercent(u)` | — | `…led-ring` — allow |
 | `/…/Refresh` · `…Refresh` | `Policy` (s: `off` / `auto` / `manual`), `Rate` (u, manual Hz), `IdleMs60` (u), `IdleMs30` (u), `MinHz` (u), `InputWakes` (b), `LiveRate` (u, read-only from `state`) | `SetPolicy(s)`, `SetRate(u)`, `SetIdle(u ms60, u ms30)`, `ApplyPreset(s)` | — | `…refresh` — allow |
 | `/…/Gpu` · `…Gpu` | `Profile` (s), `FollowPowerProfiles` (b), `Floors` (a{s(uu)}) | `SetProfile(s)`, `SetLimits(s profile, u min_mhz, u max_mhz)` | — | `…gpu` — allow (`yes`) for both `SetProfile` and `SetLimits` |
-| `/…` · `…Helper` | `Version` (s), `Features` (as: detected capabilities) | `Reload()` | — | `…admin` — `auth_admin` |
+| `/…/Usb` · `…Usb` | `WakeEnabled` (b: USB host/port wakeup from suspend), `DevMode` (b: USB gadget network + serial console for developers) | `SetWake(b)`, `SetDevMode(b)` | — | `…usb-wake` — allow; `…dev-mode` — `auth_admin_keep` |
+| `/…/EmergencyKey` · `…EmergencyKey` | `Enabled` (b), `HoldSeconds` (u) — writes the config the layer-1 service reads; the service itself stays in layer 1 | `SetEnabled(b)`, `SetHoldSeconds(u)` | — | `…emergency-key` — allow for enabling/changing time, `auth_admin_keep` for disabling |
+| `/…/Diagnostics` · `…Diagnostics` | `CrashRecords` (u: pstore archive entries), `LastBootClean` (b) | `Export() → s` (path of a tarball with pstore, previous-boot journal tail, dmesg head, versions; user names/addresses/serials stripped) | — | `…diagnostics` — allow |
+| `/…` · `…Helper` | `Version` (s), `Features` (as), `Kernel` (s), `SeriesTag` (s: patch-series identity if the kernel exposes it, else unknown), `Firmware` (a{ss}: file → sha256 match state vs the manifest) | `Reload()` | — | `…admin` — `auth_admin` |
 
 Capability detection: each object is only exported when its sysfs interface exists (for example no `Refresh` object on a kernel without the idle-refresh patch).
 Inactive/remote sessions get `no` for everything except reading properties.
