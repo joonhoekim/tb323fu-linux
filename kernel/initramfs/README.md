@@ -68,7 +68,12 @@ The selection lives on `baldur-root`:
 Order tried: boot-next, boot-default, `baldur-root`, `baldur-root-sd`. A root that is missing, does not mount or
 has no init is skipped, and the screen says why. The init of a root is `/sbin/init` (Debian, Ubuntu, Arch,
 Fedora; an absolute symlink is resolved inside the root) or NixOS's `/nix/var/nix/profiles/system/init`.
-Every root needs its own `/lib/modules/$(uname -r)`: the kernel is shared by all of them.
+Every root needs its own `/lib/modules/$(uname -r)`: the kernel is shared by all of them (NixOS: the
+modules are part of the system, see [`rootfs/nixos`](../../rootfs/nixos/configuration.nix)).
+
+For `/sbin/init`, `/proc`, `/sys` and `/dev` are moved into the new root. For NixOS they are unmounted
+instead: NixOS stage 2 (started without a NixOS stage 1) mounts `/proc`, `/sys`, `/dev`, `/dev/shm`,
+`/dev/pts`, `/run` and `/run/keys` itself, but only when it finds `/proc` unmounted.
 
 The helper sets these files for you: `tb323fu-ctl boot list|next NAME|default NAME|reboot NAME`, or the
 "Systems" page of Tablet Settings (see [../../docs/helper.md](../../docs/helper.md)).

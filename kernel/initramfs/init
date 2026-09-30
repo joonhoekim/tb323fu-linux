@@ -332,9 +332,14 @@ if [ "$end" = "hold" ]; then
 			# init of that root: /sbin/init (Debian, Ubuntu, Arch, Fedora -- may be an
 			# absolute symlink, so test inside the root), or NixOS's system profile
 			hasx() { [ -x /newroot$1 ] || chroot /newroot /bin/sh -c "[ -x $1 ]" 2>/dev/null; }
+			# a path inside the root with its symlinks followed there (NixOS's profile
+			# links are absolute store paths, and its /bin/sh may not exist yet)
+			inroot() { p=$1; i=0; while [ -L "/newroot$p" ] && [ $i -lt 20 ]; do
+				t=$(readlink "/newroot$p"); case $t in /*) p=$t ;; *) p=${p%/*}/$t ;; esac; i=$((i + 1)); done; echo "$p"; }
+			nixinit() { [ -x "/newroot$(inroot "$(inroot /nix/var/nix/profiles/system)/init")" ] || hasx /nix/var/nix/profiles/system/init; }
 			init=
 			if [ ! -e /newroot/debootstrap ] && hasx /sbin/init; then init=/sbin/init
-			elif hasx /nix/var/nix/profiles/system/init; then init=/nix/var/nix/profiles/system/init
+			elif nixinit; then init=/nix/var/nix/profiles/system/init
 			fi
 			if [ -z "$init" ]; then say " root $name ($rootdev): no init"; umount /newroot; continue; fi
 			why="default"; [ "$name" = "$next" ] && why="boot-next"
@@ -353,7 +358,18 @@ if [ "$end" = "hold" ]; then
 			waitfor 10 '! others'
 			kill -KILL -1
 			sync
-			for m in /dev /proc /sys; do mount --move $m /newroot$m; done
+			if [ "$init" = /nix/var/nix/profiles/system/init ]; then
+				# NixOS stage 2 mounts /proc, /sys, /dev (+ shm, pts) and /run (+ keys)
+				# itself, but only when /proc is not mounted yet (it tests /proc/1).
+				# Handed ours, it would skip all of them: activation would then
+				# write /run/current-system and /run/booted-system onto the disk's
+				# /run, and systemd's own tmpfs on /run would hide them. So hand
+				# over nothing (-l also detaches configfs/debugfs below /sys; the USB
+				# gadget stays configured).
+				for m in /dev /proc /sys; do umount -l $m 2>/dev/null || umount $m; done
+			else
+				for m in /dev /proc /sys; do mount --move $m /newroot$m; done
+			fi
 			exec switch_root /newroot $init
 		done
 		say " no usable root; staying in the initramfs"
