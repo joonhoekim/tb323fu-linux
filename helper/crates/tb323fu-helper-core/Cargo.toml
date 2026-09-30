@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT
+[package]
+name = "tb323fu-helper-core"
+description = "Device model of the Lenovo TB323FU for tb323fu-helperd: sysfs paths, features, configuration"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+toml.workspace = true
+sha2.workspace = true
