@@ -9,3 +9,4 @@ firmware/staged/
 *.ko
 *.cpio.gz
 out/
+.claude/
