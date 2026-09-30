@@ -4,3 +4,5 @@
 ^email\|[^|]*:[0-9]+:.*(Signed-off-by|Reviewed-by|Acked-by|Tested-by|Reported-by|Co-developed-by|Suggested-by|Cc|To|From|Author):
 ^email\|[^|]*\.patch:
 ^email\|[^|]*@(vger\.kernel\.org|lists\.linux\.dev|lists\.freedesktop\.org|kernel\.org|linaro\.org|oss\.qualcomm\.com|quicinc\.com)
+# GNOME Shell extension UUIDs look like e-mail addresses
+^email\|[^|]*:[0-9]+:.*extensions/[A-Za-z0-9._-]+@[A-Za-z0-9._-]+/
