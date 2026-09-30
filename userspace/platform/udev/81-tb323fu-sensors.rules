@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT
+# SSC sensors for iio-sensor-proxy: the libssc backend's sensor types, on the
+# ADSP's (secure-only) fastrpc node. iio-sensor-proxy 3.9 leaves the
+# accelerometer off unless it is listed here.
+#
+# Mount matrix from a hand rotation test: portrait with console text upright
+# read +Y (clockwise quarter turns -X, -Y, +X), which the proxy took as
+# bottom-up; negating X and Y makes that pose "normal".
+#
+# Also start the proxy for this device: the packaged rules only do that for
+# IIO devices, and the SSC sensors are not IIO.
+SUBSYSTEM=="misc", KERNEL=="fastrpc-adsp*", ENV{IIO_SENSOR_PROXY_TYPE}+="ssc-accel ssc-light ssc-compass ssc-proximity", ENV{ACCEL_MOUNT_MATRIX}="-1, 0, 0; 0, -1, 0; 0, 0, 1", TAG+="systemd", ENV{SYSTEMD_WANTS}+="iio-sensor-proxy.service"

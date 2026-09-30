@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MIT
+# OPTIONAL -- for prebuilt root filesystem images: grow the root filesystem to
+# its partition once. resize2fs cannot grow a mounted fs from the initramfs
+# chroot, so it runs here, on the real root.
+[Unit]
+Description=Grow the root filesystem to its partition, once
+ConditionPathExists=!/var/lib/tb323fu/root-grown
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'resize2fs "$(findmnt -no SOURCE /)" && mkdir -p /var/lib/tb323fu && touch /var/lib/tb323fu/root-grown'
+
+[Install]
+WantedBy=multi-user.target

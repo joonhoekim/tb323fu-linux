@@ -1,0 +1,40 @@
+# Overrides /usr/lib/udev/rules.d/90-feedbackd.rules (install it to
+# /etc/udev/rules.d; the same name there wins) on the Lenovo TB323FU:
+#  - its LED rules are dropped: they claim every "*:indicator" and "*:flash"
+#    LED (pattern trigger, group feedbackd), which would fight the helper's
+#    RGB ring charge indicator and torch over the same LEDs;
+#  - the two aw86927 haptic drivers are added as feedbackd's vibra device.
+# The rest is the packaged file unchanged (feedbackd, LGPL-2.1+).
+#  SPDX-License-Identifier: LGPL-2.1+
+#
+#  This file is part of feedbackd.
+
+ACTION=="remove", GOTO="feedbackd_end"
+
+#
+# Haptic
+#
+# Librem 5, PinePhone
+SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT}=="1", ENV{ID_PATH}=="platform-vibrator", TAG+="uaccess", ENV{FEEDBACKD_TYPE}="vibra"
+# Google Sargo (not mainline)
+SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT}=="1", SUBSYSTEMS=="input", ATTRS{name}=="drv2624:haptics", TAG+="uaccess", ENV{FEEDBACKD_TYPE}="vibra"
+# Oneplus Enchilada, Fajita (not mainline)
+SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT}=="1", SUBSYSTEMS=="input", ATTRS{name}=="spmi_haptics", TAG+="uaccess", ENV{FEEDBACKD_TYPE}="vibra"
+
+
+#
+# See include/dt-bindings/leds/common.h in the linux kernel
+#
+# Status LEDs
+# Camera Flash
+
+#
+# Alert sliders
+#
+# OnePlus 6,6T (DT bits not yet upstream)
+SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT}=="1", ENV{ID_PATH}=="platform-alert-slider", TAG+="uaccess", ENV{FEEDBACKD_TYPE}="alert-slider"
+
+# TB323FU: aw86927 haptics (left 3-005a, right 3-005b)
+SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT}=="1", SUBSYSTEMS=="input", ATTRS{name}=="aw86927-haptics", TAG+="uaccess", ENV{FEEDBACKD_TYPE}="vibra"
+
+LABEL="feedbackd_end"

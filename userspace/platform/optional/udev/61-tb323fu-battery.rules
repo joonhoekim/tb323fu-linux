@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: MIT
+# OPTIONAL -- do not install together with the tb323fu helper.
+# UPower only offers GNOME's "Preserve Battery Health" switch when udev gives
+# the battery CHARGE_LIMIT, which its 60-upower-battery rules look up in hwdb
+# by battery:$kernel:$model:$dmi_modalias. This board has no DMI, so the key
+# never matches the packaged entries; this sets it directly (start,end %).
+# With the helper installed the helper owns the charge limit; two writers of
+# charge_control_end_threshold would overwrite each other.
+SUBSYSTEM=="power_supply", KERNEL=="qcom-battmgr-bat", ENV{CHARGE_LIMIT}="70,80"

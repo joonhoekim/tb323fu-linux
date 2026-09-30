@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: MIT
+# The Adreno 840 devfreq (simple_ondemand) starts at 105 MHz and ramps too
+# slowly for compositing 1904x3040 at 120 Hz (a window drag ran at 40-73 fps
+# until the clock rose). A floor fixes that; the GPU is runtime-suspended when
+# idle, so the floor only costs power while it renders. This sets the boot
+# default only; per power profile floors/caps are the helper's job.
+ACTION=="add|change", SUBSYSTEM=="devfreq", KERNEL=="3d00000.gpu", ATTR{min_freq}="160000000"

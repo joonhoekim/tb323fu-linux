@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: MIT
+# The Wi-Fi chip's PCIe WAKE# (root port 0000:00:00.0) is not a wakeup source:
+# no Wake-on-WLAN is set up. (With the correct active-low polarity in the DT a
+# suspend sleeps its full time even with it enabled; this keeps it off.)
+ACTION=="add|change", SUBSYSTEM=="pci", KERNEL=="0000:00:00.0", ATTR{power/wakeup}="disabled"

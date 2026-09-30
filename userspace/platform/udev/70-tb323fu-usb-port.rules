@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: MIT
+# Two USB-C connectors share one USB controller: route it to the one in use on
+# every Type-C partner change (see tb323fu-usb-port).
+SUBSYSTEM=="typec", KERNEL=="port[01]-partner", ACTION=="add|remove", RUN+="/usr/libexec/tb323fu/tb323fu-usb-port"

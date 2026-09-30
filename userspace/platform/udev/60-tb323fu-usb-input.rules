@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: MIT
+# On a PC port (SDP) the charger firmware starts at USB 2.0's 500 mA (reporting
+# 100 mA as its limit); the vendor kernel raises it to 900 mA, the USB 3 SDP
+# figure, on the same port. The gadget is only high-speed here, so this is a
+# board choice; the firmware's input current limiting still backs off if the
+# port sags. Chargers (DCP, Type-C current, PD) are left alone: the firmware
+# sets those higher by itself. Needs a writable input_current_limit (kernel
+# series: qcom_battmgr "let the host set the USB input current limit").
+ACTION=="add|change", SUBSYSTEM=="power_supply", KERNEL=="qcom-battmgr-usb", ATTR{online}=="1", ATTR{usb_type}=="*[SDP]*", ATTR{input_current_limit}="900000"

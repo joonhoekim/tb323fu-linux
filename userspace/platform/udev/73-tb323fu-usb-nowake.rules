@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: MIT
+# USB host wakeup from s2idle is off by default: with wakeup enabled dwc3-qcom
+# arms the eUSB2 line interrupt, which fires the moment s2idle starts when a
+# USB 2 hub is attached (the tablet wakes at once) and the hub is re-enumerated
+# after every resume. With wakeup off: no spurious wake, the hub stays
+# enumerated, but a USB keyboard cannot wake the tablet. The helper can turn it
+# on per user choice (Usb.SetWake).
+ACTION=="add|change", SUBSYSTEM=="platform", KERNEL=="a600000.usb", ATTR{power/wakeup}="disabled"

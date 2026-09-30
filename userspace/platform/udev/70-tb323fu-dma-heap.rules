@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: MIT
+# libcamera's software ISP (simple pipeline, CAMSS RDI raw -> RGB) allocates
+# its buffers from a dma-buf heap. The heaps are root-only by default, so for
+# the desktop user libcamera falls back to raw Bayer and camera apps find
+# nothing. Give the video group the *system* heap only: libcamera tries the CMA
+# names first (linux,cma, then "reserved"), and this board's "reserved" heap is
+# a small carve-out -- a 1080p stream then fails at the fourth buffer.
+SUBSYSTEM=="dma_heap", KERNEL=="system", GROUP="video", MODE="0660"
