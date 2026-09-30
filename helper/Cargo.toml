@@ -2,6 +2,8 @@
 [workspace]
 resolver = "2"
 members = ["crates/tb323fu-helper-core", "crates/tb323fu-helperd", "crates/tb323fu-ctl"]
+# the GTK settings app is its own workspace so the daemon builds without GTK dev libraries
+exclude = ["crates/tb323fu-settings"]
 
 [workspace.package]
 version = "0.1.0"

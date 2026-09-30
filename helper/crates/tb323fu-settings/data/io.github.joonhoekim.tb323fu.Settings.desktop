@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT
+[Desktop Entry]
+Type=Application
+Name=Tablet Settings
+GenericName=TB323FU tablet settings
+Comment=Charge limit, refresh rate, performance, torch, LED ring and Android switching for the Legion Tab Gen 5
+Exec=tb323fu-settings
+Icon=io.github.joonhoekim.tb323fu.Settings
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=battery;charge;refresh;gpu;torch;led;android;tablet;
+StartupNotify=true

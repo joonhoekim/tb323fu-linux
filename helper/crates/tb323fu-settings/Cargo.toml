@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: MIT
+# The settings app is a standalone package with its own (empty) workspace, so
+# the daemon and CLI in the parent workspace build without GTK development
+# libraries. Build it from this directory: cargo build --release
+[package]
+name = "tb323fu-settings"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/joonhoekim/tb323fu-linux"
+description = "GTK4/libadwaita settings app for the TB323FU helper (tb323fu-helperd)"
+
+[workspace]
+
+[dependencies]
+gtk = { package = "gtk4", version = "0.9", features = ["v4_12"] }
+adw = { package = "libadwaita", version = "0.7", features = ["v1_5"] }
+zbus = { version = "5", default-features = false, features = ["async-io", "blocking-api"] }
+serde = "1"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true

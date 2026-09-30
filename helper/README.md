@@ -40,6 +40,21 @@ tb323fu-ctl --json status
 
 Settings are stored in `/etc/tb323fu/helper.toml` (see `data/helper.toml.example`) and applied at every start.
 
+## Settings app (tb323fu-settings)
+
+A GTK4/libadwaita front-end in `crates/tb323fu-settings/` — a separate Cargo workspace, so the daemon and CLI above
+build without GTK development libraries. It reads everything from `tb323fu-helperd` (property poll every 2 s) and
+changes settings through its methods; polkit decides what needs authentication, not the app. Pages: Battery, Display
+(idle refresh), Performance (GPU), Torch & LED ring, USB, Emergency key, Android, Diagnostics, About. Pages whose
+object the daemon does not export are hidden; without the daemon the app shows a status page.
+
+```sh
+# build dependencies: GTK >= 4.12 and libadwaita >= 1.5 development files (Debian: libgtk-4-dev libadwaita-1-dev)
+cd crates/tb323fu-settings
+cargo build --release
+PREFIX=/usr/local ./install.sh      # binary, .desktop, icon, metainfo; --uninstall removes them
+```
+
 ## Permissions
 
 The daemon runs as root; polkit decides per call. Everyday controls are allowed for the active local
