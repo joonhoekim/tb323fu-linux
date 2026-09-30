@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: MIT
-# Nix packages and a NixOS module for the TB323FU (Lenovo Legion Tab Gen 5)
-# userspace: platform files, helper daemon + CLI, settings app, GNOME
-# extension. The kernel is not built here (see kernel/README.md).
-# Untested: no Nix installation was available when this was written.
+# Nix packages and NixOS modules for the TB323FU (Lenovo Legion Tab Gen 5):
+# platform files, helper daemon + CLI, settings app, GNOME extension, and the
+# NixOS root filesystem (rootfs/nixos). The kernel is not built here (see
+# kernel/README.md); packaging/nix/prebuilt-kernel.nix wraps the one that boots.
+# Built on the device (aarch64-linux, nixos-unstable, 2026-10).
 {
-  description = "Lenovo Legion Tab Gen 5 (TB323FU) userspace: platform files and helper";
+  description = "Lenovo Legion Tab Gen 5 (TB323FU) userspace: platform files, helper, NixOS";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -21,6 +22,12 @@
         default = tb323fu-helper;
       });
 
+      # services.tb323fu (platform files, helper, settings app, extension)
       nixosModules.default = import ./packaging/nix/module.nix self;
+      # the whole system for a tb323fu-* partition; needs the device-local
+      # tb323fu.rootfs.* settings that rootfs/nixos/build-rootfs.sh writes
+      nixosModules.rootfs = {
+        imports = [ self.nixosModules.default ./rootfs/nixos/configuration.nix ];
+      };
     };
 }

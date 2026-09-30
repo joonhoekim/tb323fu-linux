@@ -23,7 +23,7 @@ See [docs/hardware-status.md](docs/hardware-status.md). A feature is only marked
 |---|---|
 | `kernel/` | patch series, base commit, config, board DT, [`PROVENANCE.md`](kernel/PROVENANCE.md) (where every imported patch came from), [`initramfs/`](kernel/initramfs/) (the built-in initramfs: USB way in, boot summary, multiboot root selection) |
 | `firmware/` | manifest (file, sha256, source on the device) and a script that extracts the firmware from your own tablet — no firmware files are stored here |
-| `rootfs/` | optional: scripts that build a Debian root filesystem |
+| `rootfs/` | optional: scripts that build root filesystems for the multiboot partitions (Ubuntu, Arch Linux ARM, Fedora, NixOS) |
 | `userspace/` | `platform/`: distribution-neutral platform files every install needs (udev, systemd units, audio/UCM, sensors, emergency key) with `install.sh`; `desktop/`: optional desktop extras |
 | `helper/` | device helper: `tb323fu-helperd` (system D-Bus), `tb323fu-ctl`, the `tb323fu-settings` app ([docs/helper.md](docs/helper.md)) |
 | `packaging/` | Debian (`build-debs.sh`), Arch (`PKGBUILD`) and Nix (`flake.nix` at the root) recipes |
