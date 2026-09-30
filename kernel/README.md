@@ -82,7 +82,7 @@ The kernel running on the development tablet is this series (0001-0112) **plus t
 - modem (MPSS) device tree nodes, remoteproc knobs and QRTR logging used to investigate GNSS (the tablet appears to have no usable GNSS antenna),
 - a q6apm change that polls for the audio framework instead of a fixed 5 s wait (an upstream candidate, not yet in the series).
 
-Default knobs in the series: the idle refresh rate policy is automatic (`msm.y705_idle_policy=2`, patch 0110).
+Default knobs in the series: the idle refresh rate policy is automatic (`msm.idle_refresh_policy=2`, patch 0110).
 The iris and q6apm drivers are modules; the tested device loads rebuilt modules from `/lib/modules/<version>/updates/`.
 
 ## Licensing
