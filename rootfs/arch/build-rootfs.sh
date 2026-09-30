@@ -18,6 +18,10 @@
 #   CONFIG_FROM=/etc/tb323fu        copy bt-address, android-boot.sha256, audio.conf,
 #                                   emergency-key.conf when present (device-specific,
 #                                   never put them in git)
+#   DEV_SSH_KEYS=                   with DEV_ACCESS=1: an authorized_keys file installed for root
+#   HEXAGONRPCD_FROM=               a root filesystem with hexagonrpcd installed (e.g. the running
+#                                   Debian, /): hexagonrpcd is not packaged for Arch; its binary,
+#                                   library, units, udev rule and the qcom sensor tree are copied
 #   DEV_ACCESS=0                    1 = developer access: usb0 gadget network
 #                                   (192.168.7.2/24), root autologin on ttyGS0,
 #                                   sshd root login allowed
@@ -42,6 +46,8 @@ FIRMWARE_FROM=${FIRMWARE_FROM:-/lib/firmware}
 PKGS_FROM=${PKGS_FROM:-}
 CONFIG_FROM=${CONFIG_FROM:-/etc/tb323fu}
 DEV_ACCESS=${DEV_ACCESS:-0}
+DEV_SSH_KEYS=${DEV_SSH_KEYS:-}
+HEXAGONRPCD_FROM=${HEXAGONRPCD_FROM:-}
 BALDUR_DEV_PASSWORD=${BALDUR_DEV_PASSWORD:-}
 DEV_USER=${DEV_USER:-}
 # Arch Linux ARM Build System <builder@archlinuxarm.org>
@@ -91,7 +97,7 @@ ch "pacman -Q linux-aarch64 >/dev/null 2>&1 && pacman -Rns --noconfirm linux-aar
 ch "pacman -Syu --noconfirm"
 pk="networkmanager pipewire pipewire-pulse pipewire-alsa wireplumber bluez bluez-utils
     iio-sensor-proxy libssc openssh sudo mesa vulkan-freedreno alsa-ucm-conf alsa-utils
-    polkit dbus qrtr-git rmtfs-git"
+    polkit dbus qrtr-git rmtfs-git swh-plugins wireless-regdb"
 [ "$DESKTOP" = gnome ] && pk="$pk gnome-shell gdm gnome-control-center gnome-terminal nautilus
     gnome-settings-daemon gnome-session gnome-keyring xdg-user-dirs-gtk libadwaita gtk4"
 ch "pacman -S --noconfirm --needed $(echo $pk)"
@@ -152,7 +158,24 @@ if [ "$DEV_ACCESS" = 1 ]; then
 		> "$T/etc/systemd/system/serial-getty@ttyGS0.service.d/autologin.conf"
 	printf '[Service]\nTimeoutStopSec=5\n' > "$T/etc/systemd/system/serial-getty@ttyGS0.service.d/stop-timeout.conf"
 	echo "PermitRootLogin yes" > "$T/etc/ssh/sshd_config.d/10-tb323fu-dev.conf"
+	if [ -n "$DEV_SSH_KEYS" ] && [ -f "$DEV_SSH_KEYS" ]; then
+		install -d -m 700 "$T/root/.ssh"; install -m 600 "$DEV_SSH_KEYS" "$T/root/.ssh/authorized_keys"
+	fi
 	ch "systemctl enable systemd-networkd serial-getty@ttyGS0.service >/dev/null"
+fi
+
+# 7b. sensors: hexagonrpcd (SSC over fastrpc) is not packaged for Arch Linux ARM
+if [ -n "$HEXAGONRPCD_FROM" ]; then
+	H=$HEXAGONRPCD_FROM
+	for f in usr/bin/hexagonrpcd usr/libexec/hexagonrpc usr/lib/systemd/system/hexagonrpcd.service 		usr/lib/systemd/system/hexagonrpcd-*.service usr/lib/udev/rules.d/60-hexagonrpcd.rules usr/share/qcom; do
+		for g in $H/$f; do [ -e "$g" ] || continue; mkdir -p "$T/$(dirname "${g#$H/}")"; cp -a "$g" "$T/${g#$H/}"; done
+	done
+	for l in "$H"/usr/lib/*/libhexagonrpc* "$H"/usr/lib/libhexagonrpc*; do [ -e "$l" ] && cp -a "$l" "$T/usr/lib/"; done
+	# the service runs as user fastrpc and the udev rule gives /dev/fastrpc-* to group fastrpc
+	mkdir -p "$T/etc/sysusers.d"
+	printf 'u fastrpc - "FastRPC (Hexagon DSP sensors)" /var/lib/fastrpc
+' > "$T/etc/sysusers.d/hexagonrpcd.conf"
+	ch "systemd-sysusers >/dev/null && systemctl enable hexagonrpcd >/dev/null 2>&1 || true"
 fi
 
 # 8. platform files + helper (packages built from packaging/arch/PKGBUILD)
