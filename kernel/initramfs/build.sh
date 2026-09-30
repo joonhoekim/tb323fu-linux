@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# build.sh -- assemble the TB323FU initramfs (the one the kernel Image carries
+# built in, CONFIG_INITRAMFS_SOURCE) from this directory, a kernel build and a
+# few third-party files that are not stored in this repository.
+#
+#   kernel/initramfs/build.sh -k KBUILD_OUT -b BUSYBOX -f FIRMWARE_ROOT [options] OUT.cpio.gz
+#
+#   -k  kernel build directory (make O=...): the modules below and
+#       usr/gen_init_cpio come from it (build the modules first: make modules)
+#   -b  a STATIC aarch64 busybox (e.g. Debian's busybox-static, /bin/busybox;
+#       the tested one is BusyBox 1.36.1). Needs the applets init uses:
+#       sh, mount, insmod, setfont, watchdog, telnetd, usleep, switch_root, ...
+#   -f  firmware root laid out like /lib/firmware's parent, i.e. the output of
+#       firmware/extract-on-device.sh (FIRMWARE_ROOT/lib/firmware/...). The
+#       Adreno, touch, Bluetooth and Wi-Fi firmware must be in the initramfs:
+#       those drivers are built in and probe before any root is mounted.
+#   -r  directory holding regulatory.db + regulatory.db.p7s (wireless-regdb;
+#       default /lib/firmware of the build machine)
+#   -a  file with the sha256 of YOUR Android boot image in boot_b (enables the
+#       volume up+down emergency way back to Android; see android/README.md).
+#       Without it the chord does nothing in the initramfs (the rootfs's own
+#       tb323fu-emergency-key service still works).
+#   -F  console font, PSF (default: console-setup's Lat15-Terminus28x14,
+#       /usr/share/consolefonts/Lat15-Terminus28x14.psf.gz, unpacked)
+#   -c  C compiler for the two small static helpers (default: aarch64-linux-gnu-gcc,
+#       or cc on an aarch64 host). keyhold is required, gpu-probe optional.
+#   -l  also write the gen_init_cpio list here (absolute paths into the
+#       staging dir), for tools/build-boot.sh -i
+#
+# Nothing downloaded here; nothing proprietary is ever written into this repo.
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd)
+repo=$(cd "$here/../.." && pwd)
+kout= busybox= fwroot= regdb=/lib/firmware android= font= cc= list=
+while getopts k:b:f:r:a:F:c:l: o; do case $o in
+	k) kout=$OPTARG ;; b) busybox=$OPTARG ;; f) fwroot=$OPTARG ;; r) regdb=$OPTARG ;;
+	a) android=$OPTARG ;; F) font=$OPTARG ;; c) cc=$OPTARG ;; l) list=$OPTARG ;;
+	*) sed -n '4,31p' "$0"; exit 2 ;; esac; done
+shift $((OPTIND - 1)); out=${1:?output .cpio.gz}
+[ -n "$kout" ] && [ -n "$busybox" ] && [ -n "$fwroot" ] || { sed -n '4,31p' "$0"; exit 2; }
+if [ -z "$cc" ]; then
+	if [ "$(uname -m)" = aarch64 ]; then cc=cc; else cc=aarch64-linux-gnu-gcc; fi
+fi
+strip=${cc%gcc}strip; command -v "$strip" >/dev/null || strip=strip
+
+st=$(mktemp -d); trap 'rm -rf "$st"' EXIT
+mkdir -p "$st/modules" "$st/fw"
+
+# ours: init, back-to-android, keyhold, gpu-probe
+cp "$here/init" "$st/init"
+cp "$repo/android/back-to-android" "$st/back-to-android"
+"$cc" -static -O2 -o "$st/keyhold" "$repo/userspace/platform/src/keyhold.c"
+"$cc" -static -O2 -I"$kout/usr/include" -o "$st/gpu-probe" "$here/gpu-probe.c" 2>/dev/null \
+	|| { echo "gpu-probe not built (needs: make O=$kout headers_install); the summary skips it" >&2; rm -f "$st/gpu-probe"; }
+
+# kernel modules that stay modules on purpose (see README.md)
+for m in qcom_pil_info qcom_common qcom_sysmon qcom_q6v5 qcom_q6v5_pas nt36536_ts; do
+	f=$(find "$kout" -name "$m.ko" -print -quit)
+	[ -n "$f" ] || { echo "missing $m.ko in $kout (make modules)" >&2; exit 1; }
+	cp "$f" "$st/modules/"; "$strip" --strip-debug "$st/modules/$m.ko" 2>/dev/null || true
+done
+
+# third-party: busybox, font, firmware, regulatory database
+cp "$busybox" "$st/busybox"
+if [ -n "$font" ]; then cp "$font" "$st/font.psf"
+else zcat /usr/share/consolefonts/Lat15-Terminus28x14.psf.gz > "$st/font.psf"; fi
+fw=( qcom/gen80200_sqe.fw qcom/gen80200_gmu.bin qcom/gen80200_aqe.fw
+     qcom/kaanapali/Lenovo/baldur/gen80200_zap.mbn
+     novatek/novatek_ts_fw.bin
+     qca/brhbtnv20.bin qca/brhbtfw20.mbn
+     ath12k/WCN7860/hw2.0/amss.bin ath12k/WCN7860/hw2.0/m3.bin
+     ath12k/WCN7860/hw2.0/aux_ucode.bin ath12k/WCN7860/hw2.0/board.bin
+     ath12k/WCN7860/hw2.0/regdb.bin ath12k/WCN7860/hw2.0/qdss.cfg )
+for f in "${fw[@]}"; do
+	[ -f "$fwroot/lib/firmware/$f" ] || { echo "missing firmware $f under $fwroot/lib/firmware" >&2; exit 1; }
+	mkdir -p "$st/fw/$(dirname "$f")"; cp "$fwroot/lib/firmware/$f" "$st/fw/$f"
+done
+# optional: the BT .tlv some firmware versions ask for
+[ -f "$fwroot/lib/firmware/qca/brhbtfw20.tlv" ] && cp "$fwroot/lib/firmware/qca/brhbtfw20.tlv" "$st/fw/qca/"
+cp "$regdb/regulatory.db" "$regdb/regulatory.db.p7s" "$st/fw/"
+[ -n "$android" ] && cut -c1-64 "$android" > "$st/android-boot.sha256"
+
+# gen_init_cpio list: see spec.list for the annotated layout
+L="$st/initramfs.list"
+{
+	echo "dir /bin 0755 0 0"
+	echo "file /bin/busybox $st/busybox 0755 0 0"
+	echo "file /init $st/init 0755 0 0"
+	echo "file /bin/back-to-android $st/back-to-android 0755 0 0"
+	echo "file /bin/keyhold $st/keyhold 0755 0 0"
+	[ -f "$st/gpu-probe" ] && echo "file /bin/gpu-probe $st/gpu-probe 0755 0 0"
+	echo "dir /etc 0755 0 0"
+	[ -f "$st/android-boot.sha256" ] && echo "file /etc/android-boot.sha256 $st/android-boot.sha256 0644 0 0"
+	echo "dir /dev 0755 0 0"
+	echo "nod /dev/console 0600 0 0 c 5 1"
+	echo "file /font.psf $st/font.psf 0644 0 0"
+	for d in /proc /sys /sys/fs /sys/fs/pstore /lib /lib/modules; do echo "dir $d 0755 0 0"; done
+	for m in "$st"/modules/*.ko; do echo "file /lib/modules/${m##*/} $m 0644 0 0"; done
+	(cd "$st/fw" && find . -type d | sed 's|^\.||' | sort) | while read -r d; do echo "dir /lib/firmware$d 0755 0 0"; done
+	(cd "$st/fw" && find . -type f | sed 's|^\./||' | sort) | while read -r f; do echo "file /lib/firmware/$f $st/fw/$f 0644 0 0"; done
+} > "$L"
+
+gic="$kout/usr/gen_init_cpio"
+[ -x "$gic" ] || { echo "no $gic (build the kernel once, or cc -o it from usr/gen_init_cpio.c)" >&2; exit 1; }
+"$gic" "$L" | gzip -9 > "$out"
+echo "initramfs: $out ($(stat -c %s "$out") bytes)"
+if [ -n "$list" ]; then
+	# keep the staging dir for the list's absolute paths
+	keep="${list%.list}.d"; rm -rf "$keep"; cp -a "$st" "$keep"
+	sed "s|$st|$keep|g" "$L" > "$list"; echo "list: $list (files in $keep)"
+fi

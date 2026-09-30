@@ -21,7 +21,7 @@ See [docs/hardware-status.md](docs/hardware-status.md). A feature is only marked
 
 | Path | Contents |
 |---|---|
-| `kernel/` | patch series, base commit, config, board DT, [`PROVENANCE.md`](kernel/PROVENANCE.md) (where every imported patch came from) |
+| `kernel/` | patch series, base commit, config, board DT, [`PROVENANCE.md`](kernel/PROVENANCE.md) (where every imported patch came from), [`initramfs/`](kernel/initramfs/) (the built-in initramfs: USB way in, boot summary, multiboot root selection) |
 | `firmware/` | manifest (file, sha256, source on the device) and a script that extracts the firmware from your own tablet — no firmware files are stored here |
 | `rootfs/` | optional: scripts that build a Debian root filesystem |
 | `userspace/` | `platform/`: distribution-neutral platform files every install needs (udev, systemd units, audio/UCM, sensors, emergency key) with `install.sh`; `desktop/`: optional desktop extras |

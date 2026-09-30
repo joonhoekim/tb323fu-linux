@@ -1,0 +1,37 @@
+# TB323FU initramfs layout, annotated (gen_init_cpio format).
+# build.sh generates the real list with absolute paths; this file documents
+# what goes in and why. "ours" = source in this repository.
+#
+# /bin/busybox            third-party: static aarch64 BusyBox (tested 1.36.1)
+# /init                   ours: kernel/initramfs/init (MIT)
+# /bin/back-to-android    ours: android/back-to-android (MIT)
+# /bin/keyhold            ours: userspace/platform/src/keyhold.c, built static
+#                         (the volume up+down chord)
+# /bin/gpu-probe          ours: kernel/initramfs/gpu-probe.c (GPL-2.0), optional,
+#                         static; one line about the Adreno in the summary
+# /etc/android-boot.sha256  per device, optional: hash of YOUR Android boot
+#                         image (never commit it)
+# /dev/console            char 5:1 -- without it init has no stdin/stdout
+# /font.psf               third-party: console-setup Lat15-Terminus28x14
+#                         (readable on 1904x3040; the kernel's fonts are small)
+# /proc /sys /sys/fs/pstore  mount points
+#
+# /lib/modules/*.ko       from the kernel build, debug info stripped. Modules on
+#                         purpose, loaded by init after the USB shell is up:
+#   qcom_pil_info qcom_common qcom_sysmon qcom_q6v5 qcom_q6v5_pas
+#                         remoteproc PAS: attaches to the charger firmware
+#                         (SoCCP) the bootloader already runs -> pmic-glink
+#                         (battery, Type-C); a bad attach still leaves a way in
+#   nt36536_ts            touch; downloads its firmware to the IC's SRAM
+#
+# /lib/firmware/...       vendor firmware, from YOUR device (firmware/), never
+#                         committed. Needed here because these drivers are
+#                         built in and probe before a root is mounted:
+#   qcom/gen80200_{sqe.fw,gmu.bin,aqe.fw}, qcom/kaanapali/Lenovo/baldur/gen80200_zap.mbn
+#                         Adreno 840 (the fbdev console opens the DRM device)
+#   novatek/novatek_ts_fw.bin            touch
+#   qca/brhbtnv20.bin qca/brhbtfw20.mbn (qca/brhbtfw20.tlv optional)  Bluetooth
+#   ath12k/WCN7860/hw2.0/{amss.bin,m3.bin,aux_ucode.bin,board.bin,regdb.bin,qdss.cfg}
+#                         Wi-Fi (names ath12k asks for; see firmware/manifest.tsv)
+#   regulatory.db regulatory.db.p7s      third-party: wireless-regdb (cfg80211
+#                         is built in and reads it at boot)

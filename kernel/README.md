@@ -28,7 +28,7 @@ git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0112, in 
 | `t21-reference.config` | the full `.config` of the kernel that is tested on the device (see below), for comparison |
 
 The same fragments are also added to the tree by patch 0055 (`arch/arm64/configs/`). The copies here have
-`CONFIG_INITRAMFS_SOURCE` blanked — set it to your own initramfs; the version inside patch 0055 still names the path of the original build machine.
+`CONFIG_INITRAMFS_SOURCE` blanked — set it to your own initramfs (built with [`initramfs/build.sh`](initramfs/)); the version inside patch 0055 still names the path of the original build machine.
 
 `kaanapali-oneplus-infiniti_defconfig` is itself a fragment on top of the arm64 `defconfig`, so the order is:
 
@@ -68,7 +68,7 @@ The bootloader on this tablet cannot be made to pass our device tree or command 
   | `panic=10`, `oops=panic` | reboot 10 s after any oops/panic instead of hanging |
   | `console=tty1`, `keep_bootcon` | kernel messages on the panel, keeping the early boot console |
   | `qcom_scm.download_mode=full` | on a crash, stop in the Qualcomm dump mode so a full memory dump can be taken |
-  | `baldur.end=hold`, `baldur.diag=0` | knobs of the initramfs `/init` (what to do at the end of init; skip the old SD-card diagnostics) |
+  | `baldur.end=hold`, `baldur.diag=0` | knobs of the initramfs `/init`: `baldur.end=hold` = normal boot with root selection; `baldur.diag=0` is obsolete and ignored — see [initramfs/README.md](initramfs/README.md) |
   | `consoleblank=120` | blank the text console after 2 minutes |
   | `no_console_suspend` | keep the console alive across suspend (debugging) |
   | `mem_sleep_default=s2idle` | the only system sleep state this platform supports |

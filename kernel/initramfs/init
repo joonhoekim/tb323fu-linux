@@ -1,0 +1,386 @@
+#!/bin/busybox sh
+# SPDX-License-Identifier: MIT
+# /init of the TB323FU ("baldur") boot image: the initramfs that the kernel
+# carries built in (CONFIG_INITRAMFS_SOURCE). See kernel/initramfs/README.md.
+#
+# The interpreter is busybox itself: the initramfs holds /bin/busybox, and
+# /bin/sh only exists once the --install below has run. With "#!/bin/sh" the
+# kernel cannot exec this file (ENOENT) and panics with "No working init found".
+#
+# What it does, in order:
+#   - a way in from a PC first: USB serial shell (ttyGS0) and USB network
+#     (usb0 192.168.7.2, telnet), so a boot that goes wrong stays reachable
+#   - the emergency way back to Android (volume up + down held 10 s), when the
+#     image carries /etc/android-boot.sha256
+#   - loads the few modules that must not be built in (remoteproc PAS for the
+#     charger/Type-C firmware, the touch driver)
+#   - prints a one-screen summary of the boot on the panel and in the kernel log
+#   - with baldur.end=hold (the normal case): picks a root partition and
+#     switch_roots into it (multiboot, below)
+#
+# The other endings (baldur.end=panic/reboot, or a panic into the crash dump
+# mode when no root is used) are for bring-up: they end the boot on purpose so
+# the log survives in ramoops.
+
+/bin/busybox --install -s /bin
+export PATH=/bin
+
+mount -t proc     proc     /proc
+mount -t sysfs    sysfs    /sys
+mount -t devtmpfs devtmpfs /dev 2>/dev/null
+
+# At KERN_ALERT, so the lines still reach the panel once the console is
+# quieted below, and, going through the kernel log, ramoops as well.
+say() { echo "<1>baldur: $@" > /dev/kmsg; echo >> /tmp/said; }
+# baldur.ui=splash (opt-in): keep the panel quiet -- these lines go to the
+# kernel log at KERN_INFO and the screen is not cleared, so the bootloader
+# picture stays up (fbcon deferred takeover).
+ui=log; grep -q "baldur.ui=splash" /proc/cmdline && ui=splash
+# No fixed sleeps: every wait below is a bounded poll on the thing it needs.
+# poll COND every 0.1 s for at most TENTHS tenths of a second
+waitfor() { t=$1; shift; while ! eval "$@"; do [ $t -le 0 ] && return 1; usleep 100000; t=$((t - 1)); done; }
+[ "$ui" = splash ] && say() { echo "<6>baldur: $@" > /dev/kmsg; echo >> /tmp/said; }
+mkdir -p /tmp
+
+# Android leaves its watchdog running (kexec path) and nothing else feeds it
+# here: feed it for as long as this script lives. -T is the timeout it programs.
+[ -e /dev/watchdog ] && watchdog -t 5 -T 60 /dev/watchdog
+
+# USB device mode: CDC-ACM serial with a shell on it, and CDC-NCM networking
+# with telnetd, through configfs. Needs the UDC (a600000.usb, dwc3) to have
+# probed; wait for it a little.
+usb_gadget() {
+	mount -t configfs none /sys/kernel/config 2>/dev/null
+	g=/sys/kernel/config/usb_gadget/baldur
+	[ -d $g ] && return 0
+	waitfor 100 '[ -n "$(ls /sys/class/udc 2>/dev/null)" ]'
+	udc=$(ls /sys/class/udc 2>/dev/null | head -1)
+	[ -n "$udc" ] || return 1
+	mkdir -p $g/strings/0x409 $g/configs/c.1/strings/0x409 || return 1
+	echo 0x1d6b > $g/idVendor	# Linux Foundation
+	echo 0x0104 > $g/idProduct	# multifunction composite gadget
+	echo 0xEF > $g/bDeviceClass; echo 0x02 > $g/bDeviceSubClass; echo 0x01 > $g/bDeviceProtocol
+	echo "tb323fu-linux" > $g/strings/0x409/manufacturer
+	echo "TB323FU mainline" > $g/strings/0x409/product
+	echo "baldur-0001" > $g/strings/0x409/serialnumber
+	echo "acm+ncm" > $g/configs/c.1/strings/0x409/configuration
+	mkdir -p $g/functions/acm.GS0 $g/functions/ncm.usb0
+	# Fixed, locally administered MACs: f_ncm picks random ones every boot,
+	# and Windows then sees a new adapter each time and drops internet sharing.
+	echo 02:ba:1d:00:00:01 > $g/functions/ncm.usb0/host_addr
+	echo 02:ba:1d:00:00:02 > $g/functions/ncm.usb0/dev_addr
+	ln -s $g/functions/acm.GS0 $g/configs/c.1/ 2>/dev/null
+	ln -s $g/functions/ncm.usb0 $g/configs/c.1/ 2>/dev/null
+	echo "$udc" > $g/UDC
+}
+usb_gadget
+# A shell on the serial function, respawned; telnet on the network one.
+( while :; do [ -e /dev/ttyGS0 ] && setsid sh -c 'exec sh -i </dev/ttyGS0 >/dev/ttyGS0 2>&1'; sleep 1; done ) &
+ifconfig usb0 192.168.7.2 netmask 255.255.255.0 up 2>/dev/null && telnetd -l /bin/sh 2>/dev/null
+
+# Emergency way back to Android without a PC: hold volume UP and volume DOWN
+# together for 10 s. The expected hash of the Android image in boot_b is baked
+# into the image (/etc/android-boot.sha256, optional); back-to-android still
+# refuses to write unless boot_b matches it. keyhold polls both keys' state.
+keys_back_to_android() {
+	want=$(cat /etc/android-boot.sha256 2>/dev/null)
+	[ ${#want} -eq 64 ] || return
+	while :; do
+		keyhold 10 pmic_resin:114 gpio-keys:115 2>/dev/null | while read -r s; do
+			case $s in
+			hold)    say ">>> volume up+down held: keep holding 10 s to go back to Android" ;;
+			release) say ">>> (released: not restoring)" ;;
+			done)    say ">>> restoring Android from boot_b"
+				 back-to-android $want 2>&1 | while read -r l; do say ">>> $l"; done ;;
+			esac
+		done
+		sleep 2
+	done
+}
+keys_back_to_android &
+
+# SoCCP: the charger firmware the bootloader already runs. The PAS driver
+# attaches to it (no firmware load) and its glink edge brings up pmic-glink:
+# battery, USB supply, Type-C. Loaded only after the serial shell is up, so a
+# bad attach still leaves a way in.
+for m in qcom_pil_info qcom_common qcom_sysmon qcom_q6v5 qcom_q6v5_pas; do
+	insmod /lib/modules/$m.ko 2>/dev/null
+done
+
+# Touch: Novatek's NT36536 driver downloads the firmware into the IC's SRAM
+# when it probes. So a person at the tablet can check it without a PC, each
+# burst of touch events is reported on the panel with its size in events.
+insmod /lib/modules/nt36536_ts.ko 2>/dev/null
+touch_echo() {
+	for i in /sys/class/input/input*; do
+		[ "$(cat $i/name 2>/dev/null)" = NVTCapacitiveTouchScreen ] && ev=$(ls -d $i/event* 2>/dev/null | head -1)
+	done
+	[ -n "$ev" ] || return
+	ev=/dev/input/${ev##*/}
+	while [ -c $ev ]; do
+		dd if=$ev bs=24 count=1 2>/dev/null > /dev/null || return
+		n=$(timeout 1 dd if=$ev bs=24 count=10000 2>/dev/null | wc -c)
+		say ">>> touch: $((n / 24 + 1)) events"
+		sleep 1
+	done
+}
+touch_echo &
+
+# From here on only alerts and panics reach the consoles (the boot itself ran
+# at loglevel=8, so ramoops holds all of it). A clean screen, in a readable
+# font, is what someone can actually read off the panel.
+dmesg -n 2
+if [ "$ui" = log ]; then
+	setfont -C /dev/tty1 /font.psf 2>/dev/null
+	printf '\033[2J\033[H' > /dev/tty1 2>/dev/null
+fi
+# The kernel's own lines keep their timestamps; these do not need them.
+echo N > /sys/module/printk/parameters/time 2>/dev/null
+
+say ""
+say "================================================================"
+say " tb323fu: mainline userspace reached"
+say "================================================================"
+say "kernel : $(cat /proc/version)"
+say "cmdline: $(cat /proc/cmdline)"
+say "uptime : $(cut -d' ' -f1 /proc/uptime)s"
+say "memory : $(grep MemTotal /proc/meminfo)"
+say "cpus   : $(grep -c ^processor /proc/cpuinfo)"
+for p in /sys/devices/system/cpu/cpufreq/policy*; do
+	[ -e $p/scaling_driver ] && say "cpufreq: ${p##*/} $(cat $p/related_cpus) $(cat $p/scaling_driver) max $(cat $p/scaling_max_freq)/$(cat $p/cpuinfo_max_freq) kHz"
+done
+say "thermal: $(ls -d /sys/class/thermal/thermal_zone* 2>/dev/null | wc -l) zones, hottest $(cat /sys/class/thermal/thermal_zone*/temp 2>/dev/null | sort -n | tail -1) mC, cooling: $(cat /sys/class/thermal/cooling_device*/type 2>/dev/null | tr '\n' ' ')"
+say ""
+
+say "-- pstore (this kernel's own ramoops, if it mounted) --"
+mount -t pstore pstore /sys/fs/pstore 2>/dev/null && ls /sys/fs/pstore | while read l; do say "  $l"; done
+
+say "-- block devices --"
+# One line per disk -- the UFS LUNs alone hold some 150 partitions. Size from
+# /proc/partitions (1 KiB blocks), partitions counted by name prefix.
+awk 'NR > 2 && $4 !~ /^(ram|loop|zram)/ { print $3, $4 }' /proc/partitions > /tmp/parts 2>/dev/null
+grep -E ' (sd[a-z]+|mmcblk[0-9]+|nvme[0-9]+n[0-9]+)$' /tmp/parts | while read kib dev; do
+	n=$(grep -c -E " ${dev}p?[0-9]+$" /tmp/parts)
+	say "  $dev  $((kib / 1024)) MiB, $n partitions"
+done
+[ -s /tmp/parts ] || say "  (none)"
+
+say "-- sd (8804000.mmc) --"
+mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null
+for h in /sys/kernel/debug/mmc*; do
+	[ -e "$h/ios" ] || continue
+	say "  ${h##*/}: $(tr -s ' \t\n' ' ' < $h/ios | cut -c1-$((${cols:-136} - 20)))"
+done
+ls /sys/class/mmc_host 2>/dev/null | while read -r m; do
+	say "  $m cards: $(ls /sys/class/mmc_host/$m 2>/dev/null | grep -c ':')"
+done
+say "-- usb --"
+for u in /sys/class/udc/*; do
+	[ -e "$u" ] && say "  ${u##*/}: $(cat $u/state 2>/dev/null) $(cat $u/current_speed 2>/dev/null)"
+done
+[ -e /sys/kernel/config/usb_gadget/baldur/UDC ] && say "  gadget: acm (ttyGS0 shell) + ncm usb0 192.168.7.2 telnet"
+say "-- power (soccp: $(cat /sys/class/remoteproc/remoteproc*/state 2>/dev/null)) --"
+b=/sys/class/power_supply/qcom-battmgr-bat
+[ -e $b ] && say "  battery $(cat $b/capacity 2>/dev/null)% $(cat $b/status 2>/dev/null), $(cat $b/voltage_now 2>/dev/null) uV, $(cat $b/current_now 2>/dev/null) uA, $(cat $b/temp 2>/dev/null) dC"
+u=/sys/class/power_supply/qcom-battmgr-usb
+[ -e $u ] && say "  usb in: online $(cat $u/online 2>/dev/null), $(cat $u/voltage_now 2>/dev/null) uV, $(cat $u/current_now 2>/dev/null) uA, $(grep -o '\[[^]]*\]' $u/usb_type 2>/dev/null)"
+say "-- drm --"
+ls /sys/class/drm 2>/dev/null | while read l; do say "  $l"; done
+for b in /sys/class/backlight/*; do
+	[ -e $b/brightness ] && say "  backlight ${b##*/}: $(cat $b/brightness)/$(cat $b/max_brightness)"
+done
+say "-- gpu --"
+[ -e /dev/dri/renderD128 ] && [ -x /bin/gpu-probe ] && gpu-probe 2>&1 | while read -r l; do say "  $l"; done
+
+# The parameter alone proves nothing: it reads back whatever the command line
+# said, probed or not. Download mode is armed only if the driver actually
+# bound its device -- the write to TCSR happens in qcom_scm_probe().
+dload=$(cat /sys/module/qcom_scm/parameters/download_mode 2>/dev/null)
+scm=$(ls /sys/bus/platform/drivers/qcom_scm 2>/dev/null | grep -v -x -E 'bind|unbind|uevent|module' | head -1)
+say "-- qcom_scm download_mode: ${dload:-<no qcom_scm>}, bound: ${scm:-<nothing>} --"
+[ -n "$scm" ] || dload="$dload (not probed)"
+
+end=dump
+grep -q 'baldur.end=panic' /proc/cmdline && end=panic
+# baldur.end=reboot: an orderly restart instead of a crash, for the kexec path
+# where boot_a is Android anyway.
+grep -q 'baldur.end=reboot' /proc/cmdline && end=reboot
+# baldur.end=hold: the normal boot -- show the summary, then switch to a root
+# partition (below); if none is usable, stay in the initramfs.
+grep -q 'baldur.end=hold' /proc/cmdline && end=hold
+# baldur.wait=<seconds> shortens the countdown of the panic/reboot endings.
+wait=$(sed -n 's/.*baldur\.wait=\([0-9]*\).*/\1/p' /proc/cmdline)
+wait=${wait:-120}
+
+# Fill what is left of the panel with the kernel's recent warnings and errors
+# (levels 0-4), cut to the width -- the screen cannot scroll, so empty rows are
+# wasted. The ending below still needs about eight rows.
+size=$(stty -F /dev/tty1 size 2>/dev/null)
+rows=${size% *}; cols=${size#* }
+if [ -n "$rows" ] && [ "$rows" -gt 0 ] 2>/dev/null; then
+	left=$((rows - $(wc -l < /tmp/said) - 10))
+	# warnings and errors first; whatever room is left, the latest messages
+	w=$(dmesg -r | grep -v 'baldur:' | grep -c '^<[0-4]>')
+	nw=$w; [ $nw -gt $((left - 1)) ] && nw=$((left - 1))
+	if [ $left -gt 2 ]; then
+		say "-- kernel warnings and errors: last $nw of $w --"
+		dmesg -r | grep -v 'baldur:' | grep '^<[0-4]>' | tail -n $nw |
+			sed 's/^<[0-9]>//' | cut -c1-$((cols - 9)) | while read -r l; do say "$l"; done
+	fi
+	rest=$((left - 1 - nw - 1))
+	if [ $rest -gt 2 ]; then
+		say "-- latest kernel messages --"
+		dmesg -r | grep -v 'baldur:' | tail -n $rest |
+			sed 's/^<[0-9]>//' | cut -c1-$((cols - 9)) | while read -r l; do say "$l"; done
+	fi
+fi
+
+say ""
+say "================================================================"
+if [ "$end" = "hold" ]; then
+say " Summary done. Nothing was written to storage."
+say " Volume up+down held 10 s: back to Android."
+elif [ "$end" = "reboot" ]; then
+say " Summary done (kexec). Nothing was written to storage."
+say " Rebooting in ${wait}s -- warm, back to Android, where this log is"
+say " /sys/fs/pstore/console-ramoops-0."
+elif [ "$end" = "panic" ]; then
+say " Summary done (kexec). Nothing was written to storage."
+say " Panicking in ${wait}s on purpose: the warm reset goes back to"
+say " Android, where this log is /sys/fs/pstore/console-ramoops-0."
+elif [ "$dload" = "full" ]; then
+say " Summary done. Nothing was written to storage."
+say " Panicking in ${wait}s on purpose: the device should drop into the"
+say " crash dump mode (USB 05c6:900e) and keep this log in ramoops."
+else
+say " Summary done, but download mode is NOT armed -- a panic would only"
+say " reboot back into this kernel. Holding here; photograph the panel."
+fi
+say "================================================================"
+
+# Root partitions are found by GPT partition name: baldur-root (usually on
+# UFS, after userdata), baldur-root-sd and tb323fu-* (usually on microSD).
+# A first boot of a Debian image built with rootfs/ finishes debootstrap here,
+# in a chroot. Holding volume-up while the summary is up keeps the initramfs;
+# so does anything that fails on the way.
+if [ "$end" = "hold" ]; then
+	# Multiboot: the selection lives on the default root (baldur-root):
+	# /etc/tb323fu/boot-next (one-shot, consumed here) and
+	# /etc/tb323fu/boot-default (persistent). Order tried: boot-next,
+	# boot-default, baldur-root, baldur-root-sd; a root that is missing, does
+	# not mount or has no init is skipped, so a bad choice falls back by itself.
+	# /etc/tb323fu/boot-menu enables a volume-up menu. Each root needs its own
+	# /lib/modules/$(uname -r) -- the kernel here is shared by all of them.
+	partdev() { for u in /sys/class/block/sd*/uevent /sys/class/block/mmcblk*/uevent; do
+		[ -e $u ] && grep -q "^PARTNAME=$1\$" $u && { echo /dev/$(grep '^DEVNAME=' $u | cut -d= -f2); return 0; }
+		done; return 1; }
+	# UFS and the SD card usually enumerate before /init runs, but look again
+	# for up to 10 s rather than assume it
+	rootpart() { partdev baldur-root >/dev/null || partdev baldur-root-sd >/dev/null; }
+	waitfor 100 rootpart || say " no baldur-root partition after 10 s"
+	roots() { for u in /sys/class/block/sd*/uevent /sys/class/block/mmcblk*/uevent; do
+		[ -e $u ] && grep -E '^PARTNAME=(baldur-root|baldur-root-sd|tb323fu-.+)$' $u | cut -d= -f2
+		done; }
+	next= ; def= ; menu=
+	ufs=$(partdev baldur-root)
+	if [ -n "$ufs" ] && mkdir -p /sel && mount -t ext4 -o ro $ufs /sel 2>/dev/null; then
+		[ -s /sel/etc/tb323fu/boot-next ] && next=$(head -n1 /sel/etc/tb323fu/boot-next | tr -d ' \r\t')
+		[ -s /sel/etc/tb323fu/boot-default ] && def=$(head -n1 /sel/etc/tb323fu/boot-default | tr -d ' \r\t')
+		[ -e /sel/etc/tb323fu/boot-menu ] && menu=1
+		if [ -n "$next" ]; then
+			# one-shot: forget it before trying, so a root that hangs later
+			# boots the default next time
+			mount -o remount,rw /sel && rm -f /sel/etc/tb323fu/boot-next && sync
+		fi
+		umount /sel
+	fi
+	if [ -n "$menu" ]; then
+		list=$(roots | sort -u); n=$(echo "$list" | wc -l); i=1
+		cur=${next:-${def:-baldur-root}}
+		i=$(echo "$list" | grep -n -x "$cur" | cut -d: -f1); [ -n "$i" ] || i=1
+		say " boot menu: volume-up = next, wait 5 s = boot"
+		last=$(date +%s); up=0
+		while :; do
+			sel=$(echo "$list" | sed -n "${i}p")
+			printf '\r   -> %-24s' "$sel" > /dev/tty1 2>/dev/null
+			if grep -q 'gpio101 *: in *low' /sys/kernel/debug/gpio 2>/dev/null; then
+				[ $up = 0 ] && { i=$((i % n + 1)); last=$(date +%s); }; up=1
+			else up=0; fi
+			[ $(( $(date +%s) - last )) -ge 5 ] && break
+			usleep 100000
+		done
+		say ""; say " boot menu: $sel"; next=$sel
+	fi
+	if grep -q 'gpio101 *: in *low' /sys/kernel/debug/gpio 2>/dev/null && [ -z "$menu" ]; then
+		say " volume-up held: staying in the initramfs"
+	else
+		tried=
+		for name in $next $def baldur-root baldur-root-sd; do
+			case " $tried " in *" $name "*) continue ;; esac
+			tried="$tried $name"
+			rootdev=$(partdev $name) || { say " root $name: no such partition"; continue; }
+			mkdir -p /newroot
+			mount -t ext4 $rootdev /newroot 2>/dev/null || { say " root $name ($rootdev): does not mount"; continue; }
+			if [ -e /newroot/debootstrap/debootstrap ] && [ -x /newroot/baldur/firstboot.sh ]; then
+				say " first boot of $rootdev: finishing Debian, a few minutes"
+				mount -t proc proc /newroot/proc
+				mount -t sysfs sys /newroot/sys
+				mount -t devtmpfs dev /newroot/dev
+				chroot /newroot /baldur/firstboot.sh 2>&1 | while read -r l; do say "   $l"; done
+				umount /newroot/dev /newroot/sys /newroot/proc
+			fi
+			# init of that root: /sbin/init (Debian, Ubuntu, Arch, Fedora -- may be an
+			# absolute symlink, so test inside the root), or NixOS's system profile
+			hasx() { [ -x /newroot$1 ] || chroot /newroot /bin/sh -c "[ -x $1 ]" 2>/dev/null; }
+			init=
+			if [ ! -e /newroot/debootstrap ] && hasx /sbin/init; then init=/sbin/init
+			elif hasx /nix/var/nix/profiles/system/init; then init=/nix/var/nix/profiles/system/init
+			fi
+			if [ -z "$init" ]; then say " root $name ($rootdev): no init"; umount /newroot; continue; fi
+			why="default"; [ "$name" = "$next" ] && why="boot-next"
+			[ "$name" = "$def" ] && [ "$name" != "$next" ] && why="boot-default"
+			say " switching to root $name on $rootdev ($why), init $init"
+			# stop everything this script started (serial shell, telnetd, key
+			# and touch watchers, the watchdog feeder -- busybox closes the
+			# watchdog with the magic 'V'; systemd reopens it) and wait until
+			# they are gone (at most 1 s): user processes have a non-empty
+			# cmdline, kernel threads do not
+			kill -TERM -1
+			others() { for c in /proc/[0-9]*/cmdline; do p=${c#/proc/}; p=${p%/cmdline}
+				[ "$p" = 1 ] || [ "$p" = $$ ] && continue
+				# (procfs files report size 0, so test the content, not -s)
+				[ -n "$(head -c1 $c 2>/dev/null | tr -d '\0')" ] && return 0; done; return 1; }
+			waitfor 10 '! others'
+			kill -KILL -1
+			sync
+			for m in /dev /proc /sys; do mount --move $m /newroot$m; done
+			exec switch_root /newroot $init
+		done
+		say " no usable root; staying in the initramfs"
+	fi
+fi
+
+[ "$end" = "hold" ] && while :; do sleep 3600; done
+[ "$end" = "reboot" ] || [ "$end" = "panic" ] || [ "$dload" = "full" ] || while :; do sleep 3600; done
+
+# Count down out loud, so a panel that stops updating is distinguishable from
+# one that was always dead.
+i=$wait
+while [ $i -gt 0 ]; do
+	say " ... ${end} in ${i}s"
+	step=10; [ $i -lt 10 ] && step=$i
+	sleep $step
+	i=$((i - step))
+done
+
+if [ "$end" = "reboot" ]; then
+	say " rebooting now"
+	sync
+	reboot -f
+	sleep 5
+	say " reboot -f returned; panicking instead"
+fi
+say " panicking now"
+# Not reboot(8): a clean reboot runs qcom_scm's shutdown hook, which disarms
+# download mode. A crash is the one path that leaves it armed.
+echo c > /proc/sysrq-trigger

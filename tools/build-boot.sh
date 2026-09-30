@@ -8,6 +8,7 @@
 #   -o  build directory (make O=...), already configured (.config in it)
 #   -s  a stock Android boot image from YOUR tablet (see below)
 #   -i  optional: regenerate the initramfs first from a gen_init_cpio list
+#       (kernel/initramfs/build.sh -l LIST writes one)
 #       (the file named by CONFIG_INITRAMFS_SOURCE in OUT_DIR/.config is
 #       rewritten; gzip -9)
 #   -j  make jobs (default: nproc)

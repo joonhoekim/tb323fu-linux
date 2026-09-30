@@ -18,3 +18,6 @@
 ^password\|[^|]*:[0-9]+:.*(\$\{?BALDUR_DEV_PASSWORD|BALDUR_DEV_PASSWORD=( |\$|\.\.\.))
 # the allowlist itself names the variable in its rules
 ^password\|\.public-scan\.allow:
+# the initramfs USB gadget: fixed locally administered NCM MACs and a made-up serial (same on every install)
+^mac\|(\./)?kernel/initramfs/init:[0-9]+:.*02:ba:1d:00:00:0[12]
+^serial\|(\./)?kernel/initramfs/init:[0-9]+:.*"baldur-0001"
