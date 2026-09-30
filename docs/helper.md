@@ -1,4 +1,4 @@
-# TB323FU companion — design
+# TB323FU helper — design
 
 Status: **design, not implemented.** This document describes a small helper suite for the device-specific features of the
 Lenovo Legion Tab Gen 5 / Y700 5th Gen (TB323FU) that today live in a handful of shell scripts and GNOME Shell extensions.
@@ -14,17 +14,17 @@ Goals
 - Privileged actions go through polkit with sensible defaults.
 
 Non-goals
-- **Booting never depends on the companion.** Everything needed to boot and to have working audio, input, sensors and
+- **Booting never depends on the helper.** Everything needed to boot and to have working audio, input, sensors and
   the emergency way back to Android stays in plain files and services (layer 1 below).
 - No self-updater and no package-manager calls. Each distribution's packaging updates it.
-- No new hardware drivers; the companion only drives interfaces the kernel already exposes.
+- No new hardware drivers; the helper only drives interfaces the kernel already exposes.
 
 ## Layers
 
 | Layer | What | Examples | Depends on |
 |---|---|---|---|
-| **1. Platform files** | static configuration and boot-critical services; always installed; work with no companion and no desktop | udev rules (`60-…`–`91-…`), ALSA UCM for the TB323FU card, PipeWire speaker-protection filter chain and WirePlumber rule, libcamera sensor tuning, services: Bluetooth address, DSP start, audio defaults, USB port role, emergency volume-up+down chord, per-install ID generation | systemd, udev |
-| **2. Companion daemon** | `tb323fu-companiond`: one system service, owns the knobs below, D-Bus API, polkit checks, persistence | charge limit, Android switch, torch, LED ring, idle refresh policy, GPU profile, speaker level | systemd, D-Bus, polkit |
+| **1. Platform files** | static configuration and boot-critical services; always installed; work with no helper and no desktop | udev rules (`60-…`–`91-…`), ALSA UCM for the TB323FU card, PipeWire speaker-protection filter chain and WirePlumber rule, libcamera sensor tuning, services: Bluetooth address, DSP start, audio defaults, USB port role, emergency volume-up+down chord, per-install ID generation | systemd, udev |
+| **2. Helper daemon** | `tb323fu-helperd`: one system service, owns the knobs below, D-Bus API, polkit checks, persistence | charge limit, Android switch, torch, LED ring, idle refresh policy, GPU profile, speaker level | systemd, D-Bus, polkit |
 | **3. Front-ends** | talk only to the daemon's D-Bus API (and, for desktop-owned settings, the desktop's own settings store) | `tb323fu-ctl` CLI (always shipped), GNOME Shell quick-settings extension, GTK4 + libadwaita settings app (gtk-rs), KDE Plasma applet (later) | layer 2 |
 
 The structure follows the reference project [ubuntu-galaxy-tab-s9-ultra](https://github.com/agcarbajo/ubuntu-galaxy-tab-s9-ultra)'s
@@ -39,11 +39,11 @@ GNOME and apt.
 |---|---|---|---|---|---|
 | Charge limit | udev `61-…-battery.rules` sets `CHARGE_LIMIT=70,80` for UPower/GNOME "preserve battery health" | `/sys/class/power_supply/qcom-battmgr-bat/charge_control_end_threshold` | root | 2 (+1 udev hint kept) | GNOME 48 already offers an on/off toggle through UPower. The daemon adds an arbitrary threshold for other desktops and must not fight UPower: if UPower manages the threshold, the daemon only reports it. Firmware may keep reporting `Charging` with 0 A while held (see LED ring). Changing the limit renegotiates PD (9 V ↔ 5 V) — harmless, but it is a charger event |
 | Switch to Android | `baldur-to-android` (zenity dialog → `pkexec back-to-android <sha256>`), GNOME tile `baldur-android@…`, `.desktop` entry | writes the Android boot image kept in `boot_b` back into `boot_a` and reboots; refuses unless `boot_b` matches the recorded SHA-256 | root, **auth required** | 2 (tool in 1) | `back-to-android` itself stays a layer-1 tool (also used by the emergency chord). The daemon method only wraps it: checks the hash file exists, emits a signal, runs it. Irreversible until the user switches back from Android |
-| Emergency chord (volume up+down 10 s → Android) | `baldur-voldown` + `keyhold` | evdev on `pmic_resin` and `gpio-keys` | root | **1** | must work with no desktop and no companion; stays a plain service |
+| Emergency chord (volume up+down 10 s → Android) | `baldur-voldown` + `keyhold` | evdev on `pmic_resin` and `gpio-keys` | root | **1** | must work with no desktop and no helper; stays a plain service |
 | Torch | `baldur-torch` + GNOME tile `baldur-torch@…` | `/sys/class/leds/white:flash/brightness` (torch level ~96; never the flash strobe) | `video` group via udev `74-…-leds.rules` | 2 | daemon exposes on/off/level with a safe maximum; front-ends no longer write sysfs |
 | LED ring (charge indicator / effects) | `baldur-ledring` (amber charging, green full or held, red ≤ LOW %), `/etc/baldur/ledring.conf` | `/sys/class/leds/aw22127:rgb:indicator/{brightness,multi_intensity}` | `video` group | 2 | fold the charge-indicator loop into the daemon (it already watches power-supply uevents). Vendor lighting effects need register-level programming (not the LED class) — out of scope for phase 1 |
 | Idle refresh rate | kernel (series patch 0110), default auto; the retired user daemon had a quick-settings menu: on/off, presets, "calm before 60 Hz / 30 Hz" sliders | `/sys/module/msm/parameters/y705_idle_{policy,hz,ms60,ms30,min_hz,input,selfflush,state}` | root (parameters are 0644 root) | 2 | brings back the quick-settings menu lost when the policy moved into the kernel. The kernel always restores 120 Hz before suspend or display-off, so the daemon needs no sleep handling. `selfflush` is a debug knob — not exposed. Parameter names still carry the development prefix; renaming them is a kernel-series task |
-| Panel modes (90 / 120 / 164 Hz) | compositor (mutter/gdctl, KWin): normal display settings | DRM modes from the panel driver | user (compositor) | 3 (no daemon) | handled by each desktop's display settings; the companion does not switch modes |
+| Panel modes (90 / 120 / 164 Hz) | compositor (mutter/gdctl, KWin): normal display settings | DRM modes from the panel driver | user (compositor) | 3 (no daemon) | handled by each desktop's display settings; the helper does not switch modes |
 | GPU performance floor/cap per power profile | `baldur-gpu-profile` follows power-profiles-daemon; `/etc/baldur/gpu.conf` | `/sys/class/devfreq/3d00000.gpu/{min,max}_freq` | root | 2 | keep following power-profiles-daemon when present; otherwise the daemon's own profile property. Widen before narrowing (min ≤ max at every step) |
 | Speaker level (protected mode) | user unit `baldur-speaker-gain` (amp attenuation 21 while the PipeWire protection filter runs, 159 otherwise), `/etc/baldur/audio.conf` | ALSA controls `aw_dev_0_volume`, `aw_dev_1_volume` | `audio` group | 1 (unchanged) | **safety-relevant**: the loud value is only safe behind the filter chain. Do not move into the daemon; do not expose a free slider. Never restart PipeWire during playback (it stalls the audio DSP) |
 | Microphone gain | `baldur-audio-defaults` (`MIC_GAIN`) | ALSA `ADC1/ADC3 Volume` | `audio` | 1 | boot default only |
@@ -53,25 +53,26 @@ GNOME and apt.
 
 ## D-Bus API (sketch)
 
-System bus name **`io.github.tb323fu.Companion`**, one object per feature under `/io/github/tb323fu/Companion/…`.
+System bus name **`io.github.joonhoekim.tb323fu.Helper`**, one object per feature under `/io/github/joonhoekim/tb323fu/Helper/…`.
 Standard `org.freedesktop.DBus.Properties` for properties (with `PropertiesChanged`), plus methods below.
 
 | Object / interface | Properties | Methods | Signals | polkit action (default for the active local user) |
 |---|---|---|---|---|
-| `/…/Battery` · `io.github.tb323fu.Companion.Battery` | `ChargeLimit` (u, %), `ChargeLimitManagedBy` (s: `companion` / `upower`), `Status` (s), `Capacity` (u) | `SetChargeLimit(u)` | — | `io.github.tb323fu.companion.charge-limit` — allow (`yes`) |
-| `/…/Android` · `…Android` | `Available` (b: hash file present and `boot_b` recorded), `ImageSha256` (s) | `SwitchToAndroid()` | `SwitchingToAndroid()` | `…android-switch` — `auth_admin_keep` |
+| `/…/Battery` · `io.github.joonhoekim.tb323fu.Helper.Battery` | `ChargeLimit` (u, %), `ChargeLimitManagedBy` (s: `helper` / `upower`), `Status` (s), `Capacity` (u) | `SetChargeLimit(u)` | — | `io.github.joonhoekim.tb323fu.helper.charge-limit` — allow (`yes`) |
+| `/…/Android` · `…Android` | `Available` (b: hash file present and `boot_b` recorded), `ImageSha256` (s) | `SwitchToAndroid()` | `SwitchingToAndroid()` | `…android-switch` — allow (`yes`); `…android-switch-auth` — `auth_admin_keep`. The daemon checks the second one only when `android.require_auth = true` in the config (default `false`) |
 | `/…/Torch` · `…Torch` | `On` (b), `Level` (u), `MaxLevel` (u) | `Set(b)`, `SetLevel(u)` | — | `…torch` — allow |
 | `/…/LedRing` · `…LedRing` | `Mode` (s: `charge` / `off`), `Brightness` (u), `LowPercent` (u) | `SetMode(s)`, `SetBrightness(u)`, `SetLowPercent(u)` | — | `…led-ring` — allow |
 | `/…/Refresh` · `…Refresh` | `Policy` (s: `off` / `auto` / `manual`), `Rate` (u, manual Hz), `IdleMs60` (u), `IdleMs30` (u), `MinHz` (u), `InputWakes` (b), `LiveRate` (u, read-only from `state`) | `SetPolicy(s)`, `SetRate(u)`, `SetIdle(u ms60, u ms30)`, `ApplyPreset(s)` | — | `…refresh` — allow |
-| `/…/Gpu` · `…Gpu` | `Profile` (s), `FollowPowerProfiles` (b), `Floors` (a{s(uu)}) | `SetProfile(s)`, `SetLimits(s profile, u min_mhz, u max_mhz)` | — | `…gpu` — `auth_admin_keep` for `SetLimits`, allow for `SetProfile` |
-| `/…` · `…Companion` | `Version` (s), `Features` (as: detected capabilities) | `Reload()` | — | `…admin` — `auth_admin` |
+| `/…/Gpu` · `…Gpu` | `Profile` (s), `FollowPowerProfiles` (b), `Floors` (a{s(uu)}) | `SetProfile(s)`, `SetLimits(s profile, u min_mhz, u max_mhz)` | — | `…gpu` — allow (`yes`) for both `SetProfile` and `SetLimits` |
+| `/…` · `…Helper` | `Version` (s), `Features` (as: detected capabilities) | `Reload()` | — | `…admin` — `auth_admin` |
 
 Capability detection: each object is only exported when its sysfs interface exists (for example no `Refresh` object on a kernel without the idle-refresh patch).
 Inactive/remote sessions get `no` for everything except reading properties.
 
 ## Persistence
 
-- `/etc/tb323fu/companion.toml` — written by the daemon when a setting changes, read at start; defaults when the file or a key is absent.
+- `android.require_auth` (bool, default `false`): whether switching to Android asks for authentication (polkit `android-switch-auth` instead of `android-switch`). Settable from the app and `tb323fu-ctl`; changing it itself requires authentication.
+- `/etc/tb323fu/helper.toml` — written by the daemon when a setting changes, read at start; defaults when the file or a key is absent.
 - Applied once at daemon start (after the relevant devices exist; the daemon waits on udev for the LED/power-supply/devfreq devices, bounded).
 - Settings that the kernel or desktop already default sensibly (idle refresh auto, UPower-managed charge limit) are only written when the user changes them.
 - The legacy `/etc/baldur/*.conf` files are read once on first start to migrate values, then left untouched.
@@ -89,18 +90,18 @@ Files (paths for a normal FHS distribution):
 
 | File | Path |
 |---|---|
-| daemon | `/usr/libexec/tb323fu-companiond` |
+| daemon | `/usr/libexec/tb323fu-helperd` |
 | CLI | `/usr/bin/tb323fu-ctl` |
-| systemd unit | `/usr/lib/systemd/system/tb323fu-companiond.service` (`Type=dbus`, `BusName=io.github.tb323fu.Companion`, `WantedBy=multi-user.target`, hardening: `ProtectSystem=strict`, `ReadWritePaths=/etc/tb323fu /sys`) |
-| D-Bus policy | `/usr/share/dbus-1/system.d/io.github.tb323fu.Companion.conf` (own: root; send: everyone; polkit decides) |
-| D-Bus activation | `/usr/share/dbus-1/system-services/io.github.tb323fu.Companion.service` (`SystemdService=`) |
-| polkit | `/usr/share/polkit-1/actions/io.github.tb323fu.companion.policy` |
+| systemd unit | `/usr/lib/systemd/system/tb323fu-helperd.service` (`Type=dbus`, `BusName=io.github.joonhoekim.tb323fu.Helper`, `WantedBy=multi-user.target`, hardening: `ProtectSystem=strict`, `ReadWritePaths=/etc/tb323fu /sys`) |
+| D-Bus policy | `/usr/share/dbus-1/system.d/io.github.joonhoekim.tb323fu.Helper.conf` (own: root; send: everyone; polkit decides) |
+| D-Bus activation | `/usr/share/dbus-1/system-services/io.github.joonhoekim.tb323fu.Helper.service` (`SystemdService=`) |
+| polkit | `/usr/share/polkit-1/actions/io.github.joonhoekim.tb323fu.helper.policy` |
 | GNOME extension | `/usr/share/gnome-shell/extensions/tb323fu@tb323fu.github.io/` (separate package) |
 | settings app | `/usr/bin/tb323fu-settings`, `.desktop`, icons (separate package) |
 
-- **Debian / Ubuntu**: `tb323fu-companion` (daemon + CLI), `tb323fu-companion-gnome`, `tb323fu-settings`; `Depends: dbus, polkitd`. Platform files ship as `tb323fu-platform`.
+- **Debian / Ubuntu**: `tb323fu-helper` (daemon + CLI), `tb323fu-helper-gnome`, `tb323fu-settings`; `Depends: dbus, polkitd`. Platform files ship as `tb323fu-platform`.
 - **Arch Linux ARM**: one PKGBUILD with split packages (same split); `depends=(dbus polkit)`.
-- **NixOS**: a module `services.tb323fu.companion.enable` that adds the package, `systemd.packages`, `services.dbus.packages`, `security.polkit` actions, and optional declarative settings rendered to `/etc/tb323fu/companion.toml` (read-only in that case; the daemon then reports settings as managed and refuses writes).
+- **NixOS**: a module `services.tb323fu.helper.enable` that adds the package, `systemd.packages`, `services.dbus.packages`, `security.polkit` actions, and optional declarative settings rendered to `/etc/tb323fu/helper.toml` (read-only in that case; the daemon then reports settings as managed and refuses writes).
 
 ## Migration from today's pieces
 
@@ -135,7 +136,7 @@ On the device
 
 ## Open questions
 
-- Final D-Bus name and project namespace (depends on where the public repository lives).
+- ~~Final D-Bus name~~ decided: `io.github.joonhoekim.tb323fu.Helper`. Neither the Android switch (default no authentication, `android.require_auth`) nor the GPU limits need a password; the daemon runs as root, so this is only polkit policy.
 - Whether UPower's charge-limit support should be the only path on GNOME (the daemon then just reports).
-- Whether the kernel parameters get distribution-neutral names before the companion depends on them.
+- Whether the kernel parameters get distribution-neutral names before the helper depends on them.
 - LED ring effects beyond the charge indicator need a small kernel or register-level interface first.
