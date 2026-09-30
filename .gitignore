@@ -1,0 +1,11 @@
+# Firmware is never stored here: it is extracted from the user's own device.
+*.mbn
+*.mdt
+*.b[0-9][0-9]
+*.jsn
+firmware/staged/
+# Build outputs (published as release assets, not in git)
+*.img
+*.ko
+*.cpio.gz
+out/
