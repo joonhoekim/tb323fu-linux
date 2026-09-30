@@ -1,0 +1,8 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# /etc/gdm3/PostLogin/Default (Debian/Ubuntu path; /etc/gdm/PostLogin/Default elsewhere)
+# With automatic login GDM never tells plymouth to quit, so plymouth-quit-wait runs
+# into its timeout and graphical.target waits ~21 s. Release plymouth once the
+# session starts. Only needed with AutomaticLoginEnable=true.
+plymouth quit --retain-splash 2>/dev/null
+exit 0
