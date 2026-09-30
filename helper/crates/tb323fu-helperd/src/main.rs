@@ -177,8 +177,9 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
     let has_refresh = f::refresh_available();
     let has_gpu = f::gpu_dir().exists();
     let has_usb = f::usb_wake().is_some() || f::gadget().is_some();
+    let has_boot = !tb323fu_helper_core::boot::partitions().is_empty();
     for (on, name) in [(has_battery, "Battery"), (has_android, "Android"), (has_torch, "Torch"), (has_ledring, "LedRing"),
-        (has_refresh, "Refresh"), (has_gpu, "Gpu"), (has_usb, "Usb"), (true, "EmergencyKey"), (true, "Diagnostics")] {
+        (has_refresh, "Refresh"), (has_gpu, "Gpu"), (has_usb, "Usb"), (true, "EmergencyKey"), (true, "Diagnostics"), (has_boot, "Boot")] {
         if on {
             features.push(name.to_string());
         }
@@ -224,6 +225,9 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
     }
     b = b.serve_at(P_EMERGENCY, EmergencyKey(shared.clone()))?;
     b = b.serve_at(P_DIAG, Diagnostics(shared.clone()))?;
+    if has_boot {
+        b = b.serve_at(P_BOOT, Boot::new(shared.clone()))?;
+    }
     let conn = b.name(BUS)?.build().await?;
     eprintln!("tb323fu-helperd {} on {} bus: {}", env!("CARGO_PKG_VERSION"), if session { "session" } else { "system" },
         shared.features.join(" "));
@@ -256,6 +260,7 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
         if has_usb { watch::<Usb>(&conn, P_USB, &mut last).await; }
         watch::<EmergencyKey>(&conn, P_EMERGENCY, &mut last).await;
         watch::<Diagnostics>(&conn, P_DIAG, &mut last).await;
+        if has_boot { watch::<Boot>(&conn, P_BOOT, &mut last).await; }
         async_io::Timer::after(Duration::from_secs(5)).await;
     }
 }

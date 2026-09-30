@@ -87,6 +87,24 @@
     <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
   </action>
 
+  <action id="io.github.joonhoekim.tb323fu.helper.boot-next">
+    <description>Choose the root filesystem for the next boot</description>
+    <message>Authentication is required to choose the next boot</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.reboot-into">
+    <description>Restart into another installed system</description>
+    <message>Authentication is required to restart into another system</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.boot-default">
+    <description>Change the default system</description>
+    <message>Authentication is required to change the default system</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+
   <action id="io.github.joonhoekim.tb323fu.helper.admin">
     <description>Change administrative helper settings</description>
     <message>Authentication is required to change the helper's administrative settings</message>

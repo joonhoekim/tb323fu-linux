@@ -9,7 +9,9 @@ use crate::Shared;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tb323fu_helper_core::boot;
 use tb323fu_helper_core::features as f;
+use std::sync::Mutex;
 use zbus::fdo;
 use zbus::interface;
 use zbus::message::Header;
@@ -26,6 +28,7 @@ pub const P_GPU: &str = "/io/github/joonhoekim/tb323fu/Helper/Gpu";
 pub const P_USB: &str = "/io/github/joonhoekim/tb323fu/Helper/Usb";
 pub const P_EMERGENCY: &str = "/io/github/joonhoekim/tb323fu/Helper/EmergencyKey";
 pub const P_DIAG: &str = "/io/github/joonhoekim/tb323fu/Helper/Diagnostics";
+pub const P_BOOT: &str = "/io/github/joonhoekim/tb323fu/Helper/Boot";
 
 fn failed(e: String) -> fdo::Error {
     fdo::Error::Failed(e)
@@ -646,6 +649,122 @@ impl Helper {
         *self.0.firmware.lock().unwrap() = None;
         self.0.gpu_tick(conn, true).await;
         self.0.ledring_tick(true);
+        Ok(())
+    }
+}
+
+// ------------------------------------------------------------------ Boot
+
+/// Cached multiboot state: listing roots mounts other partitions, and reading
+/// the selection mounts the UFS root when running elsewhere -- so the poller
+/// only compares the cache and the partition list; `Rescan()` and the setters
+/// refresh it.
+#[derive(Default)]
+pub struct BootCache {
+    roots: Option<Vec<boot::Root>>,
+    next: Option<String>,
+    default: Option<String>,
+    current: Option<String>,
+}
+
+pub struct Boot(pub Arc<Shared>, pub Mutex<BootCache>);
+
+impl Boot {
+    pub fn new(sh: Arc<Shared>) -> Self {
+        Boot(sh, Mutex::new(BootCache::default()))
+    }
+    fn cache(&self) -> std::sync::MutexGuard<'_, BootCache> {
+        self.1.lock().unwrap_or_else(|e| e.into_inner())
+    }
+    fn refresh_selection(&self) {
+        let mut c = self.cache();
+        c.next = Some(boot::next());
+        c.default = Some(boot::default_root());
+    }
+}
+
+impl Snapshot for Boot {
+    const IFACE: &'static str = "io.github.joonhoekim.tb323fu.Helper.Boot";
+    const PROPS: &'static [&'static str] = &["Roots", "Default", "Next", "Current"];
+    fn snapshot(&self) -> String {
+        let c = self.cache();
+        format!("{:?} {:?} {:?}", boot::partitions(), c.next, c.default)
+    }
+}
+
+#[interface(name = "io.github.joonhoekim.tb323fu.Helper.Boot")]
+impl Boot {
+    /// (partition name, os-release PRETTY_NAME, present, init kind: systemd / nixos / none)
+    #[zbus(property)]
+    fn roots(&self) -> Vec<(String, String, bool, String)> {
+        let mut c = self.cache();
+        let names: Vec<String> = boot::partitions().into_iter().map(|p| p.0).collect();
+        let stale = c.roots.as_ref().is_none_or(|r| r.iter().map(|x| &x.name).ne(names.iter()));
+        if stale {
+            c.roots = Some(boot::roots());
+        }
+        c.roots.clone().unwrap_or_default().into_iter().map(|r| (r.name, r.label, r.present, r.init)).collect()
+    }
+    #[zbus(property)]
+    fn default(&self) -> String {
+        let need = self.cache().default.is_none();
+        if need { self.refresh_selection(); }
+        self.cache().default.clone().unwrap_or_else(|| boot::DEFAULT_ROOT.into())
+    }
+    #[zbus(property)]
+    fn next(&self) -> String {
+        let need = self.cache().next.is_none();
+        if need { self.refresh_selection(); }
+        self.cache().next.clone().unwrap_or_default()
+    }
+    #[zbus(property)]
+    fn current(&self) -> String {
+        let mut c = self.cache();
+        c.current.get_or_insert_with(boot::current_root).clone()
+    }
+
+    /// Boot this root once on the next boot (the initramfs forgets it after reading).
+    async fn set_next(&self, name: String, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "boot-next", self.0.no_polkit).await?;
+        boot::set_next(&name).map_err(invalid)?;
+        self.refresh_selection();
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+    async fn clear_next(&self, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "boot-next", self.0.no_polkit).await?;
+        boot::clear_next().map_err(failed)?;
+        self.refresh_selection();
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+    /// Persistent default root (baldur-root removes the override).
+    async fn set_default(&self, name: String, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "boot-default", self.0.no_polkit).await?;
+        boot::set_default(&name).map_err(invalid)?;
+        self.refresh_selection();
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+    /// Set the one-shot root and reboot now.
+    async fn reboot_into(&self, name: String, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "reboot-into", self.0.no_polkit).await?;
+        boot::set_next(&name).map_err(invalid)?;
+        std::process::Command::new("systemctl").arg("reboot").spawn().map_err(|e| failed(format!("systemctl reboot: {e}")))?;
+        Ok(())
+    }
+    /// Re-read the partitions, their os-release and the selection files.
+    async fn rescan(&self, #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        {
+            let mut c = self.cache();
+            c.roots = Some(boot::roots());
+            c.current = Some(boot::current_root());
+        }
+        self.refresh_selection();
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
         Ok(())
     }
 }

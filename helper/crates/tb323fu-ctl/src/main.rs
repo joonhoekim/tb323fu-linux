@@ -7,7 +7,7 @@ use zbus::zvariant::{OwnedValue, Value};
 
 const BUS: &str = "io.github.joonhoekim.tb323fu.Helper";
 const ROOT: &str = "/io/github/joonhoekim/tb323fu/Helper";
-const OBJECTS: [&str; 9] = ["Battery", "Android", "Torch", "LedRing", "Refresh", "Gpu", "Usb", "EmergencyKey", "Diagnostics"];
+const OBJECTS: [&str; 10] = ["Battery", "Android", "Torch", "LedRing", "Refresh", "Gpu", "Usb", "EmergencyKey", "Diagnostics", "Boot"];
 
 const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
 
@@ -24,6 +24,8 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
   usb [wake on|off|dev on|off]
   emergency-key [on|off|hold SECONDS]
   diagnostics [export]
+  boot [list|next NAME|clear|default NAME|reboot NAME|rescan]
+                                 installed systems (multiboot): one-shot next boot, default, restart into
   versions                       helper, kernel, series, firmware state
   reload                         re-read /etc/tb323fu/helper.toml (admin)";
 
@@ -144,6 +146,36 @@ impl Ctl {
                 1
             }
         }
+    }
+}
+
+impl Ctl {
+    /// Installed roots as a table (or the raw properties with --json).
+    fn boot_list(&self) -> i32 {
+        if self.json {
+            return self.show(&["Boot"]);
+        }
+        let Some(p) = self.props("Boot") else {
+            eprintln!("tb323fu-ctl: no Boot object (helper not running, or no root partitions)");
+            return 1;
+        };
+        let get = |k: &str| p.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let (cur, def, next) = (get("Current"), get("Default"), get("Next"));
+        println!("{:<3} {:<18} {:<8} {}", "", "PARTITION", "INIT", "SYSTEM");
+        if let Some(serde_json::Value::Array(rs)) = p.get("Roots") {
+            for r in rs {
+                let f = |i: usize| r.get(i).map(|v| v.as_str().map(str::to_string).unwrap_or_else(|| v.to_string())).unwrap_or_default();
+                let name = f(0);
+                let mut mark = String::new();
+                if name == cur { mark.push('*'); }
+                if name == def { mark.push('d'); }
+                if name == next { mark.push('n'); }
+                let label = f(1);
+                println!("{:<3} {:<18} {:<8} {}", mark, name, f(3), if label.is_empty() { "(empty)".into() } else { label });
+            }
+        }
+        println!("* running  d default ({def})  n next boot ({})", if next.is_empty() { "none" } else { next.as_str() });
+        0
     }
 }
 
@@ -287,6 +319,24 @@ fn run(args: &[String]) -> i32 {
         "diagnostics" => match rest.first().copied() {
             None => c.show(&["Diagnostics"]),
             Some("export") => c.call("Diagnostics", "Export", &()),
+            _ => usage(),
+        },
+        "boot" => match rest.first().copied() {
+            None | Some("list") => c.boot_list(),
+            Some("next") => match rest.get(1) {
+                Some(n) => c.call("Boot", "SetNext", &(*n,)),
+                None => usage(),
+            },
+            Some("clear") => c.call("Boot", "ClearNext", &()),
+            Some("default") => match rest.get(1) {
+                Some(n) => c.call("Boot", "SetDefault", &(*n,)),
+                None => usage(),
+            },
+            Some("reboot") => match rest.get(1) {
+                Some(n) => c.call("Boot", "RebootInto", &(*n,)),
+                None => usage(),
+            },
+            Some("rescan") => c.call("Boot", "Rescan", &()),
             _ => usage(),
         },
         "reload" => c.call("", "Reload", &()),

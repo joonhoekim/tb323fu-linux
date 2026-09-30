@@ -4,6 +4,7 @@
 //! it safely, and the persistent configuration. No D-Bus here, so everything
 //! can be tested against a fake sysfs tree (`TB323FU_SYSFS_ROOT`).
 
+pub mod boot;
 pub mod config;
 pub mod features;
 pub mod sys;

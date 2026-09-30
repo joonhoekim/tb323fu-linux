@@ -185,6 +185,14 @@ struct Ui {
     and_hash: gtk::Label,
     and_auth: adw::SwitchRow,
     and_switch: gtk::Button,
+    // Systems (multiboot)
+    boot_group: adw::PreferencesGroup,
+    boot_rows: RefCell<Vec<adw::ActionRow>>,
+    boot_last: RefCell<(Vec<(String, String, bool, String)>, String, String, String)>,
+    boot_next: gtk::Label,
+    boot_clear: gtk::Button,
+    boot_default: adw::ComboRow,
+    boot_default_names: RefCell<Vec<String>>,
     // Diagnostics
     diag_crash: gtk::Label,
     diag_clean: gtk::Label,
@@ -299,6 +307,16 @@ impl Ui {
         let and_switch = button(&g, "Restart into Android", "Writes the Android image back and restarts now", "Restart…");
         and_switch.add_css_class("destructive-action");
 
+        // Systems (multiboot)
+        let p_boot = adw::PreferencesPage::new();
+        let boot_group = group(&p_boot, "Installed systems", "Root filesystems the tablet can boot (UFS and the SD card). A restart into another system boots it once; the next restart comes back to the default.");
+        let g = group(&p_boot, "Next boot", "");
+        let boot_next = info(&g, "Next restart");
+        let boot_clear = button(&g, "Cancel the one-time choice", "", "Clear");
+        let g = group(&p_boot, "Default", "");
+        let boot_default = adw::ComboRow::builder().title("Default system").subtitle("Changing it asks for authentication").build();
+        g.add(&boot_default);
+
         // Diagnostics
         let p_diag = adw::PreferencesPage::new();
         let g = group(&p_diag, "Crash records", "");
@@ -325,13 +343,14 @@ impl Ui {
         let sidebar = gtk::ListBox::new();
         sidebar.add_css_class("navigation-sidebar");
         sidebar.set_selection_mode(gtk::SelectionMode::Single);
-        let defs: [(&str, &str, &'static [&'static str], &adw::PreferencesPage); 9] = [
+        let defs: [(&str, &str, &'static [&'static str], &adw::PreferencesPage); 10] = [
             ("Battery", "battery-good-symbolic", &["Battery"], &p_bat),
             ("Display", "video-display-symbolic", &["Refresh"], &p_ref),
             ("Performance", "power-profile-balanced-symbolic", &["Gpu"], &p_gpu),
             ("Torch & LED ring", "weather-clear-symbolic", &["Torch", "LedRing"], &p_led),
             ("USB", "media-removable-symbolic", &["Usb"], &p_usb),
             ("Emergency key", "dialog-warning-symbolic", &["EmergencyKey"], &p_ek),
+            ("Systems", "drive-multidisk-symbolic", &["Boot"], &p_boot),
             ("Android", "system-reboot-symbolic", &["Android"], &p_and),
             ("Diagnostics", "utilities-system-monitor-symbolic", &["Diagnostics"], &p_diag),
             ("About", "help-about-symbolic", &[""], &p_about),
@@ -426,6 +445,13 @@ impl Ui {
             and_hash,
             and_auth,
             and_switch,
+            boot_group,
+            boot_rows: RefCell::new(Vec::new()),
+            boot_last: RefCell::new((Vec::new(), String::new(), String::new(), String::new())),
+            boot_next,
+            boot_clear,
+            boot_default,
+            boot_default_names: RefCell::new(Vec::new()),
             diag_crash,
             diag_clean,
             diag_path,
@@ -673,6 +699,20 @@ impl Ui {
             d.present(Some(&ui.window));
         });
 
+        // Systems
+        let ui = self.clone();
+        self.boot_clear.connect_clicked(move |_| ui.call_simple("Boot", "ClearNext", ()));
+        let ui = self.clone();
+        self.boot_default.connect_selected_notify(move |r| {
+            if ui.updating.get() {
+                return;
+            }
+            let name = ui.boot_default_names.borrow().get(r.selected() as usize).cloned();
+            if let Some(n) = name {
+                ui.call_simple("Boot", "SetDefault", (n,));
+            }
+        });
+
         // Diagnostics
         let ui = self.clone();
         export_btn.connect_clicked(move |_| {
@@ -739,7 +779,9 @@ impl Ui {
         let ek = get("EmergencyKey");
         let and = get("Android");
         let diag = get("Diagnostics");
+        let bootp = get("Boot");
         let present = |o: &str| match o {
+            "Boot" => bootp.is_some(),
             "" => true,
             "Battery" => bat.is_some(),
             "Refresh" => rf.is_some(),
@@ -807,10 +849,84 @@ impl Ui {
                 },
             );
         }
+        if let Some(p) = &bootp {
+            self.update_boot(p);
+        }
         if let Some(p) = &root {
             self.update_about(p);
         }
         self.updating.set(false);
+    }
+
+    fn update_boot(self: &Rc<Self>, p: &Props) {
+        let roots = dbus::roots(p, "Roots");
+        let cur = dbus::s(p, "Current").unwrap_or_default();
+        let def = dbus::s(p, "Default").unwrap_or_default();
+        let next = dbus::s(p, "Next").unwrap_or_default();
+        set_text(&self.boot_next, if next.is_empty() { "the default" } else { next.as_str() });
+        self.boot_clear.set_sensitive(!next.is_empty());
+        let state = (roots.clone(), cur.clone(), def.clone(), next.clone());
+        if *self.boot_last.borrow() == state {
+            return;
+        }
+        for r in self.boot_rows.borrow_mut().drain(..) {
+            self.boot_group.remove(&r);
+        }
+        for (name, label, _present, init) in &roots {
+            let mut marks = Vec::new();
+            if *name == cur {
+                marks.push("running");
+            }
+            if *name == def {
+                marks.push("default");
+            }
+            if *name == next {
+                marks.push("next restart");
+            }
+            let kind = if init == "none" { "no system installed" } else { init.as_str() };
+            let sub = if marks.is_empty() { format!("{name} · {kind}") } else { format!("{name} · {kind} · {}", marks.join(", ")) };
+            let title = if label.is_empty() { name.clone() } else { label.clone() };
+            let row = adw::ActionRow::builder().title(title.as_str()).subtitle(sub.as_str()).build();
+            row.set_title_lines(0);
+            row.set_subtitle_lines(0);
+            let b = gtk::Button::with_label("Restart…");
+            b.set_valign(gtk::Align::Center);
+            b.set_sensitive(init != "none" && *name != cur);
+            let ui = self.clone();
+            let n2 = name.clone();
+            b.connect_clicked(move |_| {
+                let d = adw::AlertDialog::new(
+                    Some(&format!("Restart into {title}?")),
+                    Some("The tablet restarts now and boots this system once; the next restart comes back to the default. Unsaved work is lost."),
+                );
+                d.add_response("cancel", "Cancel");
+                d.add_response("go", "Restart");
+                d.set_response_appearance("go", adw::ResponseAppearance::Destructive);
+                d.set_default_response(Some("cancel"));
+                d.set_close_response("cancel");
+                let ui2 = ui.clone();
+                let n3 = n2.clone();
+                d.connect_response(None, move |_, resp| {
+                    if resp == "go" {
+                        ui2.call_simple("Boot", "RebootInto", (n3.clone(),));
+                    }
+                });
+                d.present(Some(&ui.window));
+            });
+            row.add_suffix(&b);
+            self.boot_group.add(&row);
+            self.boot_rows.borrow_mut().push(row);
+        }
+        let bootable: Vec<&(String, String, bool, String)> = roots.iter().filter(|r| r.3 != "none").collect();
+        let names: Vec<String> = bootable.iter().map(|r| r.0.clone()).collect();
+        let labels: Vec<String> = bootable.iter().map(|r| if r.1.is_empty() { r.0.clone() } else { format!("{} ({})", r.1, r.0) }).collect();
+        let model = gtk::StringList::new(&labels.iter().map(String::as_str).collect::<Vec<_>>());
+        self.boot_default.set_model(Some(&model));
+        if let Some(i) = names.iter().position(|n| *n == def) {
+            self.boot_default.set_selected(i as u32);
+        }
+        *self.boot_default_names.borrow_mut() = names;
+        *self.boot_last.borrow_mut() = state;
     }
 
     fn update_battery(&self, p: &Props) {

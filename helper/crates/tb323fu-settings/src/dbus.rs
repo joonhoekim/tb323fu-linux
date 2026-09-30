@@ -161,3 +161,26 @@ pub fn dict_suu(p: &Props, k: &str) -> Vec<(String, u32, u32)> {
     out.sort();
     out
 }
+
+/// a(ssbs): the helper's Boot.Roots (name, label, present, init kind).
+pub fn roots(p: &Props, k: &str) -> Vec<(String, String, bool, String)> {
+    let mut out = Vec::new();
+    if let Some(Value::Array(a)) = val(p, k) {
+        for v in a.iter() {
+            let v = match v {
+                Value::Value(b) => &**b,
+                other => other,
+            };
+            if let Value::Structure(st) = v {
+                let f = st.fields();
+                if f.len() == 4 {
+                    let b = matches!(&f[2], Value::Bool(true));
+                    if let (Some(n), Some(l), Some(i)) = (str_of(&f[0]), str_of(&f[1]), str_of(&f[3])) {
+                        out.push((n, l, b, i));
+                    }
+                }
+            }
+        }
+    }
+    out
+}
