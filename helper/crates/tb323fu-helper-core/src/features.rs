@@ -135,16 +135,28 @@ pub fn charger() -> (String, String) {
 
 // ---------------------------------------------------------------- android
 
-pub const ANDROID_HASH: &str = "/etc/android-boot.sha256";
+/// The platform files keep it in /etc/tb323fu; /etc/android-boot.sha256 is the
+/// older development location.
+pub const ANDROID_HASH: &str = "/etc/tb323fu/android-boot.sha256";
+const ANDROID_HASH_OLD: &str = "/etc/android-boot.sha256";
 const BACK_TO_ANDROID: [&str; 3] = ["/usr/local/sbin/back-to-android", "/usr/sbin/back-to-android", "/usr/libexec/tb323fu/back-to-android"];
 
 pub fn android_hash() -> Option<String> {
-    let h = sys::read_opt(&sys::path(ANDROID_HASH))?;
+    let h = sys::read_opt(&sys::path(ANDROID_HASH)).or_else(|| sys::read_opt(&sys::path(ANDROID_HASH_OLD)))?;
     let h = h.split_whitespace().next()?.to_lowercase();
     (h.len() == 64 && h.chars().all(|c| c.is_ascii_hexdigit())).then_some(h)
 }
 
 pub fn back_to_android_tool() -> Option<PathBuf> {
+    // PATH first (NixOS: the platform package's sbin), then the FHS locations;
+    // under a fake root (tests) only the fake FHS locations count
+    if std::env::var_os("TB323FU_SYSFS_ROOT").is_none_or(|r| r.is_empty()) {
+        if let Some(path) = std::env::var_os("PATH") {
+            if let Some(p) = std::env::split_paths(&path).map(|d| d.join("back-to-android")).find(|p| p.is_file()) {
+                return Some(p);
+            }
+        }
+    }
     BACK_TO_ANDROID.iter().map(|p| sys::path(p)).find(|p| p.exists())
 }
 

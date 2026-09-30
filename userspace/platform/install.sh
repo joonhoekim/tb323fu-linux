@@ -57,6 +57,11 @@ else
 	echo "note: no C compiler ($CC): build src/keyhold.c and install it as $libexec/keyhold" >&2
 fi
 
+# back-to-android: the Linux side of the Android<->Linux switch (android/); the
+# emergency key and the helper run it
+install -D -m 755 "$here/../../android/back-to-android" "$DESTDIR$PREFIX/sbin/back-to-android"
+fix "$DESTDIR$PREFIX/sbin/back-to-android"
+
 # audio, camera
 put 644 alsa/ucm2/conf.d/kaanapali/LENOVO-TB323FU.conf "$PREFIX/share/alsa/ucm2/conf.d/kaanapali/LENOVO-TB323FU.conf"
 put 644 alsa/ucm2/Lenovo/TB323FU/HiFi.conf "$PREFIX/share/alsa/ucm2/Lenovo/TB323FU/HiFi.conf"
