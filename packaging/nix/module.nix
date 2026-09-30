@@ -103,7 +103,7 @@ in {
       }) platformUnits;
       systemd.user.services.tb323fu-speaker-gain = {
         wantedBy = [ "pipewire.service" ];
-        path = toolPath;
+        path = toolPath ++ [ pkgs.pipewire ];   # pw-cli, pw-metadata
       };
       # configuration is mutable (the helper writes it): copy the defaults once
       systemd.tmpfiles.rules = [

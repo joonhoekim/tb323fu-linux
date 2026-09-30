@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: MIT
+# The multiboot root partitions (the initramfs's candidates: baldur-root,
+# baldur-root-sd, tb323fu-*) are other systems, not removable media: the
+# desktop must not automount them (they stay visible in the file manager).
+# An automounted root also blocked the helper's read-only probe of it.
+SUBSYSTEM!="block", GOTO="tb323fu_roots_end"
+ENV{ID_PART_ENTRY_NAME}=="baldur-root|baldur-root-sd|tb323fu-*", ENV{UDISKS_AUTO}="0"
+LABEL="tb323fu_roots_end"
