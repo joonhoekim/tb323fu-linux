@@ -173,6 +173,14 @@ dnf install --allowerasing --skip-unavailable $(echo $base $desk $fexp $ssc)
 # the Mobian helpers that hold the boot or poke the Android A/B slots.
 ch systemctl mask rmtfs.service tqftpserv.service droid-juicer.service qbootctl.service \
 	bootmac-bluetooth.service ModemManager.service >/dev/null 2>&1 || true
+# Fedora's dist-alsa.conf: `install snd-pcm ... && modprobe snd-seq`. This
+# kernel has no snd-seq, the install command fails, and udev's modprobe of the
+# LPASS codec macros (which need snd-pcm) fails with it: no sound card at boot.
+cat > "$T/etc/modprobe.d/tb323fu-no-snd-seq.conf" <<'EOM'
+# tb323fu: this kernel has no snd-seq (CONFIG_SND_SEQUENCER); dist-alsa.conf's
+# install rule then fails and snd-pcm dependents (LPASS codecs) do not load at boot.
+install snd-pcm /sbin/modprobe --ignore-install snd-pcm
+EOM
 # Boot time (graphical.target 22.9 s -> 7.5 s):
 # - iscsi.service orders itself After=network-online.target and Before=
 #   remote-fs.target even when its condition skips it, so GDM (after
@@ -190,8 +198,10 @@ ch systemctl preset-all >/dev/null 2>&1 || true
 # boot, so it is only kept when the copied modules have nft_compat. IPv6
 # rpfilter needs NFT_FIB_IPV6, which needs a new Image -- off until then.
 if find "$T/usr/lib/modules" -name 'nft_compat.ko*' | grep -q .; then
-	sed -i 's/^IPv6_rpfilter=.*/IPv6_rpfilter=no/' "$T/etc/firewalld/firewalld.conf"
-	grep -q '^IPv6_rpfilter=' "$T/etc/firewalld/firewalld.conf" || echo 'IPv6_rpfilter=no' >> "$T/etc/firewalld/firewalld.conf"
+	if ! find "$T/usr/lib/modules" -name 'nft_fib_ipv6.ko*' | grep -q .; then
+		sed -i 's/^IPv6_rpfilter=.*/IPv6_rpfilter=no/' "$T/etc/firewalld/firewalld.conf"
+		grep -q '^IPv6_rpfilter=' "$T/etc/firewalld/firewalld.conf" || echo 'IPv6_rpfilter=no' >> "$T/etc/firewalld/firewalld.conf"
+	fi
 else
 	ch systemctl disable firewalld.service >/dev/null 2>&1 || true
 fi
