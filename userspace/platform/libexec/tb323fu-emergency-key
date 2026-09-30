@@ -1,0 +1,31 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# tb323fu-emergency-key -- emergency way back to Android from Linux: hold
+# volume UP and volume DOWN together (default 10 s). The initramfs offers the
+# same chord before the root filesystem is up.
+#
+# /etc/tb323fu/emergency-key.conf (shell syntax; written by the tb323fu helper):
+#   ENABLED=1          0 turns the chord off (the service then just idles)
+#   HOLD_SECONDS=10    how long both keys must be held
+# /etc/tb323fu/android-boot.sha256: sha256 of the Android boot image kept in
+# boot_b; back-to-android refuses to write anything unless boot_b matches it.
+# keyhold (src/keyhold.c) watches the two keys.
+ENABLED=1
+HOLD_SECONDS=10
+KEYHOLD=/usr/libexec/tb323fu/keyhold
+say() { echo "<1>tb323fu: $*" > /dev/kmsg; }
+b2a=$(command -v back-to-android || echo /usr/local/sbin/back-to-android)
+while :; do
+	[ -r /etc/tb323fu/emergency-key.conf ] && . /etc/tb323fu/emergency-key.conf
+	if [ "$ENABLED" != 1 ]; then sleep 30; continue; fi
+	want=$(cat /etc/tb323fu/android-boot.sha256 2>/dev/null)
+	"$KEYHOLD" "$HOLD_SECONDS" pmic_resin:114 gpio-keys:115 | while read -r s; do
+		case $s in
+		hold)    say ">>> volume up+down held: keep holding $HOLD_SECONDS s to go back to Android" ;;
+		release) say ">>> (released: not restoring)" ;;
+		done)    say ">>> restoring Android from boot_b"; sync
+			 "$b2a" "$want" 2>&1 | while read -r l; do say ">>> $l"; done ;;
+		esac
+	done
+	sleep 1
+done

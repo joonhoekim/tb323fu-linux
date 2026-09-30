@@ -1,0 +1,48 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# tb323fu-speaker-gain on|off|status -- speaker amplifier attenuation for the
+# protected PipeWire "Speakers" sink.
+#   on   SPEAKER_ATTEN_PROTECTED (loud; the filter chain protects the speakers)
+#   off  SPEAKER_ATTEN (the safe boot value, 16 dB down; nothing needed)
+# Run by the user unit tb323fu-speaker-gain.service, bound to pipewire.service:
+# the amplifiers are only opened up while PipeWire (and its protecting filter)
+# runs. Needs the audio group (ALSA control device).
+SPEAKER_ATTEN=159
+SPEAKER_ATTEN_PROTECTED=21
+[ -r /etc/tb323fu/audio.conf ] && . /etc/tb323fu/audio.conf
+card=$(awk '/LENOVO|TB323FU/{print $1; exit}' /proc/asound/cards)
+[ -n "$card" ] || { echo "no TB323FU sound card"; exit 0; }
+set_att() {
+	amixer -q -c "$card" cset name=aw_dev_0_volume "$1" &&
+	amixer -q -c "$card" cset name=aw_dev_1_volume "$1"
+}
+# The configured default output: a user's own choice (headphones, Bluetooth)
+# is kept; empty, the raw speaker sink or an old loudness sink becomes the
+# protected "Speakers". WirePlumber 0.5 lists filter-chain sinks as Filters
+# and does not pick them by priority alone.
+prot=effect_input.speakers
+cfg() {
+	pw-metadata 0 default.configured.audio.sink 2>/dev/null |
+		grep -o '"name":"[^"]*"' | cut -d'"' -f4
+}
+case $1 in
+on)
+	case "$(cfg)" in
+	"" | *HiFi__Speaker__sink | effect_input.speaker_plus*)
+		pw-metadata 0 default.configured.audio.sink "{\"name\":\"$prot\"}" > /dev/null ;;
+	esac
+	# open the amplifiers only once the protected sink exists
+	i=0
+	until pw-cli ls Node 2>/dev/null | grep -q "node.name = \"$prot\""; do
+		i=$((i + 1))
+		[ $i -gt 20 ] && { echo "no $prot -- staying at $SPEAKER_ATTEN"; set_att "$SPEAKER_ATTEN"; exit 1; }
+		sleep 0.5
+	done
+	set_att "$SPEAKER_ATTEN_PROTECTED" ;;
+off) set_att "$SPEAKER_ATTEN" ;;
+status)
+	amixer -c "$card" cget name=aw_dev_0_volume | sed -n 's/.*: values=/aw_dev_0_volume /p'
+	amixer -c "$card" cget name=aw_dev_1_volume | sed -n 's/.*: values=/aw_dev_1_volume /p'
+	echo "default output: $(cfg)" ;;
+*) echo "usage: $0 on|off|status"; exit 2 ;;
+esac

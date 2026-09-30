@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=Generate this install's Bluetooth address and Wi-Fi MAC (once)
+# Images carry no real address. Runs before udev applies .link files, so the
+# Wi-Fi MAC is in place for the first rename, and before tb323fu-btaddr reads
+# the BT address. Does nothing once both files exist (never overwritten).
+DefaultDependencies=no
+After=systemd-remount-fs.service local-fs.target
+Before=systemd-udev-trigger.service tb323fu-btaddr.service
+ConditionPathExists=|!/etc/tb323fu/bt-address
+ConditionPathExists=|!/etc/systemd/network/10-tb323fu-wlan-mac.link
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/tb323fu/tb323fu-gen-ids
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target

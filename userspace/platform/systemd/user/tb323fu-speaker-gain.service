@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MIT
+# Open the speaker amplifiers up (SPEAKER_ATTEN_PROTECTED) only while PipeWire
+# -- and its protecting "Speakers" filter chain -- runs; back to the safe
+# SPEAKER_ATTEN when it stops (/etc/tb323fu/audio.conf).
+[Unit]
+Description=Speaker amplifier gain for the protected PipeWire speaker sink
+After=pipewire.service wireplumber.service
+BindsTo=pipewire.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/tb323fu/tb323fu-speaker-gain on
+ExecStop=/usr/libexec/tb323fu/tb323fu-speaker-gain off
+
+[Install]
+WantedBy=pipewire.service

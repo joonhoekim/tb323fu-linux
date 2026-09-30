@@ -1,0 +1,52 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# tb323fu-gen-ids -- per-install network identities. Images ship no real
+# address; on first boot this derives stable ones from /etc/machine-id:
+#
+#   /etc/tb323fu/bt-address                         Bluetooth public address, used by
+#                                                   tb323fu-btaddr.service (the WCN7860
+#                                                   comes up without one)
+#   /etc/systemd/network/10-tb323fu-wlan-mac.link   Wi-Fi MAC (the firmware hands out a
+#                                                   new 00:03:7f:xx on every boot)
+#
+# Each address = first 6 bytes of sha256("<label>:<machine-id>") with the
+# locally-administered bit set and the multicast bit cleared: stable across
+# reboots, different per install, not the factory address.
+# An existing file is never touched -- to keep your own values (e.g. the
+# factory Bluetooth address from Android's ro.odm.lenovo.btaddr), write the
+# files yourself before first boot.
+set -eu
+[ -s /etc/machine-id ] || systemd-machine-id-setup > /dev/null
+id=$(cat /etc/machine-id)
+
+addr() { # label -> six colon-separated hex bytes
+	h=$(printf '%s:%s' "$1" "$id" | sha256sum | cut -c1-12)
+	b0=$(( (0x$(echo "$h" | cut -c1-2) | 0x02) & 0xfe ))
+	printf '%02x%s' "$b0" "$(echo "$h" | cut -c3-12)" | sed 's/../&:/g; s/:$//'
+}
+
+if [ ! -e /etc/tb323fu/bt-address ]; then
+	mkdir -p /etc/tb323fu
+	addr tb323fu-bt | tr a-f A-F > /etc/tb323fu/bt-address
+	echo "tb323fu-gen-ids: bt-address $(cat /etc/tb323fu/bt-address)"
+fi
+
+l=/etc/systemd/network/10-tb323fu-wlan-mac.link
+if [ ! -e $l ]; then
+	mkdir -p /etc/systemd/network
+	cat > $l <<EOF
+# WCN7860 Wi-Fi: a fixed, locally administered MAC, generated on
+# first boot from /etc/machine-id by tb323fu-gen-ids. The firmware otherwise
+# hands out a new 00:03:7f:xx:xx:xx on every boot. A matching .link replaces
+# 99-default.link, so its naming is repeated here to keep the name wlp1s0.
+[Match]
+Path=platform-1c00000.pcie-pci-0000:01:00.0
+
+[Link]
+MACAddressPolicy=none
+MACAddress=$(addr tb323fu-wlan)
+NamePolicy=keep kernel database onboard slot path
+AlternativeNamesPolicy=database onboard slot path
+EOF
+	echo "tb323fu-gen-ids: wlan $(sed -n 's/^MACAddress=//p' $l)"
+fi

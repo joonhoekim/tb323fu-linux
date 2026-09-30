@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=Give the WCN7860 Bluetooth controller its address
+# The controller comes up unconfigured ("missing options: public-address"):
+# on Android the bootloader puts the address in the device tree, and this
+# kernel carries its own. The address comes from /etc/tb323fu/bt-address
+# (written once per install by tb323fu-gen-ids, or provided by the user).
+Before=bluetooth.service
+After=sys-subsystem-bluetooth-devices-hci0.device
+Wants=sys-subsystem-bluetooth-devices-hci0.device
+ConditionPathExists=/etc/tb323fu/bt-address
+
+[Service]
+Type=oneshot
+# btmgmt with /dev/null as stdin (a service's default) prints nothing and never
+# returns; `echo |` gives it a stdin that ends at once (returns in ~2 ms).
+# (Not `sleep N |`: a pipeline lasts as long as its last member.) Each try is
+# bounded, and it stops as soon as the controller already has the address.
+TimeoutStartSec=70
+ExecStart=/bin/sh -c 'a="$(cat /etc/tb323fu/bt-address)"; for i in 1 2 3 4 5 6; do echo | timeout 5 btmgmt --index 0 info 2>/dev/null | grep -qi "addr $a" && exit 0; echo | timeout 5 btmgmt --index 0 public-addr "$a" | grep -q complete && exit 0; sleep 2; done; exit 1'
+
+[Install]
+# only ahead of bluetoothd; WantedBy=multi-user.target would make the whole
+# boot wait for it
+WantedBy=bluetooth.target

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT
+[Unit]
+Description=Volume up+down held: back to Android (emergency way out)
+# Configuration: /etc/tb323fu/emergency-key.conf (the helper edits it).
+ConditionPathExists=/etc/tb323fu/android-boot.sha256
+
+[Service]
+ExecStart=/usr/libexec/tb323fu/tb323fu-emergency-key
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

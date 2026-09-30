@@ -1,0 +1,53 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# tb323fu-usb-port -- route the one USB controller to the connector in use.
+# TB323FU has two USB-C ports on one dwc3: the bottom one
+# (USB 3.2 + DP, ucsi port0) and the side one (USB 2.0 only, ucsi port1).
+# TLMM gpio30 picks which connector gets the HS lines (Android: low = bottom,
+# high = side; the vendor ucsi-glink "gpios"). Only port0 is in the DT
+# connector graph, so ucsi sets the controller's role for it; for the side
+# port this script does, from port1's power role. Both in use: bottom wins
+# (Android also allows only one data port at a time).
+# Run by 70-tb323fu-usb-port.rules on Type-C partner changes and at boot.
+# With "boot" (the service), also recover the gadget: after some forced
+# restarts the UDC stays "not attached" although ucsi has the role at device
+# and a PC is on the port; a none -> device toggle brings it up. The
+# state is logged first so the cause can be traced.
+role=/sys/class/usb_role/a600000.usb-role-switch/role
+chip=$(gpiodetect 2>/dev/null | awk '/\[f100000\.pinctrl\]/ {print $1; exit}')
+[ -n "$chip" ] || exit 0
+if [ -e /sys/class/typec/port0-partner ] || [ ! -e /sys/class/typec/port1-partner ]; then
+	gpioset -c "$chip" -t0 30=0
+	# port0 empty too: back to the default role, ready for a PC
+	[ -e /sys/class/typec/port0-partner ] || echo device > "$role" 2>/dev/null
+	logger -t tb323fu-usb-port "bottom port (gpio30 low)"
+else
+	gpioset -c "$chip" -t0 30=1
+	# ucsi reports port1's data role as host even with a PC on it (non-PD,
+	# the tablet sinking), so take the role from the power role
+	case "$(cat /sys/class/typec/port1/power_role)" in
+	*"[sink]"*) r=device ;;
+	*) r=host ;;
+	esac
+	echo "$r" > "$role" 2>/dev/null
+	logger -t tb323fu-usb-port "side port (gpio30 high), role $r"
+fi
+
+[ "$1" = boot ] || exit 0
+udc=/sys/class/udc/a600000.usb/state
+usb=/sys/class/power_supply/qcom-battmgr-usb
+# nothing to recover without a USB host on the cable: don't poll at all
+grep -q '\[\(SDP\|CDP\)\]' $usb/usb_type 2>/dev/null || exit 0
+for i in $(seq 1 15); do
+	[ "$(cat $udc 2>/dev/null)" = "not attached" ] || exit 0
+	sleep 1
+done
+# still not attached: only act when a USB host is actually there
+grep -q '\[\(SDP\|CDP\)\]' $usb/usb_type 2>/dev/null || exit 0
+[ "$(cat $usb/online 2>/dev/null)" = 1 ] || exit 0
+logger -t tb323fu-usb-port "gadget not attached with a host present: role=$(cat $role)" 	"port0 data=$(cat /sys/class/typec/port0/data_role) power=$(cat /sys/class/typec/port0/power_role)" 	"partner=$([ -e /sys/class/typec/port0-partner ] && echo yes || echo no)" 	"usb_type=$(cat $usb/usb_type) uptime=$(cut -d' ' -f1 /proc/uptime); toggling role"
+echo none > "$role"
+sleep 1
+echo device > "$role"
+sleep 3
+logger -t tb323fu-usb-port "after toggle: udc $(cat $udc)"

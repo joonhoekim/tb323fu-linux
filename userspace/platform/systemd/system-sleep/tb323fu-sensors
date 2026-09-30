@@ -1,0 +1,12 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# tb323fu-sensors -- stop the sensor stream across system sleep.
+# iio-sensor-proxy (libssc) keeps the accelerometer streaming for automatic
+# rotation; the ADSP sensor hub then wakes about 36 times a second during
+# s2idle and keeps the SoC out of its deepest idle (CX collapse). Stop the
+# proxy before sleeping, start it again afterwards.
+case "$1" in
+pre)	systemctl stop iio-sensor-proxy.service ;;
+post)	systemctl start --no-block iio-sensor-proxy.service ;;
+esac
+exit 0
