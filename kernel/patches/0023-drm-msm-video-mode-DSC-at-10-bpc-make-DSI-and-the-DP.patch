@@ -1,0 +1,140 @@
+From ecfabe7a4da707e7f14223515588e0736219a4e0 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:26:17 +0000
+Subject: [PATCH 23/56] drm/msm: video-mode DSC at 10 bpc -- make DSI and the
+ DPU INTF agree on the line
+
+TB323FU's panel is one NT36523 on two bonded DSI links, video mode, DSC 1.2
+at 10 bpc (bpp 8). The screen stayed black with the DSI reporting FIFO
+errors (dsi_err_worker: status=4).
+
+The two sides sized the compressed line differently. The DPU INTF takes
+hdisplay * bpp / (bits_per_component * 3) = 952 * 8 / 30 = 253 pclk per
+link. DSI's pixel clock came from a fixed divisor of 24 (introduced for the
+OnePlus 15's command-mode panel, where it is right), i.e. 318 pclk. The DPU
+fed the DSI about 15% faster than it drained.
+
+- dsi_adjust_pclk_for_compression(): bits_per_component * 3 in VIDEO mode,
+  24 kept for CMD mode.
+- dpu_encoder_phys_vid.c: round the compressed width up, as DSI does
+  (254, not 253).
+- bring-up aids: print the pclk/byteclk set on each enable, and the raw
+  FIFO_STATUS (rate limited) -- "status=4" alone does not say which FIFO.
+
+Expected: 254 active pclk per link on both sides, ~1297 Mbps/lane against
+the vendor's 1300.49 (qcom,mdss-dsi-panel-clockrate). Found with a review
+that pointed at the same bug fixed for the Legion Y700 Gen4 (SM8750),
+ac47870fd795 and follow-ups.
+
+[y705 rebase 7.3: debug print hunk re-placed by hand: 7.3 rounds byte_clk_rate before the DBG line]
+y705-source: 0005-drm-msm-video-dsc-10bpc-line-length.patch
+---
+ .../drm/msm/disp/dpu1/dpu_encoder_phys_vid.c  |  4 +--
+ drivers/gpu/drm/msm/dsi/dsi_host.c            | 28 +++++++++++++------
+ 2 files changed, 22 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c
+index ba810f26e..2ac517db5 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c
+@@ -134,8 +134,8 @@ static void drm_mode_to_intf_timing_params(
+ 		 * TODO: replace drm_dsc_get_bpp_int with logic to handle
+ 		 * fractional part if there is fraction
+ 		 */
+-		timing->width = timing->width * drm_dsc_get_bpp_int(dsc) /
+-				(dsc->bits_per_component * 3);
++		timing->width = DIV_ROUND_UP(timing->width * drm_dsc_get_bpp_int(dsc),
++					     dsc->bits_per_component * 3);
+ 		timing->xres = timing->width;
+ 		timing->dce_bytes_per_line = msm_dsc_get_bytes_per_line(dsc);
+ 	}
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index d6bb2f482..44f717281 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -396,8 +396,8 @@ int dsi_link_clk_set_rate_6g(struct msm_dsi_host *msm_host)
+ 
+ 	msm_host->byte_clk_rate = rounded_byte_clk_rate;
+ 
+-	DBG("Set clk rates: pclk=%lu, byteclk=%lu",
+-	    msm_host->pixel_clk_rate, msm_host->byte_clk_rate);
++	pr_info("dsi%d: pclk=%lu byteclk=%lu\n", msm_host->id,
++		msm_host->pixel_clk_rate, msm_host->byte_clk_rate);
+ 
+ 	ret = dev_pm_opp_set_rate(&msm_host->pdev->dev,
+ 				  msm_host->byte_clk_rate);
+@@ -603,7 +603,7 @@ void dsi_link_clk_disable_v2(struct msm_dsi_host *msm_host)
+ static unsigned long
+ dsi_adjust_pclk_for_compression(const struct drm_display_mode *mode,
+ 				const struct drm_dsc_config *dsc,
+-				bool is_bonded_dsi)
++				bool is_bonded_dsi, bool video)
+ {
+ 	int hdisplay, new_hdisplay, new_htotal;
+ 	int bpp_x16 = dsc->bits_per_pixel;	/* 6.4 fixed point */
+@@ -634,7 +634,16 @@ dsi_adjust_pclk_for_compression(const struct drm_display_mode *mode,
+ 	 * 1112.6 Mbps/lane, 36% over -> DDIC HS receiver never locks -> the panel
+ 	 * shows its white default). Identical result for 8bpp/8bpc 4:4:4 panels.
+ 	 */
+-	new_hdisplay = DIV_ROUND_UP(hdisplay * bpp_x16, 24 * 16);
++	/*
++	 * ...but only in CMD mode. In VIDEO mode the DPU INTF sizes its active
++	 * width as hdisplay * bpp / (bits_per_component * 3)
++	 * (dpu_encoder_phys_vid.c) and DSI's ACTIVE_H follows the pixel
++	 * format, so a 10bpc video panel (RGB101010) must use 30 here as well.
++	 * With 24 the DSI line came out 318 pclk against the INTF's 253 per
++	 * link and the DSI FIFO overflowed (TB323FU, y705 plan 9-18).
++	 */
++	new_hdisplay = DIV_ROUND_UP(hdisplay * bpp_x16,
++				    (video ? dsc->bits_per_component * 3 : 24) * 16);
+ 
+ 	if (is_bonded_dsi)
+ 		new_hdisplay *= 2;
+@@ -645,14 +654,14 @@ dsi_adjust_pclk_for_compression(const struct drm_display_mode *mode,
+ }
+ 
+ static unsigned long dsi_get_pclk_rate(const struct drm_display_mode *mode,
+-		const struct drm_dsc_config *dsc, bool is_bonded_dsi)
++		const struct drm_dsc_config *dsc, bool is_bonded_dsi, bool video)
+ {
+ 	unsigned long pclk_rate;
+ 
+ 	pclk_rate = mode->clock * 1000u;
+ 
+ 	if (dsc)
+-		pclk_rate = dsi_adjust_pclk_for_compression(mode, dsc, is_bonded_dsi);
++		pclk_rate = dsi_adjust_pclk_for_compression(mode, dsc, is_bonded_dsi, video);
+ 
+ 	/*
+ 	 * For bonded DSI mode, the current DRM mode has the complete width of the
+@@ -672,7 +681,8 @@ unsigned long dsi_byte_clk_get_rate(struct mipi_dsi_host *host, bool is_bonded_d
+ 	struct msm_dsi_host *msm_host = to_msm_dsi_host(host);
+ 	u8 lanes = msm_host->lanes;
+ 	u32 bpp = mipi_dsi_pixel_format_to_bpp(msm_host->format);
+-	unsigned long pclk_rate = dsi_get_pclk_rate(mode, msm_host->dsc, is_bonded_dsi);
++	unsigned long pclk_rate = dsi_get_pclk_rate(mode, msm_host->dsc, is_bonded_dsi,
++				!!(msm_host->mode_flags & MIPI_DSI_MODE_VIDEO));
+ 	unsigned long pclk_bpp;
+ 
+ 	if (lanes == 0) {
+@@ -691,7 +701,8 @@ unsigned long dsi_byte_clk_get_rate(struct mipi_dsi_host *host, bool is_bonded_d
+ 
+ static void dsi_calc_pclk(struct msm_dsi_host *msm_host, bool is_bonded_dsi)
+ {
+-	msm_host->pixel_clk_rate = dsi_get_pclk_rate(msm_host->mode, msm_host->dsc, is_bonded_dsi);
++	msm_host->pixel_clk_rate = dsi_get_pclk_rate(msm_host->mode, msm_host->dsc, is_bonded_dsi,
++				!!(msm_host->mode_flags & MIPI_DSI_MODE_VIDEO));
+ 	msm_host->byte_clk_rate = dsi_byte_clk_get_rate(&msm_host->base, is_bonded_dsi,
+ 							msm_host->mode);
+ 
+@@ -1659,6 +1670,7 @@ static void dsi_fifo_status(struct msm_dsi_host *msm_host)
+ 
+ 	/* fifo underflow, overflow */
+ 	if (status) {
++		pr_err_ratelimited("dsi%d: FIFO_STATUS=%08x\n", msm_host->id, status);
+ 		dsi_write(msm_host, REG_DSI_FIFO_STATUS, status);
+ 		msm_host->err_work_state |= DSI_ERR_STATE_FIFO;
+ 		if (status & DSI_FIFO_STATUS_CMD_MDP_FIFO_UNDERFLOW)
+-- 
+2.43.0
+

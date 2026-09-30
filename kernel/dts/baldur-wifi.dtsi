@@ -1,0 +1,260 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * TB323FU ("baldur"): Wi-Fi, WCN7860 "peach" (17cb:110e) on PCIe0, ath12k
+ * (y705-mainline-plan.md 9-23).
+ *
+ * The same chip and pins as the OnePlus 15 port (infiniti-mainline, which
+ * follows kaanapali-mtp.dts): wlan-en gpio16, sw-ctrl gpio18, PERST gpio102,
+ * CLKREQ gpio103, WAKE gpio104. The rails are this device's own, decoded from
+ * its vendor cnss-peach node (qcom,pmu_vreg_map and vdd-wlan-*-supply): AON
+ * 0.9 V comes from S2J here, not from S7G as on the MTP.
+ *
+ * NOT WORKING YET, and not included by any board file: the chip never answers
+ * link training (LTSSM loops in Detect, "Device not found"), see plan 9-23.
+ *
+ * Bluetooth itself (UART) is left out, but its enable line is described: the
+ * vendor cnss drives BT_EN low before it powers WLAN ("cnss_probe: Disabling
+ * BT_EN"), and the sequencer does the same when it owns the pin. A PMIC GPIO
+ * keeps its level across a warm reboot, so after Android ran with Bluetooth
+ * on it would otherwise still be high here. Needs pmh0104-kaanapali.dtsi.
+ */
+
+&pmh0104_j_e1_gpios {
+	bt_default: bt-default-state {
+		pins = "gpio5";
+		function = "normal";
+		input-disable;
+		output-enable;
+		bias-disable;
+		power-source = <1>;
+	};
+};
+
+&tlmm {
+	wlan_en: wlan-en-state {
+		pins = "gpio16";
+		function = "gpio";
+		drive-strength = <8>;
+		bias-pull-down;
+	};
+
+	/* vendor cnss_wlan_sw_ctrl / cnss_wlan_sw_ctrl_wl_cx */
+	sw_ctrl_default: sw-ctrl-default-state {
+		sw-ctrl-pins {
+			pins = "gpio18";
+			function = "wcn_sw_ctrl";
+			bias-pull-down;
+		};
+
+		sw-ctrl-wl-cx-pins {
+			pins = "gpio19";
+			function = "wcn_sw";
+			bias-pull-down;
+		};
+	};
+
+	/*
+	 * Sign-of-life lines (vendor cnss_host_sol_default, wlan-host-sol-gpio
+	 * 204, wlan-dev-sol-gpio 205). Both are eGPIOs that another subsystem
+	 * owns until something selects function "gpio"; the vendor cnss does,
+	 * and drives host-SOL low, before it powers the chip. Left alone, the
+	 * chip held WAKE# low and never answered link training (9-23).
+	 */
+	wlan_sol_default: wlan-sol-default-state {
+		host-sol-pins {
+			pins = "gpio204";
+			function = "gpio";
+			drive-strength = <4>;
+			bias-pull-down;
+			output-low;
+		};
+
+		dev-sol-pins {
+			pins = "gpio205";
+			function = "gpio";
+			bias-pull-down;
+			input-enable;
+		};
+	};
+
+	pcie0_default_state: pcie0-default-state {
+		perst-n-pins {
+			pins = "gpio102";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-disable;
+		};
+
+		clkreq-n-pins {
+			pins = "gpio103";
+			function = "pcie0_clk_req_n";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+
+		wake-n-pins {
+			pins = "gpio104";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+};
+
+/ {
+	wcn7860-pmu {
+		/* no WCN7860 binding; the WCN7850 sequencer is what the OnePlus port uses */
+		compatible = "qcom,wcn7850-pmu";
+
+		pinctrl-0 = <&bt_default>, <&sw_ctrl_default>, <&wlan_sol_default>, <&wlan_en>;
+		pinctrl-names = "default";
+
+		bt-enable-gpios = <&pmh0104_j_e1_gpios 5 GPIO_ACTIVE_HIGH>;
+		wlan-enable-gpios = <&tlmm 16 GPIO_ACTIVE_HIGH>;
+
+		vdd-supply = <&vreg_s2j_0p8>;
+		vddio-supply = <&vreg_l2g_1p8>;
+		vddio1p2-supply = <&vreg_l3g_1p2>;
+		vddaon-supply = <&vreg_s2j_0p8>;
+		vdddig-supply = <&vreg_s1j_0p8>;
+		vddrfa1p2-supply = <&vreg_s7f_1p2>;
+		vddrfa1p8-supply = <&vreg_s8f_1p8>;
+
+		clocks = <&rpmhcc RPMH_RF_CLK1>;
+
+		regulators {
+			vreg_pmu_rfa_cmn: ldo0 {
+				regulator-name = "vreg_pmu_rfa_cmn";
+			};
+
+			vreg_pmu_aon_0p59: ldo1 {
+				regulator-name = "vreg_pmu_aon_0p59";
+			};
+
+			vreg_pmu_wlcx_0p8: ldo2 {
+				regulator-name = "vreg_pmu_wlcx_0p8";
+			};
+
+			vreg_pmu_wlmx_0p85: ldo3 {
+				regulator-name = "vreg_pmu_wlmx_0p85";
+			};
+
+			vreg_pmu_btcmx_0p85: ldo4 {
+				regulator-name = "vreg_pmu_btcmx_0p85";
+			};
+
+			vreg_pmu_rfa_0p8: ldo5 {
+				regulator-name = "vreg_pmu_rfa_0p8";
+			};
+
+			vreg_pmu_rfa_1p2: ldo6 {
+				regulator-name = "vreg_pmu_rfa_1p2";
+			};
+
+			vreg_pmu_rfa_1p8: ldo7 {
+				regulator-name = "vreg_pmu_rfa_1p8";
+			};
+
+			vreg_pmu_pcie_0p9: ldo8 {
+				regulator-name = "vreg_pmu_pcie_0p9";
+			};
+
+			vreg_pmu_pcie_1p8: ldo9 {
+				regulator-name = "vreg_pmu_pcie_1p8";
+			};
+		};
+	};
+};
+
+&vreg_l3k_1p2 {
+	regulator-always-on;
+};
+
+/*
+ * 9-30 experiment: WLCX/WLMX at the vendor cnss votes. The PMIC ranges start
+ * at 0.4/0.5 V and the regulator core parks an unset rail at its minimum;
+ * on Android the PDC raises them on the chip's clock requests, here nothing
+ * may. BT (UART) answers either way -- it does not use WLCX/WLMX.
+ */
+&vreg_s1j_0p8 {
+	regulator-min-microvolt = <892000>;
+};
+
+&vreg_s2j_0p8 {
+	regulator-min-microvolt = <892000>;
+};
+
+&pcie0 {
+	pinctrl-0 = <&pcie0_default_state>;
+	pinctrl-names = "default";
+
+	status = "okay";
+};
+
+&pcie0_phy {
+	vdda-phy-supply = <&vreg_l3i_0p8>;
+	vdda-pll-supply = <&vreg_l1d_1p2>;
+
+	status = "okay";
+};
+
+&pcie_port0 {
+	wake-gpios = <&tlmm 104 GPIO_ACTIVE_LOW>;
+	reset-gpios = <&tlmm 102 GPIO_ACTIVE_LOW>;
+
+	wifi@0 {
+		compatible = "pci17cb,110e";
+		reg = <0x10000 0x0 0x0 0x0 0x0>;
+
+		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
+		vddaon-supply = <&vreg_pmu_aon_0p59>;
+		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
+		vddwlmx-supply = <&vreg_pmu_wlmx_0p85>;
+		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
+		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
+		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
+		vddpcie0p9-supply = <&vreg_pmu_pcie_0p9>;
+		vddpcie1p8-supply = <&vreg_pmu_pcie_1p8>;
+	};
+};
+
+/*
+ * Bluetooth, the same chip over the 4-wire HS-UART (vendor
+ * qupv3_se18_4uart @ 0x1994000 = uart18), as the OnePlus 15 port wires it.
+ * 9-30: first used to ask whether the WCN7860 is alive at all -- the HCI
+ * version read comes before any firmware.
+ */
+/ {
+	aliases {
+		/* the geni UART driver wants a line number ("Invalid line -19") */
+		serial1 = &uart18;
+	};
+};
+
+&uart18 {
+	status = "okay";
+
+	bluetooth {
+		compatible = "qcom,wcn7850-bt";
+
+		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
+		vddaon-supply = <&vreg_pmu_aon_0p59>;
+		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
+		vddwlmx-supply = <&vreg_pmu_wlmx_0p85>;
+		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
+		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
+		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
+
+		/* the rate the OnePlus 15 port runs this chip at (peri baud command) */
+		max-speed = <3200000>;
+
+		/*
+		 * This chip's own firmware from its bluetooth partition
+		 * (/vendor/bt_firmware/image, BTFW.BRAHMA.2.0.1-00238): NVM, then
+		 * the rampatch. The TLV there times out on its first segment with
+		 * the stock WCN7850 flow; the ELF goes through the BRAHMA path of
+		 * infiniti fecd7925d (0013).
+		 */
+		firmware-name = "brhbtnv20.bin", "brhbtfw20.mbn";
+	};
+};

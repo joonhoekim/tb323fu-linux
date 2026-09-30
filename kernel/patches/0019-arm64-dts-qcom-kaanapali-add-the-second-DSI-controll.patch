@@ -1,0 +1,140 @@
+From cc2a040e0bfe884e268dda7e107c8c1be1b15ea8 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:25:39 +0000
+Subject: [PATCH 19/56] arm64: dts: qcom: kaanapali: add the second DSI
+ controller and PHY
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+kaanapali.dtsi describes one DSI link. The OnePlus 15, the only board in the
+tree so far, drives a single-DSI panel, so nothing needed the other one.
+
+The Lenovo TB323FU ("baldur") panel is dual-DSI: 1904x3040 split into two
+952-wide links, video mode, DSC 1.2. Its downstream devicetree points at two
+controllers and two PHYs, at 0x9ac3000/0x9ac4000 — exactly 0x3000 above the
+ones already described.
+
+Everything the second link needs is already present: dispcc exports
+DISP_CC_MDSS_{BYTE1,BYTE1_INTF,PCLK1,ESC1}_CLK and DISP_CC_ESYNC1_CLK, the DPU
+catalog (dpu_13_0_kaanapali.h) has intf_2, and the DPU node already carries an
+unconnected dpu_intf2_out endpoint. So this only adds the two nodes and
+connects that endpoint. Both stay disabled, as mdss_dsi0 does.
+
+The interrupt number follows the same convention as the other SoCs with two
+DSI links (sm8650 uses <&mdss 5> for dsi1).
+
+Applies to kaanapali-mainline/linux `testing` (37a76066).
+
+y705-source: 0001-kaanapali-add-mdss_dsi1.patch
+---
+ arch/arm64/boot/dts/qcom/kaanapali.dtsi | 86 +++++++++++++++++++++++++
+ 1 file changed, 86 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/kaanapali.dtsi b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+index f85cf94d4..3a3a7d562 100644
+--- a/arch/arm64/boot/dts/qcom/kaanapali.dtsi
++++ b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+@@ -3690,6 +3690,7 @@ port@1 {
+ 						reg = <1>;
+ 
+ 						dpu_intf2_out: endpoint {
++							remote-endpoint = <&mdss_dsi1_in>;
+ 						};
+ 					};
+ 
+@@ -3849,6 +3850,91 @@ mdss_dsi0_phy: phy@9ac1000 {
+ 
+ 				status = "disabled";
+ 			};
++
++			mdss_dsi1: dsi@9ac3000 {
++				compatible = "qcom,kaanapali-dsi-ctrl", "qcom,mdss-dsi-ctrl";
++				reg = <0x0 0x09ac3000 0x0 0x1000>;
++				reg-names = "dsi_ctrl";
++
++				interrupts-extended = <&mdss 5>;
++
++				clocks = <&dispcc DISP_CC_MDSS_BYTE1_CLK>,
++					 <&dispcc DISP_CC_MDSS_BYTE1_INTF_CLK>,
++					 <&dispcc DISP_CC_MDSS_PCLK1_CLK>,
++					 <&dispcc DISP_CC_MDSS_ESC1_CLK>,
++					 <&dispcc DISP_CC_MDSS_AHB_CLK>,
++					 <&gcc GCC_DISP_HF_AXI_CLK>,
++					 <&mdss_dsi1_phy DSI_PIXEL_PLL_CLK>,
++					 <&mdss_dsi1_phy DSI_BYTE_PLL_CLK>,
++					 <&dispcc DISP_CC_ESYNC1_CLK>,
++					 <&dispcc DISP_CC_OSC_CLK>,
++					 <&dispcc DISP_CC_MDSS_BYTE1_CLK_SRC>,
++					 <&dispcc DISP_CC_MDSS_PCLK1_CLK_SRC>;
++				clock-names = "byte",
++					      "byte_intf",
++					      "pixel",
++					      "core",
++					      "iface",
++					      "bus",
++					      "dsi_pll_pixel",
++					      "dsi_pll_byte",
++					      "esync",
++					      "osc",
++					      "byte_src",
++					      "pixel_src";
++
++				operating-points-v2 = <&mdss_dsi_opp_table>;
++
++				power-domains = <&rpmhpd RPMHPD_MMCX>;
++
++				phys = <&mdss_dsi1_phy>;
++				phy-names = "dsi";
++
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				status = "disabled";
++
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++
++					port@0 {
++						reg = <0>;
++
++						mdss_dsi1_in: endpoint {
++							remote-endpoint = <&dpu_intf2_out>;
++						};
++					};
++
++					port@1 {
++						reg = <1>;
++
++						mdss_dsi1_out: endpoint {
++						};
++					};
++				};
++			};
++
++			mdss_dsi1_phy: phy@9ac4000 {
++				compatible = "qcom,kaanapali-dsi-phy-3nm";
++				reg = <0x0 0x09ac4000 0x0 0x1cc>,
++				      <0x0 0x09ac4200 0x0 0x280>,
++				      <0x0 0x09ac4500 0x0 0x400>;
++				reg-names = "dsi_phy",
++					    "dsi_phy_lane",
++					    "dsi_pll";
++
++				clocks = <&dispcc DISP_CC_MDSS_AHB_CLK>,
++					 <&rpmhcc RPMH_CXO_CLK>;
++				clock-names = "iface",
++					      "ref";
++
++				#clock-cells = <1>;
++				#phy-cells = <0>;
++
++				status = "disabled";
++			};
+ 		};
+ 
+ 		dispcc: clock-controller@9ba2000 {
+-- 
+2.43.0
+

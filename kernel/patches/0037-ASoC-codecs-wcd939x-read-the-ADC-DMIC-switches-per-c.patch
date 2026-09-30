@@ -1,0 +1,57 @@
+From b55143d5460d7067ea43c8fc658811dcce4ccaa4 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:28:21 +0000
+Subject: [PATCH 37/56] ASoC: codecs: wcd939x: read the ADC/DMIC switches per
+ channel
+
+For y705-mainline-plan.md 9-51. The "ADCn Switch" / "DMICn Switch" style
+controls (wcd939x_get/set_swr_port) keep one flag per SoundWire port, but
+several channels share a port (ADC1-4 are channels 1-4 of TX port 1). So
+turning one ADC on made all four read back as on; "alsactl store" saved
+that, and "alsactl restore" then really enabled the unused ADCs' channels
+(channel mask 0xf instead of 0x5 on TB323FU's two-mic capture).
+
+Read back the channel's own bit in the port's channel mask, and report a
+change only when there is one.
+
+y705-source: 0022-asoc-wcd939x-swr-switch-per-channel.patch
+---
+ sound/soc/codecs/wcd939x.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/sound/soc/codecs/wcd939x.c b/sound/soc/codecs/wcd939x.c
+index 26fe0b631..c2b1675a2 100644
+--- a/sound/soc/codecs/wcd939x.c
++++ b/sound/soc/codecs/wcd939x.c
+@@ -1795,7 +1795,9 @@ static int wcd939x_get_swr_port(struct snd_kcontrol *kcontrol,
+ 	struct wcd939x_sdw_priv *wcd = wcd939x->sdw_priv[mixer->shift];
+ 	unsigned int portidx = wcd->ch_info[mixer->reg].port_num;
+ 
+-	ucontrol->value.integer.value[0] = wcd->port_enable[portidx] ? 1 : 0;
++	/* this channel's bit, not the whole port (all ADCs share TX port 1) */
++	ucontrol->value.integer.value[0] =
++		!!(wcd->port_config[portidx - 1].ch_mask & wcd->ch_info[mixer->reg].ch_mask);
+ 
+ 	return 0;
+ }
+@@ -1821,12 +1823,13 @@ static int wcd939x_set_swr_port(struct snd_kcontrol *kcontrol,
+ 	struct wcd939x_priv *wcd939x = snd_soc_component_get_drvdata(comp);
+ 	struct wcd939x_sdw_priv *wcd = wcd939x->sdw_priv[mixer->shift];
+ 	unsigned int portidx = wcd->ch_info[mixer->reg].port_num;
++	bool enable = !!ucontrol->value.integer.value[0];
++	bool was = !!(wcd->port_config[portidx - 1].ch_mask & wcd->ch_info[mixer->reg].ch_mask);
+ 
+-	wcd->port_enable[portidx] = !!ucontrol->value.integer.value[0];
++	wcd939x_connect_port(wcd, portidx, mixer->reg, enable);
++	wcd->port_enable[portidx] = !!wcd->port_config[portidx - 1].ch_mask;
+ 
+-	wcd939x_connect_port(wcd, portidx, mixer->reg, wcd->port_enable[portidx]);
+-
+-	return 1;
++	return enable != was;
+ }
+ 
+ /* MBHC Related */
+-- 
+2.43.0
+

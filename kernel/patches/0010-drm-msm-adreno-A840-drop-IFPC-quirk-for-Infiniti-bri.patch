@@ -1,0 +1,32 @@
+From 945ebcd1ef33498fa4451bf0d8ff7cc26118f61d Mon Sep 17 00:00:00 2001
+From: idusergod <artem.martyanov06@gmail.com>
+Date: Mon, 20 Jul 2026 15:10:38 +0300
+Subject: [PATCH 10/56] drm/msm/adreno: A840: drop IFPC quirk for Infiniti
+ bring-up
+
+Signed-off-by: idusergod <artem.martyanov06@gmail.com>
+y705-source: 0004-drm-msm-adreno-A840-drop-IFPC-quirk-for-Infiniti-bri.patch
+---
+ drivers/gpu/drm/msm/adreno/a6xx_catalog.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/adreno/a6xx_catalog.c b/drivers/gpu/drm/msm/adreno/a6xx_catalog.c
+index 90a0c7ffb..0df31a41e 100644
+--- a/drivers/gpu/drm/msm/adreno/a6xx_catalog.c
++++ b/drivers/gpu/drm/msm/adreno/a6xx_catalog.c
+@@ -2449,10 +2449,9 @@ static const struct adreno_info a8xx_gpus[] = {
+ 		},
+ 		.gmem = 18 * SZ_1M,
+ 		.inactive_period = DRM_MSM_INACTIVE_PERIOD,
+-		.quirks = ADRENO_QUIRK_HAS_CACHED_COHERENT |
++				.quirks = ADRENO_QUIRK_HAS_CACHED_COHERENT |
+ 			  ADRENO_QUIRK_HAS_HW_APRIV |
+-			  ADRENO_QUIRK_PREEMPTION |
+-			  ADRENO_QUIRK_IFPC,
++			  ADRENO_QUIRK_PREEMPTION,
+ 		.funcs = &a8xx_gpu_funcs,
+ 		.a6xx = &(const struct a6xx_info) {
+ 			.protect = &a840_protect,
+-- 
+2.43.0
+

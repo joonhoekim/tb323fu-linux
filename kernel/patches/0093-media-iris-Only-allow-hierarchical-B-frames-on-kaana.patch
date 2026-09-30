@@ -1,0 +1,58 @@
+From da34df1be04584b495b8f14ff22b93603047abd7 Mon Sep 17 00:00:00 2001
+From: Victor Fuentes <victor@vlinkz.dev>
+Date: Thu, 24 Sep 2026 02:44:18 -0700
+Subject: [PATCH 93/95] media: iris: Only allow hierarchical B-frames on
+ kaanapali
+
+The kaanapali firmware crashes when HFI_PROP_MAX_B_FRAMES is set without
+hierarchical-B coding, so cap V4L2_CID_MPEG_VIDEO_B_FRAMES at 0.
+
+Signed-off-by: Victor Fuentes <victor@vlinkz.dev>
+---
+ drivers/media/platform/qcom/iris/iris_ctrls.c           | 4 ++++
+ drivers/media/platform/qcom/iris/iris_platform_common.h | 1 +
+ drivers/media/platform/qcom/iris/iris_platform_vpu3x.c  | 1 +
+ 3 files changed, 6 insertions(+)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_ctrls.c b/drivers/media/platform/qcom/iris/iris_ctrls.c
+index bf17d310e..5916dffc2 100644
+--- a/drivers/media/platform/qcom/iris/iris_ctrls.c
++++ b/drivers/media/platform/qcom/iris/iris_ctrls.c
+@@ -464,6 +464,10 @@ void iris_session_init_caps(struct iris_core *core)
+ 		core->inst_fw_caps_enc[cap_id].flags = caps[i].flags;
+ 		core->inst_fw_caps_enc[cap_id].hfi_id = caps[i].hfi_id;
+ 		core->inst_fw_caps_enc[cap_id].set = caps[i].set;
++
++		if (cap_id == B_FRAME &&
++		    core->iris_platform_data->hier_b_frames_only)
++			core->inst_fw_caps_enc[cap_id].max = 0;
+ 	}
+ }
+ 
+diff --git a/drivers/media/platform/qcom/iris/iris_platform_common.h b/drivers/media/platform/qcom/iris/iris_platform_common.h
+index 58431d1cb..0506b8ae0 100644
+--- a/drivers/media/platform/qcom/iris/iris_platform_common.h
++++ b/drivers/media/platform/qcom/iris/iris_platform_common.h
+@@ -319,6 +319,7 @@ struct iris_platform_data {
+ 	u32 tz_cp_config_data_size;
+ 	u32 num_vpp_pipe;
+ 	bool no_aon;
++	bool hier_b_frames_only;
+ 	u32 max_session_count;
+ 	/* max number of macroblocks per frame supported */
+ 	u32 max_core_mbpf;
+diff --git a/drivers/media/platform/qcom/iris/iris_platform_vpu3x.c b/drivers/media/platform/qcom/iris/iris_platform_vpu3x.c
+index fa3978394..6bb1e86e6 100644
+--- a/drivers/media/platform/qcom/iris/iris_platform_vpu3x.c
++++ b/drivers/media/platform/qcom/iris/iris_platform_vpu3x.c
+@@ -244,6 +244,7 @@ const struct iris_platform_data kaanapali_data = {
+ 	.tz_cp_config_data = tz_cp_config_kaanapali,
+ 	.tz_cp_config_data_size = ARRAY_SIZE(tz_cp_config_kaanapali),
+ 	.num_vpp_pipe = 2,
++	.hier_b_frames_only = true,
+ 	.max_session_count = 16,
+ 	.max_core_mbpf = NUM_MBS_8K * 2,
+ 	.max_core_mbps = ((8192 * 4352) / 256) * 60,
+-- 
+2.43.0
+

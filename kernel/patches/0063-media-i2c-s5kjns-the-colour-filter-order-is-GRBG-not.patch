@@ -1,0 +1,48 @@
+From 35e289d0c3f8140d4a3bb368486a90397ab9d99c Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 17:51:51 +0000
+Subject: [PATCH 63/64] media: i2c: s5kjns: the colour filter order is GRBG,
+ not GBRG
+
+The sensor test pattern (colour bars) decodes to the standard white, yellow,
+cyan, green, magenta, red, blue, black only as GRBG; as GBRG yellow/cyan and
+red/blue swap, which is the yellow-green cast the software ISP produced.
+(y705 0049, plan 9-99)
+---
+ drivers/media/i2c/s5kjns.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/i2c/s5kjns.c b/drivers/media/i2c/s5kjns.c
+index cd858b58f..3e8427905 100644
+--- a/drivers/media/i2c/s5kjns.c
++++ b/drivers/media/i2c/s5kjns.c
+@@ -824,7 +824,7 @@ static int s5kjns_enum_mbus_code(struct v4l2_subdev *sd,
+ 	if (code->index != 0)
+ 		return -EINVAL;
+ 
+-	code->code = MEDIA_BUS_FMT_SGBRG10_1X10;
++	code->code = MEDIA_BUS_FMT_SGRBG10_1X10;
+ 
+ 	return 0;
+ }
+@@ -833,7 +833,7 @@ static int s5kjns_enum_frame_size(struct v4l2_subdev *sd,
+ 				  struct v4l2_subdev_state *state,
+ 				  struct v4l2_subdev_frame_size_enum *fse)
+ {
+-	if (fse->code != MEDIA_BUS_FMT_SGBRG10_1X10 ||
++	if (fse->code != MEDIA_BUS_FMT_SGRBG10_1X10 ||
+ 	    fse->index >= ARRAY_SIZE(s5kjns_modes))
+ 		return -EINVAL;
+ 
+@@ -850,7 +850,7 @@ static void s5kjns_fill_format(const struct s5kjns_mode *mode,
+ {
+ 	fmt->width	= mode->width;
+ 	fmt->height	= mode->height;
+-	fmt->code	= MEDIA_BUS_FMT_SGBRG10_1X10;
++	fmt->code	= MEDIA_BUS_FMT_SGRBG10_1X10;
+ 	fmt->field	= V4L2_FIELD_NONE;
+ 	fmt->colorspace	= V4L2_COLORSPACE_RAW;
+ 	fmt->ycbcr_enc	= V4L2_YCBCR_ENC_DEFAULT;
+-- 
+2.43.0
+

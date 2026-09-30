@@ -1,0 +1,102 @@
+From: Joonhoe Kim <26rote@gmail.com>
+Subject: [PATCH] media: iris: don't wait for the threaded IRQ handler under core->lock
+
+DRAFT, not sent, not tested on the device (compile-tested only).
+
+iris_vpu_power_off() calls disable_irq(), which waits for a running
+threaded handler. All its callers hold core->lock: iris_core_deinit()
+(remove and the sys error handler), the iris_core_init() error path, and
+runtime suspend/resume. The threaded handler iris_hfi_isr_handler() takes
+core->lock first thing. If an interrupt arrives just before power off,
+the two wait for each other:
+
+  rmmod qcom_iris
+    iris_remove -> iris_core_deinit    mutex_lock(&core->lock)
+      iris_fw_unload
+      iris_vpu_power_off -> disable_irq -> synchronize_irq   (waits for irq/281-iris)
+  irq/281-iris
+    iris_hfi_isr_handler               mutex_lock(&core->lock)  (waits for rmmod)
+  -> hung task panic
+
+Seen on a Lenovo Legion Tab Gen 5 (Kaanapali): rmmod right after a decode
+session, and console-ramoops showed both stacks.
+
+The wait protected only the handler's register access
+(iris_vpu_clear_interrupt()) on powered-off hardware. The queue reads in
+the response handler already take core->lock and bail out unless the core
+is in IRIS_CORE_INIT. So track the power state under core->lock, let the
+handler skip the hardware when it is off, and use disable_irq_nosync() in
+iris_vpu_power_off().
+
+The IRQ disable depth does not change. When the handler bails out, it
+undoes only the disable_irq_nosync() of iris_hfi_isr(); the disable from
+power off stays until iris_vpu_power_on() enables the IRQ again.
+iris_core_deinit() calls synchronize_irq() after it drops the lock, so
+remove still waits for the handler before it tears down.
+
+Fixes: (look up the commit that added disable_irq() to iris_vpu_power_off)
+Signed-off-by: (the human adds it)
+---
+--- a/drivers/media/platform/qcom/iris/iris_core.h
++++ b/drivers/media/platform/qcom/iris/iris_core.h
+@@ -83,6 +83,7 @@
+ 	struct device				*dev;
+ 	void __iomem				*reg_base;
+ 	int					irq;
++	bool					hw_powered;
+ 	struct v4l2_device			v4l2_dev;
+ 	struct video_device			*vdev_dec;
+ 	struct video_device			*vdev_enc;
+--- a/drivers/media/platform/qcom/iris/iris_vpu_common.c
++++ b/drivers/media/platform/qcom/iris/iris_vpu_common.c
+@@ -236,8 +236,14 @@
+ 	core->iris_platform_data->vpu_ops->power_off_controller(core);
+ 	iris_unset_icc_bw(core);
+
++	/*
++	 * Callers hold core->lock, which the threaded handler takes too:
++	 * don't wait for it here. It sees hw_powered == false and leaves the
++	 * hardware alone.
++	 */
++	core->hw_powered = false;
+ 	if (!iris_vpu_watchdog(core, core->intr_status))
+-		disable_irq(core->irq);
++		disable_irq_nosync(core->irq);
+ }
+
+ int iris_vpu_power_on_controller(struct iris_core *core)
+@@ -487,6 +493,7 @@
+
+ 	iris_vpu_interrupt_init(core);
+ 	core->intr_status = 0;
++	core->hw_powered = true;
+ 	enable_irq(core->irq);
+
+ 	return 0;
+--- a/drivers/media/platform/qcom/iris/iris_hfi_common.c
++++ b/drivers/media/platform/qcom/iris/iris_hfi_common.c
+@@ -105,6 +105,12 @@
+ 		return IRQ_NONE;
+
+ 	mutex_lock(&core->lock);
++	if (!core->hw_powered) {
++		/* powered off meanwhile: undo iris_hfi_isr()'s disable only */
++		mutex_unlock(&core->lock);
++		enable_irq(irq);
++		return IRQ_HANDLED;
++	}
+ 	pm_runtime_mark_last_busy(core->dev);
+ 	iris_vpu_clear_interrupt(core);
+ 	mutex_unlock(&core->lock);
+--- a/drivers/media/platform/qcom/iris/iris_core.c
++++ b/drivers/media/platform/qcom/iris/iris_core.c
+@@ -28,6 +28,9 @@
+ 	}
+ 	mutex_unlock(&core->lock);
+
++	/* let a handler that was waiting for core->lock finish */
++	synchronize_irq(core->irq);
++
+ 	if (!ret)
+ 		pm_runtime_put_sync(core->dev);
+ }

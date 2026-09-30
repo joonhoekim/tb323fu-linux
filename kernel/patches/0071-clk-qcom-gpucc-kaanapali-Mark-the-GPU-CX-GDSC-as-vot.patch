@@ -1,0 +1,40 @@
+From 30e3f47f2c865527b86a2053b529ca82b51c89a8 Mon Sep 17 00:00:00 2001
+From: Taniya Das <taniya.das@oss.qualcomm.com>
+Date: Sat, 1 Aug 2026 23:01:18 +0530
+Subject: [PATCH 71/79] clk: qcom: gpucc-kaanapali: Mark the GPU CX GDSC as
+ votable
+
+The GPU CX GDSC on Kaanapali is a votable power domain and hence
+should not be polled for power-off status during GDSC disable. Also,
+its power-on status should be read from the GDS hardware control
+register.
+
+Accommodate this by removing POLL_CFG_GDSCR and adding the VOTABLE
+flag for the GPU CX GDSC, similar to other platforms (e.g. SM8750 and
+Milos).
+
+Fixes: 685ec348339b ("clk: qcom: Add support for GPUCC and GXCLK for Kaanapali")
+Signed-off-by: Taniya Das <taniya.das@oss.qualcomm.com>
+Reviewed-by: Jagadeesh Kona <jagadeesh.kona@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260801-kaanapali-gpu-voteable-v1-2-fe804d24d2e9@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+---
+ drivers/clk/qcom/gpucc-kaanapali.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/clk/qcom/gpucc-kaanapali.c b/drivers/clk/qcom/gpucc-kaanapali.c
+index ae5563e51..f75f2caa2 100644
+--- a/drivers/clk/qcom/gpucc-kaanapali.c
++++ b/drivers/clk/qcom/gpucc-kaanapali.c
+@@ -380,7 +380,7 @@ static struct gdsc gpu_cc_cx_gdsc = {
+ 		.name = "gpu_cc_cx_gdsc",
+ 	},
+ 	.pwrsts = PWRSTS_OFF_ON,
+-	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
++	.flags = RETAIN_FF_ENABLE | VOTABLE,
+ };
+ 
+ static struct clk_regmap *gpu_cc_kaanapali_clocks[] = {
+-- 
+2.43.0
+

@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * TB323FU ("baldur"): volume keys (y705-mainline-plan.md 9-24).
+ *
+ * The same wiring as kaanapali-mtp.dts, and what the vendor DT says:
+ * volume up on tlmm gpio101 (active low, pulled up), volume down on the
+ * PMK8850 RESIN input. The power key (pwrkey) is already on.
+ * Needs <dt-bindings/input/linux-event-codes.h>.
+ */
+
+/ {
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		pinctrl-0 = <&key_vol_up_default>;
+		pinctrl-names = "default";
+
+		key-volume-up {
+			label = "Volume Up";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&tlmm 101 GPIO_ACTIVE_LOW>;
+			debounce-interval = <15>;
+			linux,can-disable;
+			wakeup-source;
+		};
+	};
+};
+
+&tlmm {
+	key_vol_up_default: key-vol-up-default-state {
+		pins = "gpio101";
+		function = "gpio";
+		input-enable;
+		bias-pull-up;
+	};
+};
+
+&pon_resin {
+	linux,code = <KEY_VOLUMEDOWN>;
+
+	status = "okay";
+};

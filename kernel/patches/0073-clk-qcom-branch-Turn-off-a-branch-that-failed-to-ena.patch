@@ -1,0 +1,34 @@
+From eb24c4574632203ab07d98057b73cab884a72e35 Mon Sep 17 00:00:00 2001
+From: Victor Fuentes <victor@vlinkz.dev>
+Date: Sat, 26 Sep 2026 17:42:31 -0700
+Subject: [PATCH 73/79] clk: qcom: branch: Turn off a branch that failed to
+ enable
+
+Otherwise the next enable doesn't toggle the enable bit.
+
+Signed-off-by: Victor Fuentes <victor@vlinkz.dev>
+---
+ drivers/clk/qcom/clk-branch.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/clk/qcom/clk-branch.c b/drivers/clk/qcom/clk-branch.c
+index 444e7d864..4304e861c 100644
+--- a/drivers/clk/qcom/clk-branch.c
++++ b/drivers/clk/qcom/clk-branch.c
+@@ -105,7 +105,12 @@ static int clk_branch_toggle(struct clk_hw *hw, bool en,
+ 		clk_disable_regmap(hw);
+ 	}
+ 
+-	return clk_branch_wait(br, en, check_halt);
++	ret = clk_branch_wait(br, en, check_halt);
++	/* The clk core considers a branch that failed to turn on off */
++	if (ret && en)
++		clk_disable_regmap(hw);
++
++	return ret;
+ }
+ 
+ static int clk_branch_enable(struct clk_hw *hw)
+-- 
+2.43.0
+

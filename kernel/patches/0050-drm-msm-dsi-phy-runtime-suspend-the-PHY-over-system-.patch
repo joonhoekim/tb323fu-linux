@@ -1,0 +1,33 @@
+From 0a66c63a043a98634cc9f88063c4042ed696cf98 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:32:47 +0000
+Subject: [PATCH 50/56] drm/msm/dsi: phy: runtime suspend the PHY over system
+ sleep
+
+The DSI host, DPU and MDSS force runtime suspend for system sleep; the
+PHY did not. device_prepare() holds a runtime PM reference, so a PHY that
+was active when suspend started (screen on) stayed active and kept its
+iface clock (disp_cc_mdss_ahb_clk -> bi_tcxo) enabled through s2idle,
+holding XO on (y705-mainline-plan.md 9-64). Applies after 0017.
+
+y705-source: 0037-drm-msm-dsi-phy-system-sleep.patch
+---
+ drivers/gpu/drm/msm/dsi/phy/dsi_phy.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c b/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
+index f72eec3d8..a38fcce66 100644
+--- a/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
++++ b/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
+@@ -730,6 +730,8 @@ static int dsi_phy_runtime_resume(struct device *dev)
+ 
+ static const struct dev_pm_ops dsi_phy_pm_ops = {
+ 	SET_RUNTIME_PM_OPS(dsi_phy_runtime_suspend, dsi_phy_runtime_resume, NULL)
++	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
++				pm_runtime_force_resume)
+ };
+ 
+ static struct platform_driver dsi_phy_platform_driver = {
+-- 
+2.43.0
+

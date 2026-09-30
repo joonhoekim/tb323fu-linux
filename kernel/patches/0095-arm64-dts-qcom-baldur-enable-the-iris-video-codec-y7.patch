@@ -1,0 +1,48 @@
+From f10bed5dacefe3293b583dd24227c7cc1b899d8d Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sun, 27 Sep 2026 10:17:40 +0000
+Subject: [PATCH 95/95] arm64: dts: qcom: baldur: enable the iris video codec
+ (y705 0054)
+
+Turn on the Kaanapali iris node with the OEM-signed VPU 4.0 firmware from
+the Android vendor partition (vendor/firmware/vpu40_2v.mbn), kept next to the
+ADSP/CDSP images. H.264 1080p30: hardware encode and decode through the V4L2
+stateful codecs (GStreamer v4l2h264enc / v4l2h264dec), 300 frames decoded
+in 0.32 s (y705-mainline-plan.md 9-101).
+---
+ arch/arm64/boot/dts/qcom/baldur-video.dtsi           | 12 ++++++++++++
+ .../dts/qcom/kaanapali-lenovo-baldur-display.dts     |  1 +
+ 2 files changed, 13 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-video.dtsi
+
+diff --git a/arch/arm64/boot/dts/qcom/baldur-video.dtsi b/arch/arm64/boot/dts/qcom/baldur-video.dtsi
+new file mode 100644
+index 000000000..eeff76d0e
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-video.dtsi
+@@ -0,0 +1,12 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Lenovo Legion Tab Y700 5th Gen (TB323FU, "baldur"): iris video codec (VPU 4.0)
++ * with the OEM-signed firmware from the Android vendor partition
++ * (vendor/firmware/vpu40_2v.mbn), kept with the ADSP/CDSP images.
++ * y705-mainline-plan.md 9-101; the node comes from infiniti-mainline 032-040.
++ */
++
++&iris {
++	firmware-name = "qcom/kaanapali/lenovo/baldur/vpu40_2v.mbn";
++	status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts b/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts
+index 7f5cf7818..de17c9280 100644
+--- a/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts
++++ b/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts
+@@ -28,4 +28,5 @@
+ #include "baldur-camera.dtsi"
+ #include "baldur-ledring.dtsi"
+ #include "baldur-stats.dtsi"
++#include "baldur-video.dtsi"
+ #include "baldur-dp.dtsi"
+-- 
+2.43.0
+

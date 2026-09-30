@@ -1,0 +1,190 @@
+From 4b4128c68772f5902ae76799ee5d0c78d211cda6 Mon Sep 17 00:00:00 2001
+From: idusergod <artem.martyanov06@gmail.com>
+Date: Mon, 20 Jul 2026 15:10:39 +0300
+Subject: [PATCH 07/56] drm/msm: DPU, DSI and MDSS fixes for AA601 cmd-mode DSC
+
+Signed-off-by: idusergod <artem.martyanov06@gmail.com>
+
+[y705 rebase 7.3: slice_per_pkt hunks (dsi_host x4, drm_mipi_dsi.h) dropped: 7.3 has MIPI_DSI_MODE_DSC_ALL_SLICES_IN_PKT; kept DSC 1.2 RC params, DF_CTRL >8bpc, no DSC_CFG bit17 in video, virtual planes off, 7nm PLL vco_configured guard, MDSS skip-reset param]
+y705-source: 0001-drm-msm-DPU-DSI-and-MDSS-fixes-for-AA601-cmd-mode-DS.patch
+---
+ .../gpu/drm/msm/disp/dpu1/dpu_hw_dsc_1_2.c    |  6 +++---
+ drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c       |  2 +-
+ drivers/gpu/drm/msm/dsi/dsi_host.c            |  4 ++--
+ drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c     | 20 ++++++++++++++++---
+ drivers/gpu/drm/msm/msm_mdss.c                | 20 ++++++++++++++++++-
+ 5 files changed, 42 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dsc_1_2.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dsc_1_2.c
+index b3395e9c3..73ea4d820 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dsc_1_2.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dsc_1_2.c
+@@ -124,6 +124,9 @@ static void dpu_hw_dsc_config_1_2(struct dpu_hw_dsc *hw_dsc,
+ 
+ 	data |= (_dsc_calc_output_buf_max_addr(hw_dsc, num_active_slice_per_enc) << 18);
+ 
++	if (dsc->bits_per_component > 8)
++		data |= BIT(12);
++
+ 	DPU_REG_WRITE(hw, sblk->enc.base + ENC_DF_CTRL, data);
+ 
+ 	data = (dsc->dsc_version_minor & 0xf) << 28;
+@@ -232,9 +235,6 @@ static void dpu_hw_dsc_config_1_2(struct dpu_hw_dsc *hw_dsc,
+ 		data |= BIT(12);
+ 	if (mode & DSC_MODE_MULTIPLEX)
+ 		data |= BIT(13);
+-	if (!(mode & DSC_MODE_VIDEO))
+-		data |= BIT(17);
+-
+ 	DPU_REG_WRITE(hw, sblk->ctl.base + DSC_CFG, data);
+ }
+ 
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
+index da3556eb6..a9f350378 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
+@@ -52,7 +52,7 @@
+ #define DPU_DEBUGFS_DIR "msm_dpu"
+ #define DPU_DEBUGFS_HWMASKNAME "hw_log_mask"
+ 
+-bool dpu_use_virtual_planes = true;
++bool dpu_use_virtual_planes = false;
+ module_param(dpu_use_virtual_planes, bool, 0);
+ 
+ static int dpu_kms_hw_init(struct msm_kms *kms);
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index b292dfd26..2e240950a 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -1908,12 +1908,12 @@ static int dsi_populate_dsc_params(struct msm_dsi_host *msm_host, struct drm_dsc
+ 	drm_dsc_set_const_params(dsc);
+ 	drm_dsc_set_rc_buf_thresh(dsc);
+ 
+-	/* DPU supports only pre-SCR panels */
+-	ret = drm_dsc_setup_rc_params(dsc, DRM_DSC_1_1_PRE_SCR);
++		ret = drm_dsc_setup_rc_params(dsc, DRM_DSC_1_2_444);
+ 	if (ret) {
+ 		DRM_DEV_ERROR(&msm_host->pdev->dev, "could not find DSC RC parameters\n");
+ 		return ret;
+ 	}
++	dsc->first_line_bpg_offset = 13;
+ 
+ 	dsc->initial_scale_value = drm_dsc_initial_scale_value(dsc);
+ 	dsc->line_buf_depth = dsc->bits_per_component + 1;
+diff --git a/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c b/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
+index 5d805a797..8a88db6d0 100644
+--- a/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
++++ b/drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c
+@@ -97,6 +97,8 @@ struct dsi_pll_7nm {
+ 	spinlock_t pll_enable_lock;
+ 	int pll_enable_cnt;
+ 
++		bool vco_configured;
++
+ 	struct pll_7nm_cached_state cached_state;
+ 
+ 	struct dsi_pll_7nm *slave;
+@@ -372,6 +374,8 @@ static int dsi_pll_7nm_vco_set_rate(struct clk_hw *hw, unsigned long rate,
+ 	/* flush, ensure all register writes are done*/
+ 	wmb();
+ 
++	pll_7nm->vco_configured = true;
++
+ 	return 0;
+ }
+ 
+@@ -494,14 +498,21 @@ static void dsi_pll_phy_dig_reset(struct dsi_pll_7nm *pll)
+ static int dsi_pll_7nm_vco_prepare(struct clk_hw *hw)
+ {
+ 	struct dsi_pll_7nm *pll_7nm = to_pll_7nm(hw);
++	struct msm_dsi_phy *phy = pll_7nm->phy;
+ 	int rc;
+ 
++	if (unlikely(phy->pll_on))
++		return 0;
++
++		if (!pll_7nm->vco_configured)
++		return 0;
++
+ 	dsi_pll_enable_pll_bias(pll_7nm);
+ 	if (pll_7nm->slave)
+ 		dsi_pll_enable_pll_bias(pll_7nm->slave);
+ 
+ 	/* Start PLL */
+-	writel(BIT(0), pll_7nm->phy->base + REG_DSI_7nm_PHY_CMN_PLL_CNTRL);
++	writel(BIT(0), phy->base + REG_DSI_7nm_PHY_CMN_PLL_CNTRL);
+ 
+ 	/*
+ 	 * ensure all PLL configurations are written prior to checking
+@@ -512,11 +523,11 @@ static int dsi_pll_7nm_vco_prepare(struct clk_hw *hw)
+ 	/* Check for PLL lock */
+ 	rc = dsi_pll_7nm_lock_status(pll_7nm);
+ 	if (rc) {
+-		pr_err("PLL(%d) lock failed\n", pll_7nm->phy->id);
++		pr_err("PLL(%d) lock failed\n", phy->id);
+ 		goto error;
+ 	}
+ 
+-	pll_7nm->phy->pll_on = true;
++	phy->pll_on = true;
+ 
+ 	/*
+ 	 * assert power on reset for PHY digital in case the PLL is
+@@ -549,6 +560,9 @@ static void dsi_pll_7nm_vco_unprepare(struct clk_hw *hw)
+ {
+ 	struct dsi_pll_7nm *pll_7nm = to_pll_7nm(hw);
+ 
++	if (!pll_7nm->phy->pll_on)
++		return;
++
+ 	/*
+ 	 * To avoid any stray glitches while abruptly powering down the PLL
+ 	 * make sure to gate the clock using the clock enable bit before
+diff --git a/drivers/gpu/drm/msm/msm_mdss.c b/drivers/gpu/drm/msm/msm_mdss.c
+index 9087c4b29..cb853264a 100644
+--- a/drivers/gpu/drm/msm/msm_mdss.c
++++ b/drivers/gpu/drm/msm/msm_mdss.c
+@@ -11,6 +11,7 @@
+ #include <linux/irqchip.h>
+ #include <linux/irqdesc.h>
+ #include <linux/irqchip/chained_irq.h>
++#include <linux/module.h>
+ #include <linux/of_platform.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_runtime.h>
+@@ -24,6 +25,19 @@
+ 
+ #define MIN_IB_BW	400000000UL /* Min ib vote 400MB */
+ 
++static bool msm_mdss_skip_reset;
++module_param_named(skip_mdss_reset, msm_mdss_skip_reset, bool, 0644);
++MODULE_PARM_DESC(skip_mdss_reset,
++		 "Skip MDSS core reset on probe (UEFI continuous splash handoff)");
++
++static bool msm_mdss_should_skip_reset(struct device *dev)
++{
++	if (msm_mdss_skip_reset)
++		return true;
++
++	return device_property_read_bool(dev, "qcom,skip-mdss-reset");
++}
++
+ struct msm_mdss_data {
+ 	u32 reg_bus_bw;
+ };
+@@ -369,7 +383,11 @@ static struct msm_mdss *msm_mdss_init(struct platform_device *pdev, bool is_mdp5
+ 	int ret;
+ 	int irq;
+ 
+-	ret = msm_mdss_reset(&pdev->dev);
++	ret = 0;
++	if (!msm_mdss_should_skip_reset(&pdev->dev))
++		ret = msm_mdss_reset(&pdev->dev);
++	else
++		dev_info(&pdev->dev, "skipping MDSS reset for continuous splash handoff\n");
+ 	if (ret)
+ 		return ERR_PTR(ret);
+ 
+-- 
+2.43.0
+

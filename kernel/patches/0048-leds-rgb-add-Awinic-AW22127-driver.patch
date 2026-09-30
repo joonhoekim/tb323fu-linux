@@ -1,0 +1,296 @@
+From 8fa8b1aceee3a1a4e135ebff5e2717ec0eaf6169 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:30:49 +0000
+Subject: [PATCH 48/56] leds: rgb: add Awinic AW22127 driver
+
+The TB323FU rear-camera RGB ring (y705-mainline-plan.md 9-62). The
+AW22127 runs effects on an internal MCU (program in its own flash); this
+sends the one-colour command the vendor stack uses, through the TASK1
+mailbox, and exposes it as one multicolor LED. Off holds it in reset.
+
+y705-source: 0034-leds-rgb-aw22127.patch
+---
+ drivers/leds/rgb/Kconfig        |   8 ++
+ drivers/leds/rgb/Makefile       |   1 +
+ drivers/leds/rgb/leds-aw22127.c | 241 ++++++++++++++++++++++++++++++++
+ 3 files changed, 250 insertions(+)
+ create mode 100644 drivers/leds/rgb/leds-aw22127.c
+
+diff --git a/drivers/leds/rgb/Kconfig b/drivers/leds/rgb/Kconfig
+index 6e9ab5f60..5d3be57ee 100644
+--- a/drivers/leds/rgb/Kconfig
++++ b/drivers/leds/rgb/Kconfig
+@@ -2,6 +2,14 @@
+ 
+ if LEDS_CLASS_MULTICOLOR
+ 
++config LEDS_AW22127
++	tristate "LED support for Awinic AW22127"
++	depends on I2C && LEDS_CLASS_MULTICOLOR
++	select REGMAP_I2C
++	help
++	  Say Y to enable support for the Awinic AW22127 RGB LED matrix
++	  driver, as a single multicolor LED (one colour on all LEDs).
++
+ config LEDS_GROUP_MULTICOLOR
+ 	tristate "LEDs group multi-color support"
+ 	depends on OF
+diff --git a/drivers/leds/rgb/Makefile b/drivers/leds/rgb/Makefile
+index cc0f2df66..be346bd03 100644
+--- a/drivers/leds/rgb/Makefile
++++ b/drivers/leds/rgb/Makefile
+@@ -10,3 +10,4 @@ obj-$(CONFIG_LEDS_PWM_MULTICOLOR)	+= leds-pwm-multicolor.o
+ obj-$(CONFIG_LEDS_QCOM_LPG)		+= leds-qcom-lpg.o
+ obj-$(CONFIG_LEDS_S2M_RGB)		+= leds-s2m-rgb.o
+ obj-$(CONFIG_LEDS_MT6370_RGB)		+= leds-mt6370-rgb.o
++obj-$(CONFIG_LEDS_AW22127)		+= leds-aw22127.o
+diff --git a/drivers/leds/rgb/leds-aw22127.c b/drivers/leds/rgb/leds-aw22127.c
+new file mode 100644
+index 000000000..564508129
+--- /dev/null
++++ b/drivers/leds/rgb/leds-aw22127.c
+@@ -0,0 +1,241 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Awinic AW22127 RGB LED driver (static colour).
++ *
++ * The AW22127 is an LED matrix driver with a small MCU running a program
++ * kept in the chip's own flash. Lighting effects are commands to that MCU:
++ * a byte stream fed through the TASK1 mailbox (REG_MCUCTR = 0x07, then one
++ * REG_TASK1 write per byte) and started with REG_TASK0. The command below
++ * sets every LED to one colour; it is the one the Lenovo Legion Tab Y700
++ * (5th gen) vendor stack uses for its "all on" colours, with the colour in
++ * the last three bytes. Register protocol from Awinic's GPL leds-aw22xxx.c.
++ *
++ * Exposed as one multicolor LED; off holds the chip in reset.
++ */
++
++#include <linux/delay.h>
++#include <linux/gpio/consumer.h>
++#include <linux/i2c.h>
++#include <linux/led-class-multicolor.h>
++#include <linux/module.h>
++#include <linux/mutex.h>
++#include <linux/of.h>
++#include <linux/regmap.h>
++
++#define AW22127_REG_CHIPID	0x00
++#define AW22127_REG_SRST	0x01
++#define AW22127_REG_GCR		0x02
++#define AW22127_REG_MCUCTR	0x04
++#define AW22127_REG_TASK0	0x05
++#define AW22127_REG_TASK1	0x06
++#define AW22127_REG_INTEN	0x09
++#define AW22127_REG_PST		0x0c
++#define AW22127_REG_PAGE	0xff
++
++#define AW22127_CHIPID		0x27
++#define AW22127_SRST_RESET	0x55
++#define AW22127_GCR_CHIPEN	BIT(0)
++#define AW22127_MCUCTR_MAILBOX	0x07
++
++/* "all LEDs one colour": the vendor's factory_all_on_*.bin, colour last */
++static const u8 aw22127_static_cmd[] = {
++	0x00, 0x80, 0x01, 0x01, 0x07, 0x00, 0x00, 0x01, 0x01, 0x00,
++	0x00, 0x00, 0x01, 0x09, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
++	0x01, 0xf4,		/* fade-in, ms */
++	0xff, 0xff,		/* global brightness */
++	0x00, 0x00, 0x00,	/* R, G, B */
++};
++#define AW22127_CMD_R	(ARRAY_SIZE(aw22127_static_cmd) - 3)
++
++struct aw22127 {
++	struct device *dev;
++	struct regmap *regmap;
++	struct gpio_desc *reset;
++	struct led_classdev_mc mc;
++	struct mc_subled subled[3];
++	struct mutex lock;
++	bool on;
++};
++
++static const struct regmap_config aw22127_regmap = {
++	.reg_bits = 8,
++	.val_bits = 8,
++	.max_register = 0xff,
++};
++
++static void aw22127_power(struct aw22127 *aw, bool on)
++{
++	/* reset-gpios is active low: deasserted = running */
++	gpiod_set_value_cansleep(aw->reset, !on);
++	if (on)
++		usleep_range(2000, 3000);
++}
++
++static int aw22127_play(struct aw22127 *aw, const u8 *cmd, size_t len)
++{
++	struct regmap *rm = aw->regmap;
++	size_t i;
++	int ret;
++
++	ret = regmap_write(rm, AW22127_REG_PAGE, 0);
++	ret = ret ?: regmap_write(rm, AW22127_REG_GCR, AW22127_GCR_CHIPEN);
++	if (ret)
++		return ret;
++	usleep_range(2000, 3000);
++
++	ret = regmap_write(rm, AW22127_REG_PST, 0);
++	ret = ret ?: regmap_write(rm, AW22127_REG_TASK0, 0x01);
++	ret = ret ?: regmap_write(rm, AW22127_REG_MCUCTR, 0x01);
++	ret = ret ?: regmap_write(rm, AW22127_REG_INTEN, 0x01);
++	ret = ret ?: regmap_write(rm, AW22127_REG_MCUCTR, 0x03);
++	for (i = 0; !ret && i < len; i++) {
++		if (i)
++			ret = regmap_write(rm, AW22127_REG_MCUCTR,
++					   AW22127_MCUCTR_MAILBOX);
++		ret = ret ?: regmap_write(rm, AW22127_REG_TASK1, cmd[i]);
++	}
++	ret = ret ?: regmap_write(rm, AW22127_REG_MCUCTR, AW22127_MCUCTR_MAILBOX);
++	ret = ret ?: regmap_write(rm, AW22127_REG_TASK0, 0x80);
++
++	return ret;
++}
++
++static int aw22127_off(struct aw22127 *aw)
++{
++	struct regmap *rm = aw->regmap;
++
++	regmap_write(rm, AW22127_REG_PAGE, 0);
++	regmap_write(rm, AW22127_REG_TASK0, 0);
++	regmap_write(rm, AW22127_REG_MCUCTR, 0x01);
++	regmap_write(rm, AW22127_REG_GCR, 0);
++	regmap_write(rm, AW22127_REG_SRST, AW22127_SRST_RESET);
++	aw22127_power(aw, false);
++
++	return 0;
++}
++
++static int aw22127_brightness_set(struct led_classdev *cdev,
++				  enum led_brightness brightness)
++{
++	struct led_classdev_mc *mc = lcdev_to_mccdev(cdev);
++	struct aw22127 *aw = container_of(mc, struct aw22127, mc);
++	u8 cmd[ARRAY_SIZE(aw22127_static_cmd)];
++	int ret = 0;
++
++	mutex_lock(&aw->lock);
++
++	if (!brightness) {
++		if (aw->on)
++			ret = aw22127_off(aw);
++		aw->on = false;
++		goto out;
++	}
++
++	led_mc_calc_color_components(mc, brightness);
++	memcpy(cmd, aw22127_static_cmd, sizeof(cmd));
++	cmd[AW22127_CMD_R] = aw->subled[0].brightness;
++	cmd[AW22127_CMD_R + 1] = aw->subled[1].brightness;
++	cmd[AW22127_CMD_R + 2] = aw->subled[2].brightness;
++
++	if (!aw->on)
++		aw22127_power(aw, true);
++	ret = aw22127_play(aw, cmd, sizeof(cmd));
++	aw->on = !ret;
++	if (ret)
++		aw22127_power(aw, false);
++out:
++	mutex_unlock(&aw->lock);
++
++	return ret;
++}
++
++static int aw22127_probe(struct i2c_client *client)
++{
++	struct device *dev = &client->dev;
++	struct led_init_data init = {};
++	struct aw22127 *aw;
++	unsigned int id;
++	int ret;
++
++	aw = devm_kzalloc(dev, sizeof(*aw), GFP_KERNEL);
++	if (!aw)
++		return -ENOMEM;
++
++	aw->dev = dev;
++	mutex_init(&aw->lock);
++
++	aw->regmap = devm_regmap_init_i2c(client, &aw22127_regmap);
++	if (IS_ERR(aw->regmap))
++		return PTR_ERR(aw->regmap);
++
++	aw->reset = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
++	if (IS_ERR(aw->reset))
++		return dev_err_probe(dev, PTR_ERR(aw->reset), "reset gpio\n");
++
++	aw22127_power(aw, true);
++	ret = regmap_read(aw->regmap, AW22127_REG_CHIPID, &id);
++	aw22127_power(aw, false);
++	if (ret)
++		return dev_err_probe(dev, ret, "reading chip ID\n");
++	if (id != AW22127_CHIPID)
++		return dev_err_probe(dev, -ENODEV, "chip ID 0x%02x, not an AW22127\n", id);
++
++	aw->subled[0].color_index = LED_COLOR_ID_RED;
++	aw->subled[1].color_index = LED_COLOR_ID_GREEN;
++	aw->subled[2].color_index = LED_COLOR_ID_BLUE;
++	aw->subled[0].intensity = 255;
++	aw->subled[1].intensity = 255;
++	aw->subled[2].intensity = 255;
++
++	aw->mc.subled_info = aw->subled;
++	aw->mc.num_colors = ARRAY_SIZE(aw->subled);
++	aw->mc.led_cdev.max_brightness = 255;
++	aw->mc.led_cdev.brightness_set_blocking = aw22127_brightness_set;
++
++	init.fwnode = dev_fwnode(dev);
++	init.devicename = "aw22127";
++	init.default_label = "rgb:indicator";
++
++	ret = devm_led_classdev_multicolor_register_ext(dev, &aw->mc, &init);
++	if (ret)
++		return dev_err_probe(dev, ret, "registering LED\n");
++
++	i2c_set_clientdata(client, &aw->mc);
++
++	return 0;
++}
++
++static void aw22127_remove(struct i2c_client *client)
++{
++	struct led_classdev_mc *mc = i2c_get_clientdata(client);
++
++	if (mc) {
++		struct aw22127 *aw = container_of(mc, struct aw22127, mc);
++
++		mutex_lock(&aw->lock);
++		if (aw->on)
++			aw22127_off(aw);
++		mutex_unlock(&aw->lock);
++	}
++}
++
++static const struct of_device_id aw22127_of_match[] = {
++	{ .compatible = "awinic,aw22127" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, aw22127_of_match);
++
++static struct i2c_driver aw22127_driver = {
++	.driver = {
++		.name = "leds-aw22127",
++		.of_match_table = aw22127_of_match,
++	},
++	.probe = aw22127_probe,
++	.remove = aw22127_remove,
++};
++module_i2c_driver(aw22127_driver);
++
++MODULE_AUTHOR("joonhoekim <26rote@gmail.com>");
++MODULE_DESCRIPTION("Awinic AW22127 RGB LED driver");
++MODULE_LICENSE("GPL");
+-- 
+2.43.0
+

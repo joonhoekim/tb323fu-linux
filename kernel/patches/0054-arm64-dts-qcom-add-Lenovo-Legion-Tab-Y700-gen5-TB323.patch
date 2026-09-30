@@ -1,0 +1,3183 @@
+From 60166ac3dfec8d7889c4a1311e460440aa806701 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:33:39 +0000
+Subject: [PATCH 54/56] arm64: dts: qcom: add Lenovo Legion Tab Y700 gen5
+ (TB323FU, baldur) board DTs
+
+Board devicetrees from the y705 repo (mainline/kernel/kaanapali-lenovo-baldur*.dts,
+baldur-*.dtsi) as of 2026-09-26, unchanged, plus the three Makefile lines.
+---
+ arch/arm64/boot/dts/qcom/Makefile             |   3 +
+ arch/arm64/boot/dts/qcom/baldur-adc.dtsi      | 264 ++++++++++++
+ arch/arm64/boot/dts/qcom/baldur-audio.dtsi    | 274 ++++++++++++
+ .../arm64/boot/dts/qcom/baldur-backlight.dtsi |  56 +++
+ arch/arm64/boot/dts/qcom/baldur-camera.dtsi   | 281 +++++++++++++
+ arch/arm64/boot/dts/qcom/baldur-cdsp.dtsi     |  18 +
+ arch/arm64/boot/dts/qcom/baldur-display.dtsi  | 153 +++++++
+ arch/arm64/boot/dts/qcom/baldur-dp.dtsi       | 128 ++++++
+ arch/arm64/boot/dts/qcom/baldur-gpu.dtsi      |  24 ++
+ .../boot/dts/qcom/baldur-haptics-flash.dtsi   |  81 ++++
+ arch/arm64/boot/dts/qcom/baldur-keys.dtsi     |  42 ++
+ arch/arm64/boot/dts/qcom/baldur-ledring.dtsi  |  29 ++
+ arch/arm64/boot/dts/qcom/baldur-power.dtsi    |  94 +++++
+ .../boot/dts/qcom/baldur-regulators.dtsi      | 334 +++++++++++++++
+ arch/arm64/boot/dts/qcom/baldur-stats.dtsi    |  13 +
+ arch/arm64/boot/dts/qcom/baldur-storage.dtsi  | 109 +++++
+ arch/arm64/boot/dts/qcom/baldur-thermal.dtsi  | 396 ++++++++++++++++++
+ arch/arm64/boot/dts/qcom/baldur-touch.dtsi    |  54 +++
+ arch/arm64/boot/dts/qcom/baldur-usb.dtsi      |  66 +++
+ arch/arm64/boot/dts/qcom/baldur-wifi.dtsi     | 260 ++++++++++++
+ .../qcom/kaanapali-lenovo-baldur-display.dts  |  31 ++
+ .../qcom/kaanapali-lenovo-baldur-kexec.dts    |  78 ++++
+ .../boot/dts/qcom/kaanapali-lenovo-baldur.dts | 193 +++++++++
+ 23 files changed, 2981 insertions(+)
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-adc.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-audio.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-backlight.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-camera.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-cdsp.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-display.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-dp.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-gpu.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-haptics-flash.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-keys.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-ledring.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-power.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-regulators.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-stats.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-storage.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-thermal.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-touch.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-usb.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/baldur-wifi.dtsi
+ create mode 100644 arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts
+ create mode 100644 arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-kexec.dts
+ create mode 100644 arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur.dts
+
+diff --git a/arch/arm64/boot/dts/qcom/Makefile b/arch/arm64/boot/dts/qcom/Makefile
+index 1c86e7e98..b07d09c1d 100644
+--- a/arch/arm64/boot/dts/qcom/Makefile
++++ b/arch/arm64/boot/dts/qcom/Makefile
+@@ -42,6 +42,9 @@ dtb-$(CONFIG_ARCH_QCOM)	+= ipq9574-rdp449.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= ipq9574-rdp453.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= ipq9574-rdp454.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= ipq9650-rdp488.dtb
++dtb-$(CONFIG_ARCH_QCOM)	+= kaanapali-lenovo-baldur.dtb
++dtb-$(CONFIG_ARCH_QCOM)	+= kaanapali-lenovo-baldur-kexec.dtb
++dtb-$(CONFIG_ARCH_QCOM)	+= kaanapali-lenovo-baldur-display.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= kaanapali-mtp.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= kaanapali-qrd.dtb
+ dtb-$(CONFIG_ARCH_QCOM)	+= lemans-evk.dtb
+diff --git a/arch/arm64/boot/dts/qcom/baldur-adc.dtsi b/arch/arm64/boot/dts/qcom/baldur-adc.dtsi
+new file mode 100644
+index 000000000..f5570413e
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-adc.dtsi
+@@ -0,0 +1,264 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur") PMIC ADC: board thermistors and PMIC die temperatures
++ * (y705-mainline-plan.md 9-59). The ADC is PMK8850's PMIC5 Gen4 VADC at
++ * 0x9000 (pmk8850.dtsi, upstream series 0025); it reads channels of every
++ * PMIC on the bus. Channel numbers are the vendor DT's (vadc@9000) as they
++ * are: bits 14:13 bus, 12:8 SID, 7:0 channel -- 0x27xx is PMIH0108 (bus 1,
++ * SID 7), 0x1xx PMH0101 (SID 1), 0x0xx PMK8850.
++ *
++ * All NTCs are 100 kOhm pull-up ratiometric thermistors. The vendor DT names
++ * them; where it is one we know on the board, the name says so. The vendor's
++ * thermal zones on them have only 125 C placeholder trips (Android's
++ * thermal-engine throttles in userspace, from skin_therm mostly), so these
++ * zones get one "hot" trip each, for notification, and no cooling maps.
++ * PMIC die temperatures feed the temp-alarm zones, which otherwise estimate
++ * from the alarm stage (a flat 37 C).
++ */
++
++#include "qcom-adc5-gen4.h"
++
++&pmh0101_gpios {
++	/* ADC inputs: the vendor sets these two high-Z for the ADC */
++	qtm_therm_default: qtm-therm-default-state {
++		pins = "gpio2";
++		function = "normal";
++		bias-high-impedance;
++	};
++
++	quiet_therm_default: quiet-therm-default-state {
++		pins = "gpio3";
++		function = "normal";
++		bias-high-impedance;
++	};
++};
++
++&pmk8850_vadc {
++	pinctrl-0 = <&qtm_therm_default>, <&quiet_therm_default>;
++	pinctrl-names = "default";
++
++	/* pmk8850.dtsi's AMUX1 channel: the vendor's xo_therm */
++	channel@44 {
++		label = "xo_therm";
++	};
++
++	channel@47 {
++		reg = <ADC5_GEN4_AMUX4_THM_100K_PU(0, 0)>;
++		label = "lcm_therm";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@103 {
++		reg = <ADC5_GEN4_DIE_TEMP(0, 1)>;
++		label = "pmh0101_die_temp";
++	};
++
++	channel@18e {
++		reg = <ADC5_GEN4_VPH_PWR(0, 1)>;
++		label = "pmh0101_vph_pwr";
++	};
++
++	channel@144 {
++		reg = <ADC5_GEN4_AMUX1_THM_100K_PU(0, 1)>;
++		label = "skin_therm";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@145 {
++		reg = <ADC5_GEN4_AMUX2_THM_100K_PU(0, 1)>;
++		label = "flash_led_ntc";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@146 {
++		reg = <ADC5_GEN4_AMUX3_THM_100K_PU(0, 1)>;
++		label = "wlan_therm";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@148 {
++		reg = <ADC5_GEN4_AMUX5_THM_100K_PU(0, 1)>;
++		label = "usb2_conn_therm";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@14a {
++		reg = <ADC5_GEN4_AMUX1_GPIO_100K_PU(0, 1)>;
++		label = "rear_cam_ntc";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@14b {
++		reg = <ADC5_GEN4_AMUX2_GPIO_100K_PU(0, 1)>;
++		label = "qtm_therm";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@14c {
++		reg = <ADC5_GEN4_AMUX3_GPIO_100K_PU(0, 1)>;
++		label = "quiet_therm";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@303 {
++		reg = <ADC5_GEN4_DIE_TEMP(0, 3)>;
++		label = "pmh0110_d_die_temp";
++	};
++
++	channel@503 {
++		reg = <ADC5_GEN4_DIE_TEMP(0, 5)>;
++		label = "pmh0110_f_die_temp";
++	};
++
++	channel@603 {
++		reg = <ADC5_GEN4_DIE_TEMP(0, 6)>;
++		label = "pmh0110_g_die_temp";
++	};
++
++	channel@803 {
++		reg = <ADC5_GEN4_DIE_TEMP(0, 8)>;
++		label = "pmh0110_i_die_temp";
++	};
++
++	channel@2703 {
++		reg = <ADC5_GEN4_DIE_TEMP(1, 7)>;
++		label = "pmih0108_die_temp";
++	};
++
++	channel@278e {
++		reg = <ADC5_GEN4_VPH_PWR(1, 7)>;
++		label = "pmih0108_vph_pwr";
++	};
++
++	channel@278f {
++		reg = <ADC5_GEN4_VBAT_SNS_QBG(1, 7)>;
++		label = "vbat_sns_qbg";
++	};
++
++	channel@2744 {
++		reg = <ADC5_GEN4_AMUX1_THM_100K_PU(1, 7)>;
++		label = "batt_therm";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@2747 {
++		reg = <ADC5_GEN4_AMUX4_THM_100K_PU(1, 7)>;
++		label = "usb_therm";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@274b {
++		reg = <ADC5_GEN4_AMUX2_GPIO_100K_PU(1, 7)>;
++		label = "ufs_therm";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@274c {
++		reg = <ADC5_GEN4_AMUX3_GPIO_100K_PU(1, 7)>;
++		label = "batt_therm_2";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@274d {
++		reg = <ADC5_GEN4_AMUX4_GPIO_100K_PU(1, 7)>;
++		label = "wls_therm";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@275e {
++		reg = <ADC5_GEN4_AMUX5_GPIO_100K_PU(1, 7)>;
++		label = "fcam_ntc";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++};
++
++&pmh0101_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 1)>;
++	io-channel-names = "thermal";
++};
++
++&pmh0110_d_e0_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 3)>;
++	io-channel-names = "thermal";
++};
++
++&pmh0110_f_e0_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 5)>;
++	io-channel-names = "thermal";
++};
++
++&pmh0110_g_e0_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 6)>;
++	io-channel-names = "thermal";
++};
++
++&pmh0110_i_e0_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 8)>;
++	io-channel-names = "thermal";
++};
++
++&pmih0108_e1_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(1, 7)>;
++	io-channel-names = "thermal";
++};
++
++#define BALDUR_NTC_ZONE(_name, _chan)					\
++	_name {								\
++		thermal-sensors = <&pmk8850_vadc _chan>;		\
++									\
++		trips {							\
++			hot {						\
++				temperature = <80000>;			\
++				hysteresis = <2000>;			\
++				type = "hot";				\
++			};						\
++		};							\
++	}
++
++/ {
++	thermal-zones {
++		BALDUR_NTC_ZONE(xo-thermal, ADC5_GEN4_AMUX1_THM_100K_PU(0, 0));
++		BALDUR_NTC_ZONE(lcm-thermal, ADC5_GEN4_AMUX4_THM_100K_PU(0, 0));
++		BALDUR_NTC_ZONE(skin-thermal, ADC5_GEN4_AMUX1_THM_100K_PU(0, 1));
++		BALDUR_NTC_ZONE(flash-led-thermal, ADC5_GEN4_AMUX2_THM_100K_PU(0, 1));
++		BALDUR_NTC_ZONE(wlan-thermal, ADC5_GEN4_AMUX3_THM_100K_PU(0, 1));
++		BALDUR_NTC_ZONE(usb2-conn-thermal, ADC5_GEN4_AMUX5_THM_100K_PU(0, 1));
++		BALDUR_NTC_ZONE(rear-cam-thermal, ADC5_GEN4_AMUX1_GPIO_100K_PU(0, 1));
++		BALDUR_NTC_ZONE(qtm-thermal, ADC5_GEN4_AMUX2_GPIO_100K_PU(0, 1));
++		BALDUR_NTC_ZONE(quiet-thermal, ADC5_GEN4_AMUX3_GPIO_100K_PU(0, 1));
++		BALDUR_NTC_ZONE(batt-thermal, ADC5_GEN4_AMUX1_THM_100K_PU(1, 7));
++		BALDUR_NTC_ZONE(usb-thermal, ADC5_GEN4_AMUX4_THM_100K_PU(1, 7));
++		BALDUR_NTC_ZONE(ufs-thermal, ADC5_GEN4_AMUX2_GPIO_100K_PU(1, 7));
++		BALDUR_NTC_ZONE(batt2-thermal, ADC5_GEN4_AMUX3_GPIO_100K_PU(1, 7));
++		BALDUR_NTC_ZONE(wls-thermal, ADC5_GEN4_AMUX4_GPIO_100K_PU(1, 7));
++		BALDUR_NTC_ZONE(fcam-thermal, ADC5_GEN4_AMUX5_GPIO_100K_PU(1, 7));
++	};
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-audio.dtsi b/arch/arm64/boot/dts/qcom/baldur-audio.dtsi
+new file mode 100644
+index 000000000..3029dc2eb
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-audio.dtsi
+@@ -0,0 +1,274 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur") audio, step by step (y705-mainline-plan.md 9-47 to 9-50).
++ *
++ * From the vendor tree: two Awinic smart amplifiers, "awinic,aw882xx_smartpa"
++ * at 0x34 (sound-channel 0, reset TLMM 114) and 0x37 (channel 1, reset
++ * TLMM 71), on QUP1 SE4 (i2c@a90000, SDA/SCL TLMM 36/37). No WSA
++ * amplifiers. The microphones are two analog mics on a WCD9395 on SoundWire
++ * (9-50; 9-47 had them as DMICs, wrongly).
++ *
++ * The amplifiers answer only with L12B at 1.8 V (their digital supply;
++ * Android keeps it there, on with no listed consumer). Here L12B is also the
++ * panel's VDDIO, which asked for 1.2 V and dropped it with the screen off:
++ * pin it at 1.8 V and on. Chip ID 0x2308, Awinic's aw882xx driver
++ * (mainline/kernel/aw882xx, 9-47).
++ */
++
++&vreg_l12b_1p8 {
++	regulator-min-microvolt = <1800000>;
++	regulator-always-on;
++};
++
++&i2c4 {
++	clock-frequency = <400000>;
++
++	status = "okay";
++
++	/* as the vendor tree has them */
++	speaker_amp0: amplifier@34 {
++		compatible = "awinic,aw882xx_smartpa";
++		reg = <0x34>;
++		reset-gpio = <&tlmm 114 GPIO_ACTIVE_HIGH>;
++		sound-channel = <0>;
++		aw-cali-mode = "none";
++		aw-re-min = <4000>;
++		aw-re-max = <30000>;
++		rename-flag = <1>;
++		sync-load = <1>;
++		#sound-dai-cells = <0>;
++	};
++
++	speaker_amp1: amplifier@37 {
++		compatible = "awinic,aw882xx_smartpa";
++		reg = <0x37>;
++		reset-gpio = <&tlmm 71 GPIO_ACTIVE_HIGH>;
++		sound-channel = <1>;
++		aw-cali-mode = "none";
++		aw-re-min = <4000>;
++		aw-re-max = <30000>;
++		rename-flag = <1>;
++		sync-load = <1>;
++		#sound-dai-cells = <0>;
++	};
++};
++
++/*
++ * ADSP (9-49): Android's adsp.mdt / adsp_dtb.mdt from the modem partition's
++ * image/, squashed to .mbn (tools/pil-squash.py), in the rootfs under
++ * /lib/firmware/qcom/kaanapali/lenovo/baldur.
++ *
++ * The vendor adspslpi region is 0x4600000, and this bootloader hands memory
++ * from 0xa5a00000 on to the kernel as RAM; mainline's 0x4c00000 reaches into
++ * it and the PAS driver's request_mem_region then fails with -EBUSY.
++ */
++&adspslpi_mem {
++	reg = <0x0 0xa1400000 0x0 0x4600000>;
++};
++
++&remoteproc_adsp {
++	firmware-name = "qcom/kaanapali/lenovo/baldur/adsp.mbn",
++			"qcom/kaanapali/lenovo/baldur/adsp_dtb.mbn";
++
++	status = "okay";
++};
++
++/*
++ * Speakers (9-49): Android's PAL_DEVICE_OUT_SPEAKER backend is
++ * MI2S-LPAIF-RX-PRIMARY -- LPASS primary MI2S on TLMM 122 (SCK), 125 (WS),
++ * 123 (SD0), 124 (SD1), with the pin settings of the vendor's i2s0_*_active.
++ * The amplifiers' data line is SD1 (the topology says so; on SD0 they get
++ * nothing). The DSP drives the clocks (BP_FP, set by the sc8280xp machine driver); the
++ * amplifiers take BCLK and WS. Front ends come from the topology,
++ * qcom/kaanapali/LENOVO-TB323FU-tplg.bin (mainline/audio/).
++ */
++&tlmm {
++	pri_mi2s_active: pri-mi2s-active-state {
++		clk-pins {
++			pins = "gpio122";
++			function = "i2s0_sck";
++			drive-strength = <8>;
++			bias-disable;
++		};
++
++		ws-pins {
++			pins = "gpio125";
++			function = "i2s0_ws";
++			drive-strength = <8>;
++			bias-disable;
++		};
++
++		data0-pins {
++			pins = "gpio123";
++			function = "i2s0_data0";
++			drive-strength = <8>;
++			bias-disable;
++		};
++
++		data1-pins {
++			pins = "gpio124";
++			function = "i2s0_data1";
++			drive-strength = <8>;
++			bias-disable;
++		};
++	};
++};
++
++/ {
++	sound {
++		compatible = "qcom,kaanapali-sndcard", "qcom,sm8450-sndcard";
++		model = "LENOVO-TB323FU";
++		/* the amplifiers want 32-bit slots, as Android runs them (0019) */
++		qcom,mi2s-s32le;
++
++		pinctrl-0 = <&pri_mi2s_active>;
++		pinctrl-names = "default";
++
++		/*
++		 * The two microphones are analog, on the WCD9395's AMIC1 and
++		 * AMIC4 (Android: speaker-mic = amic1 + amic4, ADC1 and ADC3,
++		 * MIC BIAS1 and MIC BIAS4). The mainline WCD939x driver carries
++		 * ADC1-4 as channels 1-4 of its TX port 1, mapped below to master
++		 * port 3 = SWR_INPUT4-7: ADC1 is SWR_INPUT4 (Android's SWR_MIC4),
++		 * ADC3 SWR_INPUT6 (Android moves ADC3 to port 4, SWR_MIC8).
++		 */
++		audio-routing = "AMIC1", "MIC BIAS1",
++				"AMIC4", "MIC BIAS4",
++				"TX SWR_INPUT4", "ADC1_OUTPUT",
++				"TX SWR_INPUT6", "ADC3_OUTPUT";
++
++		wcd-capture-dai-link {
++			link-name = "WCD Capture";
++
++			codec {
++				sound-dai = <&wcd939x 1>, <&swr2 0>, <&lpass_txmacro 0>;
++			};
++
++			cpu {
++				sound-dai = <&q6apmbedai TX_CODEC_DMA_TX_3>;
++			};
++
++			platform {
++				sound-dai = <&q6apm>;
++			};
++		};
++
++		speaker-dai-link {
++			link-name = "Speaker Playback";
++
++			codec {
++				sound-dai = <&speaker_amp0>, <&speaker_amp1>;
++			};
++
++			cpu {
++				sound-dai = <&q6apmbedai PRIMARY_MI2S_RX>;
++			};
++
++			platform {
++				sound-dai = <&q6apm>;
++			};
++		};
++	};
++};
++
++/*
++ * Microphones (9-50): a WCD9395 on SoundWire, as on the MTP -- the vendor
++ * tree has it (wcd939x-codec, TX/RX slaves at unique id 3/4) with the same
++ * reset (TLMM 161) and supplies (pmh0101 l15 1.8 V, pmh0110 g l1 1.2 V,
++ * pmh0101 bob1 for mic bias). Android captures through
++ * CODEC_DMA-LPAIF_RXTX-TX-3. It also drives USB-C analog audio through an
++ * FSA4480 on Android; only capture is wired here for now.
++ */
++/ {
++	wcd939x: audio-codec {
++		compatible = "qcom,wcd9395-codec", "qcom,wcd9390-codec";
++
++		pinctrl-0 = <&wcd_default>;
++		pinctrl-names = "default";
++
++		qcom,micbias1-microvolt = <1800000>;
++		qcom,micbias2-microvolt = <1800000>;
++		qcom,micbias3-microvolt = <1800000>;
++		qcom,micbias4-microvolt = <1800000>;
++		qcom,mbhc-buttons-vthreshold-microvolt = <75000 150000 237000 500000
++							  500000 500000 500000 500000>;
++		qcom,mbhc-headset-vthreshold-microvolt = <1700000>;
++		qcom,mbhc-headphone-vthreshold-microvolt = <50000>;
++		qcom,rx-device = <&wcd_rx>;
++		qcom,tx-device = <&wcd_tx>;
++
++		reset-gpios = <&tlmm 161 GPIO_ACTIVE_LOW>;
++
++		vdd-buck-supply = <&vreg_l15b_1p8>;
++		vdd-rxtx-supply = <&vreg_l15b_1p8>;
++		vdd-io-supply = <&vreg_l15b_1p8>;
++		vdd-mic-bias-supply = <&vreg_bob1>;
++		vdd-px-supply = <&vreg_l1g_1p2>;
++
++		#sound-dai-cells = <1>;
++	};
++};
++
++&swr1 {
++	status = "okay";
++
++	/* WCD9395 RX, port mapping as on the MTP */
++	wcd_rx: codec@0,4 {
++		compatible = "sdw20217010e00";
++		reg = <0 4>;
++		qcom,rx-port-mapping = <1 2 3 4 5 9>;
++	};
++};
++
++&swr2 {
++	/*
++	 * Android runs master port 3 on data lane 1 and port 4 on lane 2
++	 * (SWRM_DPn +0x28 while recording); kaanapali.dtsi has lane 0 for
++	 * both. Taken over as Android has it; it did not change the flat
++	 * -47 dBFS noise under the microphones (9-50), so all three lanes
++	 * are wired. The slave ports follow the master port's lane
++	 * (qcom_swrm_compute_params).
++	 */
++	qcom,ports-lane-control = /bits/ 8 <0x01 0x02 0x01 0x02>;
++	/* Android has offset1 0 on ports 3/4 (kaanapali.dtsi: 1); no effect on the noise */
++	qcom,ports-offset1 = /bits/ 8 <0x00 0x00 0x00 0x00>;
++
++	status = "okay";
++
++	/*
++	 * WCD9395 TX. Not the MTP's <2 2 3 4>: that puts ADC1 and ADC3 on
++	 * master port 2, which kaanapali.dtsi runs on data lane 2, and here the
++	 * capture is flat noise. Android (SWRM_DPn registers while recording)
++	 * uses master port 3 for WCD TX port 1 (ADC1/2) and port 4 for TX
++	 * port 2 (ADC3/4), both on lane 0. Mainline has all four ADCs on TX
++	 * port 1, so here both microphones share master port 3.
++	 */
++	wcd_tx: codec@0,3 {
++		compatible = "sdw20217010e00";
++		reg = <0 3>;
++		qcom,tx-port-mapping = <3 4 3 4>;
++	};
++};
++
++&tlmm {
++	wcd_default: wcd-reset-n-active-state {
++		pins = "gpio161";
++		function = "gpio";
++		drive-strength = <16>;
++		bias-disable;
++	};
++};
++
++/*
++ * The flat -47 dBFS noise under the microphones (9-50) was the decimators'
++ * filter block at 0x800 + 0x80 * n, which the mainline driver never touches.
++ * Android, recording, has these in the decimators it uses (+0x10..+0x28 are
++ * its DT's adapt-tuning-reg-values; +0x00 bit 4 clear matters most, -15 dB).
++ * With them the floor is about -65 dBFS. Written on every decimator enable
++ * (0020).
++ */
++&lpass_txmacro {
++	qcom,dec-tuning-reg-values = <0x00 0x41  0x10 0x4c  0x14 0x1d  0x18 0x7c
++				      0x1c 0x3c  0x20 0x67  0x24 0x16  0x28 0x03
++				      0x34 0x59  0x38 0x06>;
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-backlight.dtsi b/arch/arm64/boot/dts/qcom/baldur-backlight.dtsi
+new file mode 100644
+index 000000000..363234e32
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-backlight.dtsi
+@@ -0,0 +1,56 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur"): panel backlight (y705-mainline-plan.md 9-25).
++ *
++ * The CSOT panel's backlight is an external boost/LED driver on QUP I2C12
++ * at 0x76 (vendor "i2c-bl", bl_ctrl_external); the vendor display driver
++ * matches it as an Awinic AW99706A (register 0x11 == 0x07). HWEN is
++ * pmh0110 F gpio9 (vendor bl_active: output high).
++ *
++ * The vendor driver's init table leaves CFG0-2 (dimming mode, boost
++ * frequency and current limit, LED current) to the chip, and the mainline
++ * driver rewrites them from DT or its defaults -- 20 mA where this panel
++ * runs 28. So the values below are the ones read back from the chip as the
++ * bootloader left it, before any driver touched it (9-25):
++ *   CFG0 0x65 -> dim-mode 1 (DC)      CFG1 0x39 -> 750 kHz, 3 A limit
++ *   CFG2 0x2e -> 28 mA, UVLO 2.2 V    CFG6 0x99 -> ramp 2
++ *   CFG4/5 0x07ff -> brightness 2047 of 4095
++ * The bias chip beside it (0x3e, OCP2140/AW3750) is left alone.
++ */
++
++&i2c12 {
++	status = "okay";
++
++	panel_backlight: backlight@76 {
++		compatible = "awinic,aw99706";
++		reg = <0x76>;
++		enable-gpios = <&pmh0110_f_e0_gpios 9 GPIO_ACTIVE_HIGH>;
++		default-brightness = <2047>;
++		max-brightness = <4095>;
++		awinic,dim-mode = <1>;
++		awinic,sw-freq-hz = <750000>;
++		awinic,sw-ilmt-microamp = <3000000>;
++		awinic,iled-max-microamp = <28000>;
++		awinic,uvlo-thres-microvolt = <2200000>;
++		awinic,ramp-ctl = <2>;
++
++		/*
++		 * This tree's aw99706.c reads the names without the unit suffix
++		 * the binding gives them; without these it would program 20 mA.
++		 */
++		awinic,sw-freq = <750000>;
++		awinic,sw-ilmt = <3000000>;
++		awinic,iled-max = <28000>;
++		awinic,uvlo-thres = <2200000>;
++
++		/*
++		 * The driver resets the chip (HWEN low) when it probes, which
++		 * throws away what the bootloader set up beyond CFG0-2: the
++		 * backlight went dark with every register reading "on" (9-27).
++		 * These are the bootloader's values, in the vendor driver's
++		 * order (off, 0x0c/0x06/0x07, on). 0009-backlight-aw99706-init-regs.
++		 */
++		awinic,init-regs = /bits/ 8 <0x0d 0x00  0x0c 0x48  0x06 0x99
++					    0x07 0x05  0x0d 0xf8>;
++	};
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-camera.dtsi b/arch/arm64/boot/dts/qcom/baldur-camera.dtsi
+new file mode 100644
+index 000000000..b75b67587
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-camera.dtsi
+@@ -0,0 +1,281 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur") cameras (y705-mainline-plan.md 9-60), on the kaanapali
++ * CAMSS/CCI/CSIPHY series (0026-0028). From the vendor DT (qcom,cam-sensor,
++ * cci, csiphy nodes) and the CamX sensor modules in /vendor/lib64/camera
++ * (slave address and chip ID from their slave-info block):
++ *
++ *   rear:  Samsung S5KJNS (module s5kjns_qtech_main, chip ID 0x38ee @ 0x0000),
++ *          CCI0 master 0, 7-bit 0x56; CSIPHY3; VCM gt9764, EEPROM on the
++ *          same bus. VIO l10b 1.8 V, VDIG l11b 1.072 V (shared with the
++ *          panel core), VANA l7b 2.848 V, VAF l6b 2.8 V; reset PMH0110_I
++ *          gpio11.
++ *   front: GalaxyCore GC08A8 (module gc08a8_sunwin_front, chip ID 0x08a8 @
++ *          0x03f0), CCI2 master 1, 7-bit 0x31; CSIPHY2. VIO l10b, VDIG l18b
++ *          1.304 V, VANA l16b 2.904 V; reset PMH0110_I gpio12.
++ *
++ * Both MCLKs are the PMIC's divided XO (RPMH_DIV_CLK1, 19.2 MHz) out of
++ * PMK8850 gpio1 (rear) and gpio8 (front), function "func2" -- not the SoC's
++ * cam_mclk pins.
++ *
++ * No mainline driver knows either sensor. Step 1 binds the nearest ones
++ * (s5kjn5: 0x38e5, gc08a3: 0x08a3 @ 0x03f0, same address) only to see the
++ * chip IDs over CCI -- power, clock, reset and bus all have to be right.
++ *
++ * State (9-60): CAMSS/CSIPHY/CCI probe. Both sensor drivers time out on
++ * CCI -- at every address on these two buses, while the empty masters
++ * (cci0 bus 1, cci2 bus 0) NACK properly; also at 400 kHz. Bit-banged on
++ * the same pads the buses are fine: the front ACKs at 0x31 and reads
++ * 0x08a8, EEPROMs at 0x50(/0x58), the rear VCM at 0x0c. The rear sensor
++ * did not ACK then (its VDIG l11b was off in that test). The front MCLK
++ * (PMK8850 gpio8) does not toggle; the rear one (gpio1) does. TODO: CCI
++ * vs Android (registers with the camera open), front MCLK source.
++ */
++
++#include <dt-bindings/media/video-interfaces.h>
++
++&apps_rsc {
++	regulators-0 {
++		/* rear VAF */
++		vreg_l6b_2p8: ldo6 {
++			regulator-name = "vreg_l6b_2p8";
++			regulator-min-microvolt = <2800000>;
++			regulator-max-microvolt = <2800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		/* rear VANA */
++		vreg_l7b_2p8: ldo7 {
++			regulator-name = "vreg_l7b_2p8";
++			regulator-min-microvolt = <2848000>;
++			regulator-max-microvolt = <2848000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		/* camera VIO, both sensors */
++		vreg_l10b_1p8: ldo10 {
++			regulator-name = "vreg_l10b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		/* front VANA */
++		vreg_l16b_2p9: ldo16 {
++			regulator-name = "vreg_l16b_2p9";
++			regulator-min-microvolt = <2904000>;
++			regulator-max-microvolt = <2904000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		/* front VDIG */
++		vreg_l18b_1p3: ldo18 {
++			regulator-name = "vreg_l18b_1p3";
++			regulator-min-microvolt = <1304000>;
++			regulator-max-microvolt = <1304000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++};
++
++&pmk8850_gpios {
++	cam_rear_mclk_default: cam-rear-mclk-default-state {
++		pins = "gpio1";
++		function = "func2";
++		output-enable;
++		power-source = <0>;
++	};
++
++	cam_front_mclk_default: cam-front-mclk-default-state {
++		pins = "gpio8";
++		function = "func2";
++		output-enable;
++		power-source = <0>;
++	};
++};
++
++&camss {
++	status = "okay";
++
++	ports {
++		port@2 {
++			camss_csiphy2_ep: endpoint {
++				data-lanes = <1 2 3 4>;
++				remote-endpoint = <&csiphy2_out_ep>;
++			};
++		};
++
++		port@3 {
++			camss_csiphy3_ep: endpoint {
++				data-lanes = <1 2 3 4>;
++				remote-endpoint = <&csiphy3_out_ep>;
++			};
++		};
++	};
++};
++
++&csiphy2 {
++	vdda-0p9-supply = <&vreg_l3d_0p8>;
++	vdda-1p2-supply = <&vreg_l1d_1p2>;
++
++	status = "okay";
++
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		port@0 {
++			reg = <0>;
++
++			csiphy2_in_ep: endpoint {
++				bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
++				clock-lanes = <0>;
++				data-lanes = <1 2 3 4>;
++				remote-endpoint = <&cam_front_ep>;
++			};
++		};
++
++		port@1 {
++			reg = <1>;
++
++			csiphy2_out_ep: endpoint {
++				remote-endpoint = <&camss_csiphy2_ep>;
++			};
++		};
++	};
++};
++
++&csiphy3 {
++	vdda-0p9-supply = <&vreg_l3i_0p8>;
++	vdda-1p2-supply = <&vreg_l1d_1p2>;
++
++	status = "okay";
++
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		port@0 {
++			reg = <0>;
++
++			csiphy3_in_ep: endpoint {
++				bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
++				clock-lanes = <0>;
++				data-lanes = <1 2 3 4>;
++				remote-endpoint = <&cam_rear_ep>;
++			};
++		};
++
++		port@1 {
++			reg = <1>;
++
++			csiphy3_out_ep: endpoint {
++				remote-endpoint = <&camss_csiphy3_ep>;
++			};
++		};
++	};
++};
++
++&cci0 {
++	status = "okay";
++};
++
++&cci0_i2c0 {
++	/* rear S5KJNS (s5kjns, 0031) */
++	camera@56 {
++		compatible = "samsung,s5kjns";
++		reg = <0x56>;
++
++		reset-gpios = <&pmh0110_i_e0_gpios 11 GPIO_ACTIVE_LOW>;
++
++		pinctrl-0 = <&cam_rear_mclk_default>;
++		pinctrl-names = "default";
++
++		clocks = <&rpmhcc RPMH_DIV_CLK1>;
++
++		vddio-supply = <&vreg_l10b_1p8>;
++		vddd-supply = <&vreg_l11b_1p0>;
++		vdda-supply = <&vreg_l7b_2p8>;
++		afvdd-supply = <&vreg_l6b_2p8>;
++
++		lens-focus = <&cam_rear_vcm>;
++
++		port {
++			cam_rear_ep: endpoint {
++				link-frequencies = /bits/ 64 <672000000>;
++				data-lanes = <1 2 3 4>;
++				remote-endpoint = <&csiphy3_in_ep>;
++			};
++		};
++	};
++
++	/*
++	 * The rear lens' VCM: Giantec GT9764 (vendor "gt9764_back"), DW9719
++	 * register map; the vendor stack writes 02=02, 03/04 = position,
++	 * 06=40 (SAC 4), 07=7c, then 16-bit positions to register 3 (9-61).
++	 * Its bus pull-ups sit on the sensor I/O rail, hence vio.
++	 */
++	cam_rear_vcm: vcm@c {
++		compatible = "giantec,gt9764";
++		reg = <0x0c>;
++
++		vdd-supply = <&vreg_l6b_2p8>;
++		vio-supply = <&vreg_l10b_1p8>;
++	};
++};
++
++&cci2 {
++	status = "okay";
++};
++
++&cci2_i2c1 {
++	/* front GC08A8 (gc08a8, 0031) */
++	camera@31 {
++		compatible = "galaxycore,gc08a8";
++		reg = <0x31>;
++
++		reset-gpios = <&pmh0110_i_e0_gpios 12 GPIO_ACTIVE_LOW>;
++
++		pinctrl-0 = <&cam_front_mclk_default>;
++		pinctrl-names = "default";
++
++		clocks = <&rpmhcc RPMH_DIV_CLK1>;
++
++		dovdd-supply = <&vreg_l10b_1p8>;
++		dvdd-supply = <&vreg_l18b_1p3>;
++		avdd-supply = <&vreg_l16b_2p9>;
++
++		port {
++			cam_front_ep: endpoint {
++				data-lanes = <1 2 3 4>;
++				link-frequencies = /bits/ 64 <336000000 207000000>;
++				remote-endpoint = <&csiphy2_in_ep>;
++			};
++		};
++	};
++};
++
++/*
++ * The camera buses need the TLMM's strong I2C pull-up (bit 13, 0030), as
++ * Android sets it (cfg 0x2007 on gpio109/110 with the camera open). With
++ * only the weak pull-up every CCI transfer on them timed out (9-60).
++ */
++&cci0_i2c0_default {
++	scl-pins {
++		bias-pull-up = <2200>;
++	};
++
++	sda-pins {
++		bias-pull-up = <2200>;
++	};
++};
++
++&cci2_i2c1_default {
++	scl-pins {
++		bias-pull-up = <2200>;
++	};
++
++	sda-pins {
++		bias-pull-up = <2200>;
++	};
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-cdsp.dtsi b/arch/arm64/boot/dts/qcom/baldur-cdsp.dtsi
+new file mode 100644
+index 000000000..6375f25de
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-cdsp.dtsi
+@@ -0,0 +1,18 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur") compute DSP (y705-mainline-plan.md 9-51).
++ *
++ * Android's cdsp.mdt / cdsp_dtb.mdt (modem partition image/), squashed to
++ * .mbn with tools/pil-squash.py, in the rootfs next to the ADSP's under
++ * /lib/firmware/qcom/kaanapali/lenovo/baldur (too big for the boot image;
++ * baldur-dsp.service starts it once the rootfs is up). The reserved regions
++ * in kaanapali.dtsi (cdsp 0x1900000 at 0x9b500000, dtb 0x80000 at
++ * 0x9ce00000) match the vendor tree.
++ */
++
++&remoteproc_cdsp {
++	firmware-name = "qcom/kaanapali/lenovo/baldur/cdsp.mbn",
++			"qcom/kaanapali/lenovo/baldur/cdsp_dtb.mbn";
++
++	status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-display.dtsi b/arch/arm64/boot/dts/qcom/baldur-display.dtsi
+new file mode 100644
+index 000000000..42f5b8ae0
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-display.dtsi
+@@ -0,0 +1,153 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Stage 5 for TB323FU ("baldur"): the panel.
++ *
++ * NOT INCLUDED, AND NOT TESTED. Add
++ *
++ *	#include "baldur-display.dtsi"
++ *
++ * to the board DTS only after stage 3 has booted and stage 4 has storage.
++ * Needs baldur-regulators.dtsi first, and the driver side needs
++ * 0002-drm-panel-nt36523-baldur-dsc.patch plus
++ * 0001-kaanapali-add-mdss_dsi1.patch (kaanapali.dtsi describes one DSI link;
++ * this panel uses two).
++ *
++ * Turning MDSS on is also what gives up the bootloader's splash buffer, and
++ * with it the framebuffer console that stage 3 reads its log from. Do not add
++ * this file and expect /chosen/framebuffer to keep working -- by then the log
++ * channel has to be ramoops alone, or a real console.
++ *
++ * Everything here was read out of this device's ABL devicetree
++ * (logs/2026-09-22-mainline-survey.txt):
++ *
++ *	panel      CSOT NT36523, 1904x3040, dual-DSI (952/link),
++ *	           video mode burst, DSC 1.2, 4 lanes
++ *	vddio      pmh0101 ldo12   1.2-1.8 V
++ *	vdd        pmh0101 ldo11   1.0-1.292 V
++ *	vci        pmh0101 ldo13   3.0 V
++ *	reset      pmh0110 SID 5 (F) gpio 10
++ *	TE         TLMM 86
++ *	dsi ctrl   vdda-1p2  pmh0110_d ldo1
++ *	dsi phy    vdda-0p9  pmh0110_d ldo3
++ *
++ * KNOWN GAP: the mainline nt36523 driver claims only "vddio". It has no vdd or
++ * vci. They are declared here because they are what the hardware wants and the
++ * devicetree should say so, but until the driver is taught them, those two
++ * rails will not be turned on by it. If the panel stays dark with everything
++ * else looking right, that is the first thing to fix -- an optional
++ * regulator_bulk in the driver, not a change here.
++ */
++
++&mdss {
++	status = "okay";
++};
++
++&mdss_dsi0 {
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	vdda-supply = <&vreg_l1d_1p2>;
++
++	/*
++	 * One panel on two links (bonded DSI). Without these the second host
++	 * tried to take its clocks from its own PHY and failed ("Failed to
++	 * parent byte_src - dsi_pll_byte: -22"), and the panel's first command
++	 * over it failed with -22 (9-18). Same shape as sm8250-xiaomi-elish.
++	 */
++	qcom,dual-dsi-mode;
++	qcom,sync-dual-dsi;
++	qcom,master-dsi;
++
++	status = "okay";
++
++	panel0: panel@0 {
++		compatible = "lenovo,baldur-csot-nt36523";
++		reg = <0>;
++
++		/*
++		 * Reset is on a PMIC GPIO, not TLMM: pmh0110 at SPMI SID 5,
++		 * pin 10. The vendor reset sequence ends with the line high,
++		 * and the nt36523 driver ends its own reset at logical 0, so
++		 * the line is active low here.
++		 */
++		reset-gpios = <&pmh0110_f_e0_gpios 10 GPIO_ACTIVE_LOW>;
++
++		vddio-supply = <&vreg_l12b_1p8>;
++		vdd-supply = <&vreg_l11b_1p0>;
++		vci-supply = <&vreg_l13b_3p0>;
++
++		/* external AW99706 on I2C12, baldur-backlight.dtsi (9-25) */
++		backlight = <&panel_backlight>;
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@0 {
++				reg = <0>;
++
++				panel0_in: endpoint {
++					remote-endpoint = <&mdss_dsi0_out>;
++				};
++			};
++
++			port@1 {
++				reg = <1>;
++
++				panel1_in: endpoint {
++					remote-endpoint = <&mdss_dsi1_out>;
++				};
++			};
++		};
++	};
++};
++
++&mdss_dsi0_out {
++	remote-endpoint = <&panel0_in>;
++	data-lanes = <0 1 2 3>;
++};
++
++&mdss_dsi0_phy {
++	vdds-supply = <&vreg_l3d_0p8>;
++	status = "okay";
++};
++
++&mdss_dsi1 {
++	vdda-supply = <&vreg_l1d_1p2>;
++
++	qcom,dual-dsi-mode;
++	qcom,sync-dual-dsi;
++	/*
++	 * DSI1 is the slave: both links run off DSI0's PLL. This DSI version
++	 * (2.9) reparents byte_src/pixel_src at run time to whatever the node
++	 * names "dsi_pll_byte"/"dsi_pll_pixel" -- assigned-clock-parents is not
++	 * used (dsi_link_clk_set_rate_6g_v2_9). With DSI1's own PHY there the
++	 * reparent failed with -22 on every frame: dispcc has no DSI1 PHY input
++	 * in kaanapali.dtsi (9-18, second run). So the two PLL entries point at
++	 * DSI0's PHY; the rest is 0001's list unchanged.
++	 */
++	clocks = <&dispcc DISP_CC_MDSS_BYTE1_CLK>,
++		 <&dispcc DISP_CC_MDSS_BYTE1_INTF_CLK>,
++		 <&dispcc DISP_CC_MDSS_PCLK1_CLK>,
++		 <&dispcc DISP_CC_MDSS_ESC1_CLK>,
++		 <&dispcc DISP_CC_MDSS_AHB_CLK>,
++		 <&gcc GCC_DISP_HF_AXI_CLK>,
++		 <&mdss_dsi0_phy DSI_PIXEL_PLL_CLK>,
++		 <&mdss_dsi0_phy DSI_BYTE_PLL_CLK>,
++		 <&dispcc DISP_CC_ESYNC1_CLK>,
++		 <&dispcc DISP_CC_OSC_CLK>,
++		 <&dispcc DISP_CC_MDSS_BYTE1_CLK_SRC>,
++		 <&dispcc DISP_CC_MDSS_PCLK1_CLK_SRC>;
++
++	status = "okay";
++};
++
++&mdss_dsi1_out {
++	remote-endpoint = <&panel1_in>;
++	data-lanes = <0 1 2 3>;
++};
++
++&mdss_dsi1_phy {
++	vdds-supply = <&vreg_l3d_0p8>;
++	status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-dp.dtsi b/arch/arm64/boot/dts/qcom/baldur-dp.dtsi
+new file mode 100644
+index 000000000..bc36465b4
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-dp.dtsi
+@@ -0,0 +1,128 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur"): DisplayPort alt-mode on the bottom USB-C port
++ * (y705-mainline-plan.md 9-65).
++ *
++ * kaanapali.dtsi has the combo PHY (DP half included via the sm8750 fallback)
++ * and DPU INTF_0 = DP controller 0, but no DP controller node. This one is
++ * sm8750's mdss_dp0 at the vendor addresses (qcom,dp-display: dp_ahb
++ * 0x9ad2000, dp_aux +0x200, dp_link 0x9ad3000 (0xb78 long, sm8750 0x770),
++ * dp_p0 0x9ad4000, dp_p1 0x9ad5000; MDSS interrupt 12, phy-version 0x800).
++ * HPD and orientation come from pmic-glink altmode through the PHY.
++ *
++ * Two lanes: msm_dp takes the lane count from DPCD and data-lanes only, not
++ * from the Type-C pin assignment. A USB-C monitor with a hub (pin assignment
++ * D, 2 DP lanes + USB3) failed channel EQ at 4 lanes and trains at
++ * HBR2 x2 (1680x1050) with this; USB3 keeps its two lanes (9-65).
++ */
++
++&dispcc {
++	/* DT_DP0_PHY_PLL_LINK_CLK / _VCO_DIV_CLK from the combo PHY */
++	clocks = <&bi_tcxo_div2>,
++		 <&bi_tcxo_ao_div2>,
++		 <&gcc GCC_DISP_AHB_CLK>,
++		 <&sleep_clk>,
++		 <&usb_dp_qmpphy QMP_USB43DP_DP_LINK_CLK>,
++		 <&usb_dp_qmpphy QMP_USB43DP_DP_VCO_DIV_CLK>,
++		 <0>,
++		 <0>,
++		 <0>,
++		 <0>,
++		 <0>,
++		 <0>,
++		 <&mdss_dsi0_phy DSI_BYTE_PLL_CLK>,
++		 <&mdss_dsi0_phy DSI_PIXEL_PLL_CLK>,
++		 <0>,
++		 <0>;
++};
++
++&mdss {
++	mdss_dp0: displayport-controller@9ad2000 {
++		compatible = "qcom,kaanapali-dp";
++		reg = <0x0 0x09ad2000 0x0 0x10c>,
++		      <0x0 0x09ad2200 0x0 0xc8>,
++		      <0x0 0x09ad3000 0x0 0xb78>,
++		      <0x0 0x09ad4000 0x0 0xa0>,
++		      <0x0 0x09ad5000 0x0 0xa0>;
++
++		interrupts-extended = <&mdss 12>;
++
++		clocks = <&dispcc DISP_CC_MDSS_AHB_CLK>,
++			 <&dispcc DISP_CC_MDSS_DPTX0_AUX_CLK>,
++			 <&dispcc DISP_CC_MDSS_DPTX0_LINK_CLK>,
++			 <&dispcc DISP_CC_MDSS_DPTX0_LINK_INTF_CLK>,
++			 <&dispcc DISP_CC_MDSS_DPTX0_PIXEL0_CLK>,
++			 <&dispcc DISP_CC_MDSS_DPTX0_PIXEL1_CLK>;
++		clock-names = "core_iface",
++			      "core_aux",
++			      "ctrl_link",
++			      "ctrl_link_iface",
++			      "stream_pixel",
++			      "stream_1_pixel";
++
++		assigned-clocks = <&dispcc DISP_CC_MDSS_DPTX0_LINK_CLK_SRC>,
++				  <&dispcc DISP_CC_MDSS_DPTX0_PIXEL0_CLK_SRC>,
++				  <&dispcc DISP_CC_MDSS_DPTX0_PIXEL1_CLK_SRC>;
++		assigned-clock-parents = <&usb_dp_qmpphy QMP_USB43DP_DP_LINK_CLK>,
++					 <&usb_dp_qmpphy QMP_USB43DP_DP_VCO_DIV_CLK>,
++					 <&usb_dp_qmpphy QMP_USB43DP_DP_VCO_DIV_CLK>;
++
++		operating-points-v2 = <&dp_opp_table>;
++
++		power-domains = <&rpmhpd RPMHPD_MMCX>;
++
++		phys = <&usb_dp_qmpphy QMP_USB43DP_DP_PHY>;
++		phy-names = "dp";
++
++		#sound-dai-cells = <0>;
++
++		dp_opp_table: opp-table {
++			compatible = "operating-points-v2";
++
++			opp-270000000 {
++				opp-hz = /bits/ 64 <270000000>;
++				required-opps = <&rpmhpd_opp_low_svs>;
++			};
++
++			opp-540000000 {
++				opp-hz = /bits/ 64 <540000000>;
++				required-opps = <&rpmhpd_opp_svs_l1>;
++			};
++
++			opp-810000000 {
++				opp-hz = /bits/ 64 <810000000>;
++				required-opps = <&rpmhpd_opp_nom>;
++			};
++		};
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@0 {
++				reg = <0>;
++
++				mdss_dp0_in: endpoint {
++					remote-endpoint = <&dpu_intf0_out>;
++				};
++			};
++
++			port@1 {
++				reg = <1>;
++
++				mdss_dp0_out: endpoint {
++					data-lanes = <0 1>;
++					remote-endpoint = <&usb_dp_qmpphy_dp_in>;
++				};
++			};
++		};
++	};
++};
++
++&dpu_intf0_out {
++	remote-endpoint = <&mdss_dp0_in>;
++};
++
++&usb_dp_qmpphy_dp_in {
++	remote-endpoint = <&mdss_dp0_out>;
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-gpu.dtsi b/arch/arm64/boot/dts/qcom/baldur-gpu.dtsi
+new file mode 100644
+index 000000000..05ed00184
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-gpu.dtsi
+@@ -0,0 +1,24 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur"): Adreno 840 (y705-mainline-plan.md 9-22).
++ *
++ * The SoC nodes are in kaanapali.dtsi, disabled. The zap shader is our own
++ * device's blob (from /vendor, not redistributable), loaded through PAS.
++ *
++ * The firmware is in the initramfs; the first open of the DRM device loads
++ * it and boots the GPU. (For the first bring-up it was kept off the search
++ * path -- adreno_load_gpu() then gives up before touching the GPU and retries
++ * on every later open -- and started by hand under a reboot timer.)
++ */
++
++&gpu {
++	status = "okay";
++};
++
++&gmu {
++	status = "okay";
++};
++
++&gpu_zap_shader {
++	firmware-name = "qcom/kaanapali/Lenovo/baldur/gen80200_zap.mbn";
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-haptics-flash.dtsi b/arch/arm64/boot/dts/qcom/baldur-haptics-flash.dtsi
+new file mode 100644
+index 000000000..c9c901fce
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-haptics-flash.dtsi
+@@ -0,0 +1,81 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur") camera flash/torch LED and the two haptic motors
++ * (y705-mainline-plan.md 9-54). Both have mainline drivers; DT only.
++ *
++ * Flash: the pmh0101 flash block @0xee00 (torch 500 mA, flash 2 A); one LED.
++ *
++ * Haptics: two Awinic AW8693x ("awinic,haptic_hv_l/_r") on QUP i2c6
++ * (0xa98000) at 0x5a (irq TLMM 99, reset TLMM 216) and 0x5b (irq TLMM 95,
++ * reset TLMM 215). They report CHIPID 0x9370 (AW86937), which mainline's
++ * aw86927 driver accepts with 0023 (it knew 0x9270 and the AW86938).
++ * Felt by hand (9-54), in landscape with the bottom USB-C port down (the
++ * same frame as the speakers): 0x5a (vendor "_l") is the RIGHT motor and
++ * 0x5b ("_r") the LEFT -- the vendor names are swapped. Input event6 and
++ * event7 in that order at boot.
++ */
++
++#include <dt-bindings/leds/common.h>
++
++&pmh0101_flash {
++	status = "okay";
++
++	/*
++	 * One white LED under the rear camera, on sources 1+4 -- the vendor's
++	 * led-0 ("yellow" there, as on the QRD). Its led-1 (sources 2+3) has no
++	 * LED on this board: writing it lights nothing (9-54). Android also
++	 * drives this LED as "gaming lighting" with effects; not looked at yet.
++	 */
++	led-0 {
++		function = LED_FUNCTION_FLASH;
++		color = <LED_COLOR_ID_WHITE>;
++		led-sources = <1>, <4>;
++		led-max-microamp = <500000>;
++		flash-max-microamp = <2000000>;
++		flash-max-timeout-us = <1280000>;
++	};
++};
++
++&i2c6 {
++	clock-frequency = <400000>;
++
++	status = "okay";
++
++	/* vendor "haptic_hv_l", but the right motor */
++	haptics_l: haptics@5a {
++		compatible = "awinic,aw86938", "awinic,aw86927";
++		reg = <0x5a>;
++		interrupts-extended = <&tlmm 99 IRQ_TYPE_EDGE_FALLING>;
++		reset-gpios = <&tlmm 216 GPIO_ACTIVE_LOW>;
++		pinctrl-0 = <&haptics_l_irq>;
++		pinctrl-names = "default";
++	};
++
++	/* vendor "haptic_hv_r", but the left motor */
++	haptics_r: haptics@5b {
++		compatible = "awinic,aw86938", "awinic,aw86927";
++		reg = <0x5b>;
++		interrupts-extended = <&tlmm 95 IRQ_TYPE_EDGE_FALLING>;
++		reset-gpios = <&tlmm 215 GPIO_ACTIVE_LOW>;
++		pinctrl-0 = <&haptics_r_irq>;
++		pinctrl-names = "default";
++	};
++};
++
++&tlmm {
++	haptics_l_irq: haptics-l-irq-state {
++		pins = "gpio99";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-pull-up;
++		input-enable;
++	};
++
++	haptics_r_irq: haptics-r-irq-state {
++		pins = "gpio95";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-pull-up;
++		input-enable;
++	};
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-keys.dtsi b/arch/arm64/boot/dts/qcom/baldur-keys.dtsi
+new file mode 100644
+index 000000000..470263e47
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-keys.dtsi
+@@ -0,0 +1,42 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur"): volume keys (y705-mainline-plan.md 9-24).
++ *
++ * The same wiring as kaanapali-mtp.dts, and what the vendor DT says:
++ * volume up on tlmm gpio101 (active low, pulled up), volume down on the
++ * PMK8850 RESIN input. The power key (pwrkey) is already on.
++ * Needs <dt-bindings/input/linux-event-codes.h>.
++ */
++
++/ {
++	gpio-keys {
++		compatible = "gpio-keys";
++
++		pinctrl-0 = <&key_vol_up_default>;
++		pinctrl-names = "default";
++
++		key-volume-up {
++			label = "Volume Up";
++			linux,code = <KEY_VOLUMEUP>;
++			gpios = <&tlmm 101 GPIO_ACTIVE_LOW>;
++			debounce-interval = <15>;
++			linux,can-disable;
++			wakeup-source;
++		};
++	};
++};
++
++&tlmm {
++	key_vol_up_default: key-vol-up-default-state {
++		pins = "gpio101";
++		function = "gpio";
++		input-enable;
++		bias-pull-up;
++	};
++};
++
++&pon_resin {
++	linux,code = <KEY_VOLUMEDOWN>;
++
++	status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-ledring.dtsi b/arch/arm64/boot/dts/qcom/baldur-ledring.dtsi
+new file mode 100644
+index 000000000..efc74b932
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-ledring.dtsi
+@@ -0,0 +1,29 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur") RGB ring under the rear camera -- the "gaming
++ * lighting" (y705-mainline-plan.md 9-62): an Awinic AW22127 LED matrix
++ * driver at i2c5 0x6a (vendor "awinic,aw22xxx_led"), held in reset by
++ * PMH0110_D gpio11 (vendor pinctrl: output high = running, power-source 1).
++ * The chip's MCU program is in its own flash; leds-aw22127 (0034) sends it
++ * a one-colour command. Vendor effect files play with tools/agent/aw22-play.sh.
++ */
++
++&i2c5 {
++	led-controller@6a {
++		compatible = "awinic,aw22127";
++		reg = <0x6a>;
++
++		reset-gpios = <&pmh0110_d_e0_gpios 11 GPIO_ACTIVE_LOW>;
++		pinctrl-0 = <&ledring_reset_default>;
++		pinctrl-names = "default";
++	};
++};
++
++&pmh0110_d_e0_gpios {
++	ledring_reset_default: ledring-reset-default-state {
++		pins = "gpio11";
++		function = "normal";
++		power-source = <1>;
++		bias-disable;
++	};
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-power.dtsi b/arch/arm64/boot/dts/qcom/baldur-power.dtsi
+new file mode 100644
+index 000000000..1bd408795
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-power.dtsi
+@@ -0,0 +1,94 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur"): battery and Type-C over pmic-glink (y705-mainline-plan.md 9-21).
++ *
++ * On kaanapali the charger firmware runs on SoCCP, which XBL has already
++ * started; Android shows it "attached". The PAS driver attaches to it (the
++ * early_boot patch) and brings up its glink edge; the PMIC_RTR_SOCCP_APPS
++ * channel then reaches this node, and qcom_battmgr / ucsi_glink hang off it.
++ * Vendor DT: pmic-glink { qcom,pmic-glink-channel = "PMIC_RTR_SOCCP_APPS"; }.
++ *
++ * Connector graph (9-57): the vendor tree has two usb-c-connectors under
++ * ucsi-glink, both into the one dwc3 (HS: dwc3 port@0 / port@1; SBU: the two
++ * FSA4480s). connector@0 / ucsi port0 is the bottom port (USB 3.2 + DP);
++ * ucsi port1 the side port (USB 2.0 only). Only connector@0 is wired here:
++ * HS to the dwc3 (data role from ucsi) and SS to the QMP PHY (orientation
++ * from the firmware). The vendor ucsi-glink "gpios" (TLMM 30) is not an
++ * orientation input but the HS port select (Android: low = bottom, high =
++ * side); /usr/local/sbin/baldur-usb-port drives it and the side port's role.
++ */
++
++/ {
++	pmic-glink {
++		compatible = "qcom,kaanapali-pmic-glink";
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		connector@0 {
++			compatible = "usb-c-connector";
++			reg = <0>;
++
++			power-role = "dual";
++			data-role = "dual";
++
++			ports {
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				port@0 {
++					reg = <0>;
++
++					pmic_glink_hs_in: endpoint {
++						remote-endpoint = <&usb_dwc3_hs>;
++					};
++				};
++
++				port@1 {
++					reg = <1>;
++
++					pmic_glink_ss_in: endpoint {
++						remote-endpoint = <&usb_dp_qmpphy_out>;
++					};
++				};
++
++				port@2 {
++					reg = <2>;
++
++					pmic_glink_sbu: endpoint {
++						remote-endpoint = <&fsa4480_sbu_mux>;
++					};
++				};
++			};
++		};
++	};
++};
++
++&usb_dwc3_hs {
++	remote-endpoint = <&pmic_glink_hs_in>;
++};
++
++/*
++ * USB-C analog audio / SBU (9-58): the bottom port's SBU switch is the
++ * FSA4480 at i2c5 0x43 (vendor "fsa4480_i2c", into ucsi connector 0); the
++ * side port's is 0x42 ("fsa4480_sub_i2c", connector 1 -- not wired, that
++ * port has no connector node here). No supply in the vendor node.
++ * TODO: headset path (WCD939x as typec mux + RX playback link + topology),
++ * needs wired earphones to test.
++ */
++&i2c5 {
++	status = "okay";
++
++	fsa4480: typec-mux@43 {
++		compatible = "fcs,fsa4480";
++		reg = <0x43>;
++
++		mode-switch;
++		orientation-switch;
++
++		port {
++			fsa4480_sbu_mux: endpoint {
++				remote-endpoint = <&pmic_glink_sbu>;
++			};
++		};
++	};
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-regulators.dtsi b/arch/arm64/boot/dts/qcom/baldur-regulators.dtsi
+new file mode 100644
+index 000000000..6ba5cc291
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-regulators.dtsi
+@@ -0,0 +1,334 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur") PMIC rails.
++ *
++ * Only the rails something in this port actually consumes are here, not the
++ * full PMIC complement. Every voltage was read out of this device's own ABL
++ * devicetree (logs/2026-09-22-mainline-survey.txt), and the labels follow the
++ * OnePlus 15 board DTS so the two can be compared line by line.
++ *
++ * Where the two boards differ, ours is used and the difference is noted. They
++ * agree exactly on every storage rail; the panel rails are where our tablet
++ * asks for a range and the phone pins a point, which is what a different panel
++ * on the same PMIC looks like.
++ *
++ * Included by kaanapali-lenovo-baldur.dts. Needs
++ * <dt-bindings/regulator/qcom,rpmh-regulator.h>.
++ */
++
++&apps_rsc {
++	regulators-0 {
++		compatible = "qcom,pmh0101-rpmh-regulators";
++		qcom,pmic-id = "B_E0";
++
++		/* touch AVDD switch */
++		vreg_l4b_1p8: ldo4 {
++			regulator-name = "vreg_l4b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			/* 9-45: AUTO, as the MTP has it; HPM kept it in high power for good */
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_AUTO
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		/* microSD level shifter / IO */
++		vreg_l8b_1p8: ldo8 {
++			regulator-name = "vreg_l8b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <3008000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		/* microSD card power */
++		vreg_l9b_2p9: ldo9 {
++			regulator-name = "vreg_l9b_2p9";
++			regulator-min-microvolt = <2960000>;
++			regulator-max-microvolt = <3008000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		/*
++		 * Panel core. The OnePlus 15 pins this at 1.2 V; ours is a
++		 * 1.0-1.292 V range, which is the vendor leaving room for the
++		 * panel's own voltage stepping.
++		 */
++		vreg_l11b_1p0: ldo11 {
++			regulator-name = "vreg_l11b_1p0";
++			regulator-min-microvolt = <1000000>;
++			regulator-max-microvolt = <1292000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		/* Panel VDDIO. OnePlus 15 pins this at 1.8 V; ours spans 1.2-1.8. */
++		vreg_l12b_1p8: ldo12 {
++			regulator-name = "vreg_l12b_1p8";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		/* Panel VCI */
++		vreg_l13b_3p0: ldo13 {
++			regulator-name = "vreg_l13b_3p0";
++			regulator-min-microvolt = <3000000>;
++			regulator-max-microvolt = <3000000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		/* UFS vcc */
++		vreg_l17b_2p5: ldo17 {
++			regulator-name = "vreg_l17b_2p5";
++			regulator-min-microvolt = <2504000>;
++			regulator-max-microvolt = <2504000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		/* eUSB2 repeater 3.1 V (vendor pmh0101_l5 3.100-3.148 V) */
++		vreg_l5b_3p1: ldo5 {
++			regulator-name = "vreg_l5b_3p1";
++			regulator-min-microvolt = <3100000>;
++			regulator-max-microvolt = <3148000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_AUTO>;
++		};
++
++		/* eUSB2 repeater 1.8 V (vendor pmh0101_l15) */
++		vreg_l15b_1p8: ldo15 {
++			regulator-name = "vreg_l15b_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_AUTO>;
++		};
++
++		/* WCD9395 mic bias (vendor pmh0101_bob1, 3.008-4.0 V; 9-50) */
++		vreg_bob1: bob1 {
++			regulator-name = "vreg_bob1";
++			regulator-min-microvolt = <3008000>;
++			regulator-max-microvolt = <4000000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-1 {
++		compatible = "qcom,pmh0110-rpmh-regulators";
++		qcom,pmic-id = "D_E0";
++
++		/* UFS PHY PLL, and the DSI controller's 1.2 V */
++		vreg_l1d_1p2: ldo1 {
++			regulator-name = "vreg_l1d_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1256000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		/* DSI PHY 0.9 V */
++		vreg_l3d_0p8: ldo3 {
++			regulator-name = "vreg_l3d_0p8";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <880000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		/* UFS vccq */
++		vreg_l4d_1p2: ldo4 {
++			regulator-name = "vreg_l4d_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++
++	regulators-2 {
++		compatible = "qcom,pmh0110-rpmh-regulators";
++		qcom,pmic-id = "F_E0";
++
++		/* USB eUSB2 PHY core (vendor pmh0110_f_l4 0.880-0.912 V) */
++		vreg_l4f_0p8: ldo4 {
++			regulator-name = "vreg_l4f_0p8";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <912000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_AUTO>;
++		};
++
++		/*
++		 * WCN7860 RFA 1.3 V (vendor pmh0110_f_s7 1.224-1.372 V). Like S8F,
++		 * S1J and S2J it is in the vendor's qcom,vreg_pdc_map: the chip's own
++		 * clock request raises it, and Android's vote sits at the minimum.
++		 */
++		vreg_s7f_1p2: smps7 {
++			regulator-name = "vreg_s7f_1p2";
++			regulator-min-microvolt = <1224000>;
++			regulator-max-microvolt = <1372000>;
++			/*
++			 * 9-45: AUTO (PFM when light), not HPM (always PWM): the WCN
++			 * rails sat in high power even with Wi-Fi idle. The vendor
++			 * lets the chip raise them through the PDC instead.
++			 */
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++		};
++
++		/* WCN7860 RFA 1.9 V (vendor pmh0110_f_s8 1.8-2.0 V) */
++		vreg_s8f_1p8: smps8 {
++			regulator-name = "vreg_s8f_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <2000000>;
++			/*
++			 * 9-45: AUTO (PFM when light), not HPM (always PWM): the WCN
++			 * rails sat in high power even with Wi-Fi idle. The vendor
++			 * lets the chip raise them through the PDC instead.
++			 */
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++		};
++	};
++
++	regulators-3 {
++		compatible = "qcom,pmh0110-rpmh-regulators";
++		qcom,pmic-id = "G_E0";
++
++		/* WCD9395 vdd-px (vendor pmh0110_g_l1 1.2 V; 9-50) */
++		vreg_l1g_1p2: ldo1 {
++			regulator-name = "vreg_l1g_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_AUTO>;
++		};
++
++		/* UFS PHY */
++		vreg_l4g_0p9: ldo4 {
++			regulator-name = "vreg_l4g_0p9";
++			regulator-min-microvolt = <912000>;
++			regulator-max-microvolt = <912000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_HPM>;
++		};
++
++		/* WCN7860 I/O (vendor pmh0110_g_l2 1.8 V, "vdd-wlan-aon") */
++		vreg_l2g_1p8: ldo2 {
++			regulator-name = "vreg_l2g_1p8";
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_AUTO>;
++		};
++
++		/* WCN7860 I/O 1.2 V (vendor pmh0110_g_l3, "vdd-wlan-io12") */
++		vreg_l3g_1p2: ldo3 {
++			regulator-name = "vreg_l3g_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_AUTO>;
++		};
++	};
++
++	regulators-4 {
++		compatible = "qcom,pmh0110-rpmh-regulators";
++		qcom,pmic-id = "I_E0";
++
++		/* PCIe0 PHY (OnePlus 15 / MTP value; the vendor DT has no PHY rail) */
++		vreg_l3i_0p8: ldo3 {
++			regulator-name = "vreg_l3i_0p8";
++			regulator-min-microvolt = <880000>;
++			regulator-max-microvolt = <920000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++			regulator-allow-set-load;
++			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
++						   RPMH_REGULATOR_MODE_AUTO>;
++		};
++	};
++
++	regulators-5 {
++		compatible = "qcom,pmh0104-rpmh-regulators";
++		qcom,pmic-id = "J_E1";
++
++		/* WCN7860 WLCX (vendor pmh0104_s1 0.4-1.0 V, "vdd-wlan-cx") */
++		vreg_s1j_0p8: smps1 {
++			regulator-name = "vreg_s1j_0p8";
++			regulator-min-microvolt = <400000>;
++			regulator-max-microvolt = <1000000>;
++			/*
++			 * 9-45: AUTO (PFM when light), not HPM (always PWM): the WCN
++			 * rails sat in high power even with Wi-Fi idle. The vendor
++			 * lets the chip raise them through the PDC instead.
++			 */
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++		};
++
++		/* WCN7860 AON/WLMX/RFA 0.9 V (vendor pmh0104_s2 0.5-1.1 V, "vdd-wlan-dig") */
++		vreg_s2j_0p8: smps2 {
++			regulator-name = "vreg_s2j_0p8";
++			regulator-min-microvolt = <500000>;
++			regulator-max-microvolt = <1100000>;
++			/*
++			 * 9-45: AUTO (PFM when light), not HPM (always PWM): the WCN
++			 * rails sat in high power even with Wi-Fi idle. The vendor
++			 * lets the chip raise them through the PDC instead.
++			 */
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
++		};
++	};
++
++	regulators-6 {
++		compatible = "qcom,pmr735d-rpmh-regulators";
++		qcom,pmic-id = "K_E1";
++
++		/*
++		 * WCN7860 "vdd-wlan-ant-share" (vendor pmr735d_l3 1.2 V, 25 uA),
++		 * which the vendor cnss turns on second, before WLAN_EN. The WCN7850
++		 * power sequencer has no input for it; baldur-wifi.dtsi keeps it on.
++		 */
++		vreg_l3k_1p2: ldo3 {
++			regulator-name = "vreg_l3k_1p2";
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
++		};
++	};
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-stats.dtsi b/arch/arm64/boot/dts/qcom/baldur-stats.dtsi
+new file mode 100644
+index 000000000..f1d2bf975
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-stats.dtsi
+@@ -0,0 +1,13 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * RPMh sleep statistics (AOSS/CX/DDR sleep counts, subsystem stats) for
++ * qcom_stats (y705-mainline-plan.md 9-63): the vendor DT has this SRAM as
++ * "qcom,rpmh-stats-v4" at 0xc3f0000; kaanapali.dtsi does not describe it.
++ */
++
++&{/soc@0} {
++	sram@c3f0000 {
++		compatible = "qcom,rpmh-stats";
++		reg = <0x0 0x0c3f0000 0x0 0x400>;
++	};
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-storage.dtsi b/arch/arm64/boot/dts/qcom/baldur-storage.dtsi
+new file mode 100644
+index 000000000..a6a68a896
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-storage.dtsi
+@@ -0,0 +1,109 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Stage 4 for TB323FU ("baldur"): UFS and the microSD slot.
++ *
++ * Included by kaanapali-lenovo-baldur.dts since 2026-09-24 (plan 9-17). It was
++ * left out at first: stage 3 boots from an
++ * initramfs precisely so that no block device has to come up first; bringing
++ * storage in earlier would only add ways for the first boot to fail. Add
++ *
++ *	#include "baldur-storage.dtsi"
++ *
++ * at the end of the board DTS once stage 3 has produced a log. The rails it
++ * uses are declared in baldur-regulators.dtsi, which has to come first.
++ *
++ * Every rail and GPIO here was read out of this device's own ABL devicetree
++ * (see logs/2026-09-22-mainline-survey.txt), and then compared against the
++ * OnePlus 15 board DTS. They are the same board-for-board -- same LDOs, same
++ * voltages to the microvolt, same UFS reset GPIO. That is worth knowing: the
++ * storage wiring on this SoC is reference-design level, not per-vendor, so
++ * the OnePlus port can be trusted here rather than merely borrowed from.
++ *
++ *	UFS    vcc      pmh0101 ldo17  2.504 V      (OnePlus: vreg_l17b_2p5)
++ *	       vccq     pmh0110_d ldo4 1.2 V        (OnePlus: vreg_l4d_1p2)
++ *	       reset    TLMM 217, active low        (OnePlus: the same GPIO)
++ *	UFS    vdda-phy pmh0110_g ldo4 0.912 V      (OnePlus: vreg_l4g_0p9)
++ *	PHY    vdda-pll pmh0110_d ldo1 1.2-1.256 V  (OnePlus: vreg_l1d_1p2)
++ *	sdhc_2 vdd      pmh0101 ldo9   2.96-3.008 V (OnePlus: vreg_l9b_2p9)
++ *	       vdd-io   pmh0101 ldo8   1.8-3.008 V  (OnePlus: vreg_l8b_1p8)
++ *	       card det TLMM 55
++ */
++
++
++&ufs_mem_hc {
++	reset-gpios = <&tlmm 217 GPIO_ACTIVE_LOW>;
++
++	vcc-supply = <&vreg_l17b_2p5>;
++	vcc-max-microamp = <1200000>;
++	vccq-supply = <&vreg_l4d_1p2>;
++	vccq-max-microamp = <1200000>;
++
++	status = "okay";
++};
++
++&ufs_mem_phy {
++	vdda-phy-supply = <&vreg_l4g_0p9>;
++	vdda-pll-supply = <&vreg_l1d_1p2>;
++
++	status = "okay";
++};
++
++/*
++ * The microSD slot. Downstream says bus-width 4, no-sdio and no-mmc, and
++ * drives the level shifter off vdd-io, which is why that rail spans 1.8 V to
++ * 3.008 V rather than sitting at one voltage.
++ *
++ * Card detect is TLMM 55. Downstream gives it flag 0 (active high) and this
++ * follows that, but it is the one value here with no OnePlus 15 counterpart to
++ * check against -- that phone has no card slot. If the card is never seen, or
++ * is seen when the slot is empty, invert this first.
++ */
++&sdhc_2 {
++	vmmc-supply = <&vreg_l9b_2p9>;
++	vqmmc-supply = <&vreg_l8b_1p8>;
++
++	cd-gpios = <&tlmm 55 GPIO_ACTIVE_HIGH>;
++	bus-width = <4>;
++	no-sdio;
++	no-mmc;
++
++	/*
++	 * Without these the SD pads keep whatever drive and pulls they boot
++	 * with, and the first stage-4 boot (9-17) brought the host up but never
++	 * saw the card -- no "new SD card", no error.
++	 */
++	pinctrl-0 = <&sdc2_default>;
++	pinctrl-1 = <&sdc2_sleep>;
++	pinctrl-names = "default", "sleep";
++
++	/*
++	 * The card misses its first probe unless something slows the path down:
++	 * with MMC debug printing, 45 ms passed between power-on and CMD8 and it
++	 * came up every time; at the core's default 10 ms it mostly did not
++	 * (9-17). The LDO behind vmmc is switched through RPMh.
++	 */
++	post-power-on-delay-ms = <100>;
++
++	status = "okay";
++};
++
++/*
++ * The SoC's SD states pull GPIO55 up, for boards whose card-detect switch
++ * pulls it low (the MTP: ACTIVE_LOW). This one is the other way round: the
++ * vendor tree says ACTIVE_HIGH, and under Android the pin reads high with a
++ * card in and no pull ("gpio55 : in high func0 2mA no pull"). A pull-up here
++ * would report a card whether there is one or not.
++ */
++&sdc2_default {
++	card-detect-pins {
++		/delete-property/ bias-pull-up;
++		bias-disable;
++	};
++};
++
++&sdc2_sleep {
++	card-detect-pins {
++		/delete-property/ bias-pull-up;
++		bias-disable;
++	};
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-thermal.dtsi b/arch/arm64/boot/dts/qcom/baldur-thermal.dtsi
+new file mode 100644
+index 000000000..a956d4325
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-thermal.dtsi
+@@ -0,0 +1,396 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur"): CPU thermal zones that throttle (y705-mainline-plan.md 9-20).
++ *
++ * kaanapali.dtsi gives every CPU sensor only a "hot" (120 C) and a "critical"
++ * (125 C) trip and no cooling map, leaving everything below shutdown to the
++ * firmware's LMh: eight busy cores read 107 C within 2 s. Here each zone
++ * gets a passive trip at 95 C that steps its cluster's cpufreq policy down
++ * (scmi-cpufreq registers the cooling device on the policy's first CPU).
++ *
++ * Zone names are cpu-<cluster>-<core>-<n> / cpullc-<cluster>-<n>; cluster 0
++ * is cpu0-5 (policy0), cluster 1 is cpu6-7 (policy6).
++ */
++
++&cpu0 { #cooling-cells = <2>; };
++&cpu6 { #cooling-cells = <2>; };
++
++&{/thermal-zones/cpullc-0-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpullc_0_0_passive: cpullc-0-0-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpullc_0_0_passive>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpullc-0-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpullc_0_1_passive: cpullc-0-1-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpullc_0_1_passive>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-0-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_0_0_passive: cpu-0-0-0-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_0_0_passive>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-0-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_0_1_passive: cpu-0-0-1-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_0_1_passive>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-1-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_1_0_passive: cpu-0-1-0-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_1_0_passive>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-1-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_1_1_passive: cpu-0-1-1-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_1_1_passive>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-2-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_2_0_passive: cpu-0-2-0-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_2_0_passive>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-2-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_2_1_passive: cpu-0-2-1-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_2_1_passive>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-3-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_3_0_passive: cpu-0-3-0-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_3_0_passive>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-3-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_3_1_passive: cpu-0-3-1-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_3_1_passive>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-4-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_4_0_passive: cpu-0-4-0-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_4_0_passive>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-4-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_4_1_passive: cpu-0-4-1-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_4_1_passive>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-5-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_5_0_passive: cpu-0-5-0-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_5_0_passive>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-0-5-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_0_5_1_passive: cpu-0-5-1-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_0_5_1_passive>;
++			cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpullc-1-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpullc_1_0_passive: cpullc-1-0-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpullc_1_0_passive>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpullc-1-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpullc_1_1_passive: cpullc-1-1-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpullc_1_1_passive>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-1-0-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_1_0_0_passive: cpu-1-0-0-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_1_0_0_passive>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-1-0-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_1_0_1_passive: cpu-1-0-1-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_1_0_1_passive>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-1-1-0-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_1_1_0_passive: cpu-1-1-0-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_1_1_0_passive>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
++
++&{/thermal-zones/cpu-1-1-1-thermal} {
++	polling-delay-passive = <100>;
++
++	trips {
++		cpu_1_1_1_passive: cpu-1-1-1-passive {
++			temperature = <95000>;
++			hysteresis = <5000>;
++			type = "passive";
++		};
++	};
++
++	cooling-maps {
++		map0 {
++			trip = <&cpu_1_1_1_passive>;
++			cooling-device = <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++		};
++	};
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-touch.dtsi b/arch/arm64/boot/dts/qcom/baldur-touch.dtsi
+new file mode 100644
+index 000000000..9a86002c0
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-touch.dtsi
+@@ -0,0 +1,54 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur"): touch, the NT36523 TDDI's touch half on SPI19
++ * (y705-mainline-plan.md 9-26).
++ *
++ * Vendor node: spi@1a80000 novatek@0, "novatek,NVT-ts-spi", 19.2 MHz,
++ * INT tlmm gpio158, reset tlmm gpio66 (the driver pulses it), pen.
++ * The chip is an NT36536 (9-26); the driver is Novatek's own NT36536
++ * host-download driver as carried in map220v/sm8850-mainline (branch
++ * iceland-7.2, drivers/input/touchscreen/nt36536). It finds the register
++ * set itself, follows the panel (drm_panel_follower) and loads the firmware
++ * named here. It handles neither the reset line nor the supply: reset keeps
++ * the vendor's pull-up, and the touch VDD is simply left on.
++ */
++
++/* vendor: display node tvdd-supply; nothing here asks for it */
++&vreg_l4b_1p8 {
++	regulator-always-on;
++};
++
++&spi19 {
++	status = "okay";
++
++	touchscreen@0 {
++		compatible = "novatek,NVT-ts-spi";
++		reg = <0>;
++		spi-max-frequency = <19200000>;
++
++		pinctrl-0 = <&ts_int_default>, <&ts_reset_default>;
++		pinctrl-names = "default";
++
++		irq-gpios = <&tlmm 158 GPIO_ACTIVE_HIGH>;
++		novatek,pen-support;
++		firmware-name = "novatek/novatek_ts_fw.bin";
++		panel = <&panel0>;
++	};
++};
++
++&tlmm {
++	ts_int_default: ts-int-default-state {
++		pins = "gpio158";
++		function = "gpio";
++		input-enable;
++		bias-disable;
++	};
++
++	/* vendor tp_reset_gpio */
++	ts_reset_default: ts-reset-default-state {
++		pins = "gpio66";
++		function = "gpio";
++		drive-strength = <16>;
++		bias-pull-up;
++	};
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-usb.dtsi b/arch/arm64/boot/dts/qcom/baldur-usb.dtsi
+new file mode 100644
+index 000000000..85d800a69
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-usb.dtsi
+@@ -0,0 +1,66 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur"): USB-C as a high-speed USB device (plan 9-19).
++ *
++ * The point is a way in: a CDC-ACM serial console (and NCM networking) from
++ * the PC, instead of photographs of the panel. So this is the smallest USB that
++ * enumerates -- peripheral only, high speed only:
++ *
++ *  - no SuperSpeed PHY (usb_dp_qmpphy) and no Type-C orientation, which on
++ *    this SoC go through pmic-glink over the SOCCP remoteproc, not up here
++ *  - no role switching; the port is a device, as it is for adb
++ *
++ * Same shape as the OnePlus 15 (kaanapali-oneplus-infiniti-common.dts), which
++ * is the same SoC with the same eUSB2 repeater on pmih0108 at SPMI1 SID 7.
++ * Android here uses a600000.dwc3 and the repeater at
++ * c437000.spmi:qcom,pmih010x@7:eusb2-repeater@fd00 -- the same pair.
++ * Rails from this device's vendor tree: repeater vdd18 pmh0101 l15 (1.8 V),
++ * vdd3 pmh0101 l5 (3.100-3.148 V); PHY vdd pmh0110 F l4 (0.880-0.912 V),
++ * vdda12 pmh0110 D l1 (1.2 V).
++ */
++
++&pmih0108_e1_eusb2_repeater {
++	vdd18-supply = <&vreg_l15b_1p8>;
++	vdd3-supply = <&vreg_l5b_3p1>;
++
++	status = "okay";
++};
++
++&usb_hsphy {
++	vdd-supply = <&vreg_l4f_0p8>;
++	vdda12-supply = <&vreg_l1d_1p2>;
++
++	phys = <&pmih0108_e1_eusb2_repeater>;
++
++	status = "okay";
++};
++
++&usb {
++	/*
++	 * 9-57: data role from ucsi (pmic-glink connector@0); peripheral until
++	 * it says otherwise, so the PC link comes up as before.
++	 */
++	dr_mode = "otg";
++	usb-role-switch;
++	role-switch-default-mode = "peripheral";
++
++	/delete-property/ snps,usb3_lpm_capable;
++
++	status = "okay";
++};
++
++/*
++ * SuperSpeed (9-57): the QMP USB3-DP combo PHY as on the MTP (vendor ssphy:
++ * vdd pmh0110 F l4, core pmh0110 D l1); its orientation comes from the
++ * pmic-glink connector (ucsi), its SS lanes go to the dwc3 (kaanapali.dtsi).
++ */
++&usb_dp_qmpphy {
++	vdda-phy-supply = <&vreg_l1d_1p2>;
++	vdda-pll-supply = <&vreg_l4f_0p8>;
++
++	status = "okay";
++};
++
++&usb_dp_qmpphy_out {
++	remote-endpoint = <&pmic_glink_ss_in>;
++};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-wifi.dtsi b/arch/arm64/boot/dts/qcom/baldur-wifi.dtsi
+new file mode 100644
+index 000000000..47b6a5193
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/baldur-wifi.dtsi
+@@ -0,0 +1,260 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur"): Wi-Fi, WCN7860 "peach" (17cb:110e) on PCIe0, ath12k
++ * (y705-mainline-plan.md 9-23).
++ *
++ * The same chip and pins as the OnePlus 15 port (infiniti-mainline, which
++ * follows kaanapali-mtp.dts): wlan-en gpio16, sw-ctrl gpio18, PERST gpio102,
++ * CLKREQ gpio103, WAKE gpio104. The rails are this device's own, decoded from
++ * its vendor cnss-peach node (qcom,pmu_vreg_map and vdd-wlan-*-supply): AON
++ * 0.9 V comes from S2J here, not from S7G as on the MTP.
++ *
++ * NOT WORKING YET, and not included by any board file: the chip never answers
++ * link training (LTSSM loops in Detect, "Device not found"), see plan 9-23.
++ *
++ * Bluetooth itself (UART) is left out, but its enable line is described: the
++ * vendor cnss drives BT_EN low before it powers WLAN ("cnss_probe: Disabling
++ * BT_EN"), and the sequencer does the same when it owns the pin. A PMIC GPIO
++ * keeps its level across a warm reboot, so after Android ran with Bluetooth
++ * on it would otherwise still be high here. Needs pmh0104-kaanapali.dtsi.
++ */
++
++&pmh0104_j_e1_gpios {
++	bt_default: bt-default-state {
++		pins = "gpio5";
++		function = "normal";
++		input-disable;
++		output-enable;
++		bias-disable;
++		power-source = <1>;
++	};
++};
++
++&tlmm {
++	wlan_en: wlan-en-state {
++		pins = "gpio16";
++		function = "gpio";
++		drive-strength = <8>;
++		bias-pull-down;
++	};
++
++	/* vendor cnss_wlan_sw_ctrl / cnss_wlan_sw_ctrl_wl_cx */
++	sw_ctrl_default: sw-ctrl-default-state {
++		sw-ctrl-pins {
++			pins = "gpio18";
++			function = "wcn_sw_ctrl";
++			bias-pull-down;
++		};
++
++		sw-ctrl-wl-cx-pins {
++			pins = "gpio19";
++			function = "wcn_sw";
++			bias-pull-down;
++		};
++	};
++
++	/*
++	 * Sign-of-life lines (vendor cnss_host_sol_default, wlan-host-sol-gpio
++	 * 204, wlan-dev-sol-gpio 205). Both are eGPIOs that another subsystem
++	 * owns until something selects function "gpio"; the vendor cnss does,
++	 * and drives host-SOL low, before it powers the chip. Left alone, the
++	 * chip held WAKE# low and never answered link training (9-23).
++	 */
++	wlan_sol_default: wlan-sol-default-state {
++		host-sol-pins {
++			pins = "gpio204";
++			function = "gpio";
++			drive-strength = <4>;
++			bias-pull-down;
++			output-low;
++		};
++
++		dev-sol-pins {
++			pins = "gpio205";
++			function = "gpio";
++			bias-pull-down;
++			input-enable;
++		};
++	};
++
++	pcie0_default_state: pcie0-default-state {
++		perst-n-pins {
++			pins = "gpio102";
++			function = "gpio";
++			drive-strength = <2>;
++			bias-disable;
++		};
++
++		clkreq-n-pins {
++			pins = "gpio103";
++			function = "pcie0_clk_req_n";
++			drive-strength = <2>;
++			bias-pull-up;
++		};
++
++		wake-n-pins {
++			pins = "gpio104";
++			function = "gpio";
++			drive-strength = <2>;
++			bias-pull-up;
++		};
++	};
++};
++
++/ {
++	wcn7860-pmu {
++		/* no WCN7860 binding; the WCN7850 sequencer is what the OnePlus port uses */
++		compatible = "qcom,wcn7850-pmu";
++
++		pinctrl-0 = <&bt_default>, <&sw_ctrl_default>, <&wlan_sol_default>, <&wlan_en>;
++		pinctrl-names = "default";
++
++		bt-enable-gpios = <&pmh0104_j_e1_gpios 5 GPIO_ACTIVE_HIGH>;
++		wlan-enable-gpios = <&tlmm 16 GPIO_ACTIVE_HIGH>;
++
++		vdd-supply = <&vreg_s2j_0p8>;
++		vddio-supply = <&vreg_l2g_1p8>;
++		vddio1p2-supply = <&vreg_l3g_1p2>;
++		vddaon-supply = <&vreg_s2j_0p8>;
++		vdddig-supply = <&vreg_s1j_0p8>;
++		vddrfa1p2-supply = <&vreg_s7f_1p2>;
++		vddrfa1p8-supply = <&vreg_s8f_1p8>;
++
++		clocks = <&rpmhcc RPMH_RF_CLK1>;
++
++		regulators {
++			vreg_pmu_rfa_cmn: ldo0 {
++				regulator-name = "vreg_pmu_rfa_cmn";
++			};
++
++			vreg_pmu_aon_0p59: ldo1 {
++				regulator-name = "vreg_pmu_aon_0p59";
++			};
++
++			vreg_pmu_wlcx_0p8: ldo2 {
++				regulator-name = "vreg_pmu_wlcx_0p8";
++			};
++
++			vreg_pmu_wlmx_0p85: ldo3 {
++				regulator-name = "vreg_pmu_wlmx_0p85";
++			};
++
++			vreg_pmu_btcmx_0p85: ldo4 {
++				regulator-name = "vreg_pmu_btcmx_0p85";
++			};
++
++			vreg_pmu_rfa_0p8: ldo5 {
++				regulator-name = "vreg_pmu_rfa_0p8";
++			};
++
++			vreg_pmu_rfa_1p2: ldo6 {
++				regulator-name = "vreg_pmu_rfa_1p2";
++			};
++
++			vreg_pmu_rfa_1p8: ldo7 {
++				regulator-name = "vreg_pmu_rfa_1p8";
++			};
++
++			vreg_pmu_pcie_0p9: ldo8 {
++				regulator-name = "vreg_pmu_pcie_0p9";
++			};
++
++			vreg_pmu_pcie_1p8: ldo9 {
++				regulator-name = "vreg_pmu_pcie_1p8";
++			};
++		};
++	};
++};
++
++&vreg_l3k_1p2 {
++	regulator-always-on;
++};
++
++/*
++ * 9-30 experiment: WLCX/WLMX at the vendor cnss votes. The PMIC ranges start
++ * at 0.4/0.5 V and the regulator core parks an unset rail at its minimum;
++ * on Android the PDC raises them on the chip's clock requests, here nothing
++ * may. BT (UART) answers either way -- it does not use WLCX/WLMX.
++ */
++&vreg_s1j_0p8 {
++	regulator-min-microvolt = <892000>;
++};
++
++&vreg_s2j_0p8 {
++	regulator-min-microvolt = <892000>;
++};
++
++&pcie0 {
++	pinctrl-0 = <&pcie0_default_state>;
++	pinctrl-names = "default";
++
++	status = "okay";
++};
++
++&pcie0_phy {
++	vdda-phy-supply = <&vreg_l3i_0p8>;
++	vdda-pll-supply = <&vreg_l1d_1p2>;
++
++	status = "okay";
++};
++
++&pcie_port0 {
++	wake-gpios = <&tlmm 104 GPIO_ACTIVE_HIGH>;
++	reset-gpios = <&tlmm 102 GPIO_ACTIVE_LOW>;
++
++	wifi@0 {
++		compatible = "pci17cb,110e";
++		reg = <0x10000 0x0 0x0 0x0 0x0>;
++
++		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
++		vddaon-supply = <&vreg_pmu_aon_0p59>;
++		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
++		vddwlmx-supply = <&vreg_pmu_wlmx_0p85>;
++		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
++		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
++		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
++		vddpcie0p9-supply = <&vreg_pmu_pcie_0p9>;
++		vddpcie1p8-supply = <&vreg_pmu_pcie_1p8>;
++	};
++};
++
++/*
++ * Bluetooth, the same chip over the 4-wire HS-UART (vendor
++ * qupv3_se18_4uart @ 0x1994000 = uart18), as the OnePlus 15 port wires it.
++ * 9-30: first used to ask whether the WCN7860 is alive at all -- the HCI
++ * version read comes before any firmware.
++ */
++/ {
++	aliases {
++		/* the geni UART driver wants a line number ("Invalid line -19") */
++		serial1 = &uart18;
++	};
++};
++
++&uart18 {
++	status = "okay";
++
++	bluetooth {
++		compatible = "qcom,wcn7850-bt";
++
++		vddrfacmn-supply = <&vreg_pmu_rfa_cmn>;
++		vddaon-supply = <&vreg_pmu_aon_0p59>;
++		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
++		vddwlmx-supply = <&vreg_pmu_wlmx_0p85>;
++		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
++		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
++		vddrfa1p8-supply = <&vreg_pmu_rfa_1p8>;
++
++		/* the rate the OnePlus 15 port runs this chip at (peri baud command) */
++		max-speed = <3200000>;
++
++		/*
++		 * This chip's own firmware from its bluetooth partition
++		 * (/vendor/bt_firmware/image, BTFW.BRAHMA.2.0.1-00238): NVM, then
++		 * the rampatch. The TLV there times out on its first segment with
++		 * the stock WCN7850 flow; the ELF goes through the BRAHMA path of
++		 * infiniti fecd7925d (0013).
++		 */
++		firmware-name = "brhbtnv20.bin", "brhbtfw20.mbn";
++	};
++};
+diff --git a/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts b/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts
+new file mode 100644
+index 000000000..7f5cf7818
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts
+@@ -0,0 +1,31 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur"), stage 5: the board tree plus the panel
++ * (y705-mainline-plan.md 9-18). Kept as its own top-level tree so the stage-4
++ * image, which reads its log off the bootloader's splash buffer, stays as it
++ * is: bringing MDSS up gives that buffer away.
++ */
++
++#include "kaanapali-lenovo-baldur.dts"
++/* the panel's reset line is GPIO 10 of pmh0110 F (SPMI0 SID 5) */
++#include "pmh0110-kaanapali.dtsi"
++#include "baldur-display.dtsi"
++#include "baldur-gpu.dtsi"
++/*
++ * Wi-Fi (WCN7860 on PCIe0) is written but does not come up yet: the chip
++ * never answers link training (plan 9-23). Kept out until it does.
++ *
++ */
++#include "pmh0104-kaanapali.dtsi"
++#include "baldur-wifi.dtsi"
++#include "baldur-backlight.dtsi"
++#include "baldur-touch.dtsi"
++#include "baldur-audio.dtsi"
++#include "baldur-cdsp.dtsi"
++#include "pmh0101.dtsi"
++#include "baldur-haptics-flash.dtsi"
++#include "baldur-adc.dtsi"
++#include "baldur-camera.dtsi"
++#include "baldur-ledring.dtsi"
++#include "baldur-stats.dtsi"
++#include "baldur-dp.dtsi"
+diff --git a/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-kexec.dts b/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-kexec.dts
+new file mode 100644
+index 000000000..766a3fb15
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-kexec.dts
+@@ -0,0 +1,78 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * TB323FU ("baldur"), for a kernel started by kexec from Android
++ * (y705-mainline-plan.md 9-13) instead of by the bootloader.
++ *
++ * The difference is what Android leaves behind. /memory still comes from the
++ * bootloader's tree and already excludes every fixed firmware carve-out (9-12),
++ * but four regions inside it are CMA pools in the vendor tree
++ * ("shared-dma-pool", reusable) that Android lends out once it runs -- the two
++ * VM regions to Gunyah guests, the other two to hardware. Straight from the
++ * bootloader they are ordinary RAM; after Android they may belong to someone
++ * else, and a lent-out region is not even mapped for us any more. Keep out of
++ * all four.
++ */
++
++#include "kaanapali-lenovo-baldur.dts"
++
++/ {
++	reserved-memory {
++		/* vendor: qdss_apps_region, trace buffer for the QDSS hardware */
++		kexec_qdss_apps: kexec-qdss-apps@82800000 {
++			reg = <0x0 0x82800000 0x0 0x2000000>;
++			no-map;
++		};
++
++		/* vendor: trust_ui_vm_region, lent to the trusted-UI VM */
++		kexec_trust_ui_vm: kexec-trust-ui-vm@f3800000 {
++			reg = <0x0 0xf3800000 0x0 0x4000000>;
++			no-map;
++		};
++
++		/* vendor: oem_vm_region, lent to the OEM VM */
++		kexec_oem_vm: kexec-oem-vm@f7c00000 {
++			reg = <0x0 0xf7c00000 0x0 0x4c00000>;
++			no-map;
++		};
++
++		/* vendor: lcp_dare_region */
++		kexec_lcp_dare: kexec-lcp-dare@880000000 {
++			reg = <0x8 0x80000000 0x0 0x6000000>;
++			no-map;
++		};
++	};
++};
++
++/*
++ * The application SMMU cannot be reset after Android. arm_smmu_device_reset()
++ * rewrites all 122 stream-match entries, and on the first kexec'd boot the
++ * write to entry 19 took a synchronous external abort (9-15) -- Gunyah had
++ * handed that stream to someone else while Android ran. Nothing stage 3 needs
++ * sits behind this SMMU (the GPU SMMU at 0x3da0000 reset fine), so leave it off
++ * until we know which entries HLOS still owns.
++ */
++&apps_smmu {
++	status = "disabled";
++};
++
++/*
++ * Storage sits behind the application SMMU, which is off here: left on, UFS
++ * and the SD host would DMA untranslated through streams Android configured.
++ * Off until the SMMU can be brought up after Android.
++ */
++&ufs_mem_hc {
++	status = "disabled";
++};
++
++&ufs_mem_phy {
++	status = "disabled";
++};
++
++&sdhc_2 {
++	status = "disabled";
++};
++
++/* USB sits behind the application SMMU too */
++&usb {
++	status = "disabled";
++};
+diff --git a/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur.dts b/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur.dts
+new file mode 100644
+index 000000000..bcd55a5c8
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur.dts
+@@ -0,0 +1,193 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Lenovo Legion Tab Y700 5th Gen (TB323FU, "baldur") — SM8850 / kaanapali.
++ *
++ * Stage 3 of y705-mainline-plan.md: the smallest board devicetree that can
++ * boot a kernel far enough to leave a readable log. It deliberately brings up
++ * NOTHING but memory, the two log channels and the reset/power basics:
++ *
++ *   - ramoops at the same address and geometry the stock kernel uses, so a
++ *     failed boot can be read back from Android's /sys/fs/pstore afterwards
++ *   - the bootloader's splash buffer as a simple-framebuffer, so a boot that
++ *     hangs without panicking still shows where it stopped
++ *
++ * Storage, display, GPU, touch, Wi-Fi and audio are left for later stages.
++ * The rootfs for this stage is an initramfs, so no block device is needed.
++ *
++ * Board facts come from the devicetree this device's ABL passes to Android
++ * (/sys/firmware/fdt), recorded in logs/2026-09-22-mainline-survey.txt.
++ * Structure follows kaanapali-oneplus-infiniti-common.dts by EYC and
++ * FantomTchi7 (BSD-3-Clause).
++ */
++
++/dts-v1/;
++
++#include <dt-bindings/clock/qcom,rpmh.h>
++#include <dt-bindings/gpio/gpio.h>
++#include "kaanapali.dtsi"
++/*
++ * The PMIC's PON block: the power key, and the pwrkey driver's reboot
++ * notifier that sets PS_HOLD to warm reset before an orderly restart, as
++ * Android's qcom_pon does. Added to cure ramoops' 1->0 bit flips, which it
++ * did not -- Android-to-Android reboots show the same flips at the same
++ * offsets (9-15).
++ */
++#include "pmk8850.dtsi"
++
++/ {
++	model = "Lenovo Legion Tab Y700 5th Gen";
++	compatible = "lenovo,baldur", "qcom,kaanapali";
++	chassis-type = "tablet";
++
++	/*
++	 * Only consulted when a bootloader picks a DTB out of a set. We are
++	 * loaded by our own U-Boot through extlinux, which takes the file it is
++	 * told to, so these are here for completeness.
++	 *
++	 * The SoC reports id 661 (/sys/devices/soc0/soc_id), which is SM8850P —
++	 * the part upstream has no QCOM_ID_* for; qcom,ids.h only defines
++	 * QCOM_ID_SM8850 (660). Our ABL's own devicetree lists both 0x294 (660)
++	 * and 0x295 (661), so the literal is used here rather than a define that
++	 * would name the wrong part.
++	 */
++	qcom,msm-id = <0x295 0x20000>;	/* SM8850P v2.0 */
++	qcom,board-id = <0x2000b 0>;
++
++	/*
++	 * kaanapali.dtsi references these by label but does not define them —
++	 * they are board-level inputs, so every board DTS has to supply them or
++	 * dtc refuses the tree ("Reference to non-existent node or label").
++	 * The values are SoC-fixed and identical to the OnePlus 15 board.
++	 */
++	clocks {
++		xo_board: xo-board {
++			compatible = "fixed-clock";
++			clock-frequency = <76800000>;
++			#clock-cells = <0>;
++		};
++
++		sleep_clk: sleep-clk {
++			compatible = "fixed-clock";
++			clock-frequency = <32000>;
++			#clock-cells = <0>;
++		};
++
++		bi_tcxo_div2: bi-tcxo-div2-clk {
++			compatible = "fixed-factor-clock";
++			#clock-cells = <0>;
++
++			clocks = <&rpmhcc RPMH_CXO_CLK>;
++			clock-mult = <1>;
++			clock-div = <2>;
++		};
++
++		bi_tcxo_ao_div2: bi-tcxo-ao-div2-clk {
++			compatible = "fixed-factor-clock";
++			#clock-cells = <0>;
++
++			clocks = <&rpmhcc RPMH_CXO_CLK_A>;
++			clock-mult = <1>;
++			clock-div = <2>;
++		};
++	};
++
++	chosen {
++		#address-cells = <2>;
++		#size-cells = <2>;
++		ranges;
++
++		/*
++		 * The panel is the only console on this board: no UART is wired
++		 * out and the stock cmdline says so itself
++		 * (qcom_geni_serial.con_enabled=0). ABL hands the display over
++		 * still scanning out of the splash buffer, so writing pixels
++		 * there needs no display driver at all.
++		 *
++		 * 1904x3040 is the panel's native mode. It is the one value
++		 * here we could NOT read back from Android — Android exposes no
++		 * fbdev and the DRM debugfs is empty — so it is inferred from
++		 * the panel modes. If the first boot shows sheared or repeated
++		 * text, this is the number to change.
++		 *
++		 * MDSS stays disabled (kaanapali.dtsi defaults it off and we do
++		 * not enable it). The OnePlus 15 port records that letting the
++		 * msm driver take over a live bootloader scanout stalled the
++		 * AXI/NoC and froze the panel; keeping MDSS out of the picture
++		 * is what makes this framebuffer safe to use.
++		 */
++		framebuffer0: framebuffer@fc800000 {
++			compatible = "simple-framebuffer";
++			reg = <0x0 0xfc800000 0x0 (1904 * 3040 * 4)>;
++			width = <1904>;
++			height = <3040>;
++			stride = <(1904 * 4)>;
++			format = "a8r8g8b8";
++		};
++	};
++
++	reserved-memory {
++		/*
++		 * The name matters, not just the address: the OnePlus 15 port
++		 * found that this bootloader family only leaves the display
++		 * powered when the region is called exactly "splash_region".
++		 */
++		splash_memory: splash_region@fc800000 {
++			reg = <0x0 0xfc800000 0x0 0x2b00000>;
++			no-map;
++		};
++
++		/*
++		 * Same address and the same three sizes the stock kernel uses,
++		 * which is the whole point: the on-RAM format is the standard
++		 * persistent_ram one, so after this kernel dies we reboot into
++		 * Android and read what it wrote from
++		 * /sys/fs/pstore/console-ramoops-0.
++		 *
++		 * Verified on 2026-09-22 that a reboot does not clear it — the
++		 * stock kernel reads its own previous boot from here.
++		 */
++		ramoops@c2000000 {
++			compatible = "ramoops";
++			reg = <0x0 0xc2000000 0x0 0xc0000>;
++			record-size = <0x10000>;
++			console-size = <0x40000>;
++			pmsg-size = <0x40000>;
++			/*
++			 * The vendor node (qcom,ramoops) has ecc-size = <16>, and
++			 * Android reads every zone with it. The ramoops module
++			 * parameter "ecc" reads 0 there, which is what fooled us:
++			 * the first kexec'd boot wrote without ECC, and Android's
++			 * "correction" garbled the console and broke the
++			 * compressed dump record (9-15).
++			 */
++			ecc-size = <16>;
++		};
++	};
++};
++
++/*
++ * Stage 4: storage (9-16 onwards). Read-only as far as this port goes -- init
++ * mounts nothing, the kernel only reads the partition tables. bRefClkFreq is
++ * safe: ref_clk is RPMH_LN_BB_CLK3 = xo_board 76.8 MHz / 2 = 38.4 MHz, which is
++ * what the device already holds (2), so ufshcd reads it and writes nothing.
++ */
++#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
++#include "baldur-regulators.dtsi"
++#include "baldur-storage.dtsi"
++
++/* USB device mode (9-19): the eUSB2 repeater lives on pmih0108, SPMI1 SID 7 */
++#include "pmih0108-kaanapali.dtsi"
++#include "baldur-usb.dtsi"
++#include <dt-bindings/thermal/thermal.h>
++#include "baldur-thermal.dtsi"
++#include "baldur-power.dtsi"
++#include <dt-bindings/input/linux-event-codes.h>
++#include "baldur-keys.dtsi"
++
++/*
++ * 9-28: a CoreSight trace NoC nothing here uses; its probe waits forever
++ * ("deferred probe pending: (reason unknown)").
++ */
++&{/soc@0/tn@111b8000} {
++	status = "disabled";
++};
+-- 
+2.43.0
+

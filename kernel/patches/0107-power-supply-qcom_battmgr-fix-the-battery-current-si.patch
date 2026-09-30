@@ -1,0 +1,58 @@
+From b02346ad00c97131ad4db792c3b833afae049069 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Tue, 29 Sep 2026 08:01:58 +0000
+Subject: [PATCH] power: supply: qcom_battmgr: fix the battery current sign on
+ Kaanapali
+
+The Kaanapali (SM8850) battery firmware, which runs on SOCCP, reports
+the battery current with discharge positive: on the Lenovo TB323FU
+current_now reads -9.1 A while charging at about 37 W and +0.57 A on
+battery. The power_supply ABI wants the opposite (charging positive,
+discharging negative), and userspace goes by it: upower turns a
+"Charging" battery whose current_now is negative into "discharging",
+so GNOME showed the tablet discharging on a 45 W charger.
+
+Other firmware behind the same SM8350-style callback reports the ABI
+sign (a Fairphone 5 shows "charging" in upower), so negate the value
+only for qcom,kaanapali-pmic-glink.
+
+Assisted-by: LLM
+---
+ drivers/power/supply/qcom_battmgr.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/power/supply/qcom_battmgr.c b/drivers/power/supply/qcom_battmgr.c
+index c5a64309a..e4f2a2900 100644
+--- a/drivers/power/supply/qcom_battmgr.c
++++ b/drivers/power/supply/qcom_battmgr.c
+@@ -313,6 +313,8 @@ struct qcom_battmgr {
+ 	struct pmic_glink_client *client;
+ 
+ 	enum qcom_battmgr_variant variant;
++	/* the firmware reports the battery current with discharge positive */
++	bool current_inverted;
+ 
+ 	struct power_supply *ac_psy;
+ 	struct power_supply *bat_psy;
+@@ -1468,6 +1470,8 @@ static void qcom_battmgr_sm8350_callback(struct qcom_battmgr *battmgr,
+ 			break;
+ 		case BATT_CURR_NOW:
+ 			battmgr->status.current_now = le32_to_cpu(resp->intval.value);
++			if (battmgr->current_inverted)
++				battmgr->status.current_now = -battmgr->status.current_now;
+ 			break;
+ 		case BATT_TEMP:
+ 			val = le32_to_cpu(resp->intval.value);
+@@ -1693,6 +1697,9 @@ static int qcom_battmgr_probe(struct auxiliary_device *adev,
+ 	else
+ 		battmgr->variant = QCOM_BATTMGR_SM8350;
+ 
++	battmgr->current_inverted = device_is_compatible(dev->parent,
++							 "qcom,kaanapali-pmic-glink");
++
+ 	ret = qcom_battmgr_charge_control_thresholds_init(battmgr);
+ 	if (ret < 0)
+ 		return dev_err_probe(dev, ret,
+-- 
+2.43.0
+

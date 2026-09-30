@@ -1,0 +1,31 @@
+From 0b9faae82b88401480eac5dbfca6d013e5ddfa54 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sun, 27 Sep 2026 09:20:41 +0000
+Subject: [PATCH 79/79] drm/msm/dpu: keep the full modeset when colour
+ management changed (y705 0051 fixup)
+
+A colour-management change can need a DSPP to be (re)assigned, which only
+happens on a modeset (upstream is making dpu_crtc_check_mode_changed() set
+mode_changed for it, "fd-kms-fix-smmu" v3 7/8). The in-place VFP path of
+0065 must not clear mode_changed in that case (y705-mainline-plan.md 9-101).
+---
+ drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
+index fa5e4ba0e..0786f09cb 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
+@@ -1570,7 +1570,8 @@ static bool dpu_crtc_can_update_vfp(struct drm_crtc *crtc,
+ 	struct drm_encoder *enc;
+ 
+ 	if (!new->mode_changed || new->active_changed ||
+-	    new->connectors_changed || !old->active || !new->active ||
++	    new->connectors_changed || new->color_mgmt_changed ||
++	    !old->active || !new->active ||
+ 	    new->encoder_mask != old->encoder_mask || !new->encoder_mask)
+ 		return false;
+ 	if (!dpu_crtc_vfp_only(&old->adjusted_mode, &new->adjusted_mode))
+-- 
+2.43.0
+

@@ -1,0 +1,36 @@
+From fda7ca9db8563b1714fd88d1f6cdac58b8863a37 Mon Sep 17 00:00:00 2001
+From: Wangao Wang <wangao.wang@oss.qualcomm.com>
+Date: Tue, 22 Sep 2026 11:28:21 +0800
+Subject: [PATCH 92/95] media: iris: fix VPU4x encoder line buffer size for
+ rotation
+
+iris_vpu4x_enc_line_size was reading resolutions directly from
+inst->fmt_dst. Use iris_vpu_enc_get_bitstream_{width,height}() which
+account for the 90/270-degree rotation case.
+
+Fixes: df816dce1b01 ("media: iris: Introduce buffer size calculations for vpu4")
+Signed-off-by: Wangao Wang <wangao.wang@oss.qualcomm.com>
+Reviewed-by: Vikash Garodia <vikash.garodia@oss.qualcomm.com>
+---
+ drivers/media/platform/qcom/iris/iris_vpu_buffer.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_vpu_buffer.c b/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
+index 2d821f988..0cf779cc9 100644
+--- a/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
++++ b/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
+@@ -2118,9 +2118,8 @@ static u32 iris_vpu4x_enc_line_size(struct iris_inst *inst)
+ {
+ 	u32 num_vpp_pipes = inst->core->iris_platform_data->num_vpp_pipe;
+ 	u32 lcu_size = inst->codec == V4L2_PIX_FMT_HEVC ? 32 : 16;
+-	struct v4l2_format *f = inst->fmt_dst;
+-	u32 height = f->fmt.pix_mp.height;
+-	u32 width = f->fmt.pix_mp.width;
++	u32 height = iris_vpu_enc_get_bitstream_height(inst);
++	u32 width = iris_vpu_enc_get_bitstream_width(inst);
+ 
+ 	return hfi_vpu4x_buffer_line_enc(width, height, 0, num_vpp_pipes,
+ 					 lcu_size, inst->codec);
+-- 
+2.43.0
+

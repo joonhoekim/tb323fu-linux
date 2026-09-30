@@ -1,0 +1,51 @@
+From 9b1ddd6e1bc87ae661e9c3c00b503ac4618e7b9a Mon Sep 17 00:00:00 2001
+From: Victor Fuentes <victor@vlinkz.dev>
+Date: Thu, 24 Sep 2026 19:04:22 -0700
+Subject: [PATCH 100/102] phy: qcom: qmp-combo: Keep the DP lanes of a
+ USB-capable DP sink
+
+UCSI reports TYPEC_STATE_USB after DP alt mode is set up for such sinks.
+Ignore it until the port leaves DP alt mode.
+
+Signed-off-by: Victor Fuentes <victor@vlinkz.dev>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index 30da0ee55..7381d7483 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -2597,6 +2597,7 @@ struct qmp_combo {
+ 	struct phy_configure_opts_dp dp_opts;
+ 	unsigned int dp_init_count;
+ 	bool dp_powered_on;
++	bool dp_active;
+ 
+ 	struct clk_fixed_rate pipe_clk_fixed;
+ 	struct clk_hw dp_link_hw;
+@@ -4856,6 +4857,7 @@ static int qmp_combo_typec_mux_set(struct typec_mux_dev *mux, struct typec_mux_s
+ 		svid = 0;
+ 
+ 	if (svid == USB_TYPEC_DP_SID) {
++		qmp->dp_active = true;
+ 		switch (state->mode) {
+ 		/* DP Only */
+ 		case TYPEC_DP_STATE_C:
+@@ -4872,7 +4874,13 @@ static int qmp_combo_typec_mux_set(struct typec_mux_dev *mux, struct typec_mux_s
+ 			new_mode = QMPPHY_MODE_USB3DP;
+ 			break;
+ 		}
++	} else if (state->mode == TYPEC_STATE_USB && qmp->dp_active) {
++		/* Keep the lanes of a DP sink that also does USB */
++		return 0;
+ 	} else {
++		if (state->mode == TYPEC_STATE_SAFE)
++			qmp->dp_active = false;
++
+ 		/* No DP SVID => don't care, assume it's just USB3 */
+ 		new_mode = QMPPHY_MODE_USB3_ONLY;
+ 	}
+-- 
+2.43.0
+

@@ -1,0 +1,170 @@
+From 5428a02bb3abba664b87d5600aacf6faaf163849 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 09:54:56 +0000
+Subject: [PATCH] usb: dwc3: qcom: arm the eUSB2 line interrupts for wakeup
+ (y705 0048)
+
+With an eUSB2 PHY the host repeater signals a HS/FS device's remote
+wakeup (and a disconnect during bus suspend) by driving eD- high, and a
+LS device's by driving eD+ high (eUSB2 spec 5.5.14/15/18). dwc3-qcom arms
+the QUSB2 choice instead (DP falling for HS/FS): on the Lenovo TB323FU
+(kaanapali) with a USB2 hub attached the system woke the moment s2idle
+started, and with DP rising a keyboard's remote wakeup was never seen.
+
+Use DM rising for HS/FS and DP rising for LS when the PHY is eUSB2, on
+both the enable and the disable path, and drop any edge latched while
+the line was off before arming it (as downstream dwc3-msm does), with
+the line disabled non-lazily so no edge is replayed at enable.
+
+A local take on Krishna Kurapati's "Modify interrupt handling for eUSB2
+Phy targets" (v7, not merged yet): the eUSB2 case is keyed on the
+kaanapali compatible here instead of PHY_TYPE_EUSB2. y705_eusb2 (0 =
+old behaviour) is a test knob.
+
+Tested: hub + keyboard + stick, wakeup enabled: no spurious wake,
+a keypress wakes the system (dm_hs_phy_irq 1, wake irq 226).
+---
+ drivers/usb/dwc3/dwc3-qcom.c | 54 +++++++++++++++++++++++++++++-------
+ 1 file changed, 44 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/usb/dwc3/dwc3-qcom.c b/drivers/usb/dwc3/dwc3-qcom.c
+index ac68b4218..8bbe888cc 100644
+--- a/drivers/usb/dwc3/dwc3-qcom.c
++++ b/drivers/usb/dwc3/dwc3-qcom.c
+@@ -85,6 +85,7 @@ struct dwc3_qcom {
+ 	struct icc_path		*icc_path_apps;
+ 
+ 	enum usb_role		current_role;
++	bool			has_eusb2_phy;
+ };
+ 
+ #define to_dwc3_qcom(d) container_of((d), struct dwc3_qcom, dwc)
+@@ -251,6 +252,10 @@ static enum usb_device_speed dwc3_qcom_read_usb2_speed(struct dwc3_qcom *qcom, i
+ 	return udev->speed;
+ }
+ 
++/* y705 TEST: 0 = QUSB2 line/edge choice even on eUSB2 (upstream behaviour) */
++static bool y705_eusb2 = true;
++module_param(y705_eusb2, bool, 0644);
++
+ static void dwc3_qcom_enable_wakeup_irq(int irq, unsigned int polarity)
+ {
+ 	if (!irq)
+@@ -259,6 +264,9 @@ static void dwc3_qcom_enable_wakeup_irq(int irq, unsigned int polarity)
+ 	if (polarity)
+ 		irq_set_irq_type(irq, polarity);
+ 
++	/* drop an edge latched while the line was disabled */
++	irq_set_irqchip_state(irq, IRQCHIP_STATE_PENDING, false);
++
+ 	enable_irq(irq);
+ 	enable_irq_wake(irq);
+ }
+@@ -272,15 +280,20 @@ static void dwc3_qcom_disable_wakeup_irq(int irq)
+ 	disable_irq_nosync(irq);
+ }
+ 
+-static void dwc3_qcom_disable_port_interrupts(struct dwc3_qcom_port *port)
++static void dwc3_qcom_disable_port_interrupts(struct dwc3_qcom *qcom, int port_index)
+ {
++	struct dwc3_qcom_port *port = &qcom->ports[port_index];
++	bool eusb2 = qcom->has_eusb2_phy && y705_eusb2;
++
+ 	dwc3_qcom_disable_wakeup_irq(port->qusb2_phy_irq);
+ 
+ 	if (port->usb2_speed == USB_SPEED_LOW) {
+-		dwc3_qcom_disable_wakeup_irq(port->dm_hs_phy_irq);
++		dwc3_qcom_disable_wakeup_irq(eusb2 ? port->dp_hs_phy_irq :
++						    port->dm_hs_phy_irq);
+ 	} else if ((port->usb2_speed == USB_SPEED_HIGH) ||
+ 			(port->usb2_speed == USB_SPEED_FULL)) {
+-		dwc3_qcom_disable_wakeup_irq(port->dp_hs_phy_irq);
++		dwc3_qcom_disable_wakeup_irq(eusb2 ? port->dm_hs_phy_irq :
++						    port->dp_hs_phy_irq);
+ 	} else {
+ 		dwc3_qcom_disable_wakeup_irq(port->dp_hs_phy_irq);
+ 		dwc3_qcom_disable_wakeup_irq(port->dm_hs_phy_irq);
+@@ -289,8 +302,11 @@ static void dwc3_qcom_disable_port_interrupts(struct dwc3_qcom_port *port)
+ 	dwc3_qcom_disable_wakeup_irq(port->ss_phy_irq);
+ }
+ 
+-static void dwc3_qcom_enable_port_interrupts(struct dwc3_qcom_port *port)
++static void dwc3_qcom_enable_port_interrupts(struct dwc3_qcom *qcom, int port_index)
+ {
++	struct dwc3_qcom_port *port = &qcom->ports[port_index];
++	bool eusb2 = qcom->has_eusb2_phy && y705_eusb2;
++
+ 	dwc3_qcom_enable_wakeup_irq(port->qusb2_phy_irq, 0);
+ 
+ 	/*
+@@ -302,13 +318,26 @@ static void dwc3_qcom_enable_port_interrupts(struct dwc3_qcom_port *port)
+ 	 * DP and DM lines as rising edge to detect HS/HS/LS device connect scenario.
+ 	 */
+ 
++	/*
++	 * eUSB2 signals differently: a HS/FS device's remote wakeup (and a
++	 * disconnect in bus suspend) drives eD- high, a LS device's drives
++	 * eD+ high (eUSB2 spec 5.5.14/15/18).
++	 */
+ 	if (port->usb2_speed == USB_SPEED_LOW) {
+-		dwc3_qcom_enable_wakeup_irq(port->dm_hs_phy_irq,
+-					    IRQ_TYPE_EDGE_FALLING);
++		if (eusb2)
++			dwc3_qcom_enable_wakeup_irq(port->dp_hs_phy_irq,
++						    IRQ_TYPE_EDGE_RISING);
++		else
++			dwc3_qcom_enable_wakeup_irq(port->dm_hs_phy_irq,
++						    IRQ_TYPE_EDGE_FALLING);
+ 	} else if ((port->usb2_speed == USB_SPEED_HIGH) ||
+ 			(port->usb2_speed == USB_SPEED_FULL)) {
+-		dwc3_qcom_enable_wakeup_irq(port->dp_hs_phy_irq,
+-					    IRQ_TYPE_EDGE_FALLING);
++		if (eusb2)
++			dwc3_qcom_enable_wakeup_irq(port->dm_hs_phy_irq,
++						    IRQ_TYPE_EDGE_RISING);
++		else
++			dwc3_qcom_enable_wakeup_irq(port->dp_hs_phy_irq,
++						    IRQ_TYPE_EDGE_FALLING);
+ 	} else {
+ 		dwc3_qcom_enable_wakeup_irq(port->dp_hs_phy_irq,
+ 					    IRQ_TYPE_EDGE_RISING);
+@@ -324,7 +353,7 @@ static void dwc3_qcom_disable_interrupts(struct dwc3_qcom *qcom)
+ 	int i;
+ 
+ 	for (i = 0; i < qcom->num_ports; i++)
+-		dwc3_qcom_disable_port_interrupts(&qcom->ports[i]);
++		dwc3_qcom_disable_port_interrupts(qcom, i);
+ }
+ 
+ static void dwc3_qcom_enable_interrupts(struct dwc3_qcom *qcom)
+@@ -332,7 +361,7 @@ static void dwc3_qcom_enable_interrupts(struct dwc3_qcom *qcom)
+ 	int i;
+ 
+ 	for (i = 0; i < qcom->num_ports; i++)
+-		dwc3_qcom_enable_port_interrupts(&qcom->ports[i]);
++		dwc3_qcom_enable_port_interrupts(qcom, i);
+ }
+ 
+ static int dwc3_qcom_suspend(struct dwc3_qcom *qcom, bool wakeup)
+@@ -441,6 +470,9 @@ static int dwc3_qcom_request_irq(struct dwc3_qcom *qcom, int irq,
+ {
+ 	int ret;
+ 
++	/* a lazily disabled line would replay edges seen while "off" */
++	irq_set_status_flags(irq, IRQ_DISABLE_UNLAZY);
++
+ 	/* Keep wakeup interrupts disabled until suspend */
+ 	ret = devm_request_threaded_irq(qcom->dev, irq, NULL,
+ 					qcom_dwc3_resume_irq,
+@@ -623,6 +655,8 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
+ 		return -ENOMEM;
+ 
+ 	qcom->dev = &pdev->dev;
++	/* eUSB2 PHY on these (upstream: PHY_TYPE_EUSB2, Kurapati v7) */
++	qcom->has_eusb2_phy = of_device_is_compatible(pdev->dev.of_node, "qcom,kaanapali-dwc3");
+ 
+ 	qcom->resets = devm_reset_control_array_get_optional_exclusive(dev);
+ 	if (IS_ERR(qcom->resets)) {
+-- 
+2.43.0
+

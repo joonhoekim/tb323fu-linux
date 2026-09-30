@@ -1,0 +1,72 @@
+From 04ce90693ab632572ab4722d7b8db16bc5e72cac Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 05:50:16 +0000
+Subject: [PATCH] wifi: ath12k: don't wake the device over MHI from the panic
+ notifier (y705 0043)
+
+ath12k registers a panic notifier that resets the target:
+ath12k_pci_panic_handler() -> ath12k_pci_sw_reset() -> ath12k_pci_read32()
+/write32(). For registers past ACCESS_ALWAYS_OFF those call the wifi7
+bus_wake_up op, mhi_device_get_sync(), which sleeps until the device is in
+M0. In the panic notifier the other CPUs are already stopped and IRQs are
+off on the panicking CPU, so the wake may never be seen:
+
+  SMP: stopping secondary CPUs
+  Voluntary context switch within RCU read-side critical section!
+  WARNING: kernel/rcu/tree_plugin.h:332 at rcu_note_context_switch
+   schedule_timeout
+   __mhi_device_get_sync
+   ath12k_wifi7_pci_bus_wake_up
+   ath12k_pci_read32
+   ath12k_pci_sw_reset
+   ath12k_pci_panic_handler
+   atomic_notifier_call_chain
+   vpanic
+  (then set_task_cpu / irq_work_queue_on warnings, RPMh timeouts)
+
+On a Lenovo TB323FU (kaanapali, WCN7860) a hung_task panic after an
+s2idle resume never got past this: no "Rebooting in N seconds", no
+download-mode dump, a dead tablet until a forced restart. A sysrq crash
+only left it after ~50 s.
+
+Skip the wake while a panic is in progress (the non-zero return also
+skips the matching release); the reset's register accesses are
+best-effort there anyway. With this the sysrq crash prints "Rebooting in
+10 seconds.." right after stopping the CPUs and the board resets.
+---
+ drivers/net/wireless/ath/ath12k/wifi7/pci.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/drivers/net/wireless/ath/ath12k/wifi7/pci.c b/drivers/net/wireless/ath/ath12k/wifi7/pci.c
+index 893474de4..344e15f04 100644
+--- a/drivers/net/wireless/ath/ath12k/wifi7/pci.c
++++ b/drivers/net/wireless/ath/ath12k/wifi7/pci.c
+@@ -4,6 +4,7 @@
+  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+  */
+ 
++#include <linux/panic.h>
+ #include <linux/pci.h>
+ 
+ #include "../pci.h"
+@@ -64,6 +65,17 @@ static int ath12k_wifi7_pci_bus_wake_up(struct ath12k_base *ab)
+ {
+ 	struct ath12k_pci *ab_pci = ath12k_pci_priv(ab);
+ 
++	/*
++	 * The panic notifier (ath12k_pci_panic_handler -> sw_reset) reads
++	 * and writes registers after the other CPUs are stopped, with IRQs
++	 * off. mhi_device_get_sync() sleeps until the device reaches M0 and
++	 * that wake may never be seen: the panic then never reaches the
++	 * reboot (or the download mode dump). Do the accesses without it.
++	 * Non-zero return also skips the matching release.
++	 */
++	if (panic_in_progress())
++		return -EBUSY;
++
+ 	return mhi_device_get_sync(ab_pci->mhi_ctrl->mhi_dev);
+ }
+ 
+-- 
+2.43.0
+

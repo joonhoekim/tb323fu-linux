@@ -1,0 +1,102 @@
+From 504f74d989290bcaff91f9afcdb6a6f52523dd09 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:27:25 +0000
+Subject: [PATCH 27/56] input: nt36536: fixes for TB323FU
+ (y705-mainline-plan.md 9-27, 9-28)
+
+On top of the NT36536 driver from map220v/sm8850-mainline (iceland-7.2),
+drivers/input/touchscreen/nt36536/; apply in that directory (patch -p0).
+
+- Boot_Update_Firmware() finishes like resume: after the download, wait for
+  RESET_STATE_REK. Without it the first load at boot left the IC silent
+  (two interrupts, no reports) until a panel off/on.
+- Finger coordinates were swapped and Y-flipped for a landscape board (the
+  pen path never was). That now needs "novatek,swap-xy" in DT; on this
+  portrait panel every touch below y = 19040 was dropped as out of range.
+- The input devices were registered with default ranges (33920x24000) and
+  never told the real ones; they are set again once the firmware reports
+  them (19040x30400 here).
+
+y705-source: 0010-input-nt36536-baldur-fixes.patch
+---
+ drivers/input/touchscreen/nt36536/nt36xxx.c     | 17 ++++++++++++++---
+ drivers/input/touchscreen/nt36536/nt36xxx.h     |  1 +
+ .../touchscreen/nt36536/nt36xxx_fw_update.c     | 14 +++++++++++++-
+ 3 files changed, 28 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/input/touchscreen/nt36536/nt36xxx.c b/drivers/input/touchscreen/nt36536/nt36xxx.c
+index 1ec7fd9e2..a93a57959 100644
+--- a/drivers/input/touchscreen/nt36536/nt36xxx.c
++++ b/drivers/input/touchscreen/nt36536/nt36xxx.c
+@@ -753,6 +753,12 @@ static int32_t nvt_parse_dt(struct device *dev)
+ 	NVT_LOG("novatek,irq-gpio=%d\n", ts->irq_gpio);
+ 
+ 	ts->pen_support = of_property_read_bool(np, "novatek,pen-support");
++	/*
++	 * baldur (9-28): finger reports came swapped and Y-flipped, a
++	 * landscape board's rotation. Keep it only where DT asks; the pen
++	 * path never did it.
++	 */
++	ts->swap_xy = of_property_read_bool(np, "novatek,swap-xy");
+ 	NVT_LOG("novatek,pen-support=%d\n", ts->pen_support);
+ 
+ 	ret = of_property_read_u32(np, "novatek,spi-rd-fast-addr", &SPI_RD_FAST_ADDR);
+@@ -955,9 +961,14 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
+ 		    ((point_data[position] & 0x07) == 0x02)) {
+ 			//input_x = (uint32_t)(point_data[position + 1] << 8) + (uint32_t) (point_data[position + 2]);
+ 			//input_y = (uint32_t)(point_data[position + 3] << 8) + (uint32_t) (point_data[position + 4]);
+-			input_x = (uint32_t)(point_data[position + 3] << 8) + (uint32_t) (point_data[position + 4]);
+-			input_y = (uint32_t)(point_data[position + 1] << 8) + (uint32_t) (point_data[position + 2]);
+-			input_y = (ts->abs_y_max - 1) - input_y;
++			if (ts->swap_xy) {
++				input_x = (uint32_t)(point_data[position + 3] << 8) + (uint32_t) (point_data[position + 4]);
++				input_y = (uint32_t)(point_data[position + 1] << 8) + (uint32_t) (point_data[position + 2]);
++				input_y = (ts->abs_y_max - 1) - input_y;
++			} else {
++				input_x = (uint32_t)(point_data[position + 1] << 8) + (uint32_t) (point_data[position + 2]);
++				input_y = (uint32_t)(point_data[position + 3] << 8) + (uint32_t) (point_data[position + 4]);
++			}
+ 			//NVT_LOG("input_x=%5d input_y=%5d\n", input_x, input_y);
+ 			if ((input_x > ts->abs_x_max) || (input_y > ts->abs_y_max))
+ 				continue;
+diff --git a/drivers/input/touchscreen/nt36536/nt36xxx.h b/drivers/input/touchscreen/nt36536/nt36xxx.h
+index 0d7b4375f..bdc456ee2 100644
+--- a/drivers/input/touchscreen/nt36536/nt36xxx.h
++++ b/drivers/input/touchscreen/nt36536/nt36xxx.h
+@@ -144,6 +144,7 @@ struct nvt_ts_data {
+ 	struct mutex xbuf_lock;
+ 	bool irq_enabled;
+ 	bool pen_support;
++	bool swap_xy;	/* baldur: the rotation this driver hard-coded */
+ 	uint8_t x_gang_num;
+ 	uint8_t y_gang_num;
+ 	struct input_dev *pen_input_dev;
+diff --git a/drivers/input/touchscreen/nt36536/nt36xxx_fw_update.c b/drivers/input/touchscreen/nt36536/nt36xxx_fw_update.c
+index 535ddba6c..c41b21d1f 100644
+--- a/drivers/input/touchscreen/nt36536/nt36xxx_fw_update.c
++++ b/drivers/input/touchscreen/nt36536/nt36xxx_fw_update.c
+@@ -894,8 +894,20 @@ int32_t nvt_update_firmware(const char *firmware_name)
+ void Boot_Update_Firmware(struct work_struct *work)
+ {
+ 	mutex_lock(&ts->lock);
+-	nvt_update_firmware(ts->fw_name);
++	/*
++	 * baldur (9-27): finish the way resume does. With only the download,
++	 * the first load at boot left the IC silent until a panel off/on.
++	 */
++	if (!nvt_update_firmware(ts->fw_name))
++		nvt_check_fw_reset_state(RESET_STATE_REK);
+ 	nvt_get_fw_info();
++	/* the input devices were set up with defaults, before this was known */
++	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0, ts->abs_x_max - 1, 0, 0);
++	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, 0, ts->abs_y_max - 1, 0, 0);
++	if (ts->pen_input_dev) {
++		input_set_abs_params(ts->pen_input_dev, ABS_X, 0, ts->abs_x_max - 1, 0, 0);
++		input_set_abs_params(ts->pen_input_dev, ABS_Y, 0, ts->abs_y_max - 1, 0, 0);
++	}
+ 	mutex_unlock(&ts->lock);
+ }
+ #endif /* BOOT_UPDATE_FIRMWARE */
+-- 
+2.43.0
+

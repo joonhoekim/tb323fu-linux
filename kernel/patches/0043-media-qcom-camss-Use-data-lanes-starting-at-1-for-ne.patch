@@ -1,0 +1,77 @@
+From 0e150af7037f9a59dbde7402dffc1f735791f8c2 Mon Sep 17 00:00:00 2001
+From: Bryan O'Donoghue <bryan.odonoghue@linaro.org>
+Date: Sun, 6 Sep 2026 15:17:09 +0100
+Subject: [PATCH 43/56] media: qcom: camss: Use data-lanes starting at 1 for
+ new CSIPHY mode
+
+Introducing a dedicated CSIPHY driver community feedback was both to move
+to data-lanes starting at index 1 on the PHY side and also to match that
+indexing scheme in the CSI decoder - CSID.
+
+CSID consumes the data-lanes property to determine which CSID lanes to
+switch on. For indexes starting at 1 we need to amend the logic somewhere.
+The PHY side code normalises the input data to register level meanings so,
+replicate that logic on the CSID side.
+
+Introduce a simple flag to differentiate between legacy indexing @ 0 and
+new indexing @ 1.
+
+Existing bindings are not affected.
+
+Signed-off-by: Bryan O'Donoghue <bryan.odonoghue@linaro.org>
+Reviewed-by: Nihal Kumar Gupta <nihal.gupta@oss.qualcomm.com>
+Tested-by: Nihal Kumar Gupta <nihal.gupta@oss.qualcomm.com> # Glymur CRD
+---
+ drivers/media/platform/qcom/camss/camss.c | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/platform/qcom/camss/camss.c b/drivers/media/platform/qcom/camss/camss.c
+index 6fc1e4ce5..e19f9b544 100644
+--- a/drivers/media/platform/qcom/camss/camss.c
++++ b/drivers/media/platform/qcom/camss/camss.c
+@@ -5031,7 +5031,8 @@ static const struct parent_dev_ops vfe_parent_dev_ops = {
+  */
+ static int camss_parse_endpoint_node(struct device *dev,
+ 				     struct fwnode_handle *ep,
+-				     struct camss_async_subdev *csd)
++				     struct camss_async_subdev *csd,
++				     u8 lane_base)
+ {
+ 	struct csiphy_lanes_cfg *lncfg = &csd->interface.csi2.lane_cfg;
+ 	struct v4l2_mbus_config_mipi_csi2 *mipi_csi2;
+@@ -5066,7 +5067,14 @@ static int camss_parse_endpoint_node(struct device *dev,
+ 		return -ENOMEM;
+ 
+ 	for (i = 0; i < lncfg->num_data; i++) {
+-		lncfg->data[i].pos = mipi_csi2->data_lanes[i];
++		u8 lane = mipi_csi2->data_lanes[i];
++
++		if (lane < lane_base || lane - lane_base >= lncfg->num_data) {
++			dev_err(dev, "invalid data-lane %u\n", lane);
++			return -EINVAL;
++		}
++
++		lncfg->data[i].pos = mipi_csi2->data_lanes[i] - lane_base;
+ 		lncfg->data[i].pol = mipi_csi2->lane_polarities[i + 1];
+ 	}
+ 
+@@ -5083,6 +5091,7 @@ static int camss_parse_ports(struct camss *camss)
+ {
+ 	struct device *dev = camss->dev;
+ 	struct fwnode_handle *fwnode = dev_fwnode(dev), *ep;
++	u8 lane_base = camss->legacy_phy ? 0 : 1;
+ 	int ret;
+ 
+ 	fwnode_graph_for_each_endpoint(fwnode, ep) {
+@@ -5130,7 +5139,7 @@ static int camss_parse_ports(struct camss *camss)
+ 			goto err_cleanup;
+ 		}
+ 
+-		ret = camss_parse_endpoint_node(dev, ep, csd);
++		ret = camss_parse_endpoint_node(dev, ep, csd, lane_base);
+ 		if (ret < 0)
+ 			goto err_cleanup;
+ 	}
+-- 
+2.43.0
+

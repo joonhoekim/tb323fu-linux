@@ -1,0 +1,351 @@
+From 4b1fe09eeaaf0ba8ebe947586d0c44f784bf537e Mon Sep 17 00:00:00 2001
+From: Gaurav Kohli <gaurav.kohli@oss.qualcomm.com>
+Date: Tue, 7 Jul 2026 03:10:23 +0530
+Subject: [PATCH 04/56] arm64: dts: qcom: kaanapali: Add GPU cooling
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Unlike the CPU, the GPU does not throttle its speed automatically when
+it reaches high temperatures. Set up GPU cooling by throttling the GPU
+speed when reaching 105°C.
+
+Introduce a passive polling delay to ensure more than one "passive"
+thermal point is considered when throttling the GPU thermal zones.
+
+Signed-off-by: Gaurav Kohli <gaurav.kohli@oss.qualcomm.com>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Signed-off-by: Akhil P Oommen <akhilpo@oss.qualcomm.com>
+Link: https://patch.msgid.link/20260707-kaana-gpu-dt-v3-5-8dac9a60dd5c@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <bjorn.andersson@oss.qualcomm.com>
+---
+ arch/arm64/boot/dts/qcom/kaanapali.dtsi | 166 ++++++++++++++++++++++++
+ 1 file changed, 166 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/kaanapali.dtsi b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+index 9a5581a0a..f85cf94d4 100644
+--- a/arch/arm64/boot/dts/qcom/kaanapali.dtsi
++++ b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+@@ -26,6 +26,7 @@
+ #include <dt-bindings/soc/qcom,gpr.h>
+ #include <dt-bindings/soc/qcom,rpmh-rsc.h>
+ #include <dt-bindings/sound/qcom,q6dsp-lpass-ports.h>
++#include <dt-bindings/thermal/thermal.h>
+ 
+ #include "kaanapali-ipcc.h"
+ 
+@@ -7195,9 +7196,17 @@ nsphmx-3-critical {
+ 		};
+ 
+ 		gpuss-0-thermal {
++			polling-delay-passive = <10>;
++
+ 			thermal-sensors = <&tsens5 0>;
+ 
+ 			trips {
++				gpuss_0_alert0: gpuss-0-alert0 {
++					temperature = <105000>;
++					hysteresis = <5000>;
++					type = "passive";
++				};
++
+ 				gpuss-0-hot {
+ 					temperature = <120000>;
+ 					hysteresis = <5000>;
+@@ -7210,12 +7219,27 @@ gpuss-0-critical {
+ 					type = "critical";
+ 				};
+ 			};
++
++			cooling-maps {
++				map0 {
++					trip = <&gpuss_0_alert0>;
++					cooling-device = <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
+ 		};
+ 
+ 		gpuss-1-thermal {
++			polling-delay-passive = <10>;
++
+ 			thermal-sensors = <&tsens5 1>;
+ 
+ 			trips {
++				gpuss_1_alert0: gpuss-1-alert0 {
++					temperature = <105000>;
++					hysteresis = <5000>;
++					type = "passive";
++				};
++
+ 				gpuss-1-hot {
+ 					temperature = <120000>;
+ 					hysteresis = <5000>;
+@@ -7228,12 +7252,27 @@ gpuss-1-critical {
+ 					type = "critical";
+ 				};
+ 			};
++
++			cooling-maps {
++				map0 {
++					trip = <&gpuss_1_alert0>;
++					cooling-device = <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
+ 		};
+ 
+ 		gpuss-2-thermal {
++			polling-delay-passive = <10>;
++
+ 			thermal-sensors = <&tsens5 2>;
+ 
+ 			trips {
++				gpuss_2_alert0: gpuss-2-alert0 {
++					temperature = <105000>;
++					hysteresis = <5000>;
++					type = "passive";
++				};
++
+ 				gpuss-2-hot {
+ 					temperature = <120000>;
+ 					hysteresis = <5000>;
+@@ -7246,12 +7285,27 @@ gpuss-2-critical {
+ 					type = "critical";
+ 				};
+ 			};
++
++			cooling-maps {
++				map0 {
++					trip = <&gpuss_2_alert0>;
++					cooling-device = <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
+ 		};
+ 
+ 		gpuss-3-thermal {
++			polling-delay-passive = <10>;
++
+ 			thermal-sensors = <&tsens5 3>;
+ 
+ 			trips {
++				gpuss_3_alert0: gpuss-3-alert0 {
++					temperature = <105000>;
++					hysteresis = <5000>;
++					type = "passive";
++				};
++
+ 				gpuss-3-hot {
+ 					temperature = <120000>;
+ 					hysteresis = <5000>;
+@@ -7264,12 +7318,27 @@ gpuss-3-critical {
+ 					type = "critical";
+ 				};
+ 			};
++
++			cooling-maps {
++				map0 {
++					trip = <&gpuss_3_alert0>;
++					cooling-device = <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
+ 		};
+ 
+ 		gpuss-4-thermal {
++			polling-delay-passive = <10>;
++
+ 			thermal-sensors = <&tsens5 4>;
+ 
+ 			trips {
++				gpuss_4_alert0: gpuss-4-alert0 {
++					temperature = <105000>;
++					hysteresis = <5000>;
++					type = "passive";
++				};
++
+ 				gpuss-4-hot {
+ 					temperature = <120000>;
+ 					hysteresis = <5000>;
+@@ -7282,12 +7351,27 @@ gpuss-4-critical {
+ 					type = "critical";
+ 				};
+ 			};
++
++			cooling-maps {
++				map0 {
++					trip = <&gpuss_4_alert0>;
++					cooling-device = <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
+ 		};
+ 
+ 		gpuss-5-thermal {
++			polling-delay-passive = <10>;
++
+ 			thermal-sensors = <&tsens5 5>;
+ 
+ 			trips {
++				gpuss_5_alert0: gpuss-5-alert0 {
++					temperature = <105000>;
++					hysteresis = <5000>;
++					type = "passive";
++				};
++
+ 				gpuss-5-hot {
+ 					temperature = <120000>;
+ 					hysteresis = <5000>;
+@@ -7300,12 +7384,27 @@ gpuss-5-critical {
+ 					type = "critical";
+ 				};
+ 			};
++
++			cooling-maps {
++				map0 {
++					trip = <&gpuss_5_alert0>;
++					cooling-device = <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
+ 		};
+ 
+ 		gpuss-6-thermal {
++			polling-delay-passive = <10>;
++
+ 			thermal-sensors = <&tsens5 6>;
+ 
+ 			trips {
++				gpuss_6_alert0: gpuss-6-alert0 {
++					temperature = <105000>;
++					hysteresis = <5000>;
++					type = "passive";
++				};
++
+ 				gpuss-6-hot {
+ 					temperature = <120000>;
+ 					hysteresis = <5000>;
+@@ -7318,12 +7417,27 @@ gpuss-6-critical {
+ 					type = "critical";
+ 				};
+ 			};
++
++			cooling-maps {
++				map0 {
++					trip = <&gpuss_6_alert0>;
++					cooling-device = <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
+ 		};
+ 
+ 		gpuss-7-thermal {
++			polling-delay-passive = <10>;
++
+ 			thermal-sensors = <&tsens5 7>;
+ 
+ 			trips {
++				gpuss_7_alert0: gpuss-7-alert0 {
++					temperature = <105000>;
++					hysteresis = <5000>;
++					type = "passive";
++				};
++
+ 				gpuss-7-hot {
+ 					temperature = <120000>;
+ 					hysteresis = <5000>;
+@@ -7336,12 +7450,27 @@ gpuss-7-critical {
+ 					type = "critical";
+ 				};
+ 			};
++
++			cooling-maps {
++				map0 {
++					trip = <&gpuss_7_alert0>;
++					cooling-device = <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
+ 		};
+ 
+ 		gpuss-8-thermal {
++			polling-delay-passive = <10>;
++
+ 			thermal-sensors = <&tsens5 8>;
+ 
+ 			trips {
++				gpuss_8_alert0: gpuss-8-alert0 {
++					temperature = <105000>;
++					hysteresis = <5000>;
++					type = "passive";
++				};
++
+ 				gpuss-8-hot {
+ 					temperature = <120000>;
+ 					hysteresis = <5000>;
+@@ -7354,12 +7483,27 @@ gpuss-8-critical {
+ 					type = "critical";
+ 				};
+ 			};
++
++			cooling-maps {
++				map0 {
++					trip = <&gpuss_8_alert0>;
++					cooling-device = <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
+ 		};
+ 
+ 		gpuss-9-thermal {
++			polling-delay-passive = <10>;
++
+ 			thermal-sensors = <&tsens5 9>;
+ 
+ 			trips {
++				gpuss_9_alert0: gpuss-9-alert0 {
++					temperature = <105000>;
++					hysteresis = <5000>;
++					type = "passive";
++				};
++
+ 				gpuss-9-hot {
+ 					temperature = <120000>;
+ 					hysteresis = <5000>;
+@@ -7372,12 +7516,27 @@ gpuss-9-critical {
+ 					type = "critical";
+ 				};
+ 			};
++
++			cooling-maps {
++				map0 {
++					trip = <&gpuss_9_alert0>;
++					cooling-device = <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
+ 		};
+ 
+ 		gpuss-10-thermal {
++			polling-delay-passive = <10>;
++
+ 			thermal-sensors = <&tsens5 10>;
+ 
+ 			trips {
++				gpuss_10_alert0: gpuss-10-alert0 {
++					temperature = <105000>;
++					hysteresis = <5000>;
++					type = "passive";
++				};
++
+ 				gpuss-10-hot {
+ 					temperature = <120000>;
+ 					hysteresis = <5000>;
+@@ -7390,6 +7549,13 @@ gpuss-10-critical {
+ 					type = "critical";
+ 				};
+ 			};
++
++			cooling-maps {
++				map0 {
++					trip = <&gpuss_10_alert0>;
++					cooling-device = <&gpu THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
+ 		};
+ 
+ 		ddr-thermal {
+-- 
+2.43.0
+

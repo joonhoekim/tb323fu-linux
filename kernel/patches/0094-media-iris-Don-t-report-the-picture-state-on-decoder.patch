@@ -1,0 +1,30 @@
+From c86620818825d519ff37a3a9804bca7d3e6a3af0 Mon Sep 17 00:00:00 2001
+From: Victor Fuentes <victor@vlinkz.dev>
+Date: Fri, 25 Sep 2026 02:03:11 -0700
+Subject: [PATCH 94/95] media: iris: Don't report the picture state on decoder
+ input buffers
+
+The firmware returns input buffers with the last picture's flags,
+including V4L2_BUF_FLAG_ERROR, which makes GStreamer drop frames.
+
+Signed-off-by: Victor Fuentes <victor@vlinkz.dev>
+---
+ drivers/media/platform/qcom/iris/iris_hfi_gen2_response.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_hfi_gen2_response.c b/drivers/media/platform/qcom/iris/iris_hfi_gen2_response.c
+index 8c2644c7f..69f45d0b4 100644
+--- a/drivers/media/platform/qcom/iris/iris_hfi_gen2_response.c
++++ b/drivers/media/platform/qcom/iris/iris_hfi_gen2_response.c
+@@ -340,8 +340,6 @@ static int iris_hfi_gen2_handle_input_buffer(struct iris_inst *inst,
+ 	buf->attr &= ~BUF_ATTR_QUEUED;
+ 	buf->attr |= BUF_ATTR_DEQUEUED;
+ 
+-	buf->flags = iris_hfi_gen2_get_driver_buffer_flags(inst, buffer->flags);
+-
+ 	return 0;
+ }
+ 
+-- 
+2.43.0
+

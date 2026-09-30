@@ -1,0 +1,60 @@
+From 90bde24c802ed37ca6a52c99bca0c67f267ce154 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:27:31 +0000
+Subject: [PATCH 28/56] backlight: aw99706: replay board registers after the
+ HWEN reset
+
+For y705-mainline-plan.md 9-27. Probing drives HWEN low, which resets the
+chip; the driver then writes only CFG0-2 and the ramp bits. On TB323FU the
+bootloader also sets 0x06/0x07/0x0c/0x0d (LED strings, boost), and without
+them the backlight stays dark although every register reads "on". An
+optional "awinic,init-regs" byte-pair list is written after the table, on
+probe and on resume.
+
+y705-source: 0009-backlight-aw99706-init-regs.patch
+---
+ drivers/video/backlight/aw99706.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/drivers/video/backlight/aw99706.c b/drivers/video/backlight/aw99706.c
+index c4a66b59e..eda57dfad 100644
+--- a/drivers/video/backlight/aw99706.c
++++ b/drivers/video/backlight/aw99706.c
+@@ -283,6 +283,9 @@ static int aw99706_hw_init(struct aw99706_device *aw)
+ {
+ 	int ret, i;
+ 
++	u8 regs[32];
++	int n;
++
+ 	gpiod_set_value_cansleep(aw->hwen_gpio, 1);
+ 
+ 	for (i = 0; i < ARRAY_SIZE(aw->init_tbl); i++) {
+@@ -295,6 +298,24 @@ static int aw99706_hw_init(struct aw99706_device *aw)
+ 		}
+ 	}
+ 
++	/*
++	 * Board registers the properties above do not cover, as <reg val>
++	 * byte pairs. Taking HWEN low resets the chip, so whatever the
++	 * bootloader set (LED string and boost setup) is gone unless it is
++	 * written again here; without it the backlight stays dark.
++	 */
++	n = device_property_count_u8(aw->dev, "awinic,init-regs");
++	if (n > 0 && n <= ARRAY_SIZE(regs) && !(n & 1) &&
++	    !device_property_read_u8_array(aw->dev, "awinic,init-regs", regs, n)) {
++		for (i = 0; i < n; i += 2) {
++			ret = aw99706_i2c_write(aw, regs[i], regs[i + 1]);
++			if (ret < 0) {
++				dev_err(aw->dev, "Failed to write init-regs %d\n", ret);
++				return ret;
++			}
++		}
++	}
++
+ 	return 0;
+ }
+ 
+-- 
+2.43.0
+

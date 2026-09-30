@@ -1,0 +1,39 @@
+From b0ff49cc4fc67992639aee9ac6a39492d201e3ca Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:28:22 +0000
+Subject: [PATCH 38/56] Input: aw86927 - accept the AW86937
+
+For y705-mainline-plan.md 9-54. TB323FU has two AW8693x haptic drivers on
+i2c6 that report CHIPID 0x9370 (AW86937). The vendor handles the whole
+AW8693x family with one driver; treat the AW86937 like the AW86938 here.
+Both probe and register force-feedback input devices; playing a rumble
+effect returns without error (felt by hand still to be confirmed).
+
+y705-source: 0023-input-aw86927-accept-aw86937.patch
+---
+ drivers/input/misc/aw86927.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/input/misc/aw86927.c b/drivers/input/misc/aw86927.c
+index f53b8f004..fa22a9bef 100644
+--- a/drivers/input/misc/aw86927.c
++++ b/drivers/input/misc/aw86927.c
+@@ -147,6 +147,7 @@
+ #define AW86927_CHIPIDL_REG			0x58
+ #define AW86927_CHIPID				0x9270
+ #define AW86938_CHIPID				0x9380
++#define AW86937_CHIPID				0x9370
+ 
+ #define AW86927_TMCFG_REG			0x5b
+ #define AW86927_TMCFG_UNLOCK			0x7d
+@@ -751,6 +752,7 @@ static int aw86927_detect(struct aw86927_data *haptics)
+ 		haptics->model = AW86927;
+ 		break;
+ 	case AW86938_CHIPID:
++	case AW86937_CHIPID:	/* same AW8693x family, handled alike by the vendor driver */
+ 		haptics->model = AW86938;
+ 		break;
+ 	default:
+-- 
+2.43.0
+

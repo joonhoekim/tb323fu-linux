@@ -1,0 +1,48 @@
+From 1d3454d6e097fa5f8f933243c09692e61438f62c Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:31:31 +0000
+Subject: [PATCH 49/56] PCI: qcom: don't advertise a hot-plug slot on the Root
+ Port
+
+The Root Port comes out of reset with SLTCAP HPC/HPS set (0x0006007f).
+Without pciehp, pci_bridge_d3_possible() refuses D3 for such a bridge,
+so the port stays in D0 over s2idle, pci_host_common_d3cold_possible()
+fails and dw_pcie_suspend_noirq() keeps the link up with the WCN7860 in
+D3hot. The link is then intermittently gone at resume: "Unable to change
+power state from D3hot to D0, device inaccessible", then a synchronous
+external abort in pci_generic_config_read() -> panic -> 900E dump mode
+(y705-mainline-plan.md 9-63). With the bits cleared the port reaches
+D3hot, the host takes the D3cold path (PME_Turn_Off, pwrctrl power off,
+retrain on resume) and 5/5 s2idle cycles resume with Wi-Fi back.
+
+[y705 rebase 7.3: ported by hand: 7.3 renamed qcom_pcie_set_slot_nccs() to qcom_pcie_set_slot_cap() and clears ABP there; HPC|HPS are now cleared in the same write. The 7.3 link-down recovery (qcom_pcie_reset_root_port via pci_host_handle_link_down) does not use the slot hot-plug bits and re-runs this through host_init]
+y705-source: 0035-pci-qcom-no-hotplug-slot.patch
+---
+ drivers/pci/controller/dwc/pcie-qcom.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/pci/controller/dwc/pcie-qcom.c b/drivers/pci/controller/dwc/pcie-qcom.c
+index b58a607b7..ed1bcd497 100644
+--- a/drivers/pci/controller/dwc/pcie-qcom.c
++++ b/drivers/pci/controller/dwc/pcie-qcom.c
+@@ -396,6 +396,17 @@ static void qcom_pcie_set_slot_cap(struct dw_pcie *pci)
+ 	 * Attention Button Present in Slot Capabilities.
+ 	 */
+ 	val &= ~PCI_EXP_SLTCAP_ABP;
++
++	/*
++	 * The Root Port's reset value advertises a hot-plug capable slot, but
++	 * the endpoints behind it are soldered down and powered by pwrctrl.
++	 * A hot-plug bridge without pciehp never gets bridge_d3, so the port
++	 * stays in D0 over system suspend, D3cold is never possible and the
++	 * link is kept up while the endpoint sits in D3hot. The Y700 gen5's
++	 * WCN7860 then intermittently drops the link and its first config
++	 * read on resume takes an SError.
++	 */
++	val &= ~(PCI_EXP_SLTCAP_HPC | PCI_EXP_SLTCAP_HPS);
+ 	writel(val, pci->dbi_base + offset + PCI_EXP_SLTCAP);
+ 
+ 	dw_pcie_dbi_ro_wr_dis(pci);
+-- 
+2.43.0
+

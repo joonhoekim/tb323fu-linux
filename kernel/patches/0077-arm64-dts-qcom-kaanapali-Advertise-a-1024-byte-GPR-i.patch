@@ -1,0 +1,29 @@
+From 28e13186e952104529e1eb58821e3c1cc45ad96c Mon Sep 17 00:00:00 2001
+From: Victor Fuentes <victor@vlinkz.dev>
+Date: Wed, 29 Jul 2026 17:57:14 -0700
+Subject: [PATCH 77/79] arm64: dts: qcom: kaanapali: Advertise a 1024-byte GPR
+ intent
+
+Some ADSP responses exceed 512 bytes.
+
+Signed-off-by: Victor Fuentes <victor@vlinkz.dev>
+---
+ arch/arm64/boot/dts/qcom/kaanapali.dtsi | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/kaanapali.dtsi b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+index f79020589..6e637e6b7 100644
+--- a/arch/arm64/boot/dts/qcom/kaanapali.dtsi
++++ b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+@@ -3103,7 +3103,7 @@ gpr {
+ 					compatible = "qcom,gpr";
+ 					qcom,glink-channels = "adsp_apps";
+ 					qcom,domain = <GPR_DOMAIN_ID_ADSP>;
+-					qcom,intents = <512 20>;
++					qcom,intents = <512 20>, <1024 8>;
+ 					#address-cells = <1>;
+ 					#size-cells = <0>;
+ 
+-- 
+2.43.0
+

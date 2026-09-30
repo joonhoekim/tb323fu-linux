@@ -1,0 +1,263 @@
+From 4209aeb86061de639290b63871d4ab5754f55a58 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:25:39 +0000
+Subject: [PATCH 21/56] arm64: carry a devicetree inside the kernel image
+
+Android boot image headers v3 and later have no room for a devicetree, so the
+bootloader hands over the vendor tree from vendor_boot instead -- a tree that
+describes a downstream kernel and means nothing to mainline. On this board
+that is the whole reason a chainloader was wanted; the chainloader turned out
+not to run at all.
+
+So the kernel carries its own. builtin_fdt.S drops the board dtb into .data
+with slack after it, and setup_machine_fdt() uses that instead of what arrived
+in x0. It has to be .data, not .init.data: once chosen it is
+initial_boot_params for good, and /sys/firmware/fdt and kexec_file read it
+long after init memory is freed.
+
+/memory is the exception and is copied across from the bootloader's tree. The
+bootloader computes it at runtime from the DRAM configuration and the carve-outs
+it has already handed to firmware, so hardcoding it would mean handing the
+kernel memory that something else owns. The copy is skipped if the two roots
+disagree on cell sizes, since the reg would then mean something different.
+
+The built-in tree is never put in the fixmap. The first version of this patch
+still ended setup_machine_fdt() with the usual read-only fixmap_remap_fdt(),
+which pointed the slot the bootloader's tree had been mapped through at a
+different physical address; arm64 only lets an existing entry change its
+permissions, so that was a BUG() in init_pte(), before any console. That
+version is what reached the board on 2026-09-23 (plan 9-10) and sat silently
+behind the splash; the BUG() does not depend on the addresses involved, so
+that is almost certainly where it stopped.
+
+Together with CONFIG_CMDLINE_FORCE and a built-in initramfs, this leaves the
+kernel depending on the bootloader for /memory and nothing else.
+
+Tested in QEMU (virt): booted directly and by kexec from an Android GKI
+kernel, with a 1 GiB tree built in and 3 GiB of RAM -- both report 3 GiB, so
+/memory really comes from the incoming tree -- through to the initramfs.
+Not yet re-tested on the board.
+
+y705-source: 0003-arm64-builtin-fdt.patch
+---
+ arch/arm64/Kconfig              | 20 +++++++
+ arch/arm64/kernel/Makefile      |  3 +
+ arch/arm64/kernel/builtin_fdt.S | 28 ++++++++++
+ arch/arm64/kernel/setup.c       | 98 ++++++++++++++++++++++++++++++++-
+ 4 files changed, 147 insertions(+), 2 deletions(-)
+ create mode 100644 arch/arm64/kernel/builtin_fdt.S
+
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index b5a51b0ef..eceeb3ba2 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -2473,6 +2473,26 @@ config ARM64_CONTPTE
+ 	  bit, for any mappings that meet the size and alignment requirements.
+ 	  This reduces TLB pressure and improves performance.
+ 
++config ARM64_BUILTIN_FDT
++	bool "Carry a devicetree inside the kernel image"
++	depends on OF
++	help
++	  Use a devicetree built into the kernel instead of the one the
++	  bootloader passes in x0, keeping only /memory from the bootloader's
++	  tree so the real RAM map and its carve-outs are still honoured.
++
++	  This exists for boards whose bootloader cannot be made to hand over
++	  a usable devicetree: Android boot image headers v3 and later have no
++	  room for one, and the vendor tree that arrives instead describes a
++	  downstream kernel. Saying yes here removes that dependency entirely.
++
++	  If unsure, say N.
++
++config ARM64_BUILTIN_FDT_NAME
++	string "Built-in devicetree (path under arch/arm64/boot/dts/)"
++	depends on ARM64_BUILTIN_FDT
++	default "qcom/kaanapali-lenovo-baldur.dtb"
++
+ endmenu # "Kernel Features"
+ 
+ menu "Boot options"
+diff --git a/arch/arm64/kernel/Makefile b/arch/arm64/kernel/Makefile
+index d2690c3ec..2b98286a7 100644
+--- a/arch/arm64/kernel/Makefile
++++ b/arch/arm64/kernel/Makefile
+@@ -69,6 +69,9 @@ obj-$(CONFIG_VMCORE_INFO)		+= vmcore_info.o
+ obj-$(CONFIG_ARM_SDE_INTERFACE)		+= sdei.o
+ obj-$(CONFIG_ARM64_PTR_AUTH)		+= pointer_auth.o
+ obj-$(CONFIG_ARM64_MPAM)		+= mpam.o
++obj-$(CONFIG_ARM64_BUILTIN_FDT)	+= builtin_fdt.o
++AFLAGS_builtin_fdt.o	:= -I$(objtree)/arch/arm64/boot/dts
++$(obj)/builtin_fdt.o: $(objtree)/arch/arm64/boot/dts/$(patsubst "%",%,$(CONFIG_ARM64_BUILTIN_FDT_NAME)) FORCE
+ obj-$(CONFIG_ARM64_MTE)			+= mte.o
+ obj-y					+= vdso-wrap.o
+ obj-$(CONFIG_COMPAT_VDSO)		+= vdso32-wrap.o
+diff --git a/arch/arm64/kernel/builtin_fdt.S b/arch/arm64/kernel/builtin_fdt.S
+new file mode 100644
+index 000000000..0dde7a68b
+--- /dev/null
++++ b/arch/arm64/kernel/builtin_fdt.S
+@@ -0,0 +1,28 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++/*
++ * A devicetree carried inside the kernel image, for boards whose bootloader
++ * cannot hand one over. See CONFIG_ARM64_BUILTIN_FDT.
++ *
++ * The blob is followed by slack so setup_machine_fdt() can splice the
++ * bootloader's /memory into it in place with fdt_open_into().
++ *
++ * It lives in .data, not .init.data: once chosen it is initial_boot_params
++ * for the rest of the kernel's life, and /sys/firmware/fdt and kexec_file
++ * both read it long after init memory has been freed.
++ */
++#include <linux/linkage.h>
++
++	.section .data, "aw", %progbits
++	.align 3
++	.globl __builtin_fdt
++__builtin_fdt:
++	/*
++	 * CONFIG_ARM64_BUILTIN_FDT_NAME is a Kconfig string, so it already
++	 * arrives quoted -- do not put it through __stringify(). The path is
++	 * relative to arch/arm64/boot/dts, which the Makefile adds with -I.
++	 */
++	.incbin CONFIG_ARM64_BUILTIN_FDT_NAME
++	.space 65536
++	.align 3
++	.globl __builtin_fdt_end
++__builtin_fdt_end:
+diff --git a/arch/arm64/kernel/setup.c b/arch/arm64/kernel/setup.c
+index 29c6100f0..83229773f 100644
+--- a/arch/arm64/kernel/setup.c
++++ b/arch/arm64/kernel/setup.c
+@@ -26,6 +26,7 @@
+ #include <linux/panic_notifier.h>
+ #include <linux/proc_fs.h>
+ #include <linux/memblock.h>
++#include <linux/libfdt.h>
+ #include <linux/of_fdt.h>
+ #include <linux/efi.h>
+ #include <linux/psci.h>
+@@ -167,15 +168,101 @@ static void __init smp_build_mpidr_hash(void)
+ 		pr_warn("Large number of MPIDR hash buckets detected\n");
+ }
+ 
++#ifdef CONFIG_ARM64_BUILTIN_FDT
++extern char __builtin_fdt[], __builtin_fdt_end[];
++
++/*
++ * Take /memory out of the bootloader's tree and put it in ours.
++ *
++ * Everything else in the built-in tree is ours to state, but the RAM map is
++ * not: the bootloader computes it at runtime from the DRAM configuration and
++ * the carve-outs it has already handed to firmware. Hardcoding it would mean
++ * handing the kernel memory that something else owns, so it is copied across
++ * and only the shape of the tree comes from us.
++ */
++static void * __init builtin_fdt_with_memory(void *boot_fdt)
++{
++	void *fdt = __builtin_fdt;
++	size_t room = __builtin_fdt_end - __builtin_fdt;
++	const void *reg;
++	int soff, doff, len;
++
++	if (fdt_check_header(fdt))
++		return NULL;
++
++	if (fdt_open_into(fdt, fdt, room))
++		return NULL;
++
++	if (!boot_fdt || fdt_check_header(boot_fdt)) {
++		pr_warn("builtin FDT: no usable bootloader tree, /memory left as-is\n");
++		return fdt;
++	}
++
++	/* the cell sizes have to agree or the copied reg means something else */
++	if (fdt_address_cells(boot_fdt, 0) != fdt_address_cells(fdt, 0) ||
++	    fdt_size_cells(boot_fdt, 0) != fdt_size_cells(fdt, 0)) {
++		pr_warn("builtin FDT: root cell sizes differ, /memory not copied\n");
++		return fdt;
++	}
++
++	soff = fdt_path_offset(boot_fdt, "/memory");
++	if (soff < 0)
++		soff = fdt_subnode_offset(boot_fdt, 0, "memory");
++	if (soff < 0) {
++		pr_warn("builtin FDT: bootloader tree has no /memory\n");
++		return fdt;
++	}
++
++	reg = fdt_getprop(boot_fdt, soff, "reg", &len);
++	if (!reg || len <= 0) {
++		pr_warn("builtin FDT: bootloader /memory has no reg\n");
++		return fdt;
++	}
++
++	doff = fdt_path_offset(fdt, "/memory");
++	if (doff < 0)
++		doff = fdt_add_subnode(fdt, 0, "memory");
++	if (doff < 0) {
++		pr_warn("builtin FDT: cannot make /memory\n");
++		return fdt;
++	}
++
++	if (fdt_setprop(fdt, doff, "device_type", "memory", sizeof("memory")) ||
++	    fdt_setprop(fdt, doff, "reg", reg, len)) {
++		pr_warn("builtin FDT: cannot write /memory\n");
++		return fdt;
++	}
++
++	pr_info("builtin FDT: took /memory from the bootloader (%d bytes of reg)\n",
++		len);
++	return fdt;
++}
++#endif /* CONFIG_ARM64_BUILTIN_FDT */
++
+ static void __init setup_machine_fdt(phys_addr_t dt_phys)
+ {
+ 	int size = 0;
+ 	void *dt_virt = fixmap_remap_fdt(dt_phys, &size, PAGE_KERNEL);
++	bool builtin = false;
+ 	const char *name;
+ 
+ 	if (dt_virt)
+ 		memblock_reserve(dt_phys, size);
+ 
++#ifdef CONFIG_ARM64_BUILTIN_FDT
++	{
++		void *own = builtin_fdt_with_memory(dt_virt);
++
++		if (own) {
++			dt_virt = own;
++			dt_phys = __pa_symbol(__builtin_fdt);
++			builtin = true;
++		} else {
++			pr_warn("builtin FDT is unusable, falling back to the bootloader's\n");
++		}
++	}
++#endif
++
+ 	/*
+ 	 * dt_virt is a fixmap address, hence __pa(dt_virt) can't be used.
+ 	 * Pass dt_phys directly.
+@@ -196,8 +283,15 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
+ 			cpu_relax();
+ 	}
+ 
+-	/* Early fixups are done, map the FDT as read-only now */
+-	fixmap_remap_fdt(dt_phys, &size, PAGE_KERNEL_RO);
++	/*
++	 * Early fixups are done, map the FDT as read-only now -- unless it is
++	 * the built-in one, which lives in the kernel image and was never in
++	 * the fixmap. Pointing the fixmap slot at a different physical address
++	 * than it was first populated with is a BUG() in init_pte(), long
++	 * before any console exists.
++	 */
++	if (!builtin)
++		fixmap_remap_fdt(dt_phys, &size, PAGE_KERNEL_RO);
+ 
+ 	name = of_flat_dt_get_machine_name();
+ 	if (!name)
+-- 
+2.43.0
+

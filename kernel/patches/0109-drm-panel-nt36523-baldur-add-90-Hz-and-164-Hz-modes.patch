@@ -1,0 +1,98 @@
+From 9a28ca709c856d258ef66552c7238cf0a82dcb8e Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Wed, 30 Sep 2026 10:45:40 +0000
+Subject: [PATCH 109/111] drm/panel: nt36523: baldur: add 90 Hz and 164 Hz
+ modes
+
+The CSOT panel of the TB323FU has vendor timings for 120/165/144/90/60/30
+Hz (qcom,dfps-timings). 120/60/30 are in the mode table already (60/30
+differ only in the front porch and switch in place, 0051/0052).
+
+Add two more, generated for the baldur panel only:
+- 90 Hz: the vendor's dtiming@5 as is.
+- 164 Hz: the 120 Hz horizontal timing with the shortest vertical total
+  (3120). The vendor's 165 and 144 Hz share a horizontal timing with an
+  82 px per link blanking; with it the DPU underruns on every frame (the
+  underrun counter grows by one per frame, the screen shows purple/blue
+  noise). The same line rate with 120 Hz's longer horizontal blanking runs
+  clean, so blanking, not DPU bandwidth, is what breaks 165. It is named
+  164 Hz so the compositor does not confuse it with the vendor mode.
+
+Tested by eye with the UFO test and touch (y705 plan 9-104, modetry.sh):
+90 Hz measured 90 Hz, 0 underruns, touch fine; 164 Hz measured 163 Hz,
+0 underruns, no DSI/DPU errors and no touch firmware resets over 25 s.
+Not added: the vendor 144/165 (underrun) and a 143 Hz variant with the
+120 Hz horizontal timing (clean display but the TDDI touch firmware keeps
+resetting and a noise band appears near the bottom). Those stay in
+t19-modes-test.diff behind a y705_modes knob.
+---
+ drivers/gpu/drm/panel/panel-novatek-nt36523.c | 46 +++++++++++++++++++
+ 1 file changed, 46 insertions(+)
+
+diff --git a/drivers/gpu/drm/panel/panel-novatek-nt36523.c b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
+index ecd029a45..bec8b00ae 100644
+--- a/drivers/gpu/drm/panel/panel-novatek-nt36523.c
++++ b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
+@@ -1081,6 +1081,37 @@ static void nt36523_remove(struct mipi_dsi_device *dsi)
+ 	drm_panel_remove(&pinfo->panel);
+ }
+ 
++/*
++ * baldur: two more refresh rates next to the 120/60/30 Hz of the mode table
++ * (plan 9-104; the compositor keeps the preferred 120 Hz until one is picked):
++ *   90 Hz   the vendor's dtiming@5 (long horizontal blanking)
++ *   164 Hz  the 120 Hz horizontal timing with the shortest vertical total. The
++ *           vendor's own 165/144 Hz timings (dtiming@4/@3) share an 82 px per
++ *           link horizontal blanking the DPU cannot fetch in time: it
++ *           underruns every frame (purple/blue noise). With 120 Hz's
++ *           horizontal blanking the same line rate runs clean; it is named
++ *           164 Hz so it cannot be mistaken for the vendor mode.
++ */
++#define BALDUR_MODE(hfp, hs, hbp, vfp, vbp, hz) {				\
++	.clock = (952 + (hfp) + (hs) + (hbp)) * 2 *				\
++		 (3040 + (vfp) + 4 + (vbp)) * (hz) / 1000,			\
++	.hdisplay = 952 * 2,							\
++	.hsync_start = (952 + (hfp)) * 2,					\
++	.hsync_end = (952 + (hfp) + (hs)) * 2,					\
++	.htotal = (952 + (hfp) + (hs) + (hbp)) * 2,				\
++	.vdisplay = 3040,							\
++	.vsync_start = 3040 + (vfp),						\
++	.vsync_end = 3040 + (vfp) + 4,						\
++	.vtotal = 3040 + (vfp) + 4 + (vbp),					\
++}
++
++static const struct drm_display_mode baldur_csot_extra_modes[] = {
++	BALDUR_MODE(218, 16, 128, 26, 50,  90),
++	BALDUR_MODE( 90, 16,  64, 26, 50, 164),
++};
++
++static const struct panel_desc baldur_csot_desc;
++
+ static int nt36523_get_modes(struct drm_panel *panel,
+ 			       struct drm_connector *connector)
+ {
+@@ -1110,6 +1141,21 @@ static int nt36523_get_modes(struct drm_panel *panel,
+ 	connector->display_info.height_mm = pinfo->desc->height_mm;
+ 	connector->display_info.bpc = pinfo->desc->bpc;
+ 
++	if (pinfo->desc == &baldur_csot_desc) {
++		for (i = 0; i < ARRAY_SIZE(baldur_csot_extra_modes); i++) {
++			struct drm_display_mode *mode;
++
++			mode = drm_mode_duplicate(connector->dev,
++						  &baldur_csot_extra_modes[i]);
++			if (!mode)
++				return -ENOMEM;
++			mode->type = DRM_MODE_TYPE_DRIVER;
++			drm_mode_set_name(mode);
++			drm_mode_probed_add(connector, mode);
++		}
++		return pinfo->desc->num_modes + ARRAY_SIZE(baldur_csot_extra_modes);
++	}
++
+ 	return pinfo->desc->num_modes;
+ }
+ 
+-- 
+2.43.0
+

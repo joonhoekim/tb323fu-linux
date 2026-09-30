@@ -1,0 +1,128 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * TB323FU ("baldur"): DisplayPort alt-mode on the bottom USB-C port
+ * (y705-mainline-plan.md 9-65).
+ *
+ * kaanapali.dtsi has the combo PHY (DP half included via the sm8750 fallback)
+ * and DPU INTF_0 = DP controller 0, but no DP controller node. This one is
+ * sm8750's mdss_dp0 at the vendor addresses (qcom,dp-display: dp_ahb
+ * 0x9ad2000, dp_aux +0x200, dp_link 0x9ad3000 (0xb78 long, sm8750 0x770),
+ * dp_p0 0x9ad4000, dp_p1 0x9ad5000; MDSS interrupt 12, phy-version 0x800).
+ * HPD and orientation come from pmic-glink altmode through the PHY.
+ *
+ * Two lanes: msm_dp takes the lane count from DPCD and data-lanes only, not
+ * from the Type-C pin assignment. A USB-C monitor with a hub (pin assignment
+ * D, 2 DP lanes + USB3) failed channel EQ at 4 lanes and trains at
+ * HBR2 x2 (1680x1050) with this; USB3 keeps its two lanes (9-65).
+ */
+
+&dispcc {
+	/* DT_DP0_PHY_PLL_LINK_CLK / _VCO_DIV_CLK from the combo PHY */
+	clocks = <&bi_tcxo_div2>,
+		 <&bi_tcxo_ao_div2>,
+		 <&gcc GCC_DISP_AHB_CLK>,
+		 <&sleep_clk>,
+		 <&usb_dp_qmpphy QMP_USB43DP_DP_LINK_CLK>,
+		 <&usb_dp_qmpphy QMP_USB43DP_DP_VCO_DIV_CLK>,
+		 <0>,
+		 <0>,
+		 <0>,
+		 <0>,
+		 <0>,
+		 <0>,
+		 <&mdss_dsi0_phy DSI_BYTE_PLL_CLK>,
+		 <&mdss_dsi0_phy DSI_PIXEL_PLL_CLK>,
+		 <0>,
+		 <0>;
+};
+
+&mdss {
+	mdss_dp0: displayport-controller@9ad2000 {
+		compatible = "qcom,kaanapali-dp";
+		reg = <0x0 0x09ad2000 0x0 0x10c>,
+		      <0x0 0x09ad2200 0x0 0xc8>,
+		      <0x0 0x09ad3000 0x0 0xb78>,
+		      <0x0 0x09ad4000 0x0 0xa0>,
+		      <0x0 0x09ad5000 0x0 0xa0>;
+
+		interrupts-extended = <&mdss 12>;
+
+		clocks = <&dispcc DISP_CC_MDSS_AHB_CLK>,
+			 <&dispcc DISP_CC_MDSS_DPTX0_AUX_CLK>,
+			 <&dispcc DISP_CC_MDSS_DPTX0_LINK_CLK>,
+			 <&dispcc DISP_CC_MDSS_DPTX0_LINK_INTF_CLK>,
+			 <&dispcc DISP_CC_MDSS_DPTX0_PIXEL0_CLK>,
+			 <&dispcc DISP_CC_MDSS_DPTX0_PIXEL1_CLK>;
+		clock-names = "core_iface",
+			      "core_aux",
+			      "ctrl_link",
+			      "ctrl_link_iface",
+			      "stream_pixel",
+			      "stream_1_pixel";
+
+		assigned-clocks = <&dispcc DISP_CC_MDSS_DPTX0_LINK_CLK_SRC>,
+				  <&dispcc DISP_CC_MDSS_DPTX0_PIXEL0_CLK_SRC>,
+				  <&dispcc DISP_CC_MDSS_DPTX0_PIXEL1_CLK_SRC>;
+		assigned-clock-parents = <&usb_dp_qmpphy QMP_USB43DP_DP_LINK_CLK>,
+					 <&usb_dp_qmpphy QMP_USB43DP_DP_VCO_DIV_CLK>,
+					 <&usb_dp_qmpphy QMP_USB43DP_DP_VCO_DIV_CLK>;
+
+		operating-points-v2 = <&dp_opp_table>;
+
+		power-domains = <&rpmhpd RPMHPD_MMCX>;
+
+		phys = <&usb_dp_qmpphy QMP_USB43DP_DP_PHY>;
+		phy-names = "dp";
+
+		#sound-dai-cells = <0>;
+
+		dp_opp_table: opp-table {
+			compatible = "operating-points-v2";
+
+			opp-270000000 {
+				opp-hz = /bits/ 64 <270000000>;
+				required-opps = <&rpmhpd_opp_low_svs>;
+			};
+
+			opp-540000000 {
+				opp-hz = /bits/ 64 <540000000>;
+				required-opps = <&rpmhpd_opp_svs_l1>;
+			};
+
+			opp-810000000 {
+				opp-hz = /bits/ 64 <810000000>;
+				required-opps = <&rpmhpd_opp_nom>;
+			};
+		};
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				mdss_dp0_in: endpoint {
+					remote-endpoint = <&dpu_intf0_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				mdss_dp0_out: endpoint {
+					data-lanes = <0 1>;
+					remote-endpoint = <&usb_dp_qmpphy_dp_in>;
+				};
+			};
+		};
+	};
+};
+
+&dpu_intf0_out {
+	remote-endpoint = <&mdss_dp0_in>;
+};
+
+&usb_dp_qmpphy_dp_in {
+	remote-endpoint = <&mdss_dp0_out>;
+};

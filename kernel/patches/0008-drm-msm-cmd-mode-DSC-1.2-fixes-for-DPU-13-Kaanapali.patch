@@ -1,0 +1,692 @@
+From db076f05820b4925969913adaf01a8bf9480b469 Mon Sep 17 00:00:00 2001
+From: EYC <e@eyc.one>
+Date: Fri, 24 Jul 2026 19:04:28 -0700
+Subject: [PATCH 08/56] drm/msm: cmd-mode DSC 1.2 fixes for DPU 13 (Kaanapali)
+
+Fixes needed to drive the OnePlus 15 panel in command mode with
+native 4:2:2 DSC 1.2 on DPU 13: correct the bpp double-doubling for
+native 4:2:2/4:2:0, fix the DSC initial line count for DSC-merge, set
+ENC_DF_CTRL FULL_ICH_PREC for >8bpc, program the PPB latency FIFO
+size on DPU 12+, keep DSC_CFG bit17 off on extended-ctl native-422
+wrappers, fix STREAM0_TOTAL H_TOTAL for widebus command mode, stop
+over-deriving the DSI link rate, and wire pingpong DSC ops for the
+DPU 13 command-mode feed. Adds DSPP support for pentile SPR using the
+panel's stock AD296 calibration.
+
+[y705 rebase 7.3: two dsi_host hunks hardcoding slice_per_pkt=2 dropped: 7.3 packs slices per MIPI_DSI_MODE_DSC_ALL_SLICES_IN_PKT, which our panel now sets (vendor qcom,mdss-dsc-slice-per-pkt = 2)]
+y705-source: 0002-drm-msm-cmd-mode-DSC-1.2-fixes-for-DPU-13-Kaanapali.patch
+---
+ .../disp/dpu1/catalog/dpu_13_0_kaanapali.h    |  15 ++-
+ drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c      |  26 ++++-
+ drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c   | 108 +++++++++++++++---
+ drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h   |   2 +
+ .../gpu/drm/msm/disp/dpu1/dpu_hw_catalog.h    |   4 +
+ drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c    |   3 +
+ .../gpu/drm/msm/disp/dpu1/dpu_hw_dsc_1_2.c    |  48 +++++++-
+ drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dspp.c   |  71 ++++++++++++
+ drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dspp.h   |   9 +-
+ .../gpu/drm/msm/disp/dpu1/dpu_hw_pingpong.c   |  15 +++
+ .../gpu/drm/msm/disp/dpu1/dpu_hw_pingpong.h   |   5 +
+ drivers/gpu/drm/msm/dsi/dsi_host.c            |  56 +++++++--
+ 12 files changed, 323 insertions(+), 39 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/catalog/dpu_13_0_kaanapali.h b/drivers/gpu/drm/msm/disp/dpu1/catalog/dpu_13_0_kaanapali.h
+index 85f455a9f..7d8cd49bc 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/catalog/dpu_13_0_kaanapali.h
++++ b/drivers/gpu/drm/msm/disp/dpu1/catalog/dpu_13_0_kaanapali.h
+@@ -191,23 +191,30 @@ static const struct dpu_lm_cfg kaanapali_lm[] = {
+ 	},
+ };
+ 
++static const struct dpu_dspp_sub_blks kaanapali_dspp_sblk = {
++	.pcc = { .name = "pcc", .base = 0x1700,
++		.len = 0x90, .version = 0x60000 },
++	.spr = { .name = "spr", .base = 0x3400,
++		.len = 0x200, .version = 0x20000 },
++};
++
+ static const struct dpu_dspp_cfg kaanapali_dspp[] = {
+ 	{
+ 		.name = "dspp_0", .id = DSPP_0,
+ 		.base = 0x105000, .len = 0x1800,
+-		.sblk = &sm8750_dspp_sblk,
++		.sblk = &kaanapali_dspp_sblk,
+ 	}, {
+ 		.name = "dspp_1", .id = DSPP_1,
+ 		.base = 0x10d000, .len = 0x1800,
+-		.sblk = &sm8750_dspp_sblk,
++		.sblk = &kaanapali_dspp_sblk,
+ 	}, {
+ 		.name = "dspp_2", .id = DSPP_2,
+ 		.base = 0x115000, .len = 0x1800,
+-		.sblk = &sm8750_dspp_sblk,
++		.sblk = &kaanapali_dspp_sblk,
+ 	}, {
+ 		.name = "dspp_3", .id = DSPP_3,
+ 		.base = 0x11d000, .len = 0x1800,
+-		.sblk = &sm8750_dspp_sblk,
++		.sblk = &kaanapali_dspp_sblk,
+ 	},
+ };
+ 
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
+index 42d0a529b..debef754b 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
+@@ -844,6 +844,20 @@ static void _dpu_crtc_get_gc_lut(struct drm_crtc_state *state,
+ 	gc_lut->flags = 0;
+ }
+ 
++static bool dpu_crtc_needs_spr(const struct drm_crtc_state *state)
++{
++	struct drm_encoder *encoder;
++
++	drm_for_each_encoder_mask(encoder, state->crtc->dev, state->encoder_mask) {
++		struct drm_dsc_config *dsc = dpu_encoder_get_dsc_config(encoder);
++
++		if (dsc && dsc->native_422)
++			return true;
++	}
++
++	return false;
++}
++
+ static void _dpu_crtc_setup_cp_blocks(struct drm_crtc *crtc)
+ {
+ 	struct drm_crtc_state *state = crtc->state;
+@@ -853,12 +867,15 @@ static void _dpu_crtc_setup_cp_blocks(struct drm_crtc *crtc)
+ 	struct dpu_hw_gc_lut *gc_lut;
+ 	struct dpu_hw_ctl *ctl;
+ 	struct dpu_hw_dspp *dspp;
++	bool enable_spr;
+ 	int i;
+ 
+ 
+ 	if (!state->color_mgmt_changed && !drm_atomic_crtc_needs_modeset(state))
+ 		return;
+ 
++	enable_spr = dpu_crtc_needs_spr(state);
++
+ 	for (i = 0; i < cstate->num_mixers; i++) {
+ 		ctl = mixer[i].lm_ctl;
+ 		dspp = mixer[i].hw_dspp;
+@@ -895,6 +912,12 @@ static void _dpu_crtc_setup_cp_blocks(struct drm_crtc *crtc)
+ 			ctl->ops.update_pending_flush_dspp(ctl,
+ 				mixer[i].hw_dspp->idx, DPU_DSPP_GC);
+ 		}
++
++		if (dspp->ops.setup_spr) {
++			dspp->ops.setup_spr(dspp, enable_spr, cstate->num_mixers);
++			ctl->ops.update_pending_flush_dspp(ctl, dspp->idx,
++						   DPU_DSPP_SPR);
++		}
+ 	}
+ }
+ 
+@@ -1423,7 +1446,8 @@ static struct msm_display_topology dpu_crtc_get_topology(
+ 	else
+ 		topology.num_lm = 1;
+ 
+-	if (crtc_state->ctm || crtc_state->gamma_lut)
++	if (crtc_state->ctm || crtc_state->gamma_lut ||
++	    dpu_crtc_needs_spr(crtc_state))
+ 		topology.num_dspp = topology.num_lm;
+ 
+ 	return topology;
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
+index 1f20695f8..4539851fb 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
+@@ -1333,6 +1333,33 @@ void dpu_encoder_virt_runtime_resume(struct drm_encoder *drm_enc)
+ 	mutex_unlock(&dpu_enc->enc_lock);
+ }
+ 
++/* pixel latency lines buffered by each PPB; used to size the per-PP PPB FIFO */
++#define DPU_PPB_BUF_MAX_LINES 4
++
++/*
++ * DPU 12.0+ programs the pingpong latency buffer (PPB) FIFO size per-PP; a
++ * zero-sized PPB never feeds the DSC/INTF, so it must be set at enable time.
++ */
++static void dpu_encoder_update_ppb_size(struct dpu_encoder_virt *dpu_enc,
++					const struct drm_display_mode *mode)
++{
++	u32 num_pp = 0, pixels_per_pp;
++	int i;
++
++	for (i = 0; i < MAX_CHANNELS_PER_ENC; i++)
++		if (dpu_enc->hw_pp[i])
++			num_pp++;
++
++	if (!num_pp || !dpu_enc->hw_pp[0]->ops.setup_ppb_fifo_size)
++		return;
++
++	pixels_per_pp = mult_frac(mode->hdisplay, DPU_PPB_BUF_MAX_LINES, num_pp);
++
++	for (i = 0; i < num_pp; i++)
++		dpu_enc->hw_pp[i]->ops.setup_ppb_fifo_size(dpu_enc->hw_pp[i],
++							   pixels_per_pp);
++}
++
+ static void dpu_encoder_virt_atomic_enable(struct drm_encoder *drm_enc,
+ 					struct drm_atomic_commit *state)
+ {
+@@ -1355,6 +1382,8 @@ static void dpu_encoder_virt_atomic_enable(struct drm_encoder *drm_enc,
+ 
+ 	dpu_enc->wide_bus_en = dpu_encoder_is_widebus_enabled(drm_enc);
+ 
++	dpu_encoder_update_ppb_size(dpu_enc, cur_mode);
++
+ 	trace_dpu_enc_enable(DRMID(drm_enc), cur_mode->hdisplay,
+ 			     cur_mode->vdisplay);
+ 
+@@ -1964,27 +1993,67 @@ int dpu_encoder_vsync_time(struct drm_encoder *drm_enc, ktime_t *wakeup_time)
+ 
+ static u32
+ dpu_encoder_dsc_initial_line_calc(struct drm_dsc_config *dsc,
+-				  u32 enc_ip_width)
++				  u32 enc_ip_width, u32 dsc_common_mode)
+ {
+-	int ssm_delay, total_pixels, soft_slice_per_enc;
+-
+-	soft_slice_per_enc = enc_ip_width / dsc->slice_width;
+-
+ 	/*
+-	 * minimum number of initial line pixels is a sum of:
+-	 * 1. sub-stream multiplexer delay (83 groups for 8bpc,
+-	 *    91 for 10 bpc) * 3
+-	 * 2. for two soft slice cases, add extra sub-stream multiplexer * 3
+-	 * 3. the initial xmit delay
+-	 * 4. total pipeline delay through the "lock step" of encoder (47)
+-	 * 5. 6 additional pixels as the output of the rate buffer is
+-	 *    48 bits wide
++	 * Ported from the downstream SDE driver's _dce_dsc_initial_line_calc().
++	 * The number of initial lines must cover the sub-stream-mux delay, the
++	 * output-buffer (rate-buffer) latency and, for a split + multiplexed
++	 * DSC-merge stream, the extra multi-hard-slice budget, all measured in
++	 * container-slice-width units. The previous mainline approximation
++	 * divided by the soft-slice width and dropped the output-buffer and
++	 * multi-hard-slice terms, so it started the encoder too early and the
++	 * first compressed frame underflowed the DSI command FIFO on a merged
++	 * native-422 panel (e.g. the OnePlus 15 kaanapali/canoe DPU 13 panel).
++	 */
++	const int rtl_max_bpc = 10, rtl_output_data_width = 64;
++	const int pipeline_latency = 28;
++	int bpc = dsc->bits_per_component;
++	bool native_422 = dsc->native_422;
++	bool native_420 = dsc->native_420;
++	bool split = dsc_common_mode & DSC_MODE_SPLIT_PANEL;
++	bool mux = dsc_common_mode & DSC_MODE_MULTIPLEX;
++	int num_active_ss_per_enc = mux ? dsc->slice_count >> 1 : dsc->slice_count;
++	int container_slice_width = native_422 ?
++			dsc->slice_width / 2 : dsc->slice_width;
++	int max_muxword_size = (rtl_max_bpc >= 12) ? 64 : 48;
++	int max_se_size = 4 * (rtl_max_bpc + 1);
++	int max_ssm_delay = max_se_size + max_muxword_size - 1;
++	int mux_word_size = (bpc >= 12) ? 64 : 48;
++	/*
++	 * mainline stores the native-422 doubled bits_per_pixel (1/16 units),
++	 * so >>4 already yields downstream's compress_bpp_group: 2*bpp for
++	 * 422, bpp otherwise.
+ 	 */
+-	ssm_delay = ((dsc->bits_per_component < 10) ? 84 : 92);
+-	total_pixels = ssm_delay * 3 + dsc->initial_xmit_delay + 47;
+-	if (soft_slice_per_enc > 1)
+-		total_pixels += (ssm_delay * 3);
+-	return DIV_ROUND_UP(total_pixels, dsc->slice_width);
++	int compress_bpp_group = dsc->bits_per_pixel >> 4;
++	int input_ssm_out_latency = pipeline_latency +
++			3 * (max_ssm_delay + 2) * num_active_ss_per_enc;
++	int rtl_num_components = (native_420 || native_422) ? 4 : 3;
++	int ob_data_width_4comps = (rtl_output_data_width >= (2 * max_muxword_size)) ?
++			rtl_output_data_width : (2 * rtl_output_data_width);
++	int ob_data_width_3comps = (rtl_output_data_width >= max_muxword_size) ?
++			rtl_output_data_width : (2 * rtl_output_data_width);
++	int ob_data_width = (rtl_num_components == 4) ?
++			ob_data_width_4comps : ob_data_width_3comps;
++	int obuf_latency = DIV_ROUND_UP((9 * ob_data_width + mux_word_size),
++			compress_bpp_group) + 1;
++	int base_hs_latency = dsc->initial_xmit_delay +
++			input_ssm_out_latency + obuf_latency;
++	int chunk_bits = 8 * dsc->slice_chunk_size;
++	int output_rate_ratio_complement = ob_data_width - compress_bpp_group;
++	int output_rate_extra_budget_bits =
++			(output_rate_ratio_complement * chunk_bits) >>
++			((ob_data_width == 128) ? 7 : 6);
++	int multi_hs_c = split && mux;
++	int multi_hs_d = (num_active_ss_per_enc > 1) &&
++			(ob_data_width > compress_bpp_group);
++	int multi_hs_extra_budget_bits = multi_hs_c ? chunk_bits :
++			(multi_hs_d ? chunk_bits : output_rate_extra_budget_bits);
++	int multi_hs_extra_latency = DIV_ROUND_UP(multi_hs_extra_budget_bits,
++			compress_bpp_group);
++
++	return DIV_ROUND_UP(base_hs_latency + multi_hs_extra_latency,
++			container_slice_width);
+ }
+ 
+ static void dpu_encoder_dsc_pipe_cfg(struct dpu_hw_ctl *ctl,
+@@ -2052,7 +2121,8 @@ static void dpu_encoder_prep_dsc(struct dpu_encoder_virt *dpu_enc,
+ 	intf_ip_w = this_frame_slices * dsc->slice_width;
+ 
+ 	enc_ip_w = intf_ip_w / num_dsc;
+-	initial_lines = dpu_encoder_dsc_initial_line_calc(dsc, enc_ip_w);
++	initial_lines = dpu_encoder_dsc_initial_line_calc(dsc, enc_ip_w,
++							  dsc_common_mode);
+ 
+ 	for (i = 0; i < num_dsc; i++)
+ 		dpu_encoder_dsc_pipe_cfg(ctl, hw_dsc[i], hw_pp[i],
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h
+index 4942097e7..cc236be5b 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h
+@@ -74,6 +74,8 @@ bool dpu_encoder_is_widebus_enabled(const struct drm_encoder *drm_enc);
+ 
+ bool dpu_encoder_is_dsc_enabled(const struct drm_encoder *drm_enc);
+ 
++struct drm_dsc_config *dpu_encoder_get_dsc_config(struct drm_encoder *drm_enc);
++
+ int dpu_encoder_get_crc_values_cnt(const struct drm_encoder *drm_enc);
+ 
+ void dpu_encoder_setup_misr(const struct drm_encoder *drm_encoder);
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_catalog.h b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_catalog.h
+index f45faf873..93a5b3779 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_catalog.h
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_catalog.h
+@@ -78,10 +78,12 @@ enum {
+  * DSPP sub-blocks
+  * @DPU_DSPP_PCC             Panel color correction block
+  * @DPU_DSPP_GC              Gamma correction block
++ * @DPU_DSPP_SPR             Sub-pixel rendering block
+  */
+ enum {
+ 	DPU_DSPP_PCC = 0x1,
+ 	DPU_DSPP_GC,
++	DPU_DSPP_SPR,
+ 	DPU_DSPP_MAX
+ };
+ 
+@@ -331,10 +333,12 @@ struct dpu_lm_sub_blks {
+  * struct dpu_dspp_sub_blks: Information of DSPP block
+  * @pcc: pixel color correction block
+  * @gc: gamma correction block
++ * @spr: sub-pixel rendering block
+  */
+ struct dpu_dspp_sub_blks {
+ 	struct dpu_pp_blk pcc;
+ 	struct dpu_pp_blk gc;
++	struct dpu_pp_blk spr;
+ };
+ 
+ struct dpu_pingpong_sub_blks {
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c
+index e8729fe1c..8401c7662 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c
+@@ -403,6 +403,9 @@ static void dpu_hw_ctl_update_pending_flush_dspp_sub_blocks(
+ 	case DPU_DSPP_GC:
+ 		ctx->pending_dspp_flush_mask[dspp - DSPP_0] |= BIT(5);
+ 		break;
++	case DPU_DSPP_SPR:
++		ctx->pending_dspp_flush_mask[dspp - DSPP_0] |= BIT(8);
++		break;
+ 	default:
+ 		return;
+ 	}
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dsc_1_2.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dsc_1_2.c
+index 73ea4d820..673277d44 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dsc_1_2.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dsc_1_2.c
+@@ -57,6 +57,8 @@
+ #define DSC_CFG                    0x04
+ #define DSC_DATA_IN_SWAP           0x08
+ #define DSC_CLK_CTRL               0x0C
++#define DSC_4HS_MERGE_EN           0x10
++#define DSC_4HS_MERGE_CFG          0x14
+ 
+ static int _dsc_calc_output_buf_max_addr(struct dpu_hw_dsc *hw_dsc, int num_softslice)
+ {
+@@ -124,6 +126,13 @@ static void dpu_hw_dsc_config_1_2(struct dpu_hw_dsc *hw_dsc,
+ 
+ 	data |= (_dsc_calc_output_buf_max_addr(hw_dsc, num_active_slice_per_enc) << 18);
+ 
++	/*
++	 * ENC_DF_CTRL FULL_ICH_PREC: the downstream driver sets this for
++	 * SDE_DSC_FULL_ICH_PREC (DPU major >= 0xA00, i.e. >= 10) whenever
++	 * bits_per_component > 8. kaanapali/canoe is DPU 13 with 10bpc.
++	 * (Upstream curation should gate this on core_major_ver >= 10 rather
++	 * than assuming the caller is a DPU >= 10 part.)
++	 */
+ 	if (dsc->bits_per_component > 8)
+ 		data |= BIT(12);
+ 
+@@ -137,12 +146,17 @@ static void dpu_hw_dsc_config_1_2(struct dpu_hw_dsc *hw_dsc,
+ 			data |= BIT(21);
+ 	}
+ 
+-	bpp = dsc->bits_per_pixel;
+-	/* as per hw requirement bpp should be programmed
+-	 * twice the actual value in case of 420 or 422 encoding
++	/*
++	 * The hardware wants twice the per-pixel rate for native 4:2:0/4:2:2
++	 * encoding -- i.e. the doubled bits_per_pixel the PPS carries (DSC
++	 * v1.2a). struct drm_dsc_config already stores that doubled
++	 * PPS-convention value (drm_dsc_compute_rc_parameters() and
++	 * drm_dsc_pps_payload_pack() both treat bits_per_pixel as pre-doubled
++	 * for native modes), so program it as-is. Doubling it again here
++	 * overshoots the encoder rate control by 2x and stalls the first
++	 * compressed frame (pp_tx_done never fires -> cmd-DMA defers -> -110).
+ 	 */
+-	if (dsc->native_422 || dsc->native_420)
+-		bpp = 2 * bpp;
++	bpp = dsc->bits_per_pixel;
+ 
+ 	data |= bpp << 10;
+ 
+@@ -235,7 +249,31 @@ static void dpu_hw_dsc_config_1_2(struct dpu_hw_dsc *hw_dsc,
+ 		data |= BIT(12);
+ 	if (mode & DSC_MODE_MULTIPLEX)
+ 		data |= BIT(13);
++
++	/*
++	 * DSC_CFG bits 16..23 are the legacy pre-4HS-merge field; on DPU >= 9.0
++	 * the merge config lives in dedicated DSC_4HS_MERGE_EN/CFG registers
++	 * (the extended ctl sub-block, ctl.len >= 0x18) and the downstream
++	 * driver never sets any DSC_CFG bit above 13 there. Setting bit 17 in
++	 * the wrapper that performs native-422 input packing corrupts the DCE
++	 * output (kaanapali: everything decodes to black). Keep bit 17 only for
++	 * the older wrappers where it is the real cmd-mode merge-video bit.
++	 */
++	if (!(mode & DSC_MODE_VIDEO) && sblk->ctl.len < 0x18)
++		data |= BIT(17);
++
+ 	DPU_REG_WRITE(hw, sblk->ctl.base + DSC_CFG, data);
++
++	/*
++	 * On the extended-ctl parts the downstream driver rewrites the 4HS
++	 * merge registers on every setup (zero when merge is unused); otherwise
++	 * a merge configuration left by the bootloader can survive and scramble
++	 * the DCE output.
++	 */
++	if (sblk->ctl.len >= 0x18) {
++		DPU_REG_WRITE(hw, sblk->ctl.base + DSC_4HS_MERGE_CFG, 0);
++		DPU_REG_WRITE(hw, sblk->ctl.base + DSC_4HS_MERGE_EN, 0);
++	}
+ }
+ 
+ static void dpu_hw_dsc_config_thresh_1_2(struct dpu_hw_dsc *hw_dsc,
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dspp.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dspp.c
+index 23dcbe1ce..f42c5aa0a 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dspp.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dspp.c
+@@ -36,6 +36,28 @@
+ #define GC_C1_INDEX_OFF 0x10
+ #define GC_C2_INDEX_OFF 0x18
+ 
++/* DSPP SPR v2 */
++#define SPR_CONFIG_OFF 0x04
++#define SPR_CONFIG2_OFF 0x08
++#define SPR_CFG17_OFF 0x24
++#define SPR_CFG16_OFF 0x34
++
++/*
++ * AD296 stock pentile calibration from the vendor SPR XML. Qualcomm's public
++ * XML converter maps 2DAvgPhase1 to filter code 5 and these coefficients.
++ */
++static const s16 spr_cfg16[] = {
++	0, 256, 256, 0, 0, 256, 256, 0,
++	0, 256, 256, 0, 0, 256, 256, 0,
++};
++
++static const s8 spr_cfg17[] = {
++	-2, 2, 0, 0, 0, 0,
++	 0, 0, 0, 0, 0, 0,
++	 2, -2, 0, 0, 0, 0,
++	 0, 0, 0, 0, 0, 0,
++};
++
+ static void dpu_setup_dspp_pcc(struct dpu_hw_dspp *ctx,
+ 		struct dpu_hw_pcc_cfg *cfg)
+ {
+@@ -115,6 +137,53 @@ static void dpu_setup_dspp_gc(struct dpu_hw_dspp *ctx,
+ 	DPU_REG_WRITE(&ctx->hw, base, reg);
+ }
+ 
++static void dpu_setup_dspp_spr(struct dpu_hw_dspp *ctx, bool enable,
++			       unsigned int num_mixers)
++{
++	u32 base, config, reg;
++	int i;
++
++	if (!ctx)
++		return;
++
++	base = ctx->cap->sblk->spr.base;
++	if (!base)
++		return;
++
++	/* Bit 25 belongs to the UDC path and is outside SPR_INIT ownership. */
++	config = DPU_REG_READ(&ctx->hw, base + SPR_CONFIG_OFF) & BIT(25);
++	if (!enable) {
++		DPU_REG_WRITE(&ctx->hw, base + SPR_CONFIG_OFF, config);
++		DPU_REG_WRITE(&ctx->hw, base + SPR_CONFIG2_OFF, 0);
++		return;
++	}
++
++	for (i = 0; i < ARRAY_SIZE(spr_cfg17); i += 6) {
++		reg = ((u32)spr_cfg17[i] & GENMASK(4, 0)) |
++		      (((u32)spr_cfg17[i + 1] & GENMASK(4, 0)) << 5) |
++		      (((u32)spr_cfg17[i + 2] & GENMASK(4, 0)) << 10) |
++		      (((u32)spr_cfg17[i + 3] & GENMASK(4, 0)) << 15) |
++		      (((u32)spr_cfg17[i + 4] & GENMASK(4, 0)) << 20) |
++		      (((u32)spr_cfg17[i + 5] & GENMASK(4, 0)) << 25);
++		if (i == ARRAY_SIZE(spr_cfg17) - 6)
++			reg &= GENMASK(9, 0);
++		DPU_REG_WRITE(&ctx->hw, base + SPR_CFG17_OFF + i / 6 * 4, reg);
++	}
++
++	for (i = 0; i < ARRAY_SIZE(spr_cfg16); i += 2) {
++		reg = ((u32)spr_cfg16[i] & GENMASK(10, 0)) |
++		      (((u32)spr_cfg16[i + 1] & GENMASK(10, 0)) << 16);
++		DPU_REG_WRITE(&ctx->hw, base + SPR_CFG16_OFF + i / 2 * 4, reg);
++	}
++
++	/* Pentile pack, 2DAvgPhase1 filter, YYGM mode, phase 8/2. */
++	config |= BIT(0) | BIT(1) | BIT(2) | BIT(4) | BIT(8) | BIT(12) |
++		  BIT(15) | (8 << 16) | (2 << 20);
++	DPU_REG_WRITE(&ctx->hw, base + SPR_CONFIG2_OFF,
++		      num_mixers == 2 ? 1 : num_mixers == 4 ? 3 : 0);
++	DPU_REG_WRITE(&ctx->hw, base + SPR_CONFIG_OFF, config);
++}
++
+ /**
+  * dpu_hw_dspp_init() - Initializes the DSPP hw driver object.
+  * should be called once before accessing every DSPP.
+@@ -146,6 +215,8 @@ struct dpu_hw_dspp *dpu_hw_dspp_init(struct drm_device *dev,
+ 		c->ops.setup_pcc = dpu_setup_dspp_pcc;
+ 	if (c->cap->sblk->gc.base)
+ 		c->ops.setup_gc = dpu_setup_dspp_gc;
++	if (c->cap->sblk->spr.base)
++		c->ops.setup_spr = dpu_setup_dspp_spr;
+ 
+ 	return c;
+ }
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dspp.h b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dspp.h
+index b47b77880..d56377ed0 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dspp.h
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_dspp.h
+@@ -72,6 +72,14 @@ struct dpu_hw_dspp_ops {
+ 	 */
+ 	void (*setup_gc)(struct dpu_hw_dspp *ctx, struct dpu_hw_gc_lut *gc_lut);
+ 
++	/**
++	 * setup_spr - enable or disable the panel's sub-pixel rendering packer
++	 * @ctx: Pointer to dspp context
++	 * @enable: Whether to enable pentile packing
++	 * @num_mixers: Number of mixers feeding the panel
++	 */
++	void (*setup_spr)(struct dpu_hw_dspp *ctx, bool enable,
++			  unsigned int num_mixers);
+ };
+ 
+ /**
+@@ -109,4 +117,3 @@ struct dpu_hw_dspp *dpu_hw_dspp_init(struct drm_device *dev,
+ 				     void __iomem *addr);
+ 
+ #endif /*_DPU_HW_DSPP_H */
+-
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_pingpong.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_pingpong.c
+index 138071be5..d1a374d7d 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_pingpong.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_pingpong.c
+@@ -34,6 +34,13 @@
+ #define PP_DCE_DATA_IN_SWAP             0x0ac
+ #define PP_DCE_DATA_OUT_SWAP            0x0c8
+ 
++/*
++ * DPU 12.0+: the pingpong latency buffer (PPB) size is programmed per-PP at
++ * this offset (which on DPU 7+ overlays the legacy PP tear PP_START_POS, since
++ * tear check moved to the separate PP_TE block). One FIFO entry holds 4 pixels.
++ */
++#define PP_PPB_FIFO_SIZE                0x01c
++
+ #define PP_DITHER_EN			0x000
+ #define PP_DITHER_BITDEPTH		0x004
+ #define PP_DITHER_MATRIX		0x008
+@@ -283,6 +290,11 @@ static int dpu_hw_pp_setup_dsc(struct dpu_hw_pingpong *pp)
+ 	return 0;
+ }
+ 
++static void dpu_hw_pp_setup_ppb_fifo_size(struct dpu_hw_pingpong *pp, u32 pixels)
++{
++	DPU_REG_WRITE(&pp->hw, PP_PPB_FIFO_SIZE, (pixels / 4) & 0xfff);
++}
++
+ /**
+  * dpu_hw_pingpong_init() - initializes the pingpong driver for the passed
+  * pingpong catalog entry.
+@@ -325,6 +337,9 @@ struct dpu_hw_pingpong *dpu_hw_pingpong_init(struct drm_device *dev,
+ 		c->ops.disable_dsc = dpu_hw_pp_dsc_disable;
+ 	}
+ 
++	if (mdss_rev->core_major_ver >= 12)
++		c->ops.setup_ppb_fifo_size = dpu_hw_pp_setup_ppb_fifo_size;
++
+ 	if (mdss_rev->core_major_ver >= 3)
+ 		c->ops.setup_dither = dpu_hw_pp_setup_dither;
+ 
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_pingpong.h b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_pingpong.h
+index effd012d8..88e46a7a7 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_pingpong.h
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_pingpong.h
+@@ -91,6 +91,11 @@ struct dpu_hw_pingpong_ops {
+ 	 * @setup_dsc: Setup DSC
+ 	 */
+ 	int (*setup_dsc)(struct dpu_hw_pingpong *pp);
++
++	/**
++	 * @setup_ppb_fifo_size: set the pingpong latency buffer size (DPU 12.0+)
++	 */
++	void (*setup_ppb_fifo_size)(struct dpu_hw_pingpong *pp, u32 pixels);
+ };
+ 
+ struct dpu_hw_merge_3d;
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index 2e240950a..d6bb2f482 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -606,6 +606,7 @@ dsi_adjust_pclk_for_compression(const struct drm_display_mode *mode,
+ 				bool is_bonded_dsi)
+ {
+ 	int hdisplay, new_hdisplay, new_htotal;
++	int bpp_x16 = dsc->bits_per_pixel;	/* 6.4 fixed point */
+ 
+ 	/*
+ 	 * For bonded DSI, split hdisplay across two links and round up each
+@@ -617,8 +618,23 @@ dsi_adjust_pclk_for_compression(const struct drm_display_mode *mode,
+ 	if (is_bonded_dsi)
+ 		hdisplay /= 2;
+ 
+-	new_hdisplay = DIV_ROUND_UP(hdisplay * drm_dsc_get_bpp_int(dsc),
+-				    dsc->bits_per_component * 3);
++	/*
++	 * In native 4:2:2/4:2:0 modes bits_per_pixel carries the DSC-1.2a
++	 * DOUBLED value; the link math needs the ACTUAL bits per pixel.
++	 */
++	if (dsc->native_422 || dsc->native_420)
++		bpp_x16 /= 2;
++
++	/*
++	 * One pclk carries 24 bits of compressed data on the link (3 bytes,
++	 * matching dsi_byte_clk_get_rate()'s RGB888 assumption) -- this is
++	 * INDEPENDENT of bits_per_component. The old divisor (bits_per_component
++	 * * 3) only happened to equal 24 for the 8bpc panels upstream exercises;
++	 * at 10bpc it over-derives the link rate (OP15: 1516.8 vs stock's
++	 * 1112.6 Mbps/lane, 36% over -> DDIC HS receiver never locks -> the panel
++	 * shows its white default). Identical result for 8bpp/8bpc 4:4:4 panels.
++	 */
++	new_hdisplay = DIV_ROUND_UP(hdisplay * bpp_x16, 24 * 16);
+ 
+ 	if (is_bonded_dsi)
+ 		new_hdisplay *= 2;
+@@ -1066,14 +1082,24 @@ static void dsi_timing_setup(struct msm_dsi_host *msm_host, bool is_bonded_dsi)
+ 		 * unused anyway.
+ 		 */
+ 		h_total -= hdisplay;
+-		if (wide_bus_enabled) {
+-			if (msm_host->mode_flags & MIPI_DSI_MODE_VIDEO)
+-				bits_per_pclk = dsc->bits_per_component * 3;
+-			else
+-				bits_per_pclk = 48;
+-		} else {
++
++		if (wide_bus_enabled && !(msm_host->mode_flags & MIPI_DSI_MODE_VIDEO))
++			/*
++			 * CMD-mode + widebus: CMD_MDP_STREAM0_TOTAL.H_TOTAL
++			 * counts 48-bit bus words, so the compressed bytes/line
++			 * divide by 6 (=*8/48), matching downstream
++			 * dsi_ctrl_hw_cmn_setup_cmd_stream()'s widebus path.
++			 * Restores the pre-ac47870fd795 behaviour for CMD mode
++			 * (that commit's video-mode fix stays below); the too-
++			 * large H_TOTAL was starving the MDP pixel FIFO ->
++			 * CMD_MDP_FIFO_UNDERFLOW, so DSC cmd frames never finish.
++			 */
++			bits_per_pclk = 48;
++		else if (wide_bus_enabled)
++			bits_per_pclk = mipi_dsi_pixel_format_to_bpp(msm_host->format);
++		else
+ 			bits_per_pclk = 24;
+-		}
++
+ 
+ 		hdisplay = DIV_ROUND_UP(msm_dsc_get_bytes_per_line(msm_host->dsc) * 8, bits_per_pclk);
+ 
+@@ -1878,6 +1904,7 @@ static int dsi_host_parse_lane_data(struct msm_dsi_host *msm_host,
+ static int dsi_populate_dsc_params(struct msm_dsi_host *msm_host, struct drm_dsc_config *dsc)
+ {
+ 	int ret;
++	bool panel_cfg = !!dsc->rc_model_size;
+ 
+ 	if (dsc->bits_per_pixel & 0xf) {
+ 		DRM_DEV_ERROR(&msm_host->pdev->dev, "DSI does not support fractional bits_per_pixel\n");
+@@ -1901,6 +1928,17 @@ static int dsi_populate_dsc_params(struct msm_dsi_host *msm_host, struct drm_dsc
+ 		return -EOPNOTSUPP;
+ 	}
+ 
++	/*
++	 * A panel driver that fully populated the DSC config (RC table,
++	 * flatness/quant limits, offsets - sentinel: rc_model_size) knows
++	 * the exact PPS its DDIC was qualified against, possibly including
++	 * DSC 1.2 RC parameters or native 4:2:2 sampling. Use it as-is and
++	 * only derive the computed fields. The DPU DSC 1.2 wrapper supports
++	 * these modes (dpu_hw_dsc_1_2.c).
++	 */
++	if (panel_cfg)
++		return drm_dsc_compute_rc_parameters(dsc);
++
+ 	dsc->simple_422 = 0;
+ 	dsc->convert_rgb = 1;
+ 	dsc->vbr_enable = 0;
+-- 
+2.43.0
+

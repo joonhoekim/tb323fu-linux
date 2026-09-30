@@ -1,0 +1,66 @@
+From f4d6389de2ee041528ba296d3b4cd08ca2014470 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Tue, 29 Sep 2026 03:21:24 +0000
+Subject: [PATCH] cpuidle: psci-domain: baldur: use the system domain state
+ only in system suspend
+
+On the Lenovo TB323FU (SM8850) the tablet reset silently now and then
+while it sat idle with the display off or was turning the display on:
+no oops, panic or lockup in the printk ring, straight to the firmware
+dump mode. Reading the crashed kernel out of the full DDR dump with drgn
+showed every CPU idle, CPUs 0-4 of cluster0 having entered retention
+(cpu-sleep-0) within 20 ms and never leaving it again -- IPIs queued in
+call_single_queue/ttwu_pending, hrtimers long expired -- while CPUs 5-7
+kept running for about ten seconds until the SoC was reset.
+
+A display on/off and s2idle loop hit it about once in 25 cycles.
+Disabling the CPU retention state, dropping both domain states, or
+dropping only the system domain state (domain-sleep-0) each ran 60
+cycles clean (0 in 180), with the cluster state and CPU retention still
+in use hundreds of thousands of times. Dropping the system domain state
+costs CX/DDR collapse in s2idle though (about 89 mA instead of 18-35 mA).
+
+Keep the system domain state for system-wide suspend, like PREEMPT_RT
+does for all CPU domains, with GENPD_FLAG_RPM_ALWAYS_ON on that domain:
+60 cycles clean, and CX collapses for the whole of a 4.8 h s2idle.
+
+Board-local workaround; the root cause is in firmware or the wake path
+and is not understood.
+
+Assisted-by: LLM
+---
+ drivers/cpuidle/cpuidle-psci-domain.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/drivers/cpuidle/cpuidle-psci-domain.c b/drivers/cpuidle/cpuidle-psci-domain.c
+index b9e4ad7d4..bf5968d5d 100644
+--- a/drivers/cpuidle/cpuidle-psci-domain.c
++++ b/drivers/cpuidle/cpuidle-psci-domain.c
+@@ -12,6 +12,7 @@
+ #include <linux/cpu.h>
+ #include <linux/device.h>
+ #include <linux/kernel.h>
++#include <linux/of.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_domain.h>
+ #include <linux/pm_runtime.h>
+@@ -71,6 +72,16 @@ static int psci_pd_init(struct device_node *np, bool use_osi)
+ 		pd->flags |= GENPD_FLAG_ACTIVE_WAKEUP;
+ 		if (IS_ENABLED(CONFIG_PREEMPT_RT))
+ 			pd->flags |= GENPD_FLAG_RPM_ALWAYS_ON;
++		/*
++		 * Lenovo TB323FU (baldur): entering the system domain state
++		 * from runtime idle now and then leaves CPUs in retention
++		 * that never wake again (no IPIs, no timers) and the SoC is
++		 * reset about ten seconds later. Keep that state for system
++		 * suspend, where it gives CX/DDR collapse.
++		 */
++		if (of_machine_is_compatible("lenovo,baldur") &&
++		    of_node_name_eq(np, "power-domain-system"))
++			pd->flags |= GENPD_FLAG_RPM_ALWAYS_ON;
+ 	} else {
+ 		pd->flags |= GENPD_FLAG_ALWAYS_ON;
+ 	}
+-- 
+2.43.0
+

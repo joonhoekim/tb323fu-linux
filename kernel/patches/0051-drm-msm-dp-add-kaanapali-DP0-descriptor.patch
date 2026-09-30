@@ -1,0 +1,49 @@
+From e63c3f9679c02d70538d41a45a200e83b73cd3eb Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:32:54 +0000
+Subject: [PATCH 51/56] drm/msm/dp: add kaanapali (DP0 descriptor)
+
+- kaanapali (SM8850) DP controller 0 at 0x09ad2000 (vendor qcom,dp-display:
+  dp_ahb 0x9ad2000, dp_aux +0x200, dp_link 0x9ad3000, dp_p0 0x9ad4000,
+  dp_p1 0x9ad5000), wide bus like sm8650; compatible "qcom,kaanapali-dp".
+- msm_dp_bridge_atomic_enable() returns early when link training fails,
+  after msm_dp_ctrl_deinitialize_mainlink() has turned the link clocks and
+  the PHY off, with power_on still false. The following atomic_disable
+  then called msm_dp_ctrl_push_idle(), writing REG_DP_STATE_CTRL with the
+  link clocks off; on TB323FU that ended in a system fatal (TZ stops the
+  remote processors, 900E dump mode). Skip it when the display never got
+  powered on (y705-mainline-plan.md 9-65).
+
+[y705 rebase 7.3: push_idle guard hunk dropped: 7.3 has e249a6e2a1 (drm/msm/dp: skip PUSH_IDLE when the link was never enabled); only the kaanapali DP0 descriptor and compatible remain]
+y705-source: 0038-drm-msm-dp-kaanapali.patch
+---
+ drivers/gpu/drm/msm/dp/dp_display.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_display.c b/drivers/gpu/drm/msm/dp/dp_display.c
+index 4dcbd9b99..65f5d829c 100644
+--- a/drivers/gpu/drm/msm/dp/dp_display.c
++++ b/drivers/gpu/drm/msm/dp/dp_display.c
+@@ -103,6 +103,11 @@ static const struct msm_dp_desc msm_dp_desc_glymur[] = {
+ 	{}
+ };
+ 
++static const struct msm_dp_desc msm_dp_desc_kaanapali[] = {
++	{ .io_start = 0x09ad2000, .id = MSM_DP_CONTROLLER_0, .wide_bus_supported = true },
++	{}
++};
++
+ static const struct msm_dp_desc msm_dp_desc_sa8775p[] = {
+ 	{ .io_start = 0x0af54000, .id = MSM_DP_CONTROLLER_0, .wide_bus_supported = true },
+ 	{ .io_start = 0x0af5c000, .id = MSM_DP_CONTROLLER_1, .wide_bus_supported = true },
+@@ -161,6 +166,7 @@ static const struct msm_dp_desc msm_dp_desc_x1e80100[] = {
+ 
+ static const struct of_device_id msm_dp_dt_match[] = {
+ 	{ .compatible = "qcom,glymur-dp", .data = &msm_dp_desc_glymur },
++	{ .compatible = "qcom,kaanapali-dp", .data = &msm_dp_desc_kaanapali },
+ 	{ .compatible = "qcom,sa8775p-dp", .data = &msm_dp_desc_sa8775p },
+ 	{ .compatible = "qcom,sc7180-dp", .data = &msm_dp_desc_sc7180 },
+ 	{ .compatible = "qcom,sc7280-dp", .data = &msm_dp_desc_sc7280 },
+-- 
+2.43.0
+

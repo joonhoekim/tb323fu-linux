@@ -1,0 +1,111 @@
+From bec6350ce7dbb124c2e1036a26f448b6daf3174f Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 05:06:31 +0000
+Subject: [PATCH] drm/msm/dp: retrain the link on a quick replug while
+ streaming (y705 0042)
+
+Unplugging an external display and plugging the same one back within a
+couple of seconds can beat userspace to the unplug: mutter still has the
+CRTC enabled when the connector reads "connected" again with the same
+EDID, so it changes nothing, no atomic_enable follows, and the link that
+died with the unplug is never trained again. The sink shows "no signal"
+until the output is toggled by hand.
+
+Note an unplug that happens while the stream is on and, on the next plug,
+retrain the link once with the existing link maintenance sequence (the
+one IRQ_HPD link-status requests use). Only once: the Type-C altmode side
+repeats "connected" notifications every few seconds and each retrain
+blanks the sink.
+
+This is the driver-side alternative to the TODO in the plug path
+(drm_connector_set_link_status_property() so userspace retrains).
+
+Seen on the Lenovo TB323FU (kaanapali) with an LG TV through a USB-C to
+HDMI cable: replug within ~2 s gave "no signal" on 7.3-rc4; with this the
+picture comes back (retrain rc=0, once).
+---
+ drivers/gpu/drm/msm/dp/dp_ctrl.c    |  9 +++++++++
+ drivers/gpu/drm/msm/dp/dp_ctrl.h    |  2 ++
+ drivers/gpu/drm/msm/dp/dp_display.c | 19 +++++++++++++++++++
+ 3 files changed, 30 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.c b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+index 59070f399..84e90d9b7 100644
+--- a/drivers/gpu/drm/msm/dp/dp_ctrl.c
++++ b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+@@ -2055,6 +2055,15 @@ static int msm_dp_ctrl_link_maintenance(struct msm_dp_ctrl_private *ctrl,
+ 	return ret;
+ }
+ 
++int msm_dp_ctrl_retrain_link(struct msm_dp_ctrl *msm_dp_ctrl,
++			     struct msm_dp_panel *panel)
++{
++	struct msm_dp_ctrl_private *ctrl =
++		container_of(msm_dp_ctrl, struct msm_dp_ctrl_private, msm_dp_ctrl);
++
++	return msm_dp_ctrl_link_maintenance(ctrl, panel);
++}
++
+ #define SCRAMBLER_RESET_COUNT_VALUE		0xFC
+ 
+ static void msm_dp_ctrl_send_phy_pattern(struct msm_dp_ctrl_private *ctrl,
+diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.h b/drivers/gpu/drm/msm/dp/dp_ctrl.h
+index 5902cf7e7..9f5bf4c8f 100644
+--- a/drivers/gpu/drm/msm/dp/dp_ctrl.h
++++ b/drivers/gpu/drm/msm/dp/dp_ctrl.h
+@@ -30,6 +30,8 @@ irqreturn_t msm_dp_ctrl_isr(struct msm_dp_ctrl *msm_dp_ctrl,
+ 			    struct msm_dp_panel *panel);
+ void msm_dp_ctrl_handle_sink_request(struct msm_dp_ctrl *msm_dp_ctrl,
+ 				     struct msm_dp_panel *panel);
++int msm_dp_ctrl_retrain_link(struct msm_dp_ctrl *msm_dp_ctrl,
++			     struct msm_dp_panel *panel);
+ struct msm_dp_ctrl *msm_dp_ctrl_get(struct device *dev,
+ 				    struct msm_dp_link *link,
+ 				    struct drm_dp_aux *aux,
+diff --git a/drivers/gpu/drm/msm/dp/dp_display.c b/drivers/gpu/drm/msm/dp/dp_display.c
+index 65f5d829c..ac764f02b 100644
+--- a/drivers/gpu/drm/msm/dp/dp_display.c
++++ b/drivers/gpu/drm/msm/dp/dp_display.c
+@@ -55,6 +55,8 @@ struct msm_dp_display_private {
+ 
+ 	struct mutex plugged_lock;
+ 	bool plugged;
++	/* unplugged while the stream was on: retrain on the next plug */
++	bool link_lost;
+ 
+ 	struct drm_device *drm_dev;
+ 
+@@ -429,6 +431,20 @@ static int msm_dp_hpd_plug_handle(struct msm_dp_display_private *dp)
+ 
+ 	ret = msm_dp_display_process_hpd_high(dp);
+ 
++	/*
++	 * A quick replug of the same sink can come back before userspace has
++	 * reacted to the unplug: the CRTC stays enabled, no atomic_enable
++	 * follows, and the dead link would never be trained again (no signal
++	 * on the sink). Retrain it here, once per unplug; the Type-C side
++	 * repeats "connected" notifications and each retrain blanks the sink.
++	 */
++	if (!ret && dp->link_lost && dp->msm_dp_display.power_on) {
++		int rc = msm_dp_ctrl_retrain_link(dp->ctrl, dp->panel);
++
++		drm_dbg_dp(dp->drm_dev, "replug while streaming: retrain rc=%d\n", rc);
++	}
++	dp->link_lost = false;
++
+ 	drm_dbg_dp(dp->drm_dev, "After, type=%d sink_count=%d\n",
+ 			dp->msm_dp_display.connector_type,
+ 			dp->link->sink_count);
+@@ -468,6 +484,9 @@ static int msm_dp_hpd_unplug_handle(struct msm_dp_display_private *dp)
+ 	if (!dp->plugged)
+ 		return 0;
+ 
++	if (dp->msm_dp_display.power_on)
++		dp->link_lost = true;
++
+ 	/* Don't forget modes for eDP */
+ 	if (!dp->msm_dp_display.is_edp)
+ 		drm_edid_connector_update(dp->msm_dp_display.connector, NULL);
+-- 
+2.43.0
+

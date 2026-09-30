@@ -1,0 +1,27 @@
+From 9e0fe5944c8b0dc086cbb8ef85553c55ea034c19 Mon Sep 17 00:00:00 2001
+From: Nazar Kompanets <xlie7669@gmail.com>
+Date: Mon, 3 Aug 2026 12:03:14 +0300
+Subject: [PATCH 09/56] clk: qcom: dispcc-kaanapali: solve display artifacts at
+ start
+
+y705-source: 0003-clk-qcom-dispcc-kaanapali-solve-display-artifacts-at.patch
+---
+ drivers/clk/qcom/dispcc-kaanapali.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/clk/qcom/dispcc-kaanapali.c b/drivers/clk/qcom/dispcc-kaanapali.c
+index f8832482b..d4301edde 100644
+--- a/drivers/clk/qcom/dispcc-kaanapali.c
++++ b/drivers/clk/qcom/dispcc-kaanapali.c
+@@ -688,7 +688,7 @@ static struct clk_rcg2 disp_cc_mdss_mdp_clk_src = {
+ 		.parent_data = disp_cc_parent_data_9,
+ 		.num_parents = ARRAY_SIZE(disp_cc_parent_data_9),
+ 		.flags = CLK_SET_RATE_PARENT,
+-		.ops = &clk_rcg2_shared_ops,
++		.ops = &clk_rcg2_shared_no_init_park_ops,
+ 	},
+ };
+ 
+-- 
+2.43.0
+

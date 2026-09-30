@@ -1,0 +1,64 @@
+From 7eb5e14bbb5888c0a364aa6c5b721b80deafe2d9 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:27:45 +0000
+Subject: [PATCH 31/56] arm64: dts: qcom: kaanapali: CPU6-7 in a PSCI cluster
+ domain of their own
+
+For y705-mainline-plan.md 9-42. kaanapali has two CPU clusters, CPU0-5
+and CPU6-7 (the vendor tree: cluster-pd0 and cluster-pd1, each with the
+cl5 "ret-pll-off" state 0x1000054, both under cluster-pd2 with ss3
+0x200c354). kaanapali.dtsi put all eight CPUs under one cluster domain.
+In OS-initiated mode the firmware then denied nearly every composite
+state Linux asked for: on TB323FU the system domain showed about two
+million rejected entries against about a thousand used (each denial is
+a failed CPU_SUSPEND, counted by pm_genpd_inc_rejected), and the
+cluster and system domains were idle 41% and 33% of an idle screen-off
+minute. With the split: 98%, 97% (CPU6-7) and 95%, 115 rejections.
+
+y705-source: 0016-arm64-dts-kaanapali-second-psci-cluster.patch
+---
+ arch/arm64/boot/dts/qcom/kaanapali.dtsi | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/kaanapali.dtsi b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+index 3a3a7d562..3bb8a6494 100644
+--- a/arch/arm64/boot/dts/qcom/kaanapali.dtsi
++++ b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+@@ -309,13 +309,13 @@ cpu_pd5: power-domain-cpu5 {
+ 
+ 		cpu_pd6: power-domain-cpu6 {
+ 			#power-domain-cells = <0>;
+-			power-domains = <&cluster_pd>;
++			power-domains = <&cluster1_pd>;
+ 			domain-idle-states = <&cluster1_c4>;
+ 		};
+ 
+ 		cpu_pd7: power-domain-cpu7 {
+ 			#power-domain-cells = <0>;
+-			power-domains = <&cluster_pd>;
++			power-domains = <&cluster1_pd>;
+ 			domain-idle-states = <&cluster1_c4>;
+ 		};
+ 
+@@ -325,6 +325,18 @@ cluster_pd: power-domain-cluster {
+ 			power-domains = <&system_pd>;
+ 		};
+ 
++		/*
++		 * CPU6-7 are a cluster of their own (the vendor tree: cluster-pd0
++		 * for CPU0-5, cluster-pd1 for CPU6-7, both under the system
++		 * domain). With one cluster for all eight, PSCI in OS-initiated
++		 * mode denied nearly every composite cluster/system state.
++		 */
++		cluster1_pd: power-domain-cluster1 {
++			#power-domain-cells = <0>;
++			domain-idle-states = <&cluster_cl5>;
++			power-domains = <&system_pd>;
++		};
++
+ 		system_pd: power-domain-system {
+ 			#power-domain-cells = <0>;
+ 			domain-idle-states = <&domain_ss3>;
+-- 
+2.43.0
+

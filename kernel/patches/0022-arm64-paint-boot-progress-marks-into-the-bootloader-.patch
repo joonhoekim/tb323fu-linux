@@ -1,0 +1,351 @@
+From a9ed366af41c56973812bfe35002a203d8643928 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:25:40 +0000
+Subject: [PATCH 22/56] arm64: paint boot progress marks into the bootloader's
+ framebuffer
+
+This board has no serial console, and the first mainline boot on it ended
+with the bootloader's splash image still on the panel after fifteen minutes.
+That picture is the same whether the kernel died in its first instruction or
+two seconds before userspace, and nothing else survives to tell them apart:
+ramoops does not exist until its device is created at arch_initcall_sync, so
+a kernel that dies before then leaves no log at all -- not even in the copy
+the crash dump mode makes of it (tools/rawdump.py).
+
+The display controller is still scanning the splash buffer out, though, and
+the panel is video mode, so a store to that buffer is on the glass one frame
+later. boot_mark(n) paints block n of a small column at the right edge of the
+screen; the call sites run from the top of setup_arch() to the exec of /init
+(see include/linux/boot_marks.h for the numbering), and a panic notifier adds
+a red block. After a hang, the number of blocks is how far it got.
+
+Before mm_core_init() each row goes through the early fixmap; after it the
+whole column is mapped once with ioremap_wc(), so the panic path never maps.
+The splash region is no-map in the board DT, which is what lets ioremap take it.
+
+Blocks are plain colour on purpose: if the guessed geometry (1904x3040,
+stride 7616) is wrong they come out sheared or shifted, but still visible and
+still countable -- unlike text.
+
+Tested in QEMU (virt) with a no-map region standing in for the splash buffer:
+after a boot to a deliberate panic, all sixteen progress blocks and the red
+panic block hold exactly their colours, and the pixels beside them are
+untouched -- so the early-fixmap path, the ioremap_wc path and the panic path
+all work. Not yet run on the board.
+
+y705-source: 0004-arm64-boot-progress-marks.patch
+---
+ arch/arm64/Kconfig             |  30 +++++++++
+ arch/arm64/kernel/Makefile     |   1 +
+ arch/arm64/kernel/boot_marks.c | 116 +++++++++++++++++++++++++++++++++
+ arch/arm64/kernel/setup.c      |   6 ++
+ include/linux/boot_marks.h     |  26 ++++++++
+ init/main.c                    |   8 +++
+ 6 files changed, 187 insertions(+)
+ create mode 100644 arch/arm64/kernel/boot_marks.c
+ create mode 100644 include/linux/boot_marks.h
+
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index eceeb3ba2..c4829f8d2 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -2493,6 +2493,36 @@ config ARM64_BUILTIN_FDT_NAME
+ 	depends on ARM64_BUILTIN_FDT
+ 	default "qcom/kaanapali-lenovo-baldur.dtb"
+ 
++config BOOT_MARKS
++	bool "Paint boot progress marks into the bootloader's framebuffer"
++	help
++	  Paint a column of small blocks into the framebuffer the bootloader
++	  left scanning out, one block per stage of early boot, from the top
++	  of setup_arch() to the exec of /init, and a red one on panic.
++
++	  This is for boards with no serial console, where a kernel that
++	  hangs before any display driver binds otherwise leaves the splash
++	  image up and nothing else. The number of blocks shows how far it
++	  got. It needs a video-mode panel (one that re-reads the buffer
++	  every frame) and the buffer's physical address and line length.
++
++	  If unsure, say N.
++
++config BOOT_MARKS_FB_BASE
++	hex "Physical address of the scanned-out framebuffer"
++	depends on BOOT_MARKS
++	default 0xfc800000
++
++config BOOT_MARKS_FB_STRIDE
++	int "Framebuffer line length in bytes"
++	depends on BOOT_MARKS
++	default 7616
++
++config BOOT_MARKS_X
++	int "Left edge of the column of marks, in pixels"
++	depends on BOOT_MARKS
++	default 1824
++
+ endmenu # "Kernel Features"
+ 
+ menu "Boot options"
+diff --git a/arch/arm64/kernel/Makefile b/arch/arm64/kernel/Makefile
+index 2b98286a7..fac4ae25a 100644
+--- a/arch/arm64/kernel/Makefile
++++ b/arch/arm64/kernel/Makefile
+@@ -70,6 +70,7 @@ obj-$(CONFIG_ARM_SDE_INTERFACE)		+= sdei.o
+ obj-$(CONFIG_ARM64_PTR_AUTH)		+= pointer_auth.o
+ obj-$(CONFIG_ARM64_MPAM)		+= mpam.o
+ obj-$(CONFIG_ARM64_BUILTIN_FDT)	+= builtin_fdt.o
++obj-$(CONFIG_BOOT_MARKS)		+= boot_marks.o
+ AFLAGS_builtin_fdt.o	:= -I$(objtree)/arch/arm64/boot/dts
+ $(obj)/builtin_fdt.o: $(objtree)/arch/arm64/boot/dts/$(patsubst "%",%,$(CONFIG_ARM64_BUILTIN_FDT_NAME)) FORCE
+ obj-$(CONFIG_ARM64_MTE)			+= mte.o
+diff --git a/arch/arm64/kernel/boot_marks.c b/arch/arm64/kernel/boot_marks.c
+new file mode 100644
+index 000000000..9b4425640
+--- /dev/null
++++ b/arch/arm64/kernel/boot_marks.c
+@@ -0,0 +1,116 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Boot progress marks, painted straight into the bootloader's framebuffer.
++ *
++ * On a board with no serial port, a kernel that hangs before any console
++ * driver binds leaves nothing behind: the bootloader's splash image simply
++ * stays up, which looks the same whether the kernel died in its first
++ * instruction or two seconds before userspace. But the display controller is
++ * still scanning that splash buffer out (a video-mode panel re-reads it every
++ * frame), so a store to it is on the glass one frame later -- no driver, no
++ * clocks, no console.
++ *
++ * boot_mark(n) paints block n of a column of small blocks at the edge of the
++ * screen. The call sites are spread from the top of setup_arch() to the exec
++ * of /init, so after a hang the number of blocks is where it stopped. A red
++ * block at the bottom means the kernel panicked rather than hung.
++ *
++ * Before the memory allocators exist each row is mapped through the early
++ * fixmap; from mm_core_init() on, the whole column is mapped once so that the
++ * panic path never has to map anything.
++ */
++#include <linux/boot_marks.h>
++#include <linux/init.h>
++#include <linux/io.h>
++#include <linux/notifier.h>
++#include <linux/panic_notifier.h>
++#include <linux/slab.h>
++#include <asm/early_ioremap.h>
++
++#define FB_BASE		((phys_addr_t)CONFIG_BOOT_MARKS_FB_BASE)
++#define FB_STRIDE	CONFIG_BOOT_MARKS_FB_STRIDE
++#define MARK_X		CONFIG_BOOT_MARKS_X	/* left edge, in pixels */
++#define MARK_W		48			/* pixels */
++#define MARK_H		100			/* rows */
++#define MARK_TOP	240
++#define MARK_PITCH	160
++#define MARK_PANIC	16
++#define MARKS		(MARK_PANIC + 1)
++
++/* a8r8g8b8; alternating so that adjacent blocks can be counted */
++#define COLOR_EVEN	0xff00ff00
++#define COLOR_ODD	0xff00c0ff
++#define COLOR_PANIC	0xffff0000
++
++static void __iomem *marks_io;
++static bool marks_notifier_done;
++
++static phys_addr_t mark_phys(unsigned int n, unsigned int y)
++{
++	return FB_BASE + (phys_addr_t)(MARK_TOP + n * MARK_PITCH + y) * FB_STRIDE +
++	       MARK_X * 4;
++}
++
++static void paint_row(void __iomem *p, u32 color)
++{
++	unsigned int x;
++
++	for (x = 0; x < MARK_W; x++)
++		__raw_writel(color, p + x * 4);
++}
++
++/*
++ * __ref: early_ioremap() is __init, and is only reached while marks_io is
++ * still unset -- that is, before mm_core_init(), long before init memory is
++ * freed. The panic path passes may_map = false and never maps anything.
++ */
++static void __ref paint(unsigned int n, u32 color, bool may_map)
++{
++	phys_addr_t base = mark_phys(0, 0);
++	unsigned int y;
++
++	if (n >= MARKS)
++		n = MARK_PANIC - 1;
++
++	if (!marks_io && may_map && slab_is_available())
++		marks_io = ioremap_wc(base, mark_phys(MARKS - 1, MARK_H) - base);
++
++	for (y = 0; y < MARK_H; y++) {
++		phys_addr_t pa = mark_phys(n, y);
++		void __iomem *p;
++
++		if (marks_io) {
++			paint_row(marks_io + (pa - base), color);
++			continue;
++		}
++		if (!may_map)
++			return;
++		p = early_ioremap(pa, MARK_W * 4);
++		if (!p)
++			return;
++		paint_row(p, color);
++		early_iounmap(p, MARK_W * 4);
++	}
++	wmb();
++}
++
++static int boot_marks_panic(struct notifier_block *nb, unsigned long ev, void *p)
++{
++	paint(MARK_PANIC, COLOR_PANIC, false);
++	return NOTIFY_DONE;
++}
++
++static struct notifier_block boot_marks_panic_nb = {
++	.notifier_call	= boot_marks_panic,
++	.priority	= INT_MAX,
++};
++
++void boot_mark(unsigned int n)
++{
++	if (!marks_notifier_done) {
++		marks_notifier_done = true;
++		atomic_notifier_chain_register(&panic_notifier_list,
++					       &boot_marks_panic_nb);
++	}
++	paint(n, (n & 1) ? COLOR_ODD : COLOR_EVEN, true);
++}
+diff --git a/arch/arm64/kernel/setup.c b/arch/arm64/kernel/setup.c
+index 83229773f..f8d0d2554 100644
+--- a/arch/arm64/kernel/setup.c
++++ b/arch/arm64/kernel/setup.c
+@@ -27,6 +27,7 @@
+ #include <linux/proc_fs.h>
+ #include <linux/memblock.h>
+ #include <linux/libfdt.h>
++#include <linux/boot_marks.h>
+ #include <linux/of_fdt.h>
+ #include <linux/efi.h>
+ #include <linux/psci.h>
+@@ -382,8 +383,10 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
+ 
+ 	early_fixmap_init();
+ 	early_ioremap_init();
++	boot_mark(0);
+ 
+ 	setup_machine_fdt(__fdt_pointer);
++	boot_mark(1);
+ 
+ 	/*
+ 	 * Initialise the static keys early as they may be enabled by the
+@@ -426,6 +429,7 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
+ 	arm64_memblock_init();
+ 
+ 	paging_init();
++	boot_mark(2);
+ 
+ 	acpi_table_upgrade();
+ 
+@@ -467,6 +471,8 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
+ 			"This indicates a broken bootloader or old kernel\n",
+ 			boot_args[1], boot_args[2], boot_args[3]);
+ 	}
++
++	boot_mark(3);
+ }
+ 
+ static inline bool cpu_can_disable(unsigned int cpu)
+diff --git a/include/linux/boot_marks.h b/include/linux/boot_marks.h
+new file mode 100644
+index 000000000..d76c0ccc9
+--- /dev/null
++++ b/include/linux/boot_marks.h
+@@ -0,0 +1,26 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef _LINUX_BOOT_MARKS_H
++#define _LINUX_BOOT_MARKS_H
++
++/*
++ * Boot progress marks for boards with no console until late in boot; see
++ * arch/arm64/kernel/boot_marks.c. The numbering is the call sites':
++ *
++ *   0  setup_arch: early fixmap up (our code runs, the framebuffer is reachable)
++ *   1  setup_arch: devicetree chosen and scanned
++ *   2  setup_arch: paging_init done
++ *   3  setup_arch: returning
++ *   4  start_kernel: mm_core_init done
++ *   5  start_kernel: calling rest_init
++ *   6  kernel_init_freeable: PID 1 running
++ *   7-14  do_initcall_level: starting level 0 (pure) .. 7 (late)
++ *   15 kernel_init: about to exec /init
++ *   16 (red) panic
++ */
++#ifdef CONFIG_BOOT_MARKS
++void boot_mark(unsigned int n);
++#else
++static inline void boot_mark(unsigned int n) { }
++#endif
++
++#endif
+diff --git a/init/main.c b/init/main.c
+index 31f2bf549..daac66c43 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -27,6 +27,7 @@
+ #include <linux/ioport.h>
+ #include <linux/init.h>
+ #include <linux/initrd.h>
++#include <linux/boot_marks.h>
+ #include <linux/memblock.h>
+ #include <linux/acpi.h>
+ #include <linux/bootconfig.h>
+@@ -1047,6 +1048,7 @@ void start_kernel(void)
+ 	sort_main_extable();
+ 	trap_init();
+ 	mm_core_init();
++	boot_mark(4);
+ 	maple_tree_init();
+ 	poking_init();
+ 	ftrace_init();
+@@ -1187,6 +1189,7 @@ void start_kernel(void)
+ 	kcsan_init();
+ 
+ 	/* Do the rest non-__init'ed, we're now alive */
++	boot_mark(5);
+ 	rest_init();
+ 
+ 	/*
+@@ -1413,6 +1416,8 @@ static void __init do_initcall_level(int level, char *command_line)
+ {
+ 	initcall_entry_t *fn;
+ 
++	boot_mark(7 + level);
++
+ 	parse_args(initcall_level_names[level],
+ 		   command_line, __start___param,
+ 		   __stop___param - __start___param,
+@@ -1587,6 +1592,7 @@ static int __ref kernel_init(void *unused)
+ 
+ 	do_sysctl_args();
+ 
++	boot_mark(15);
+ 	if (ramdisk_execute_command) {
+ 		ret = run_init_process(ramdisk_execute_command);
+ 		if (!ret)
+@@ -1645,6 +1651,8 @@ void __init console_on_rootfs(void)
+ 
+ static noinline void __init kernel_init_freeable(void)
+ {
++	boot_mark(6);
++
+ 	/* Now the scheduler is fully set up and can do blocking allocations */
+ 	gfp_allowed_mask = __GFP_BITS_MASK;
+ 
+-- 
+2.43.0
+

@@ -1,0 +1,50 @@
+From e779b596e803d767e0782035c8d0ca483a2cff77 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 07:20:57 +0000
+Subject: [PATCH] clk: qcom: gcc-kaanapali: keep the USB GDSCs in retention
+ (y705 0044)
+
+gcc_usb30_prim_gdsc and gcc_usb3_phy_gdsc are PWRSTS_OFF_ON, so genpd
+switches them fully off in the noirq phase of system suspend and the
+DWC3 controller and the QMP USB/DP combo PHY come back at their reset
+values. On a Lenovo TB323FU (kaanapali) in s2idle:
+
+  - with a USB 3 stick and a hub attached in host mode, 5 s after resume
+    "xhci-hcd: WARNING: Host System Error", "xHCI host controller not
+    responding, assume dead", "HC died";
+  - with a DisplayPort sink attached, the DP PLL never locks again
+    (C_READY_STATUS 0) and the DP link clock is stuck off;
+  - in one run "irq 229 (dwc3): nobody cared" from dwc3_qcom_suspend().
+
+Use PWRSTS_RET_ON like SM8650 and X1E80100 do for the same domains. With
+this the stick stays mounted across suspend, the keyboard on the hub
+re-enumerates and no xHCI error is logged.
+---
+ drivers/clk/qcom/gcc-kaanapali.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/clk/qcom/gcc-kaanapali.c b/drivers/clk/qcom/gcc-kaanapali.c
+index 842c1a70c..1794965bc 100644
+--- a/drivers/clk/qcom/gcc-kaanapali.c
++++ b/drivers/clk/qcom/gcc-kaanapali.c
+@@ -3189,7 +3189,7 @@ static struct gdsc gcc_usb30_prim_gdsc = {
+ 	.pd = {
+ 		.name = "gcc_usb30_prim_gdsc",
+ 	},
+-	.pwrsts = PWRSTS_OFF_ON,
++	.pwrsts = PWRSTS_RET_ON,
+ 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
+ };
+ 
+@@ -3201,7 +3201,7 @@ static struct gdsc gcc_usb3_phy_gdsc = {
+ 	.pd = {
+ 		.name = "gcc_usb3_phy_gdsc",
+ 	},
+-	.pwrsts = PWRSTS_OFF_ON,
++	.pwrsts = PWRSTS_RET_ON,
+ 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
+ };
+ 
+-- 
+2.43.0
+

@@ -1,0 +1,37 @@
+From 47222b6c8f7dd250698b5805e17312024b21b76d Mon Sep 17 00:00:00 2001
+From: Victor Fuentes <victor@vlinkz.dev>
+Date: Wed, 23 Sep 2026 09:08:29 -0700
+Subject: [PATCH 75/79] soc: qcom: apr: Register the GPR callback before
+ probing
+
+q6apm sends a synchronous command in probe, and its response was
+dropped, delaying every boot by the 5 s timeout.
+
+Fixes: ec1471a898cc ("soc: qcom: apr: Add GPR support")
+
+Signed-off-by: Victor Fuentes <victor@vlinkz.dev>
+---
+ drivers/soc/qcom/apr.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/soc/qcom/apr.c b/drivers/soc/qcom/apr.c
+index ea7f83916..39c3a6e6d 100644
+--- a/drivers/soc/qcom/apr.c
++++ b/drivers/soc/qcom/apr.c
+@@ -367,9 +367,11 @@ static int apr_device_probe(struct device *dev)
+ 	struct apr_driver *adrv = to_apr_driver(dev->driver);
+ 	int ret;
+ 
++	adev->svc.callback = adrv->gpr_callback;
++
+ 	ret = adrv->probe(adev);
+-	if (!ret)
+-		adev->svc.callback = adrv->gpr_callback;
++	if (ret)
++		adev->svc.callback = NULL;
+ 
+ 	return ret;
+ }
+-- 
+2.43.0
+

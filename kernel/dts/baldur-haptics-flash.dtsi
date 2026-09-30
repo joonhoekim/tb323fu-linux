@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * TB323FU ("baldur") camera flash/torch LED and the two haptic motors
+ * (y705-mainline-plan.md 9-54). Both have mainline drivers; DT only.
+ *
+ * Flash: the pmh0101 flash block @0xee00 (torch 500 mA, flash 2 A); one LED.
+ *
+ * Haptics: two Awinic AW8693x ("awinic,haptic_hv_l/_r") on QUP i2c6
+ * (0xa98000) at 0x5a (irq TLMM 99, reset TLMM 216) and 0x5b (irq TLMM 95,
+ * reset TLMM 215). They report CHIPID 0x9370 (AW86937), which mainline's
+ * aw86927 driver accepts with 0023 (it knew 0x9270 and the AW86938).
+ * Felt by hand (9-54), in landscape with the bottom USB-C port down (the
+ * same frame as the speakers): 0x5a (vendor "_l") is the RIGHT motor and
+ * 0x5b ("_r") the LEFT -- the vendor names are swapped. Input event6 and
+ * event7 in that order at boot.
+ */
+
+#include <dt-bindings/leds/common.h>
+
+&pmh0101_flash {
+	status = "okay";
+
+	/*
+	 * One white LED under the rear camera, on sources 1+4 -- the vendor's
+	 * led-0 ("yellow" there, as on the QRD). Its led-1 (sources 2+3) has no
+	 * LED on this board: writing it lights nothing (9-54). Android also
+	 * drives this LED as "gaming lighting" with effects; not looked at yet.
+	 */
+	led-0 {
+		function = LED_FUNCTION_FLASH;
+		color = <LED_COLOR_ID_WHITE>;
+		led-sources = <1>, <4>;
+		led-max-microamp = <500000>;
+		flash-max-microamp = <2000000>;
+		flash-max-timeout-us = <1280000>;
+	};
+};
+
+&i2c6 {
+	clock-frequency = <400000>;
+
+	status = "okay";
+
+	/* vendor "haptic_hv_l", but the right motor */
+	haptics_l: haptics@5a {
+		compatible = "awinic,aw86938", "awinic,aw86927";
+		reg = <0x5a>;
+		interrupts-extended = <&tlmm 99 IRQ_TYPE_EDGE_FALLING>;
+		reset-gpios = <&tlmm 216 GPIO_ACTIVE_LOW>;
+		pinctrl-0 = <&haptics_l_irq>;
+		pinctrl-names = "default";
+	};
+
+	/* vendor "haptic_hv_r", but the left motor */
+	haptics_r: haptics@5b {
+		compatible = "awinic,aw86938", "awinic,aw86927";
+		reg = <0x5b>;
+		interrupts-extended = <&tlmm 95 IRQ_TYPE_EDGE_FALLING>;
+		reset-gpios = <&tlmm 215 GPIO_ACTIVE_LOW>;
+		pinctrl-0 = <&haptics_r_irq>;
+		pinctrl-names = "default";
+	};
+};
+
+&tlmm {
+	haptics_l_irq: haptics-l-irq-state {
+		pins = "gpio99";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-up;
+		input-enable;
+	};
+
+	haptics_r_irq: haptics-r-irq-state {
+		pins = "gpio95";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-up;
+		input-enable;
+	};
+};

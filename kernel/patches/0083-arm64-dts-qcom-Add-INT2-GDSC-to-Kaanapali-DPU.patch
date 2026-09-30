@@ -1,0 +1,36 @@
+From 4eeffee23c933b18d33ba3d4a5ae07aacbe3823d Mon Sep 17 00:00:00 2001
+From: Yongxing Mou <yongxing.mou@oss.qualcomm.com>
+Date: Tue, 15 Sep 2026 17:27:50 +0800
+Subject: [PATCH 83/83] arm64: dts: qcom: Add INT2 GDSC to Kaanapali DPU
+
+The INT2 GDSC on Kaanapali (SM8850) powers a subset of the DPU
+source pipes (VIG2/VIG3/DMA5). Add it as a second power domain of
+the display-controller (DPU) node, alongside the existing MMCX
+performance-state power domain.
+
+The MDSS node's CORE_GDSC is unaffected, since it continues to power
+the rest of the MDSS hardware on its own.
+
+Signed-off-by: Yongxing Mou <yongxing.mou@oss.qualcomm.com>
+---
+ arch/arm64/boot/dts/qcom/kaanapali.dtsi | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/kaanapali.dtsi b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+index 6e637e6b7..9e9d1c5da 100644
+--- a/arch/arm64/boot/dts/qcom/kaanapali.dtsi
++++ b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+@@ -4145,7 +4145,9 @@ mdss_mdp: display-controller@9801000 {
+ 
+ 				operating-points-v2 = <&mdp_opp_table>;
+ 
+-				power-domains = <&rpmhpd RPMHPD_MMCX>;
++				power-domains = <&rpmhpd RPMHPD_MMCX>,
++						<&dispcc DISP_CC_MDSS_CORE_INT2_GDSC>;
++				power-domain-names = "mmcx", "int2";
+ 
+ 				ports {
+ 					#address-cells = <1>;
+-- 
+2.43.0
+

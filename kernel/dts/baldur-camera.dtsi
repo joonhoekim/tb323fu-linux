@@ -1,0 +1,289 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * TB323FU ("baldur") cameras (y705-mainline-plan.md 9-60), on the kaanapali
+ * CAMSS/CCI/CSIPHY series (0026-0028). From the vendor DT (qcom,cam-sensor,
+ * cci, csiphy nodes) and the CamX sensor modules in /vendor/lib64/camera
+ * (slave address and chip ID from their slave-info block):
+ *
+ *   rear:  Samsung S5KJNS (module s5kjns_qtech_main, chip ID 0x38ee @ 0x0000),
+ *          CCI0 master 0, 7-bit 0x56; CSIPHY3; VCM gt9764, EEPROM on the
+ *          same bus. VIO l10b 1.8 V, VDIG l11b 1.072 V (shared with the
+ *          panel core), VANA l7b 2.848 V, VAF l6b 2.8 V; reset PMH0110_I
+ *          gpio11.
+ *   front: GalaxyCore GC08A8 (module gc08a8_sunwin_front, chip ID 0x08a8 @
+ *          0x03f0), CCI2 master 1, 7-bit 0x31; CSIPHY2. VIO l10b, VDIG l18b
+ *          1.304 V, VANA l16b 2.904 V; reset PMH0110_I gpio12.
+ *
+ * Both MCLKs are the PMIC's divided XO (RPMH_DIV_CLK1, 19.2 MHz) out of
+ * PMK8850 gpio1 (rear) and gpio8 (front), function "func2" -- not the SoC's
+ * cam_mclk pins.
+ *
+ * No mainline driver knows either sensor. Step 1 binds the nearest ones
+ * (s5kjn5: 0x38e5, gc08a3: 0x08a3 @ 0x03f0, same address) only to see the
+ * chip IDs over CCI -- power, clock, reset and bus all have to be right.
+ *
+ * State (9-60): CAMSS/CSIPHY/CCI probe. Both sensor drivers time out on
+ * CCI -- at every address on these two buses, while the empty masters
+ * (cci0 bus 1, cci2 bus 0) NACK properly; also at 400 kHz. Bit-banged on
+ * the same pads the buses are fine: the front ACKs at 0x31 and reads
+ * 0x08a8, EEPROMs at 0x50(/0x58), the rear VCM at 0x0c. The rear sensor
+ * did not ACK then (its VDIG l11b was off in that test). The front MCLK
+ * (PMK8850 gpio8) does not toggle; the rear one (gpio1) does. TODO: CCI
+ * vs Android (registers with the camera open), front MCLK source.
+ */
+
+#include <dt-bindings/media/video-interfaces.h>
+
+&apps_rsc {
+	regulators-0 {
+		/* rear VAF */
+		vreg_l6b_2p8: ldo6 {
+			regulator-name = "vreg_l6b_2p8";
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		/* rear VANA */
+		vreg_l7b_2p8: ldo7 {
+			regulator-name = "vreg_l7b_2p8";
+			regulator-min-microvolt = <2848000>;
+			regulator-max-microvolt = <2848000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		/* camera VIO, both sensors */
+		vreg_l10b_1p8: ldo10 {
+			regulator-name = "vreg_l10b_1p8";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		/* front VANA */
+		vreg_l16b_2p9: ldo16 {
+			regulator-name = "vreg_l16b_2p9";
+			regulator-min-microvolt = <2904000>;
+			regulator-max-microvolt = <2904000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		/* front VDIG */
+		vreg_l18b_1p3: ldo18 {
+			regulator-name = "vreg_l18b_1p3";
+			regulator-min-microvolt = <1304000>;
+			regulator-max-microvolt = <1304000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+};
+
+&pmk8850_gpios {
+	cam_rear_mclk_default: cam-rear-mclk-default-state {
+		pins = "gpio1";
+		function = "func2";
+		output-enable;
+		power-source = <0>;
+	};
+
+	cam_front_mclk_default: cam-front-mclk-default-state {
+		pins = "gpio8";
+		function = "func2";
+		output-enable;
+		power-source = <0>;
+	};
+};
+
+&camss {
+	status = "okay";
+
+	ports {
+		port@2 {
+			camss_csiphy2_ep: endpoint {
+				data-lanes = <1 2 3 4>;
+				remote-endpoint = <&csiphy2_out_ep>;
+			};
+		};
+
+		port@3 {
+			camss_csiphy3_ep: endpoint {
+				data-lanes = <1 2 3 4>;
+				remote-endpoint = <&csiphy3_out_ep>;
+			};
+		};
+	};
+};
+
+&csiphy2 {
+	vdda-0p9-supply = <&vreg_l3d_0p8>;
+	vdda-1p2-supply = <&vreg_l1d_1p2>;
+
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			csiphy2_in_ep: endpoint {
+				bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				remote-endpoint = <&cam_front_ep>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			csiphy2_out_ep: endpoint {
+				remote-endpoint = <&camss_csiphy2_ep>;
+			};
+		};
+	};
+};
+
+&csiphy3 {
+	vdda-0p9-supply = <&vreg_l3i_0p8>;
+	vdda-1p2-supply = <&vreg_l1d_1p2>;
+
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			csiphy3_in_ep: endpoint {
+				bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				remote-endpoint = <&cam_rear_ep>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			csiphy3_out_ep: endpoint {
+				remote-endpoint = <&camss_csiphy3_ep>;
+			};
+		};
+	};
+};
+
+&cci0 {
+	status = "okay";
+};
+
+&cci0_i2c0 {
+	/* rear S5KJNS (s5kjns, 0031) */
+	camera@56 {
+		compatible = "samsung,s5kjns";
+		reg = <0x56>;
+
+		/* vendor sensor-position-yaw 180 (back), -roll 90 -- the vendor roll is clockwise, V4L2 rotation counter-clockwise (portrait was upside down with 90) */
+		orientation = <1>;
+		rotation = <270>;
+
+		reset-gpios = <&pmh0110_i_e0_gpios 11 GPIO_ACTIVE_LOW>;
+
+		pinctrl-0 = <&cam_rear_mclk_default>;
+		pinctrl-names = "default";
+
+		clocks = <&rpmhcc RPMH_DIV_CLK1>;
+
+		vddio-supply = <&vreg_l10b_1p8>;
+		vddd-supply = <&vreg_l11b_1p0>;
+		vdda-supply = <&vreg_l7b_2p8>;
+		afvdd-supply = <&vreg_l6b_2p8>;
+
+		lens-focus = <&cam_rear_vcm>;
+
+		port {
+			cam_rear_ep: endpoint {
+				link-frequencies = /bits/ 64 <672000000>;
+				data-lanes = <1 2 3 4>;
+				remote-endpoint = <&csiphy3_in_ep>;
+			};
+		};
+	};
+
+	/*
+	 * The rear lens' VCM: Giantec GT9764 (vendor "gt9764_back"), DW9719
+	 * register map; the vendor stack writes 02=02, 03/04 = position,
+	 * 06=40 (SAC 4), 07=7c, then 16-bit positions to register 3 (9-61).
+	 * Its bus pull-ups sit on the sensor I/O rail, hence vio.
+	 */
+	cam_rear_vcm: vcm@c {
+		compatible = "giantec,gt9764";
+		reg = <0x0c>;
+
+		vdd-supply = <&vreg_l6b_2p8>;
+		vio-supply = <&vreg_l10b_1p8>;
+	};
+};
+
+&cci2 {
+	status = "okay";
+};
+
+&cci2_i2c1 {
+	/* front GC08A8 (gc08a8, 0031) */
+	camera@31 {
+		compatible = "galaxycore,gc08a8";
+		reg = <0x31>;
+
+		/* vendor sensor-position-yaw 0 (front), -roll 270 -- same sign flip as the rear camera */
+		orientation = <0>;
+		rotation = <90>;
+
+		reset-gpios = <&pmh0110_i_e0_gpios 12 GPIO_ACTIVE_LOW>;
+
+		pinctrl-0 = <&cam_front_mclk_default>;
+		pinctrl-names = "default";
+
+		clocks = <&rpmhcc RPMH_DIV_CLK1>;
+
+		dovdd-supply = <&vreg_l10b_1p8>;
+		dvdd-supply = <&vreg_l18b_1p3>;
+		avdd-supply = <&vreg_l16b_2p9>;
+
+		port {
+			cam_front_ep: endpoint {
+				data-lanes = <1 2 3 4>;
+				link-frequencies = /bits/ 64 <336000000 207000000>;
+				remote-endpoint = <&csiphy2_in_ep>;
+			};
+		};
+	};
+};
+
+/*
+ * The camera buses need the TLMM's strong I2C pull-up (bit 13, 0030), as
+ * Android sets it (cfg 0x2007 on gpio109/110 with the camera open). With
+ * only the weak pull-up every CCI transfer on them timed out (9-60).
+ */
+&cci0_i2c0_default {
+	scl-pins {
+		bias-pull-up = <2200>;
+	};
+
+	sda-pins {
+		bias-pull-up = <2200>;
+	};
+};
+
+&cci2_i2c1_default {
+	scl-pins {
+		bias-pull-up = <2200>;
+	};
+
+	sda-pins {
+		bias-pull-up = <2200>;
+	};
+};

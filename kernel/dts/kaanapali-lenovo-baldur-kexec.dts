@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * TB323FU ("baldur"), for a kernel started by kexec from Android
+ * (y705-mainline-plan.md 9-13) instead of by the bootloader.
+ *
+ * The difference is what Android leaves behind. /memory still comes from the
+ * bootloader's tree and already excludes every fixed firmware carve-out (9-12),
+ * but four regions inside it are CMA pools in the vendor tree
+ * ("shared-dma-pool", reusable) that Android lends out once it runs -- the two
+ * VM regions to Gunyah guests, the other two to hardware. Straight from the
+ * bootloader they are ordinary RAM; after Android they may belong to someone
+ * else, and a lent-out region is not even mapped for us any more. Keep out of
+ * all four.
+ */
+
+#include "kaanapali-lenovo-baldur.dts"
+
+/ {
+	reserved-memory {
+		/* vendor: qdss_apps_region, trace buffer for the QDSS hardware */
+		kexec_qdss_apps: kexec-qdss-apps@82800000 {
+			reg = <0x0 0x82800000 0x0 0x2000000>;
+			no-map;
+		};
+
+		/* vendor: trust_ui_vm_region, lent to the trusted-UI VM */
+		kexec_trust_ui_vm: kexec-trust-ui-vm@f3800000 {
+			reg = <0x0 0xf3800000 0x0 0x4000000>;
+			no-map;
+		};
+
+		/* vendor: oem_vm_region, lent to the OEM VM */
+		kexec_oem_vm: kexec-oem-vm@f7c00000 {
+			reg = <0x0 0xf7c00000 0x0 0x4c00000>;
+			no-map;
+		};
+
+		/* vendor: lcp_dare_region */
+		kexec_lcp_dare: kexec-lcp-dare@880000000 {
+			reg = <0x8 0x80000000 0x0 0x6000000>;
+			no-map;
+		};
+	};
+};
+
+/*
+ * The application SMMU cannot be reset after Android. arm_smmu_device_reset()
+ * rewrites all 122 stream-match entries, and on the first kexec'd boot the
+ * write to entry 19 took a synchronous external abort (9-15) -- Gunyah had
+ * handed that stream to someone else while Android ran. Nothing stage 3 needs
+ * sits behind this SMMU (the GPU SMMU at 0x3da0000 reset fine), so leave it off
+ * until we know which entries HLOS still owns.
+ */
+&apps_smmu {
+	status = "disabled";
+};
+
+/*
+ * Storage sits behind the application SMMU, which is off here: left on, UFS
+ * and the SD host would DMA untranslated through streams Android configured.
+ * Off until the SMMU can be brought up after Android.
+ */
+&ufs_mem_hc {
+	status = "disabled";
+};
+
+&ufs_mem_phy {
+	status = "disabled";
+};
+
+&sdhc_2 {
+	status = "disabled";
+};
+
+/* USB sits behind the application SMMU too */
+&usb {
+	status = "disabled";
+};

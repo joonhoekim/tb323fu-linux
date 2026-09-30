@@ -1,0 +1,43 @@
+From 7060f25b81babb8592c18099fcbaf318da8ba523 Mon Sep 17 00:00:00 2001
+From: Jingyi Wang <jingyi.wang@oss.qualcomm.com>
+Date: Tue, 7 Jul 2026 03:10:21 +0530
+Subject: [PATCH 02/56] arm64: dts: qcom: kaanapali: Add QFPROM node
+
+Add the QFPROM node and GPU related subnodes on Kaanapali SoC.
+
+Signed-off-by: Jingyi Wang <jingyi.wang@oss.qualcomm.com>
+Reviewed-by: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Signed-off-by: Akhil P Oommen <akhilpo@oss.qualcomm.com>
+Link: https://patch.msgid.link/20260707-kaana-gpu-dt-v3-3-8dac9a60dd5c@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <bjorn.andersson@oss.qualcomm.com>
+---
+ arch/arm64/boot/dts/qcom/kaanapali.dtsi | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/kaanapali.dtsi b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+index 654b5d292..27189404c 100644
+--- a/arch/arm64/boot/dts/qcom/kaanapali.dtsi
++++ b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+@@ -6010,6 +6010,18 @@ rpmhpd_opp_super_turbo_no_cpr: opp-480 {
+ 			};
+ 		};
+ 
++		efuse@221c8000 {
++			compatible = "qcom,kaanapali-qfprom", "qcom,qfprom";
++			reg = <0x0 0x221c8000 0x0 0x1000>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++
++			gpu_speed_bin: gpu-speed-bin@142 {
++				reg = <0x142 0x2>;
++				bits = <3 9>;
++			};
++		};
++
+ 		nsp_noc: interconnect@260c0000 {
+ 			compatible = "qcom,kaanapali-nsp-noc";
+ 			reg = <0x0 0x260c0000 0x0 0x21280>;
+-- 
+2.43.0
+

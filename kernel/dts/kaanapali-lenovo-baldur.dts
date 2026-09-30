@@ -1,0 +1,193 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Lenovo Legion Tab Y700 5th Gen (TB323FU, "baldur") — SM8850 / kaanapali.
+ *
+ * Stage 3 of y705-mainline-plan.md: the smallest board devicetree that can
+ * boot a kernel far enough to leave a readable log. It deliberately brings up
+ * NOTHING but memory, the two log channels and the reset/power basics:
+ *
+ *   - ramoops at the same address and geometry the stock kernel uses, so a
+ *     failed boot can be read back from Android's /sys/fs/pstore afterwards
+ *   - the bootloader's splash buffer as a simple-framebuffer, so a boot that
+ *     hangs without panicking still shows where it stopped
+ *
+ * Storage, display, GPU, touch, Wi-Fi and audio are left for later stages.
+ * The rootfs for this stage is an initramfs, so no block device is needed.
+ *
+ * Board facts come from the devicetree this device's ABL passes to Android
+ * (/sys/firmware/fdt), recorded in logs/2026-09-22-mainline-survey.txt.
+ * Structure follows kaanapali-oneplus-infiniti-common.dts by EYC and
+ * FantomTchi7 (BSD-3-Clause).
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include <dt-bindings/gpio/gpio.h>
+#include "kaanapali.dtsi"
+/*
+ * The PMIC's PON block: the power key, and the pwrkey driver's reboot
+ * notifier that sets PS_HOLD to warm reset before an orderly restart, as
+ * Android's qcom_pon does. Added to cure ramoops' 1->0 bit flips, which it
+ * did not -- Android-to-Android reboots show the same flips at the same
+ * offsets (9-15).
+ */
+#include "pmk8850.dtsi"
+
+/ {
+	model = "Lenovo Legion Tab Y700 5th Gen";
+	compatible = "lenovo,baldur", "qcom,kaanapali";
+	chassis-type = "tablet";
+
+	/*
+	 * Only consulted when a bootloader picks a DTB out of a set. We are
+	 * loaded by our own U-Boot through extlinux, which takes the file it is
+	 * told to, so these are here for completeness.
+	 *
+	 * The SoC reports id 661 (/sys/devices/soc0/soc_id), which is SM8850P —
+	 * the part upstream has no QCOM_ID_* for; qcom,ids.h only defines
+	 * QCOM_ID_SM8850 (660). Our ABL's own devicetree lists both 0x294 (660)
+	 * and 0x295 (661), so the literal is used here rather than a define that
+	 * would name the wrong part.
+	 */
+	qcom,msm-id = <0x295 0x20000>;	/* SM8850P v2.0 */
+	qcom,board-id = <0x2000b 0>;
+
+	/*
+	 * kaanapali.dtsi references these by label but does not define them —
+	 * they are board-level inputs, so every board DTS has to supply them or
+	 * dtc refuses the tree ("Reference to non-existent node or label").
+	 * The values are SoC-fixed and identical to the OnePlus 15 board.
+	 */
+	clocks {
+		xo_board: xo-board {
+			compatible = "fixed-clock";
+			clock-frequency = <76800000>;
+			#clock-cells = <0>;
+		};
+
+		sleep_clk: sleep-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <32000>;
+			#clock-cells = <0>;
+		};
+
+		bi_tcxo_div2: bi-tcxo-div2-clk {
+			compatible = "fixed-factor-clock";
+			#clock-cells = <0>;
+
+			clocks = <&rpmhcc RPMH_CXO_CLK>;
+			clock-mult = <1>;
+			clock-div = <2>;
+		};
+
+		bi_tcxo_ao_div2: bi-tcxo-ao-div2-clk {
+			compatible = "fixed-factor-clock";
+			#clock-cells = <0>;
+
+			clocks = <&rpmhcc RPMH_CXO_CLK_A>;
+			clock-mult = <1>;
+			clock-div = <2>;
+		};
+	};
+
+	chosen {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/*
+		 * The panel is the only console on this board: no UART is wired
+		 * out and the stock cmdline says so itself
+		 * (qcom_geni_serial.con_enabled=0). ABL hands the display over
+		 * still scanning out of the splash buffer, so writing pixels
+		 * there needs no display driver at all.
+		 *
+		 * 1904x3040 is the panel's native mode. It is the one value
+		 * here we could NOT read back from Android — Android exposes no
+		 * fbdev and the DRM debugfs is empty — so it is inferred from
+		 * the panel modes. If the first boot shows sheared or repeated
+		 * text, this is the number to change.
+		 *
+		 * MDSS stays disabled (kaanapali.dtsi defaults it off and we do
+		 * not enable it). The OnePlus 15 port records that letting the
+		 * msm driver take over a live bootloader scanout stalled the
+		 * AXI/NoC and froze the panel; keeping MDSS out of the picture
+		 * is what makes this framebuffer safe to use.
+		 */
+		framebuffer0: framebuffer@fc800000 {
+			compatible = "simple-framebuffer";
+			reg = <0x0 0xfc800000 0x0 (1904 * 3040 * 4)>;
+			width = <1904>;
+			height = <3040>;
+			stride = <(1904 * 4)>;
+			format = "a8r8g8b8";
+		};
+	};
+
+	reserved-memory {
+		/*
+		 * The name matters, not just the address: the OnePlus 15 port
+		 * found that this bootloader family only leaves the display
+		 * powered when the region is called exactly "splash_region".
+		 */
+		splash_memory: splash_region@fc800000 {
+			reg = <0x0 0xfc800000 0x0 0x2b00000>;
+			no-map;
+		};
+
+		/*
+		 * Same address and the same three sizes the stock kernel uses,
+		 * which is the whole point: the on-RAM format is the standard
+		 * persistent_ram one, so after this kernel dies we reboot into
+		 * Android and read what it wrote from
+		 * /sys/fs/pstore/console-ramoops-0.
+		 *
+		 * Verified on 2026-09-22 that a reboot does not clear it — the
+		 * stock kernel reads its own previous boot from here.
+		 */
+		ramoops@c2000000 {
+			compatible = "ramoops";
+			reg = <0x0 0xc2000000 0x0 0xc0000>;
+			record-size = <0x10000>;
+			console-size = <0x40000>;
+			pmsg-size = <0x40000>;
+			/*
+			 * The vendor node (qcom,ramoops) has ecc-size = <16>, and
+			 * Android reads every zone with it. The ramoops module
+			 * parameter "ecc" reads 0 there, which is what fooled us:
+			 * the first kexec'd boot wrote without ECC, and Android's
+			 * "correction" garbled the console and broke the
+			 * compressed dump record (9-15).
+			 */
+			ecc-size = <16>;
+		};
+	};
+};
+
+/*
+ * Stage 4: storage (9-16 onwards). Read-only as far as this port goes -- init
+ * mounts nothing, the kernel only reads the partition tables. bRefClkFreq is
+ * safe: ref_clk is RPMH_LN_BB_CLK3 = xo_board 76.8 MHz / 2 = 38.4 MHz, which is
+ * what the device already holds (2), so ufshcd reads it and writes nothing.
+ */
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+#include "baldur-regulators.dtsi"
+#include "baldur-storage.dtsi"
+
+/* USB device mode (9-19): the eUSB2 repeater lives on pmih0108, SPMI1 SID 7 */
+#include "pmih0108-kaanapali.dtsi"
+#include "baldur-usb.dtsi"
+#include <dt-bindings/thermal/thermal.h>
+#include "baldur-thermal.dtsi"
+#include "baldur-power.dtsi"
+#include <dt-bindings/input/linux-event-codes.h>
+#include "baldur-keys.dtsi"
+
+/*
+ * 9-28: a CoreSight trace NoC nothing here uses; its probe waits forever
+ * ("deferred probe pending: (reason unknown)").
+ */
+&{/soc@0/tn@111b8000} {
+	status = "disabled";
+};

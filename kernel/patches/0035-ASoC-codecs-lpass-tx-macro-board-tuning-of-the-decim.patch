@@ -1,0 +1,87 @@
+From ab41b2c82960e696692ad0a93fba78164610baae Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:28:21 +0000
+Subject: [PATCH 35/56] ASoC: codecs: lpass-tx-macro: board tuning of the
+ decimator filter block
+
+For y705-mainline-plan.md 9-50. Each TX decimator n has a block of
+registers at 0x800 + 0x80 * n that the driver does not know about (outside
+its regmap). On TB323FU (kaanapali, WCD9395 analog mics over SoundWire) the
+reset values leave a flat white-noise floor at -47 dBFS under the capture,
+independent of the WCD's analog gain. Android, while recording, has other
+values there in the decimators it uses (part of them are its DT's
+adapt-tuning-reg-values); +0x00 bit 4 clear alone takes 15 dB off, the
+whole set brings the floor to about -65 dBFS.
+
+qcom,dec-tuning-reg-values = <offset value ...> (offsets within the block)
+is written to the decimator's block on every enable (PRE_PMU): the block is
+outside the regmap, so nothing restores it after the LPASS power goes.
+
+A local property, not a proposed binding: upstream this belongs in the
+driver's per-SoC data once the registers are understood.
+
+y705-source: 0020-asoc-lpass-tx-macro-decimator-tuning.patch
+---
+ sound/soc/codecs/lpass-tx-macro.c | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/sound/soc/codecs/lpass-tx-macro.c b/sound/soc/codecs/lpass-tx-macro.c
+index a8e83eb60..6067393c5 100644
+--- a/sound/soc/codecs/lpass-tx-macro.c
++++ b/sound/soc/codecs/lpass-tx-macro.c
+@@ -108,6 +108,7 @@
+ #define CDC_TX0_TX_PATH_SEC5		(0x0424)
+ #define CDC_TX0_TX_PATH_SEC6		(0x0428)
+ #define CDC_TX0_TX_PATH_SEC7		(0x042C)
++#define CDC_TXn_TUNING_BLOCK(n)		(0x0800 + 0x80 * (n))
+ #define CDC_TX0_MBHC_CTL_EN_MASK	BIT(6)
+ #define CDC_TX1_TX_PATH_CTL		(0x0480)
+ #define CDC_TX1_TX_PATH_CFG0		(0x0484)
+@@ -286,6 +287,9 @@ struct tx_macro {
+ 	int dec_mode[NUM_DECIMATORS];
+ 	struct lpass_macro *pds;
+ 	bool bcs_clk_en;
++	void __iomem *base;
++	u32 *dec_tuning;
++	int dec_tuning_n;
+ };
+ #define to_tx_macro(_hw) container_of(_hw, struct tx_macro, hw)
+ 
+@@ -929,6 +933,14 @@ static int tx_macro_enable_dec(struct snd_soc_dapm_widget *w,
+ 
+ 	switch (event) {
+ 	case SND_SOC_DAPM_PRE_PMU:
++		/*
++		 * Board tuning of the decimator's filter block (0x800 + 0x80 * n),
++		 * outside the regmap and lost with the LPASS power, so written
++		 * on every enable. Pairs of <offset value> within the block.
++		 */
++		for (int i = 0; i + 1 < tx->dec_tuning_n; i += 2)
++			writel(tx->dec_tuning[i + 1], tx->base + CDC_TXn_TUNING_BLOCK(decimator) +
++			       tx->dec_tuning[i]);
+ 		adc_mux_reg = CDC_TX_INP_MUX_ADC_MUXn_CFG1(decimator);
+ 		if (snd_soc_component_read(component, adc_mux_reg) & SWR_MIC) {
+ 			adc_reg = CDC_TX_INP_MUX_ADC_MUXn_CFG0(decimator);
+@@ -2304,6 +2316,19 @@ static int tx_macro_probe(struct platform_device *pdev)
+ 		}
+ 	}
+ 
++	tx->base = base;
++	ret = of_property_count_u32_elems(np, "qcom,dec-tuning-reg-values");
++	if (ret > 0 && !(ret % 2)) {
++		tx->dec_tuning = devm_kcalloc(dev, ret, sizeof(u32), GFP_KERNEL);
++		if (!tx->dec_tuning) {
++			ret = -ENOMEM;
++			goto err;
++		}
++		tx->dec_tuning_n = ret;
++		of_property_read_u32_array(np, "qcom,dec-tuning-reg-values",
++					   tx->dec_tuning, ret);
++	}
++
+ 	tx->regmap = devm_regmap_init_mmio(dev, base, &tx_regmap_config);
+ 	if (IS_ERR(tx->regmap)) {
+ 		ret = PTR_ERR(tx->regmap);
+-- 
+2.43.0
+

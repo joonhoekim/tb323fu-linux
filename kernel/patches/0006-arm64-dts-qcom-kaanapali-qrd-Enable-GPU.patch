@@ -1,0 +1,39 @@
+From 952237c60753b9c6b8e75016709ab88185e0b61c Mon Sep 17 00:00:00 2001
+From: Akhil P Oommen <akhilpo@oss.qualcomm.com>
+Date: Tue, 7 Jul 2026 03:10:25 +0530
+Subject: [PATCH 06/56] arm64: dts: qcom: kaanapali-qrd: Enable GPU
+
+Add the secure firmware name property and enable GPU support on
+Kaanapali QRD device.
+
+Reviewed-by: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Signed-off-by: Akhil P Oommen <akhilpo@oss.qualcomm.com>
+Link: https://patch.msgid.link/20260707-kaana-gpu-dt-v3-7-8dac9a60dd5c@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <bjorn.andersson@oss.qualcomm.com>
+---
+ arch/arm64/boot/dts/qcom/kaanapali-qrd.dts | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/kaanapali-qrd.dts b/arch/arm64/boot/dts/qcom/kaanapali-qrd.dts
+index abd3e9f8a..f6b02223f 100644
+--- a/arch/arm64/boot/dts/qcom/kaanapali-qrd.dts
++++ b/arch/arm64/boot/dts/qcom/kaanapali-qrd.dts
+@@ -736,6 +736,14 @@ vreg_l7n_3p3: ldo7 {
+ 	};
+ };
+ 
++&gpu {
++	status = "okay";
++};
++
++&gpu_zap_shader {
++	firmware-name = "qcom/kaanapali/gen80200_zap.mbn";
++};
++
+ &pmh0101_flash {
+ 	status = "okay";
+ 
+-- 
+2.43.0
+

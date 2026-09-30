@@ -1,0 +1,109 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Stage 4 for TB323FU ("baldur"): UFS and the microSD slot.
+ *
+ * Included by kaanapali-lenovo-baldur.dts since 2026-09-24 (plan 9-17). It was
+ * left out at first: stage 3 boots from an
+ * initramfs precisely so that no block device has to come up first; bringing
+ * storage in earlier would only add ways for the first boot to fail. Add
+ *
+ *	#include "baldur-storage.dtsi"
+ *
+ * at the end of the board DTS once stage 3 has produced a log. The rails it
+ * uses are declared in baldur-regulators.dtsi, which has to come first.
+ *
+ * Every rail and GPIO here was read out of this device's own ABL devicetree
+ * (see logs/2026-09-22-mainline-survey.txt), and then compared against the
+ * OnePlus 15 board DTS. They are the same board-for-board -- same LDOs, same
+ * voltages to the microvolt, same UFS reset GPIO. That is worth knowing: the
+ * storage wiring on this SoC is reference-design level, not per-vendor, so
+ * the OnePlus port can be trusted here rather than merely borrowed from.
+ *
+ *	UFS    vcc      pmh0101 ldo17  2.504 V      (OnePlus: vreg_l17b_2p5)
+ *	       vccq     pmh0110_d ldo4 1.2 V        (OnePlus: vreg_l4d_1p2)
+ *	       reset    TLMM 217, active low        (OnePlus: the same GPIO)
+ *	UFS    vdda-phy pmh0110_g ldo4 0.912 V      (OnePlus: vreg_l4g_0p9)
+ *	PHY    vdda-pll pmh0110_d ldo1 1.2-1.256 V  (OnePlus: vreg_l1d_1p2)
+ *	sdhc_2 vdd      pmh0101 ldo9   2.96-3.008 V (OnePlus: vreg_l9b_2p9)
+ *	       vdd-io   pmh0101 ldo8   1.8-3.008 V  (OnePlus: vreg_l8b_1p8)
+ *	       card det TLMM 55
+ */
+
+
+&ufs_mem_hc {
+	reset-gpios = <&tlmm 217 GPIO_ACTIVE_LOW>;
+
+	vcc-supply = <&vreg_l17b_2p5>;
+	vcc-max-microamp = <1200000>;
+	vccq-supply = <&vreg_l4d_1p2>;
+	vccq-max-microamp = <1200000>;
+
+	status = "okay";
+};
+
+&ufs_mem_phy {
+	vdda-phy-supply = <&vreg_l4g_0p9>;
+	vdda-pll-supply = <&vreg_l1d_1p2>;
+
+	status = "okay";
+};
+
+/*
+ * The microSD slot. Downstream says bus-width 4, no-sdio and no-mmc, and
+ * drives the level shifter off vdd-io, which is why that rail spans 1.8 V to
+ * 3.008 V rather than sitting at one voltage.
+ *
+ * Card detect is TLMM 55. Downstream gives it flag 0 (active high) and this
+ * follows that, but it is the one value here with no OnePlus 15 counterpart to
+ * check against -- that phone has no card slot. If the card is never seen, or
+ * is seen when the slot is empty, invert this first.
+ */
+&sdhc_2 {
+	vmmc-supply = <&vreg_l9b_2p9>;
+	vqmmc-supply = <&vreg_l8b_1p8>;
+
+	cd-gpios = <&tlmm 55 GPIO_ACTIVE_HIGH>;
+	bus-width = <4>;
+	no-sdio;
+	no-mmc;
+
+	/*
+	 * Without these the SD pads keep whatever drive and pulls they boot
+	 * with, and the first stage-4 boot (9-17) brought the host up but never
+	 * saw the card -- no "new SD card", no error.
+	 */
+	pinctrl-0 = <&sdc2_default>;
+	pinctrl-1 = <&sdc2_sleep>;
+	pinctrl-names = "default", "sleep";
+
+	/*
+	 * The card misses its first probe unless something slows the path down:
+	 * with MMC debug printing, 45 ms passed between power-on and CMD8 and it
+	 * came up every time; at the core's default 10 ms it mostly did not
+	 * (9-17). The LDO behind vmmc is switched through RPMh.
+	 */
+	post-power-on-delay-ms = <100>;
+
+	status = "okay";
+};
+
+/*
+ * The SoC's SD states pull GPIO55 up, for boards whose card-detect switch
+ * pulls it low (the MTP: ACTIVE_LOW). This one is the other way round: the
+ * vendor tree says ACTIVE_HIGH, and under Android the pin reads high with a
+ * card in and no pull ("gpio55 : in high func0 2mA no pull"). A pull-up here
+ * would report a card whether there is one or not.
+ */
+&sdc2_default {
+	card-detect-pins {
+		/delete-property/ bias-pull-up;
+		bias-disable;
+	};
+};
+
+&sdc2_sleep {
+	card-detect-pins {
+		/delete-property/ bias-pull-up;
+		bias-disable;
+	};
+};

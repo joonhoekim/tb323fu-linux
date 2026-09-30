@@ -1,0 +1,96 @@
+From cc3be054c92988f3843568a80afa1115ee5e5837 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sun, 27 Sep 2026 15:42:22 +0000
+Subject: [PATCH] clk: qcom: gdsc: drop the controller reference only if it was
+ taken
+
+Since "keep the clock controller active while a GDSC is on" (0046), a
+GDSC takes a runtime PM reference on its clock controller when it is
+enabled and drops it when disabled. genpd also powers domains on in
+the noirq phase of system resume, where runtime PM is disabled: the
+get fails with -EACCES and gdsc_enable() returns the error, but
+genpd_sync_power_on() ignores it and marks the domain on. When genpd
+powers it off again shortly after, gdsc_disable() dropped a reference
+that was never taken: "videocc-kaanapali 20f0000.clock-controller:
+Runtime PM usage count underflow!", five times (one per video GDSC)
+after every resume (stack: genpd_power_off_work_fn -> gdsc_disable).
+
+Remember whether the GDSC holds the reference and drop it only then.
+Taking the reference without resuming at -EACCES and enabling the
+GDSC anyway is not an option: that crashed the SoC on suspend (the
+supplying domain may be off in the noirq phase).
+
+Lenovo TB323FU: resume underflows 5 -> 0 (2/2 RTC s2idle cycles); the
+iris H.264 encoder/decoder and a libcamera capture still work after
+resume.
+
+Assisted-by: LLM
+---
+ drivers/clk/qcom/gdsc.c | 15 +++++++++++----
+ drivers/clk/qcom/gdsc.h |  1 +
+ 2 files changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/clk/qcom/gdsc.c b/drivers/clk/qcom/gdsc.c
+index 7639c30ce..130cb610c 100644
+--- a/drivers/clk/qcom/gdsc.c
++++ b/drivers/clk/qcom/gdsc.c
+@@ -402,15 +402,18 @@ static int gdsc_enable(struct generic_pm_domain *domain)
+ 	struct gdsc *sc = domain_to_gdsc(domain);
+ 	int ret;
+ 
+-	if (sc->rpm_dev) {
++	if (sc->rpm_dev && !sc->rpm_held) {
+ 		ret = pm_runtime_resume_and_get(sc->rpm_dev);
+ 		if (ret < 0)
+ 			return ret;
++		sc->rpm_held = true;
+ 	}
+ 
+ 	ret = gdsc_enable_hw(sc);
+-	if (ret && sc->rpm_dev)
++	if (ret && sc->rpm_held) {
+ 		pm_runtime_put(sc->rpm_dev);
++		sc->rpm_held = false;
++	}
+ 
+ 	return ret;
+ }
+@@ -421,8 +424,10 @@ static int gdsc_disable(struct generic_pm_domain *domain)
+ 	int ret;
+ 
+ 	ret = gdsc_disable_hw(sc, domain);
+-	if (!ret && sc->rpm_dev)
++	if (!ret && sc->rpm_held) {
+ 		pm_runtime_put(sc->rpm_dev);
++		sc->rpm_held = false;
++	}
+ 
+ 	return ret;
+ }
+@@ -691,8 +696,10 @@ int gdsc_register(struct gdsc_desc *desc,
+ 		    pm_runtime_enabled(dev)) {
+ 			scs[i]->rpm_dev = dev;
+ 			/* already on: its disable will drop this */
+-			if (gdsc_check_status(scs[i], GDSC_ON) > 0)
++			if (gdsc_check_status(scs[i], GDSC_ON) > 0) {
+ 				pm_runtime_get_noresume(dev);
++				scs[i]->rpm_held = true;
++			}
+ 		}
+ 		data->domains[i] = &scs[i]->pd;
+ 	}
+diff --git a/drivers/clk/qcom/gdsc.h b/drivers/clk/qcom/gdsc.h
+index fc167fbf7..80756498f 100644
+--- a/drivers/clk/qcom/gdsc.h
++++ b/drivers/clk/qcom/gdsc.h
+@@ -78,6 +78,7 @@ struct gdsc {
+ 
+ 	/* the clock controller, held active while the GDSC is on (pd_list) */
+ 	struct device			*rpm_dev;
++	bool				rpm_held;
+ 
+ 	bool				needs_icc;
+ 	unsigned int			icc_path_index;
+-- 
+2.43.0
+

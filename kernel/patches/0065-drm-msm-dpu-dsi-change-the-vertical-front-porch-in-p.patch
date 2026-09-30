@@ -1,0 +1,366 @@
+From 889952dfbe4886874b2741c1e25c4bd6329cfc6a Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sun, 27 Sep 2026 04:28:44 +0000
+Subject: [PATCH 65/66] drm/msm/dpu+dsi: change the vertical front porch in
+ place (y705 0051)
+
+A mode that differs from the running one only in the vertical front porch
+(same pixel clock, horizontal timing, active height, vsync width and back
+porch) no longer takes a full modeset on a DSI video-mode pipeline:
+dpu_crtc_atomic_check() clears mode_changed, and at kickoff the encoder
+rewrites DSI_TOTAL.V_TOTAL on the DSI hosts (and their stored mode, so the
+next power-on programs it) and INTF_VSYNC_PERIOD_F0 on the INTFs, marking
+them for the CTL flush -- the INTF period is double buffered and is only
+latched at the next vsync after an INTF flush (without it the timing engine
+keeps the old period). ACTIVE_V, the vsync position, display_v_end and the
+DSC setup do not depend on the front porch.
+
+This is how the vendor driver switches refresh rates ("DFPS": the same
+DSI link, only the porch changes). A full modeset (encoder, bridge and
+panel off and on) at 60 or 30 Hz makes the Lenovo TB323FU CSOT NT36523
+panel flicker, while the same timings are fine when booted into or
+switched in place (y705-mainline-plan.md 9-96, 9-99, 9-100).
+
+Signed-off-by: joonhoekim <26rote@gmail.com>
+---
+ drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c      | 46 +++++++++++++++++++
+ drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c   | 33 +++++++++++++
+ .../gpu/drm/msm/disp/dpu1/dpu_encoder_phys.h  |  2 +
+ .../drm/msm/disp/dpu1/dpu_encoder_phys_vid.c  | 39 ++++++++++++++++
+ drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c   |  9 ++++
+ drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.h   |  6 +++
+ drivers/gpu/drm/msm/dsi/dsi.c                 |  7 +++
+ drivers/gpu/drm/msm/dsi/dsi.h                 |  2 +
+ drivers/gpu/drm/msm/dsi/dsi_host.c            | 30 ++++++++++++
+ drivers/gpu/drm/msm/msm_drv.h                 |  7 +++
+ 10 files changed, 181 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
+index debef754b..fa5e4ba0e 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
+@@ -1543,6 +1543,46 @@ int dpu_crtc_check_mode_changed(struct drm_crtc_state *old_crtc_state,
+ 	return 0;
+ }
+ 
++/*
++ * Modes that differ only in the vertical front porch: same pixel clock, same
++ * horizontal timing, same active height, vsync width and back porch. A DSI
++ * video-mode pipeline switches between them in place (the Android "DFPS"
++ * way): no encoder/bridge/panel off-on, which the panel shows as flicker.
++ */
++static bool dpu_crtc_vfp_only(const struct drm_display_mode *a,
++			      const struct drm_display_mode *b)
++{
++	return a->clock == b->clock &&
++	       a->hdisplay == b->hdisplay && a->hsync_start == b->hsync_start &&
++	       a->hsync_end == b->hsync_end && a->htotal == b->htotal &&
++	       a->hskew == b->hskew && a->vdisplay == b->vdisplay &&
++	       a->vscan == b->vscan && a->flags == b->flags &&
++	       a->vsync_end - a->vsync_start == b->vsync_end - b->vsync_start &&
++	       a->vtotal - a->vsync_end == b->vtotal - b->vsync_end &&
++	       a->vtotal != b->vtotal;
++}
++
++static bool dpu_crtc_can_update_vfp(struct drm_crtc *crtc,
++				    struct drm_atomic_commit *state,
++				    struct drm_crtc_state *new)
++{
++	struct drm_crtc_state *old = drm_atomic_get_old_crtc_state(state, crtc);
++	struct drm_encoder *enc;
++
++	if (!new->mode_changed || new->active_changed ||
++	    new->connectors_changed || !old->active || !new->active ||
++	    new->encoder_mask != old->encoder_mask || !new->encoder_mask)
++		return false;
++	if (!dpu_crtc_vfp_only(&old->adjusted_mode, &new->adjusted_mode))
++		return false;
++	drm_for_each_encoder_mask(enc, crtc->dev, new->encoder_mask) {
++		if (enc->encoder_type != DRM_MODE_ENCODER_DSI ||
++		    dpu_encoder_get_intf_mode(enc) != INTF_MODE_VIDEO)
++			return false;
++	}
++	return true;
++}
++
+ static int dpu_crtc_atomic_check(struct drm_crtc *crtc,
+ 		struct drm_atomic_commit *state)
+ {
+@@ -1558,6 +1598,12 @@ static int dpu_crtc_atomic_check(struct drm_crtc *crtc,
+ 
+ 	bool needs_dirtyfb = dpu_crtc_needs_dirtyfb(crtc_state);
+ 
++	if (dpu_crtc_can_update_vfp(crtc, state, crtc_state)) {
++		DRM_DEBUG_ATOMIC("crtc%d: vfp-only mode change, no modeset\n",
++				 crtc->base.id);
++		crtc_state->mode_changed = false;
++	}
++
+ 	/* don't reallocate resources if only ACTIVE has beeen changed */
+ 	if (crtc_state->mode_changed || crtc_state->connectors_changed ||
+ 	    crtc_state->color_mgmt_changed) {
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
+index 4539851fb..06e37da67 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
+@@ -2136,6 +2136,37 @@ static void dpu_encoder_prep_dsc(struct dpu_encoder_virt *dpu_enc,
+  *	Delayed: Block until next trigger can be issued.
+  * @drm_enc:	encoder pointer
+  */
++/*
++ * A commit whose CRTC mode differs from the running one only in the vertical
++ * front porch arrives here without a modeset (dpu_crtc_atomic_check() cleared
++ * mode_changed): reprogram the vertical total on the DSI hosts and the INTFs.
++ */
++static void dpu_encoder_update_vfp(struct drm_encoder *drm_enc)
++{
++	struct msm_drm_private *priv = drm_enc->dev->dev_private;
++	struct dpu_encoder_virt *dpu_enc = to_dpu_encoder_virt(drm_enc);
++	const struct drm_display_mode *mode;
++	unsigned int i;
++
++	if (!drm_enc->crtc || !drm_enc->crtc->state || !dpu_enc->num_phys_encs)
++		return;
++	mode = &drm_enc->crtc->state->adjusted_mode;
++	if (dpu_enc->phys_encs[0]->cached_mode.vtotal == mode->vtotal ||
++	    dpu_enc->disp_info.intf_type != INTF_DSI)
++		return;
++
++	DPU_DEBUG_ENC(dpu_enc, "seamless vtotal %d -> %d\n",
++		      dpu_enc->phys_encs[0]->cached_mode.vtotal, mode->vtotal);
++	for (i = 0; i < dpu_enc->disp_info.num_of_h_tiles; i++)
++		msm_dsi_update_vtotal(priv->kms->dsi[dpu_enc->disp_info.h_tile_instance[i]], mode);
++	for (i = 0; i < dpu_enc->num_phys_encs; i++) {
++		struct dpu_encoder_phys *phys = dpu_enc->phys_encs[i];
++
++		if (phys->ops.update_vfp)
++			phys->ops.update_vfp(phys, mode);
++	}
++}
++
+ void dpu_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc)
+ {
+ 	struct dpu_encoder_virt *dpu_enc;
+@@ -2170,6 +2201,8 @@ void dpu_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc)
+ 
+ 	if (dpu_enc->dsc)
+ 		dpu_encoder_prep_dsc(dpu_enc, dpu_enc->dsc);
++
++	dpu_encoder_update_vfp(drm_enc);
+ }
+ 
+ /**
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys.h b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys.h
+index 61b22d949..414a46973 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys.h
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys.h
+@@ -104,6 +104,8 @@ struct dpu_encoder_phys_ops {
+ 	int (*wait_for_commit_done)(struct dpu_encoder_phys *phys_enc);
+ 	int (*wait_for_tx_complete)(struct dpu_encoder_phys *phys_enc);
+ 	void (*prepare_for_kickoff)(struct dpu_encoder_phys *phys_enc);
++	void (*update_vfp)(struct dpu_encoder_phys *phys_enc,
++			   const struct drm_display_mode *mode);
+ 	void (*handle_post_kickoff)(struct dpu_encoder_phys *phys_enc);
+ 	void (*trigger_start)(struct dpu_encoder_phys *phys_enc);
+ 	bool (*needs_single_flush)(struct dpu_encoder_phys *phys_enc);
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c
+index 2ac517db5..65c28abe1 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c
+@@ -254,6 +254,44 @@ static void programmable_fetch_config(struct dpu_encoder_phys *phys_enc,
+ 	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
+ }
+ 
++/*
++ * Seamless refresh-rate change: only the vertical front porch differs from the
++ * running mode (dpu_crtc_vfp_only()). Rewrite the vsync period, redo the
++ * programmable fetch (its start depends on the vertical total) and mark the
++ * INTF for the next CTL flush -- the timing engine latches the new period at
++ * the following vsync, without being stopped.
++ */
++static void dpu_encoder_phys_vid_update_vfp(struct dpu_encoder_phys *phys_enc,
++					    const struct drm_display_mode *mode)
++{
++	struct dpu_hw_intf_timing_params timing = { 0 };
++	struct drm_display_mode m;
++	struct dpu_hw_ctl *ctl = phys_enc->hw_ctl;
++	unsigned long lock_flags;
++
++	if (!phys_enc->hw_intf || !phys_enc->hw_intf->ops.update_vtotal)
++		return;
++
++	drm_mode_copy(&phys_enc->cached_mode, mode);
++	drm_mode_init(&m, mode);
++	if (phys_enc->split_role != ENC_ROLE_SOLO) {
++		m.hdisplay >>= 1;
++		m.htotal >>= 1;
++		m.hsync_start >>= 1;
++		m.hsync_end >>= 1;
++		m.hskew >>= 1;
++	}
++	drm_mode_to_intf_timing_params(phys_enc, &m, &timing);
++
++	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
++	phys_enc->hw_intf->ops.update_vtotal(phys_enc->hw_intf, mode->vtotal);
++	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
++	programmable_fetch_config(phys_enc, &timing);
++
++	if (ctl->ops.update_pending_flush_intf)
++		ctl->ops.update_pending_flush_intf(ctl, phys_enc->hw_intf->idx);
++}
++
+ static void dpu_encoder_phys_vid_setup_timing_engine(
+ 		struct dpu_encoder_phys *phys_enc)
+ {
+@@ -748,6 +786,7 @@ static void dpu_encoder_phys_vid_init_ops(struct dpu_encoder_phys_ops *ops)
+ 	ops->irq_enable = dpu_encoder_phys_vid_irq_enable;
+ 	ops->irq_disable = dpu_encoder_phys_vid_irq_disable;
+ 	ops->prepare_for_kickoff = dpu_encoder_phys_vid_prepare_for_kickoff;
++	ops->update_vfp = dpu_encoder_phys_vid_update_vfp;
+ 	ops->handle_post_kickoff = dpu_encoder_phys_vid_handle_post_kickoff;
+ 	ops->needs_single_flush = dpu_encoder_phys_vid_needs_single_flush;
+ 	ops->get_line_count = dpu_encoder_phys_vid_get_line_count;
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c
+index ac82b69ae..81c3bd492 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c
+@@ -281,6 +281,14 @@ static void dpu_hw_intf_enable_timing_engine(
+ 	DPU_REG_WRITE(c, INTF_TIMING_ENGINE_EN, enable != 0);
+ }
+ 
++static void dpu_hw_intf_update_vtotal(struct dpu_hw_intf *intf, u32 vtotal)
++{
++	u32 hsync_period = DPU_REG_READ(&intf->hw, INTF_HSYNC_CTL) >> 16;
++
++	/* double buffered: latched at the next vsync after a CTL INTF flush */
++	DPU_REG_WRITE(&intf->hw, INTF_VSYNC_PERIOD_F0, vtotal * hsync_period);
++}
++
+ static void dpu_hw_intf_setup_prg_fetch(
+ 		struct dpu_hw_intf *intf,
+ 		const struct dpu_hw_intf_prog_fetch *fetch)
+@@ -637,6 +645,7 @@ struct dpu_hw_intf *dpu_hw_intf_init(struct drm_device *dev,
+ 	c->mdss_ver = mdss_rev;
+ 
+ 	c->ops.setup_timing_gen = dpu_hw_intf_setup_timing_engine;
++	c->ops.update_vtotal = dpu_hw_intf_update_vtotal;
+ 	c->ops.setup_prg_fetch  = dpu_hw_intf_setup_prg_fetch;
+ 	c->ops.get_status = dpu_hw_intf_get_status;
+ 	c->ops.enable_timing = dpu_hw_intf_enable_timing_engine;
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.h b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.h
+index badd26305..4ba1b400f 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.h
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.h
+@@ -82,6 +82,12 @@ struct dpu_hw_intf_ops {
+ 			const struct dpu_hw_intf_timing_params *p,
+ 			const struct msm_format *fmt);
+ 
++	/**
++	 * @update_vtotal: change only the vertical total (vertical front porch)
++	 * of the running timing engine; takes effect after a CTL INTF flush
++	 */
++	void (*update_vtotal)(struct dpu_hw_intf *intf, u32 vtotal);
++
+ 	void (*setup_prg_fetch)(struct dpu_hw_intf *intf,
+ 			const struct dpu_hw_intf_prog_fetch *fetch);
+ 
+diff --git a/drivers/gpu/drm/msm/dsi/dsi.c b/drivers/gpu/drm/msm/dsi/dsi.c
+index 3c9f01ed6..05e1cbde6 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi.c
++++ b/drivers/gpu/drm/msm/dsi/dsi.c
+@@ -17,6 +17,13 @@ struct drm_dsc_config *msm_dsi_get_dsc_config(struct msm_dsi *msm_dsi)
+ 	return msm_dsi_host_get_dsc_config(msm_dsi->host);
+ }
+ 
++void msm_dsi_update_vtotal(struct msm_dsi *msm_dsi,
++			   const struct drm_display_mode *mode)
++{
++	if (msm_dsi && msm_dsi->host)
++		msm_dsi_host_update_vtotal(msm_dsi->host, mode);
++}
++
+ bool msm_dsi_wide_bus_enabled(struct msm_dsi *msm_dsi)
+ {
+ 	return msm_dsi_host_is_wide_bus_enabled(msm_dsi->host);
+diff --git a/drivers/gpu/drm/msm/dsi/dsi.h b/drivers/gpu/drm/msm/dsi/dsi.h
+index 93c028a12..322439982 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi.h
++++ b/drivers/gpu/drm/msm/dsi/dsi.h
+@@ -76,6 +76,8 @@ int msm_dsi_host_power_on(struct mipi_dsi_host *host,
+ 			struct msm_dsi_phy_shared_timings *phy_shared_timings,
+ 			bool is_bonded_dsi, struct msm_dsi_phy *phy);
+ int msm_dsi_host_power_off(struct mipi_dsi_host *host);
++void msm_dsi_host_update_vtotal(struct mipi_dsi_host *host,
++				const struct drm_display_mode *mode);
+ int msm_dsi_host_set_display_mode(struct mipi_dsi_host *host,
+ 				  const struct drm_display_mode *mode);
+ enum drm_mode_status msm_dsi_host_check_dsc(struct mipi_dsi_host *host,
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index 44f717281..e6e05afc3 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -2630,6 +2630,36 @@ int msm_dsi_host_power_off(struct mipi_dsi_host *host)
+ 	return 0;
+ }
+ 
++/**
++ * msm_dsi_host_update_vtotal() - change only the vertical front porch of the
++ * running video-mode timing
++ * @host: DSI host
++ * @mode: the new mode; same as the current one except for vtotal and the
++ *        vsync position (see dpu_crtc_vfp_only())
++ *
++ * Rewrites V_TOTAL in DSI_TOTAL; ACTIVE_V and the vsync position are counted
++ * from the end of the frame (va_start = vtotal - vsync_start) and do not
++ * change. The stored mode is updated too, so the next power-on programs it.
++ */
++void msm_dsi_host_update_vtotal(struct mipi_dsi_host *host,
++				const struct drm_display_mode *mode)
++{
++	struct msm_dsi_host *msm_host = to_msm_dsi_host(host);
++	u32 total;
++
++	if (msm_host->mode) {
++		msm_host->mode->vsync_start = mode->vsync_start;
++		msm_host->mode->vsync_end = mode->vsync_end;
++		msm_host->mode->vtotal = mode->vtotal;
++		msm_host->mode->clock = mode->clock;
++	}
++	if (!msm_host->power_on)
++		return;
++	total = dsi_read(msm_host, REG_DSI_TOTAL);
++	total &= ~DSI_TOTAL_V_TOTAL__MASK;
++	dsi_write(msm_host, REG_DSI_TOTAL, total | DSI_TOTAL_V_TOTAL(mode->vtotal - 1));
++}
++
+ int msm_dsi_host_set_display_mode(struct mipi_dsi_host *host,
+ 				  const struct drm_display_mode *mode)
+ {
+diff --git a/drivers/gpu/drm/msm/msm_drv.h b/drivers/gpu/drm/msm/msm_drv.h
+index eb4bbae85..fe233e20b 100644
+--- a/drivers/gpu/drm/msm/msm_drv.h
++++ b/drivers/gpu/drm/msm/msm_drv.h
+@@ -301,6 +301,8 @@ bool msm_dsi_is_cmd_mode(struct msm_dsi *msm_dsi);
+ bool msm_dsi_is_bonded_dsi(struct msm_dsi *msm_dsi);
+ bool msm_dsi_is_master_dsi(struct msm_dsi *msm_dsi);
+ bool msm_dsi_wide_bus_enabled(struct msm_dsi *msm_dsi);
++void msm_dsi_update_vtotal(struct msm_dsi *msm_dsi,
++			   const struct drm_display_mode *mode);
+ struct drm_dsc_config *msm_dsi_get_dsc_config(struct msm_dsi *msm_dsi);
+ const char *msm_dsi_get_te_source(struct msm_dsi *msm_dsi);
+ #else
+@@ -331,6 +333,11 @@ static inline bool msm_dsi_is_master_dsi(struct msm_dsi *msm_dsi)
+ {
+ 	return false;
+ }
++static inline void msm_dsi_update_vtotal(struct msm_dsi *msm_dsi,
++					 const struct drm_display_mode *mode)
++{
++}
++
+ static inline bool msm_dsi_wide_bus_enabled(struct msm_dsi *msm_dsi)
+ {
+ 	return false;
+-- 
+2.43.0
+

@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * TB323FU ("baldur"): panel backlight (y705-mainline-plan.md 9-25).
+ *
+ * The CSOT panel's backlight is an external boost/LED driver on QUP I2C12
+ * at 0x76 (vendor "i2c-bl", bl_ctrl_external); the vendor display driver
+ * matches it as an Awinic AW99706A (register 0x11 == 0x07). HWEN is
+ * pmh0110 F gpio9 (vendor bl_active: output high).
+ *
+ * The vendor driver's init table leaves CFG0-2 (dimming mode, boost
+ * frequency and current limit, LED current) to the chip, and the mainline
+ * driver rewrites them from DT or its defaults -- 20 mA where this panel
+ * runs 28. So the values below are the ones read back from the chip as the
+ * bootloader left it, before any driver touched it (9-25):
+ *   CFG0 0x65 -> dim-mode 1 (DC)      CFG1 0x39 -> 750 kHz, 3 A limit
+ *   CFG2 0x2e -> 28 mA, UVLO 2.2 V    CFG6 0x99 -> ramp 2
+ *   CFG4/5 0x07ff -> brightness 2047 of 4095
+ * The bias chip beside it (0x3e, OCP2140/AW3750) is left alone.
+ */
+
+&i2c12 {
+	status = "okay";
+
+	panel_backlight: backlight@76 {
+		compatible = "awinic,aw99706";
+		reg = <0x76>;
+		enable-gpios = <&pmh0110_f_e0_gpios 9 GPIO_ACTIVE_HIGH>;
+		default-brightness = <2047>;
+		max-brightness = <4095>;
+		awinic,dim-mode = <1>;
+		awinic,sw-freq-hz = <750000>;
+		awinic,sw-ilmt-microamp = <3000000>;
+		awinic,iled-max-microamp = <28000>;
+		awinic,uvlo-thres-microvolt = <2200000>;
+		awinic,ramp-ctl = <2>;
+
+		/*
+		 * This tree's aw99706.c reads the names without the unit suffix
+		 * the binding gives them; without these it would program 20 mA.
+		 */
+		awinic,sw-freq = <750000>;
+		awinic,sw-ilmt = <3000000>;
+		awinic,iled-max = <28000>;
+		awinic,uvlo-thres = <2200000>;
+
+		/*
+		 * The driver resets the chip (HWEN low) when it probes, which
+		 * throws away what the bootloader set up beyond CFG0-2: the
+		 * backlight went dark with every register reading "on" (9-27).
+		 * These are the bootloader's values, in the vendor driver's
+		 * order (off, 0x0c/0x06/0x07, on). 0009-backlight-aw99706-init-regs.
+		 */
+		awinic,init-regs = /bits/ 8 <0x0d 0x00  0x0c 0x48  0x06 0x99
+					    0x07 0x05  0x0d 0xf8>;
+	};
+};

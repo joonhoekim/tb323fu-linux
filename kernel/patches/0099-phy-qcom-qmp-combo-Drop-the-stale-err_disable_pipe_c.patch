@@ -1,0 +1,40 @@
+From 6e14599ccb2280e33472b39a8d2babbbcf3b7ac2 Mon Sep 17 00:00:00 2001
+From: Victor Fuentes <victor@vlinkz.dev>
+Date: Wed, 29 Jul 2026 00:00:27 -0700
+Subject: [PATCH 099/102] phy: qcom: qmp-combo: Drop the stale
+ err_disable_pipe_clk teardown
+
+pipe_clk is no longer enabled in qmp_combo_usb_power_on(), so its error
+path underflowed the refcount.
+
+Fixes: f546912bcac6 ("phy: qcom: qmp-combo: Move pipe_clk on/off to common")
+
+Signed-off-by: Victor Fuentes <victor@vlinkz.dev>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index 8f00af9ac..30da0ee55 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -4305,15 +4305,10 @@ static int qmp_combo_usb_power_on(struct phy *phy)
+ 			PHY_INIT_COMPLETE_TIMEOUT);
+ 	if (ret) {
+ 		dev_err(qmp->dev, "phy initialization timed-out\n");
+-		goto err_disable_pipe_clk;
++		return ret;
+ 	}
+ 
+ 	return 0;
+-
+-err_disable_pipe_clk:
+-	clk_disable_unprepare(qmp->pipe_clk);
+-
+-	return ret;
+ }
+ 
+ static int qmp_combo_usb_power_off(struct phy *phy)
+-- 
+2.43.0
+

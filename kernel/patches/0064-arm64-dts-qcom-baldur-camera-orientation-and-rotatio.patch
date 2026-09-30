@@ -1,0 +1,41 @@
+From c734accdb932613a323f7ebe93da538dab35bd55 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 17:51:51 +0000
+Subject: [PATCH 64/64] arm64: dts: qcom: baldur: camera orientation and
+ rotation
+
+From the vendor sensor-position: rear back / 270, front front / 90 (the vendor
+roll is clockwise, V4L2 rotation counter-clockwise). (y705 0050, plan 9-99)
+---
+ arch/arm64/boot/dts/qcom/baldur-camera.dtsi | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/baldur-camera.dtsi b/arch/arm64/boot/dts/qcom/baldur-camera.dtsi
+index b75b67587..71aa8e55a 100644
+--- a/arch/arm64/boot/dts/qcom/baldur-camera.dtsi
++++ b/arch/arm64/boot/dts/qcom/baldur-camera.dtsi
+@@ -186,6 +186,10 @@ camera@56 {
+ 		compatible = "samsung,s5kjns";
+ 		reg = <0x56>;
+ 
++		/* vendor sensor-position-yaw 180 (back), -roll 90 -- the vendor roll is clockwise, V4L2 rotation counter-clockwise (portrait was upside down with 90) */
++		orientation = <1>;
++		rotation = <270>;
++
+ 		reset-gpios = <&pmh0110_i_e0_gpios 11 GPIO_ACTIVE_LOW>;
+ 
+ 		pinctrl-0 = <&cam_rear_mclk_default>;
+@@ -234,6 +238,10 @@ camera@31 {
+ 		compatible = "galaxycore,gc08a8";
+ 		reg = <0x31>;
+ 
++		/* vendor sensor-position-yaw 0 (front), -roll 270 -- same sign flip as the rear camera */
++		orientation = <0>;
++		rotation = <90>;
++
+ 		reset-gpios = <&pmh0110_i_e0_gpios 12 GPIO_ACTIVE_LOW>;
+ 
+ 		pinctrl-0 = <&cam_front_mclk_default>;
+-- 
+2.43.0
+

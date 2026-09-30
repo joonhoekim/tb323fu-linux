@@ -1,0 +1,95 @@
+From a6ae8ea25601a8e2a6df23a9e245cdf4caad0950 Mon Sep 17 00:00:00 2001
+From: Yongxing Mou <yongxing.mou@oss.qualcomm.com>
+Date: Tue, 15 Sep 2026 17:27:48 +0800
+Subject: [PATCH 81/83] dt-bindings: display: msm: Add INT2 GDSC to Kaanapali
+ DPU
+
+Kaanapali (SM8850) has an additional INT2 GDSC that powers a subset
+of the DPU source pipes (VIG2/VIG3/DMA5), on top of the CORE_GDSC
+that powers the rest of the MDSS hardware.
+
+Describe INT2 GDSC as an additional power domain of the DPU device
+rather than of the whole MDSS, since it only supplies DPU-local
+source pipes. Restrict the schema change to the Kaanapali DPU
+compatible via an if/then, so other platforms sharing
+qcom,sm8650-dpu.yaml (which don't have an INT2 GDSC) keep the
+existing single power-domain constraint.
+
+Signed-off-by: Yongxing Mou <yongxing.mou@oss.qualcomm.com>
+---
+ .../bindings/display/msm/dpu-common.yaml      | 19 +++++++++++++--
+ .../bindings/display/msm/qcom,sm8650-dpu.yaml | 23 +++++++++++++++++++
+ 2 files changed, 40 insertions(+), 2 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/display/msm/dpu-common.yaml b/Documentation/devicetree/bindings/display/msm/dpu-common.yaml
+index 3f953aa5e..19b791a85 100644
+--- a/Documentation/devicetree/bindings/display/msm/dpu-common.yaml
++++ b/Documentation/devicetree/bindings/display/msm/dpu-common.yaml
+@@ -25,8 +25,7 @@ properties:
+   interrupts:
+     maxItems: 1
+ 
+-  power-domains:
+-    maxItems: 1
++  power-domains: true
+ 
+   operating-points-v2: true
+   opp-table:
+@@ -53,4 +52,20 @@ required:
+   - operating-points-v2
+   - ports
+ 
++allOf:
++  - if:
++      properties:
++        compatible:
++          contains:
++            const: qcom,kaanapali-dpu
++    then:
++      properties:
++        power-domains:
++          minItems: 2
++          maxItems: 2
++    else:
++      properties:
++        power-domains:
++          maxItems: 1
++
+ additionalProperties: true
+diff --git a/Documentation/devicetree/bindings/display/msm/qcom,sm8650-dpu.yaml b/Documentation/devicetree/bindings/display/msm/qcom,sm8650-dpu.yaml
+index aa0cf0ec5..88aa71d2b 100644
+--- a/Documentation/devicetree/bindings/display/msm/qcom,sm8650-dpu.yaml
++++ b/Documentation/devicetree/bindings/display/msm/qcom,sm8650-dpu.yaml
+@@ -61,6 +61,29 @@ required:
+   - clocks
+   - clock-names
+ 
++allOf:
++  - if:
++      properties:
++        compatible:
++          contains:
++            const: qcom,kaanapali-dpu
++    then:
++      properties:
++        power-domains:
++          items:
++            - description: MMCX power domain
++            - description: INT2 GDSC power domain
++
++        power-domain-names:
++          minItems: 2
++          maxItems: 2
++          items:
++            - const: mmcx
++            - const: int2
++
++      required:
++        - power-domain-names
++
+ unevaluatedProperties: false
+ 
+ examples:
+-- 
+2.43.0
+

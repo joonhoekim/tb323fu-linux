@@ -1,0 +1,109 @@
+From 9375c96e54989512cb02d9b6b3b67d6f23b9383c Mon Sep 17 00:00:00 2001
+From: Qiang Yu <qiang.yu@oss.qualcomm.com>
+Date: Tue, 14 Jul 2026 23:23:13 -0700
+Subject: [PATCH 72/79] clk: qcom: gcc: Set
+ FORCE_MEM_CORE_ON/FORCE_PERIPH_CORE_ON for PCIe pipe clocks
+
+Setting FORCE_MEM_CORE_ON and FORCE_PERIPH_CORE_ON for the PCIe PIPE
+clocks so that the inbound data path works correctly.
+
+Without this, the PCIe link can come up but the endpoint can not access
+host memory, with the host sometimes seeing a completion timeout
+reported by the EP, even though the host can still read the EP's config
+space.
+
+This issue is seen on QDU1000, Kaanapali, Glymur and Nord. Hence, apply
+FORCE_MEM_CORE_ON/FORCE_PERIPH_CORE_ON to all PCIe pipe clocks on these
+platforms.
+
+Signed-off-by: Qiang Yu <qiang.yu@oss.qualcomm.com>
+Link: https://lore.kernel.org/r/20260714-mem_on-v1-1-f5bfb6def0a1@oss.qualcomm.com
+---
+ drivers/clk/qcom/gcc-glymur.c    | 11 +++++++++++
+ drivers/clk/qcom/gcc-kaanapali.c |  3 +++
+ drivers/clk/qcom/gcc-nord.c      | 13 +++++++++++++
+ drivers/clk/qcom/gcc-qdu1000.c   |  3 +++
+ 4 files changed, 30 insertions(+)
+
+diff --git a/drivers/clk/qcom/gcc-glymur.c b/drivers/clk/qcom/gcc-glymur.c
+index 2ee4820b6..66ba6b811 100644
+--- a/drivers/clk/qcom/gcc-glymur.c
++++ b/drivers/clk/qcom/gcc-glymur.c
+@@ -8530,6 +8530,17 @@ static void clk_glymur_regs_configure(struct device *dev, struct regmap *regmap)
+ {
+ 	/* FORCE_MEM_CORE_ON for ufs phy ice core clocks */
+ 	qcom_branch_set_force_mem_core(regmap, gcc_ufs_phy_ice_core_clk, true);
++
++	qcom_branch_set_force_mem_core(regmap, gcc_pcie_3a_pipe_clk, true);
++	qcom_branch_set_force_periph_on(regmap, gcc_pcie_3a_pipe_clk, true);
++	qcom_branch_set_force_mem_core(regmap, gcc_pcie_3b_pipe_clk, true);
++	qcom_branch_set_force_periph_on(regmap, gcc_pcie_3b_pipe_clk, true);
++	qcom_branch_set_force_mem_core(regmap, gcc_pcie_4_pipe_clk, true);
++	qcom_branch_set_force_periph_on(regmap, gcc_pcie_4_pipe_clk, true);
++	qcom_branch_set_force_mem_core(regmap, gcc_pcie_5_pipe_clk, true);
++	qcom_branch_set_force_periph_on(regmap, gcc_pcie_5_pipe_clk, true);
++	qcom_branch_set_force_mem_core(regmap, gcc_pcie_6_pipe_clk, true);
++	qcom_branch_set_force_periph_on(regmap, gcc_pcie_6_pipe_clk, true);
+ }
+ 
+ static const struct qcom_cc_driver_data gcc_glymur_driver_data = {
+diff --git a/drivers/clk/qcom/gcc-kaanapali.c b/drivers/clk/qcom/gcc-kaanapali.c
+index ad55a4a4e..21335cd56 100644
+--- a/drivers/clk/qcom/gcc-kaanapali.c
++++ b/drivers/clk/qcom/gcc-kaanapali.c
+@@ -3484,6 +3484,9 @@ static void clk_kaanapali_regs_configure(struct device *dev, struct regmap *regm
+ 
+ 	/* FORCE_MEM_CORE_ON for ufs phy ice core clocks */
+ 	qcom_branch_set_force_mem_core(regmap, gcc_ufs_phy_ice_core_clk, true);
++
++	qcom_branch_set_force_mem_core(regmap, gcc_pcie_0_pipe_clk, true);
++	qcom_branch_set_force_periph_on(regmap, gcc_pcie_0_pipe_clk, true);
+ }
+ 
+ static const struct qcom_cc_driver_data gcc_kaanapali_driver_data = {
+diff --git a/drivers/clk/qcom/gcc-nord.c b/drivers/clk/qcom/gcc-nord.c
+index 5c9d25f53..0066f9b15 100644
+--- a/drivers/clk/qcom/gcc-nord.c
++++ b/drivers/clk/qcom/gcc-nord.c
+@@ -1824,11 +1824,24 @@ static const u32 gcc_nord_critical_cbcrs[] = {
+ 	0x52468, /* GCC_PCIE_LINK_XO_CLK */
+ };
+ 
++static void clk_nord_regs_configure(struct device *dev, struct regmap *regmap)
++{
++	qcom_branch_set_force_mem_core(regmap, gcc_pcie_a_pipe_clk, true);
++	qcom_branch_set_force_periph_on(regmap, gcc_pcie_a_pipe_clk, true);
++	qcom_branch_set_force_mem_core(regmap, gcc_pcie_b_pipe_clk, true);
++	qcom_branch_set_force_periph_on(regmap, gcc_pcie_b_pipe_clk, true);
++	qcom_branch_set_force_mem_core(regmap, gcc_pcie_c_pipe_clk, true);
++	qcom_branch_set_force_periph_on(regmap, gcc_pcie_c_pipe_clk, true);
++	qcom_branch_set_force_mem_core(regmap, gcc_pcie_d_pipe_clk, true);
++	qcom_branch_set_force_periph_on(regmap, gcc_pcie_d_pipe_clk, true);
++}
++
+ static const struct qcom_cc_driver_data gcc_nord_driver_data = {
+ 	.dfs_rcgs = gcc_nord_dfs_clocks,
+ 	.num_dfs_rcgs = ARRAY_SIZE(gcc_nord_dfs_clocks),
+ 	.clk_cbcrs = gcc_nord_critical_cbcrs,
+ 	.num_clk_cbcrs = ARRAY_SIZE(gcc_nord_critical_cbcrs),
++	.clk_regs_configure = clk_nord_regs_configure,
+ };
+ 
+ static const struct qcom_cc_desc gcc_nord_desc = {
+diff --git a/drivers/clk/qcom/gcc-qdu1000.c b/drivers/clk/qcom/gcc-qdu1000.c
+index 915bb9b4f..18ed351f2 100644
+--- a/drivers/clk/qcom/gcc-qdu1000.c
++++ b/drivers/clk/qcom/gcc-qdu1000.c
+@@ -2669,6 +2669,9 @@ static int gcc_qdu1000_probe(struct platform_device *pdev)
+ 	/* Update FORCE_MEM_CORE_ON for gcc_pcie_0_mstr_axi_clk */
+ 	regmap_update_bits(regmap, 0x9d024, BIT(14), BIT(14));
+ 
++	qcom_branch_set_force_mem_core(regmap, gcc_pcie_0_pipe_clk, true);
++	qcom_branch_set_force_periph_on(regmap, gcc_pcie_0_pipe_clk, true);
++
+ 	ret = qcom_cc_register_rcg_dfs(regmap, gcc_dfs_clocks,
+ 				       ARRAY_SIZE(gcc_dfs_clocks));
+ 	if (ret)
+-- 
+2.43.0
+

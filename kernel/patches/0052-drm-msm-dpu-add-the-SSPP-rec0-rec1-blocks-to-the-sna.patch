@@ -1,0 +1,42 @@
+From e583f61105708493dea269643e0a8dd78c9b2990 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:32:55 +0000
+Subject: [PATCH 52/56] drm/msm/dpu: add the SSPP rec0/rec1 blocks to the
+ snapshot
+
+On DPU 13 (kaanapali) the SSPP catalog block is only 0x84 long; the fetch
+registers (source address, size, format, multirect) sit in the rec0/rec1
+sub-blocks at +0x1000/+0x3000, which the devcoredump snapshot
+(/sys/kernel/debug/dri/N/kms) did not include. Reading them through
+/dev/mem instead is caught by TZ and kills the system on this board
+(y705-mainline-plan.md 9-65).
+
+y705-source: 0039-drm-msm-dpu-snapshot-sspp-rec.patch
+---
+ drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
+index a9f350378..d5e7c9d62 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
+@@ -1006,6 +1006,16 @@ static void dpu_kms_mdp_snapshot(struct msm_disp_state *disp_state, struct msm_k
+ 						    base + cat->sspp[i].sblk->csc_blk.base,
+ 						    "%s_%s", cat->sspp[i].name,
+ 						    cat->sspp[i].sblk->csc_blk.name);
++
++		/* the fetch registers (address, size, format) live in rec0/rec1 */
++		if (cat->sspp[i].sblk && cat->sspp[i].sblk->sspp_rec0_blk.len > 0)
++			msm_disp_snapshot_add_block(disp_state, cat->sspp[i].sblk->sspp_rec0_blk.len,
++						    base + cat->sspp[i].sblk->sspp_rec0_blk.base,
++						    "%s_rec0", cat->sspp[i].name);
++		if (cat->sspp[i].sblk && cat->sspp[i].sblk->sspp_rec1_blk.len > 0)
++			msm_disp_snapshot_add_block(disp_state, cat->sspp[i].sblk->sspp_rec1_blk.len,
++						    base + cat->sspp[i].sblk->sspp_rec1_blk.base,
++						    "%s_rec1", cat->sspp[i].name);
+ 	}
+ 
+ 	/* dump LM sub-blocks HW regs info */
+-- 
+2.43.0
+

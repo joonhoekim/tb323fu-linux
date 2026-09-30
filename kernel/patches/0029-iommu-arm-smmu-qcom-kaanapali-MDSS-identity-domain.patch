@@ -1,0 +1,27 @@
+From af585b066d33bd52c7de4e2dd7b45653d96b361c Mon Sep 17 00:00:00 2001
+From: EYC <e@eyc.one>
+Date: Fri, 24 Jul 2026 19:04:29 -0700
+Subject: [PATCH 29/56] iommu: arm-smmu-qcom: kaanapali MDSS identity domain
+
+Match the kaanapali MDSS so the display SMMU keeps the bootloader's
+identity mapping during takeover.
+y705-source: 0011-iommu-arm-smmu-qcom-kaanapali-mdss-identity.patch
+---
+ drivers/iommu/arm/arm-smmu/arm-smmu-qcom.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/iommu/arm/arm-smmu/arm-smmu-qcom.c b/drivers/iommu/arm/arm-smmu/arm-smmu-qcom.c
+index 795e8ec7e..0ee9a9cfd 100644
+--- a/drivers/iommu/arm/arm-smmu/arm-smmu-qcom.c
++++ b/drivers/iommu/arm/arm-smmu/arm-smmu-qcom.c
+@@ -407,6 +407,7 @@ static const struct of_device_id qcom_smmu_client_of_match[] __maybe_unused = {
+ 	{ .compatible = "qcom,adreno" },
+ 	{ .compatible = "qcom,adreno-gmu" },
+ 	{ .compatible = "qcom,glymur-mdss" },
++	{ .compatible = "qcom,kaanapali-mdss" },
+ 	{ .compatible = "qcom,mdp4" },
+ 	{ .compatible = "qcom,mdss" },
+ 	{ .compatible = "qcom,qcm2290-mdss" },
+-- 
+2.43.0
+

@@ -1,0 +1,83 @@
+From 8bf7d9240bb97353f4c6dca53e4a65c18ade7bcf Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:27:46 +0000
+Subject: [PATCH 33/56] power: supply: qcom_battmgr: let the host set the USB
+ input current limit
+
+For y705-mainline-plan.md 9-46. The sm8350-style USB supply reports
+input_current_limit but cannot set it. On a PC port (SDP) this device's
+charger firmware starts at USB 2.0's 500 mA; the vendor kernel raises it
+to 900 mA on the same port, and mainline could not, so with the screen
+on the tablet drained while "Charging". The USB supply now takes writes
+of input_current_limit (BATTMGR_USB_PROPERTY_SET, USB_INPUT_CURR_LIMIT,
+in uA), acked like the other set requests. On TB323FU: input 494 -> 891
+mA, the battery charging at about 740 mA with the screen off.
+
+y705-source: 0018-power-qcom-battmgr-usb-input-current-limit.patch
+---
+ drivers/power/supply/qcom_battmgr.c | 35 +++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
+
+diff --git a/drivers/power/supply/qcom_battmgr.c b/drivers/power/supply/qcom_battmgr.c
+index 7716eb9e1..c5a64309a 100644
+--- a/drivers/power/supply/qcom_battmgr.c
++++ b/drivers/power/supply/qcom_battmgr.c
+@@ -1065,6 +1065,38 @@ static const struct power_supply_desc sc8280xp_usb_psy_desc = {
+ 		     BIT(POWER_SUPPLY_USB_TYPE_APPLE_BRICK_ID),
+ };
+ 
++/*
++ * y705 (plan 9-46): the input current limit is set by the host. On a
++ * standard downstream port the firmware starts at USB 2.0's 500 mA, and
++ * the vendor kernel raises it (900 mA on the same PC port).
++ */
++static int qcom_battmgr_usb_set_property(struct power_supply *psy,
++					 enum power_supply_property psp,
++					 const union power_supply_propval *pval)
++{
++	struct qcom_battmgr *battmgr = power_supply_get_drvdata(psy);
++	int ret;
++
++	if (!battmgr->service_up)
++		return -EAGAIN;
++
++	if (psp != POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT || pval->intval < 0)
++		return -EINVAL;
++
++	mutex_lock(&battmgr->lock);
++	ret = qcom_battmgr_request_property(battmgr, BATTMGR_USB_PROPERTY_SET,
++					    USB_INPUT_CURR_LIMIT, pval->intval);
++	mutex_unlock(&battmgr->lock);
++
++	return ret;
++}
++
++static int qcom_battmgr_usb_is_writeable(struct power_supply *psy,
++					 enum power_supply_property psp)
++{
++	return psp == POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT;
++}
++
+ static const enum power_supply_property sm8350_usb_props[] = {
+ 	POWER_SUPPLY_PROP_ONLINE,
+ 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+@@ -1081,6 +1113,8 @@ static const struct power_supply_desc sm8350_usb_psy_desc = {
+ 	.properties = sm8350_usb_props,
+ 	.num_properties = ARRAY_SIZE(sm8350_usb_props),
+ 	.get_property = qcom_battmgr_usb_get_property,
++	.set_property = qcom_battmgr_usb_set_property,
++	.property_is_writeable = qcom_battmgr_usb_is_writeable,
+ 	.usb_types = BIT(POWER_SUPPLY_USB_TYPE_UNKNOWN) |
+ 		     BIT(POWER_SUPPLY_USB_TYPE_SDP)     |
+ 		     BIT(POWER_SUPPLY_USB_TYPE_DCP)     |
+@@ -1558,6 +1592,7 @@ static void qcom_battmgr_sm8350_callback(struct qcom_battmgr *battmgr,
+ 		break;
+ 	case BATTMGR_REQUEST_NOTIFICATION:
+ 	case BATTMGR_CHG_CTRL_LIMIT_EN:
++	case BATTMGR_USB_PROPERTY_SET:
+ 		battmgr->error = 0;
+ 		break;
+ 	default:
+-- 
+2.43.0
+

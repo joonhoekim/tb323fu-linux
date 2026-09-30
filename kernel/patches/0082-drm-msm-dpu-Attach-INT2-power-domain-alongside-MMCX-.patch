@@ -1,0 +1,85 @@
+From a6a81d4198a3a60e51d39b52cbbb60300ace13b3 Mon Sep 17 00:00:00 2001
+From: Yongxing Mou <yongxing.mou@oss.qualcomm.com>
+Date: Tue, 15 Sep 2026 17:27:49 +0800
+Subject: [PATCH 82/83] drm/msm/dpu: Attach INT2 power domain alongside MMCX on
+ Kaanapali
+
+Kaanapali's DPU node lists two power domains when its DT provides
+both MMCX and INT2 GDSC. The power-domain core only auto-attaches a
+single power domain; with two phandles it leaves the device
+unattached to either, so attach both explicitly.
+
+MMCX keeps PD_FLAG_REQUIRED_OPP, preserving its existing OPP-based
+performance-state voting. INT2 has no OPP of its own and is attached
+as a plain runtime-PM supplier, via the device link the attach API
+creates automatically, so it needs no manual pm_runtime get/put in
+the enable/disable paths.
+
+Platforms with a single power domain are unaffected and continue to
+rely on the core's existing single-domain auto-attach.
+
+Signed-off-by: Yongxing Mou <yongxing.mou@oss.qualcomm.com>
+---
+ drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c | 32 +++++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
+index d5e7c9d62..058aa40fc 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c
+@@ -12,6 +12,7 @@
+ #include <linux/debugfs.h>
+ #include <linux/dma-buf.h>
+ #include <linux/of_irq.h>
++#include <linux/pm_domain.h>
+ #include <linux/pm_opp.h>
+ 
+ #include <drm/drm_crtc.h>
+@@ -1386,6 +1387,33 @@ static int dpu_kms_mmap_dpu(struct dpu_kms *dpu_kms)
+ 	return 0;
+ }
+ 
++static int dpu_kms_attach_power_domains(struct device *dev)
++{
++	static const char * const mmcx_names[] = { "mmcx" };
++	static const char * const int2_names[] = { "int2" };
++	const struct dev_pm_domain_attach_data mmcx_pd = {
++		.pd_names = mmcx_names,
++		.num_pd_names = ARRAY_SIZE(mmcx_names),
++		.pd_flags = PD_FLAG_REQUIRED_OPP,
++	};
++	const struct dev_pm_domain_attach_data int2_pd = {
++		.pd_names = int2_names,
++		.num_pd_names = ARRAY_SIZE(int2_names),
++	};
++	struct dev_pm_domain_list *mmcx_list, *int2_list;
++	int ret;
++
++	if (of_count_phandle_with_args(dev->of_node, "power-domains",
++				       "#power-domain-cells") <= 1)
++		return 0;
++
++	ret = devm_pm_domain_attach_list(dev, &mmcx_pd, &mmcx_list);
++	if (ret < 0)
++		return ret;
++
++	return devm_pm_domain_attach_list(dev, &int2_pd, &int2_list);
++}
++
+ static int dpu_dev_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+@@ -1402,6 +1430,10 @@ static int dpu_dev_probe(struct platform_device *pdev)
+ 
+ 	dpu_kms->pdev = pdev;
+ 
++	ret = dpu_kms_attach_power_domains(dev);
++	if (ret < 0)
++		return dev_err_probe(dev, ret, "failed to attach power domains\n");
++
+ 	ret = devm_pm_opp_set_clkname(dev, "core");
+ 	if (ret)
+ 		return ret;
+-- 
+2.43.0
+

@@ -1,0 +1,82 @@
+From 0bd6fe1369bf0f742a8ebc4c91ed283aa6fdb6ae Mon Sep 17 00:00:00 2001
+From: Victor Fuentes <victor@vlinkz.dev>
+Date: Wed, 29 Jul 2026 00:24:50 -0700
+Subject: [PATCH] phy: qcom: qmp-combo: Add Kaanapali USB3+DP PHY
+
+Same as SM8750, except for the DP PLL which uses the 4 nm serdes table.
+
+Signed-off-by: Victor Fuentes <victor@vlinkz.dev>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 49 +++++++++++++++++++++++
+ 1 file changed, 49 insertions(+)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index c39ced168..8f00af9ac 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -3304,6 +3304,51 @@ static const struct qmp_phy_cfg sm8650_usb3dpphy_cfg = {
+ 	.num_vregs		= ARRAY_SIZE(qmp_phy_vreg_l),
+ };
+ 
++static const struct qmp_phy_cfg kaanapali_usb3dpphy_cfg = {
++	.offsets		= &qmp_combo_offsets_v8,
++
++	.serdes_tbl		= sm8750_usb3_serdes_tbl,
++	.serdes_tbl_num		= ARRAY_SIZE(sm8750_usb3_serdes_tbl),
++	.tx_tbl			= sm8750_usb3_tx_tbl,
++	.tx_tbl_num		= ARRAY_SIZE(sm8750_usb3_tx_tbl),
++	.rx_tbl			= sm8750_usb3_rx_tbl,
++	.rx_tbl_num		= ARRAY_SIZE(sm8750_usb3_rx_tbl),
++	.pcs_tbl		= sm8750_usb3_pcs_tbl,
++	.pcs_tbl_num		= ARRAY_SIZE(sm8750_usb3_pcs_tbl),
++	.pcs_usb_tbl		= sm8750_usb3_pcs_usb_tbl,
++	.pcs_usb_tbl_num	= ARRAY_SIZE(sm8750_usb3_pcs_usb_tbl),
++
++	.dp_serdes_tbl		= qmp_v6_n4_dp_serdes_tbl,
++	.dp_serdes_tbl_num	= ARRAY_SIZE(qmp_v6_n4_dp_serdes_tbl),
++	.dp_tx_tbl		= qmp_v6_dp_tx_tbl,
++	.dp_tx_tbl_num		= ARRAY_SIZE(qmp_v6_dp_tx_tbl),
++
++	.serdes_tbl_rbr		= qmp_v6_dp_serdes_tbl_rbr,
++	.serdes_tbl_rbr_num	= ARRAY_SIZE(qmp_v6_dp_serdes_tbl_rbr),
++	.serdes_tbl_hbr		= qmp_v6_dp_serdes_tbl_hbr,
++	.serdes_tbl_hbr_num	= ARRAY_SIZE(qmp_v6_dp_serdes_tbl_hbr),
++	.serdes_tbl_hbr2	= qmp_v6_dp_serdes_tbl_hbr2,
++	.serdes_tbl_hbr2_num	= ARRAY_SIZE(qmp_v6_dp_serdes_tbl_hbr2),
++	.serdes_tbl_hbr3	= qmp_v6_dp_serdes_tbl_hbr3,
++	.serdes_tbl_hbr3_num	= ARRAY_SIZE(qmp_v6_dp_serdes_tbl_hbr3),
++
++	.swing_hbr_rbr		= &qmp_dp_v6_voltage_swing_hbr_rbr,
++	.pre_emphasis_hbr_rbr	= &qmp_dp_v6_pre_emphasis_hbr_rbr,
++	.swing_hbr3_hbr2	= &qmp_dp_v5_voltage_swing_hbr3_hbr2,
++	.pre_emphasis_hbr3_hbr2 = &qmp_dp_v5_pre_emphasis_hbr3_hbr2,
++
++	.dp_aux_init		= qmp_v4_dp_aux_init,
++	.configure_dp_tx	= qmp_v4_configure_dp_tx,
++	.configure_dp_clocks	= qmp_v3_configure_dp_clocks,
++	.configure_dp_phy	= qmp_v4_configure_dp_phy,
++
++	.regs			= qmp_v8_usb3phy_regs_layout,
++	.reset_list		= msm8996_usb3phy_reset_l,
++	.num_resets		= ARRAY_SIZE(msm8996_usb3phy_reset_l),
++	.vreg_list		= qmp_phy_vreg_l,
++	.num_vregs		= ARRAY_SIZE(qmp_phy_vreg_l),
++};
++
+ static const struct qmp_phy_cfg sm8750_usb3dpphy_cfg = {
+ 	.offsets		= &qmp_combo_offsets_v8,
+ 
+@@ -5359,6 +5404,10 @@ static const struct of_device_id qmp_combo_of_match_table[] = {
+ 		.compatible = "qcom,hawi-qmp-usb3-dp-phy",
+ 		.data = &hawi_usb3dpphy_cfg,
+ 	},
++	{
++		.compatible = "qcom,kaanapali-qmp-usb3-dp-phy",
++		.data = &kaanapali_usb3dpphy_cfg,
++	},
+ 	{
+ 		.compatible = "qcom,sar2130p-qmp-usb3-dp-phy",
+ 		.data = &sar2130p_usb3dpphy_cfg,
+-- 
+2.43.0
+

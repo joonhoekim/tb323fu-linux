@@ -1,0 +1,274 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * TB323FU ("baldur") audio, step by step (y705-mainline-plan.md 9-47 to 9-50).
+ *
+ * From the vendor tree: two Awinic smart amplifiers, "awinic,aw882xx_smartpa"
+ * at 0x34 (sound-channel 0, reset TLMM 114) and 0x37 (channel 1, reset
+ * TLMM 71), on QUP1 SE4 (i2c@a90000, SDA/SCL TLMM 36/37). No WSA
+ * amplifiers. The microphones are two analog mics on a WCD9395 on SoundWire
+ * (9-50; 9-47 had them as DMICs, wrongly).
+ *
+ * The amplifiers answer only with L12B at 1.8 V (their digital supply;
+ * Android keeps it there, on with no listed consumer). Here L12B is also the
+ * panel's VDDIO, which asked for 1.2 V and dropped it with the screen off:
+ * pin it at 1.8 V and on. Chip ID 0x2308, Awinic's aw882xx driver
+ * (mainline/kernel/aw882xx, 9-47).
+ */
+
+&vreg_l12b_1p8 {
+	regulator-min-microvolt = <1800000>;
+	regulator-always-on;
+};
+
+&i2c4 {
+	clock-frequency = <400000>;
+
+	status = "okay";
+
+	/* as the vendor tree has them */
+	speaker_amp0: amplifier@34 {
+		compatible = "awinic,aw882xx_smartpa";
+		reg = <0x34>;
+		reset-gpio = <&tlmm 114 GPIO_ACTIVE_HIGH>;
+		sound-channel = <0>;
+		aw-cali-mode = "none";
+		aw-re-min = <4000>;
+		aw-re-max = <30000>;
+		rename-flag = <1>;
+		sync-load = <1>;
+		#sound-dai-cells = <0>;
+	};
+
+	speaker_amp1: amplifier@37 {
+		compatible = "awinic,aw882xx_smartpa";
+		reg = <0x37>;
+		reset-gpio = <&tlmm 71 GPIO_ACTIVE_HIGH>;
+		sound-channel = <1>;
+		aw-cali-mode = "none";
+		aw-re-min = <4000>;
+		aw-re-max = <30000>;
+		rename-flag = <1>;
+		sync-load = <1>;
+		#sound-dai-cells = <0>;
+	};
+};
+
+/*
+ * ADSP (9-49): Android's adsp.mdt / adsp_dtb.mdt from the modem partition's
+ * image/, squashed to .mbn (tools/pil-squash.py), in the rootfs under
+ * /lib/firmware/qcom/kaanapali/lenovo/baldur.
+ *
+ * The vendor adspslpi region is 0x4600000, and this bootloader hands memory
+ * from 0xa5a00000 on to the kernel as RAM; mainline's 0x4c00000 reaches into
+ * it and the PAS driver's request_mem_region then fails with -EBUSY.
+ */
+&adspslpi_mem {
+	reg = <0x0 0xa1400000 0x0 0x4600000>;
+};
+
+&remoteproc_adsp {
+	firmware-name = "qcom/kaanapali/lenovo/baldur/adsp.mbn",
+			"qcom/kaanapali/lenovo/baldur/adsp_dtb.mbn";
+
+	status = "okay";
+};
+
+/*
+ * Speakers (9-49): Android's PAL_DEVICE_OUT_SPEAKER backend is
+ * MI2S-LPAIF-RX-PRIMARY -- LPASS primary MI2S on TLMM 122 (SCK), 125 (WS),
+ * 123 (SD0), 124 (SD1), with the pin settings of the vendor's i2s0_*_active.
+ * The amplifiers' data line is SD1 (the topology says so; on SD0 they get
+ * nothing). The DSP drives the clocks (BP_FP, set by the sc8280xp machine driver); the
+ * amplifiers take BCLK and WS. Front ends come from the topology,
+ * qcom/kaanapali/LENOVO-TB323FU-tplg.bin (mainline/audio/).
+ */
+&tlmm {
+	pri_mi2s_active: pri-mi2s-active-state {
+		clk-pins {
+			pins = "gpio122";
+			function = "i2s0_sck";
+			drive-strength = <8>;
+			bias-disable;
+		};
+
+		ws-pins {
+			pins = "gpio125";
+			function = "i2s0_ws";
+			drive-strength = <8>;
+			bias-disable;
+		};
+
+		data0-pins {
+			pins = "gpio123";
+			function = "i2s0_data0";
+			drive-strength = <8>;
+			bias-disable;
+		};
+
+		data1-pins {
+			pins = "gpio124";
+			function = "i2s0_data1";
+			drive-strength = <8>;
+			bias-disable;
+		};
+	};
+};
+
+/ {
+	sound {
+		compatible = "qcom,kaanapali-sndcard", "qcom,sm8450-sndcard";
+		model = "LENOVO-TB323FU";
+		/* the amplifiers want 32-bit slots, as Android runs them (0019) */
+		qcom,mi2s-s32le;
+
+		pinctrl-0 = <&pri_mi2s_active>;
+		pinctrl-names = "default";
+
+		/*
+		 * The two microphones are analog, on the WCD9395's AMIC1 and
+		 * AMIC4 (Android: speaker-mic = amic1 + amic4, ADC1 and ADC3,
+		 * MIC BIAS1 and MIC BIAS4). The mainline WCD939x driver carries
+		 * ADC1-4 as channels 1-4 of its TX port 1, mapped below to master
+		 * port 3 = SWR_INPUT4-7: ADC1 is SWR_INPUT4 (Android's SWR_MIC4),
+		 * ADC3 SWR_INPUT6 (Android moves ADC3 to port 4, SWR_MIC8).
+		 */
+		audio-routing = "AMIC1", "MIC BIAS1",
+				"AMIC4", "MIC BIAS4",
+				"TX SWR_INPUT4", "ADC1_OUTPUT",
+				"TX SWR_INPUT6", "ADC3_OUTPUT";
+
+		wcd-capture-dai-link {
+			link-name = "WCD Capture";
+
+			codec {
+				sound-dai = <&wcd939x 1>, <&swr2 0>, <&lpass_txmacro 0>;
+			};
+
+			cpu {
+				sound-dai = <&q6apmbedai TX_CODEC_DMA_TX_3>;
+			};
+
+			platform {
+				sound-dai = <&q6apm>;
+			};
+		};
+
+		speaker-dai-link {
+			link-name = "Speaker Playback";
+
+			codec {
+				sound-dai = <&speaker_amp0>, <&speaker_amp1>;
+			};
+
+			cpu {
+				sound-dai = <&q6apmbedai PRIMARY_MI2S_RX>;
+			};
+
+			platform {
+				sound-dai = <&q6apm>;
+			};
+		};
+	};
+};
+
+/*
+ * Microphones (9-50): a WCD9395 on SoundWire, as on the MTP -- the vendor
+ * tree has it (wcd939x-codec, TX/RX slaves at unique id 3/4) with the same
+ * reset (TLMM 161) and supplies (pmh0101 l15 1.8 V, pmh0110 g l1 1.2 V,
+ * pmh0101 bob1 for mic bias). Android captures through
+ * CODEC_DMA-LPAIF_RXTX-TX-3. It also drives USB-C analog audio through an
+ * FSA4480 on Android; only capture is wired here for now.
+ */
+/ {
+	wcd939x: audio-codec {
+		compatible = "qcom,wcd9395-codec", "qcom,wcd9390-codec";
+
+		pinctrl-0 = <&wcd_default>;
+		pinctrl-names = "default";
+
+		qcom,micbias1-microvolt = <1800000>;
+		qcom,micbias2-microvolt = <1800000>;
+		qcom,micbias3-microvolt = <1800000>;
+		qcom,micbias4-microvolt = <1800000>;
+		qcom,mbhc-buttons-vthreshold-microvolt = <75000 150000 237000 500000
+							  500000 500000 500000 500000>;
+		qcom,mbhc-headset-vthreshold-microvolt = <1700000>;
+		qcom,mbhc-headphone-vthreshold-microvolt = <50000>;
+		qcom,rx-device = <&wcd_rx>;
+		qcom,tx-device = <&wcd_tx>;
+
+		reset-gpios = <&tlmm 161 GPIO_ACTIVE_LOW>;
+
+		vdd-buck-supply = <&vreg_l15b_1p8>;
+		vdd-rxtx-supply = <&vreg_l15b_1p8>;
+		vdd-io-supply = <&vreg_l15b_1p8>;
+		vdd-mic-bias-supply = <&vreg_bob1>;
+		vdd-px-supply = <&vreg_l1g_1p2>;
+
+		#sound-dai-cells = <1>;
+	};
+};
+
+&swr1 {
+	status = "okay";
+
+	/* WCD9395 RX, port mapping as on the MTP */
+	wcd_rx: codec@0,4 {
+		compatible = "sdw20217010e00";
+		reg = <0 4>;
+		qcom,rx-port-mapping = <1 2 3 4 5 9>;
+	};
+};
+
+&swr2 {
+	/*
+	 * Android runs master port 3 on data lane 1 and port 4 on lane 2
+	 * (SWRM_DPn +0x28 while recording); kaanapali.dtsi has lane 0 for
+	 * both. Taken over as Android has it; it did not change the flat
+	 * -47 dBFS noise under the microphones (9-50), so all three lanes
+	 * are wired. The slave ports follow the master port's lane
+	 * (qcom_swrm_compute_params).
+	 */
+	qcom,ports-lane-control = /bits/ 8 <0x01 0x02 0x01 0x02>;
+	/* Android has offset1 0 on ports 3/4 (kaanapali.dtsi: 1); no effect on the noise */
+	qcom,ports-offset1 = /bits/ 8 <0x00 0x00 0x00 0x00>;
+
+	status = "okay";
+
+	/*
+	 * WCD9395 TX. Not the MTP's <2 2 3 4>: that puts ADC1 and ADC3 on
+	 * master port 2, which kaanapali.dtsi runs on data lane 2, and here the
+	 * capture is flat noise. Android (SWRM_DPn registers while recording)
+	 * uses master port 3 for WCD TX port 1 (ADC1/2) and port 4 for TX
+	 * port 2 (ADC3/4), both on lane 0. Mainline has all four ADCs on TX
+	 * port 1, so here both microphones share master port 3.
+	 */
+	wcd_tx: codec@0,3 {
+		compatible = "sdw20217010e00";
+		reg = <0 3>;
+		qcom,tx-port-mapping = <3 4 3 4>;
+	};
+};
+
+&tlmm {
+	wcd_default: wcd-reset-n-active-state {
+		pins = "gpio161";
+		function = "gpio";
+		drive-strength = <16>;
+		bias-disable;
+	};
+};
+
+/*
+ * The flat -47 dBFS noise under the microphones (9-50) was the decimators'
+ * filter block at 0x800 + 0x80 * n, which the mainline driver never touches.
+ * Android, recording, has these in the decimators it uses (+0x10..+0x28 are
+ * its DT's adapt-tuning-reg-values; +0x00 bit 4 clear matters most, -15 dB).
+ * With them the floor is about -65 dBFS. Written on every decimator enable
+ * (0020).
+ */
+&lpass_txmacro {
+	qcom,dec-tuning-reg-values = <0x00 0x41  0x10 0x4c  0x14 0x1d  0x18 0x7c
+				      0x1c 0x3c  0x20 0x67  0x24 0x16  0x28 0x03
+				      0x34 0x59  0x38 0x06>;
+};

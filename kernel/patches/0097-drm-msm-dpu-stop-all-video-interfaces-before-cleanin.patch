@@ -1,0 +1,94 @@
+From 5ea4de8b88941f3b39a49969d5565867f108c7c0 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sun, 27 Sep 2026 11:39:14 +0000
+Subject: [PATCH] drm/msm/dpu: stop all video interfaces before cleaning up a
+ split encoder
+
+dpu_encoder_virt_atomic_disable() disables the physical encoders one by
+one. For a video-mode master, dpu_encoder_phys_vid_disable() stops its
+timing engine, waits for the frame to finish and then runs
+dpu_encoder_helper_phys_cleanup(), which resets the CTL. With a split
+display (two interfaces driven from one CTL, e.g. bonded DSI) that CTL
+is shared with the slave, whose timing engine is still running at that
+point: the source pipe starts fetching the slave's next frame and is
+left stalled half-way through it (on Kaanapali, SSPP_CMN_STATUS 0x10030
+with the fetch and unpack counters frozen, where an idle pipe shows
+0x10003).
+
+The stall is cleared by a power collapse of the MDSS core GDSC, which
+normally happens between a disable and the next enable, so it goes
+unnoticed. When something else keeps MDSS powered -- here the DP
+controller, which stays runtime-active once a DP sink has been seen --
+the next enable of the bonded DSI panel scans out nothing: the DPU keeps
+committing frames, the layer mixers produce no output (MISR/CRC 0), and
+the panel shows black with the backlight on. A CTL reset at enable does
+not clear it.
+
+Stop the timing engine of every video interface of the encoder before
+any of them is cleaned up. The master's existing wait for the frame to
+complete then covers both halves.
+
+Seen on the Lenovo Legion Tab Y700 gen 5 (TB323FU, SM8850, NT36523
+bonded DSI video mode): idle blank with a TV attached, then any wake
+short of a system resume left the internal panel black. DPMS off/on
+through mutter: 3/3 black before, 6/6 correct after, TV output
+unaffected (y705-mainline-plan.md 9-101).
+
+Assisted-by: LLM [Claude Code]
+---
+ drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c | 32 +++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
+index 06e37da67..73211060c 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
+@@ -1409,6 +1409,35 @@ static void dpu_encoder_virt_atomic_enable(struct drm_encoder *drm_enc,
+ 	mutex_unlock(&dpu_enc->enc_lock);
+ }
+ 
++/*
++ * Stop the timing engine of every video-mode interface of the encoder before
++ * any of them is cleaned up. With a split display (two interfaces on one CTL,
++ * e.g. bonded DSI) the master's cleanup resets the shared CTL while the
++ * slave's timing engine would still be running; the source pipes then start
++ * fetching the slave's next frame and stall half-way through it. The stall
++ * survives until the MDSS core GDSC is power-collapsed, so when something else
++ * keeps MDSS powered (an active DP controller) the next enable scans out
++ * nothing.
++ */
++static void dpu_encoder_stop_video_timing(struct dpu_encoder_virt *dpu_enc)
++{
++	unsigned long lock_flags;
++	int i;
++
++	for (i = 0; i < dpu_enc->num_phys_encs; i++) {
++		struct dpu_encoder_phys *phys = dpu_enc->phys_encs[i];
++
++		if (phys->intf_mode != INTF_MODE_VIDEO || !phys->hw_intf ||
++		    !phys->hw_intf->ops.enable_timing ||
++		    phys->enable_state == DPU_ENC_DISABLED)
++			continue;
++
++		spin_lock_irqsave(phys->enc_spinlock, lock_flags);
++		phys->hw_intf->ops.enable_timing(phys->hw_intf, 0);
++		spin_unlock_irqrestore(phys->enc_spinlock, lock_flags);
++	}
++}
++
+ static void dpu_encoder_virt_atomic_disable(struct drm_encoder *drm_enc,
+ 					struct drm_atomic_commit *state)
+ {
+@@ -1441,6 +1470,9 @@ static void dpu_encoder_virt_atomic_disable(struct drm_encoder *drm_enc,
+ 
+ 	dpu_encoder_resource_control(drm_enc, DPU_ENC_RC_EVENT_PRE_STOP);
+ 
++	if (dpu_enc->num_phys_encs > 1)
++		dpu_encoder_stop_video_timing(dpu_enc);
++
+ 	for (i = 0; i < dpu_enc->num_phys_encs; i++) {
+ 		struct dpu_encoder_phys *phys = dpu_enc->phys_encs[i];
+ 
+-- 
+2.43.0
+

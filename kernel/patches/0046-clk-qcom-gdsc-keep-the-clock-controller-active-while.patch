@@ -1,0 +1,130 @@
+From 35be5158951bb737c1b92d627ffa2a11c19fdcff Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:30:48 +0000
+Subject: [PATCH 46/56] clk: qcom: gdsc: keep the clock controller active while
+ a GDSC is on
+
+A GDSC whose parents are the controller's own power domains (pd_list,
+e.g. camcc: MMCX + MXC) needs those rails at the required-opps level to
+switch on, but the controller only holds that vote while it is runtime
+active. Powering the GDSC before any of its clocks is prepared left MXC
+at level 0 and the GDSC stuck off (camss: "cam_cc_titan_top_gdsc status
+stuck at off", y705-mainline-plan.md 9-60).
+
+y705-source: 0032-clk-qcom-gdsc-hold-cc-runtime-pm.patch
+---
+ drivers/clk/qcom/gdsc.c | 53 +++++++++++++++++++++++++++++++++++++----
+ drivers/clk/qcom/gdsc.h |  3 +++
+ 2 files changed, 52 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/clk/qcom/gdsc.c b/drivers/clk/qcom/gdsc.c
+index b99d70149..7639c30ce 100644
+--- a/drivers/clk/qcom/gdsc.c
++++ b/drivers/clk/qcom/gdsc.c
+@@ -12,6 +12,7 @@
+ #include <linux/kernel.h>
+ #include <linux/ktime.h>
+ #include <linux/pm_domain.h>
++#include <linux/pm_runtime.h>
+ #include <linux/regmap.h>
+ #include <linux/regulator/consumer.h>
+ #include <linux/reset-controller.h>
+@@ -282,9 +283,8 @@ static void gdsc_retain_ff_on(struct gdsc *sc)
+ 	regmap_update_bits(sc->regmap, sc->gdscr, mask, mask);
+ }
+ 
+-static int gdsc_enable(struct generic_pm_domain *domain)
++static int gdsc_enable_hw(struct gdsc *sc)
+ {
+-	struct gdsc *sc = domain_to_gdsc(domain);
+ 	int ret;
+ 
+ 	if (sc->pwrsts == PWRSTS_ON)
+@@ -340,9 +340,8 @@ static int gdsc_enable(struct generic_pm_domain *domain)
+ 	return 0;
+ }
+ 
+-static int gdsc_disable(struct generic_pm_domain *domain)
++static int gdsc_disable_hw(struct gdsc *sc, struct generic_pm_domain *domain)
+ {
+-	struct gdsc *sc = domain_to_gdsc(domain);
+ 	int ret;
+ 
+ 	if (sc->pwrsts == PWRSTS_ON)
+@@ -389,6 +388,45 @@ static int gdsc_disable(struct generic_pm_domain *domain)
+ 	return 0;
+ }
+ 
++/*
++ * A GDSC whose parents are the clock controller's own power domains (a
++ * pd_list: MMCX and MXC for camcc on kaanapali) needs those rails at the
++ * controller's required-opps level while it switches on. The controller only
++ * holds that vote while it is runtime active, which is not the case when a
++ * consumer powers the GDSC before it prepares any of the controller's clocks
++ * ("cam_cc_titan_top_gdsc status stuck at 'off'", y705 plan 9-60). Keep the
++ * controller active for as long as the GDSC is on.
++ */
++static int gdsc_enable(struct generic_pm_domain *domain)
++{
++	struct gdsc *sc = domain_to_gdsc(domain);
++	int ret;
++
++	if (sc->rpm_dev) {
++		ret = pm_runtime_resume_and_get(sc->rpm_dev);
++		if (ret < 0)
++			return ret;
++	}
++
++	ret = gdsc_enable_hw(sc);
++	if (ret && sc->rpm_dev)
++		pm_runtime_put(sc->rpm_dev);
++
++	return ret;
++}
++
++static int gdsc_disable(struct generic_pm_domain *domain)
++{
++	struct gdsc *sc = domain_to_gdsc(domain);
++	int ret;
++
++	ret = gdsc_disable_hw(sc, domain);
++	if (!ret && sc->rpm_dev)
++		pm_runtime_put(sc->rpm_dev);
++
++	return ret;
++}
++
+ static int gdsc_set_hwmode(struct generic_pm_domain *domain, struct device *dev, bool mode)
+ {
+ 	struct gdsc *sc = domain_to_gdsc(domain);
+@@ -649,6 +687,13 @@ int gdsc_register(struct gdsc_desc *desc,
+ 		ret = gdsc_init(scs[i]);
+ 		if (ret)
+ 			return ret;
++		if (desc->pd_list && scs[i]->pwrsts != PWRSTS_ON &&
++		    pm_runtime_enabled(dev)) {
++			scs[i]->rpm_dev = dev;
++			/* already on: its disable will drop this */
++			if (gdsc_check_status(scs[i], GDSC_ON) > 0)
++				pm_runtime_get_noresume(dev);
++		}
+ 		data->domains[i] = &scs[i]->pd;
+ 	}
+ 
+diff --git a/drivers/clk/qcom/gdsc.h b/drivers/clk/qcom/gdsc.h
+index 2f9665b66..fc167fbf7 100644
+--- a/drivers/clk/qcom/gdsc.h
++++ b/drivers/clk/qcom/gdsc.h
+@@ -76,6 +76,9 @@ struct gdsc {
+ 	const char 			*supply;
+ 	struct regulator		*rsupply;
+ 
++	/* the clock controller, held active while the GDSC is on (pd_list) */
++	struct device			*rpm_dev;
++
+ 	bool				needs_icc;
+ 	unsigned int			icc_path_index;
+ 	struct icc_path			*icc_path;
+-- 
+2.43.0
+

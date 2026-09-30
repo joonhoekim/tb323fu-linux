@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * TB323FU ("baldur"): touch, the NT36523 TDDI's touch half on SPI19
+ * (y705-mainline-plan.md 9-26).
+ *
+ * Vendor node: spi@1a80000 novatek@0, "novatek,NVT-ts-spi", 19.2 MHz,
+ * INT tlmm gpio158, reset tlmm gpio66 (the driver pulses it), pen.
+ * The chip is an NT36536 (9-26); the driver is Novatek's own NT36536
+ * host-download driver as carried in map220v/sm8850-mainline (branch
+ * iceland-7.2, drivers/input/touchscreen/nt36536). It finds the register
+ * set itself, follows the panel (drm_panel_follower) and loads the firmware
+ * named here. It handles neither the reset line nor the supply: reset keeps
+ * the vendor's pull-up, and the touch VDD is simply left on.
+ */
+
+/* vendor: display node tvdd-supply; nothing here asks for it */
+&vreg_l4b_1p8 {
+	regulator-always-on;
+};
+
+&spi19 {
+	status = "okay";
+
+	touchscreen@0 {
+		compatible = "novatek,NVT-ts-spi";
+		reg = <0>;
+		spi-max-frequency = <19200000>;
+
+		pinctrl-0 = <&ts_int_default>, <&ts_reset_default>;
+		pinctrl-names = "default";
+
+		irq-gpios = <&tlmm 158 GPIO_ACTIVE_HIGH>;
+		novatek,pen-support;
+		firmware-name = "novatek/novatek_ts_fw.bin";
+		panel = <&panel0>;
+	};
+};
+
+&tlmm {
+	ts_int_default: ts-int-default-state {
+		pins = "gpio158";
+		function = "gpio";
+		input-enable;
+		bias-disable;
+	};
+
+	/* vendor tp_reset_gpio */
+	ts_reset_default: ts-reset-default-state {
+		pins = "gpio66";
+		function = "gpio";
+		drive-strength = <16>;
+		bias-pull-up;
+	};
+};

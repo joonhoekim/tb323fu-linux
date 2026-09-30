@@ -1,0 +1,1521 @@
+From 0a115277960eb7bbc533fbd2362e3cf83e1ee21f Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:29:22 +0000
+Subject: [PATCH 39/56] y705 0025-pmic5-gen4-adc: mailing-list series
+ (squashed)
+
+  [PATCH 1/7] dt-bindings: iio: adc: Add support for QCOM PMIC5 Gen4 ADC
+  [PATCH 2/7] iio: adc: qcom-spmi-adc5-gen3: Add support for QCOM PMIC5 Gen4 ADC
+  [PATCH 3/7] thermal: qcom: qcom-spmi-adc-tm5-gen3: Add support for QCOM PMIC5 Gen4 ADC
+  [PATCH 4/7] arm64: dts: qcom: Add header file for ADC5 Gen4 channel macros
+  [PATCH 5/7] arm64: dts: qcom: pmk8850: Add ADC5 Gen4 peripheral
+  [PATCH 6/7] arm64: dts: qcom: glymur: Add ADC support for Glymur CRD
+  [PATCH 7/7] arm64: dts: qcom: kaanapali: Add ADC support for Kaanapali boards
+
+First author: Jishnu Prakash <jishnu.prakash@oss.qualcomm.com>
+
+[y705 rebase 7.3: applied on top of the 7.3 ADC_TM5 gen3 (0024 merged upstream); glymur-crd.dtsi hunks left out (only fuzz-3 matches, board unrelated); kaanapali-mtp/qrd hunks offset]
+y705-source: 0025-pmic5-gen4-adc.patch
+---
+ .../bindings/iio/adc/qcom,spmi-adc5-gen3.yaml |  47 ++-
+ arch/arm64/boot/dts/qcom/kaanapali-mtp.dts    | 312 ++++++++++++++++++
+ arch/arm64/boot/dts/qcom/kaanapali-qrd.dts    | 312 ++++++++++++++++++
+ arch/arm64/boot/dts/qcom/pmk8850.dtsi         |  25 ++
+ arch/arm64/boot/dts/qcom/qcom-adc5-gen4.h     |  96 ++++++
+ drivers/iio/adc/qcom-spmi-adc5-gen3.c         | 165 ++++++---
+ drivers/iio/adc/qcom-vadc-common.c            |  43 +++
+ drivers/thermal/qcom/qcom-spmi-adc-tm5-gen3.c |  19 +-
+ include/linux/iio/adc/qcom-adc5-gen3-common.h |  44 ++-
+ include/linux/iio/adc/qcom-vadc-common.h      |   6 +
+ 10 files changed, 1013 insertions(+), 56 deletions(-)
+ create mode 100644 arch/arm64/boot/dts/qcom/qcom-adc5-gen4.h
+
+diff --git a/Documentation/devicetree/bindings/iio/adc/qcom,spmi-adc5-gen3.yaml b/Documentation/devicetree/bindings/iio/adc/qcom,spmi-adc5-gen3.yaml
+index 149f4af8f..e79ddc2ac 100644
+--- a/Documentation/devicetree/bindings/iio/adc/qcom,spmi-adc5-gen3.yaml
++++ b/Documentation/devicetree/bindings/iio/adc/qcom,spmi-adc5-gen3.yaml
+@@ -21,9 +21,14 @@ description: |
+   All boards using a particular (SOC + master PMIC) combination will have the
+   same number of ADC SDAMs supported on that PMIC.
+ 
++  PMIC5 Gen4 ADC is similar to Gen3 ADC, with some differences such as
++  improved ratiometric conversion resolution.
++
+ properties:
+   compatible:
+-    const: qcom,spmi-adc5-gen3
++    enum:
++      - qcom,spmi-adc5-gen3
++      - qcom,spmi-adc5-gen4
+ 
+   reg:
+     items:
+@@ -83,6 +88,46 @@ patternProperties:
+           This property indicates ADC_TM monitoring is done on this channel.
+         type: boolean
+ 
++      qcom,adc5-gen4:
++        description:
++          Indicates channel is of type ADC5 Gen4. This may be needed in cases where the
++          master PMIC has an ADC peripheral of type Gen3, but some of the other PMICs it
++          communicates with have ADC peripherals of type Gen4, so channels of those PMICs
++          need to be marked as Gen4 to ensure their conversions are handled correctly.
++        type: boolean
++
++      qcom,adc5-gen3:
++        description:
++          Indicates channel is of type ADC5 Gen3. This may be needed in cases where the
++          master PMIC has an ADC peripheral of type Gen4, but some of the other PMICs
++          under it have ADC peripherals of type Gen3.
++        type: boolean
++
++allOf:
++  - if:
++      properties:
++        compatible:
++          contains:
++            const: qcom,spmi-adc5-gen4
++
++    then:
++      patternProperties:
++        "^channel@[0-9a-f]+$":
++          properties:
++            qcom,adc5-gen4: false
++
++  - if:
++      properties:
++        compatible:
++          contains:
++            const: qcom,spmi-adc5-gen3
++
++    then:
++      patternProperties:
++        "^channel@[0-9a-f]+$":
++          properties:
++            qcom,adc5-gen3: false
++
+ required:
+   - compatible
+   - reg
+diff --git a/arch/arm64/boot/dts/qcom/kaanapali-mtp.dts b/arch/arm64/boot/dts/qcom/kaanapali-mtp.dts
+index 9b04066f8..22ac4a85f 100644
+--- a/arch/arm64/boot/dts/qcom/kaanapali-mtp.dts
++++ b/arch/arm64/boot/dts/qcom/kaanapali-mtp.dts
+@@ -8,8 +8,10 @@
+ #include <dt-bindings/gpio/gpio.h>
+ #include <dt-bindings/input/linux-event-codes.h>
+ #include <dt-bindings/leds/common.h>
++#include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+ #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+ #include "kaanapali.dtsi"
++#include "qcom-adc5-gen4.h"
+ 
+ #include "pm8010-kaanapali.dtsi"     /* SPMI1: SID-12/13   */
+ #include "pmd8028-kaanapali.dtsi"    /* SPMI1: SID-4       */
+@@ -206,6 +208,152 @@ pmic_glink_sbu: endpoint {
+ 		};
+ 	};
+ 
++	thermal-zones {
++		sys-0-thermal {
++			thermal-sensors = <&pmk8850_vadc ADC5_GEN4_AMUX1_THM_100K_PU(0, 0)>;
++
++			trips {
++				trip0 {
++					temperature = <70000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++
++				trip1 {
++					temperature = <90000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++			};
++		};
++
++		sys-1-thermal {
++			thermal-sensors = <&pmk8850_vadc ADC5_GEN4_AMUX1_THM_100K_PU(0, 1)>;
++
++			trips {
++				trip0 {
++					temperature = <70000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++
++				trip1 {
++					temperature = <90000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++			};
++		};
++
++		sys-2-thermal {
++			thermal-sensors = <&pmk8850_vadc ADC5_GEN4_AMUX2_THM_100K_PU(0, 1)>;
++
++			trips {
++				trip0 {
++					temperature = <70000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++
++				trip1 {
++					temperature = <90000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++			};
++		};
++
++		sys-3-thermal {
++			thermal-sensors = <&pmk8850_vadc ADC5_GEN4_AMUX3_THM_100K_PU(0, 1)>;
++
++			trips {
++				trip0 {
++					temperature = <70000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++
++				trip1 {
++					temperature = <90000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++			};
++		};
++
++		sys-4-thermal {
++			thermal-sensors = <&pmk8850_vadc ADC5_GEN4_AMUX4_THM_100K_PU(0, 1)>;
++
++			trips {
++				trip0 {
++					temperature = <70000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++
++				trip1 {
++					temperature = <90000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++			};
++		};
++
++		sys-5-thermal {
++			thermal-sensors = <&pmk8850_vadc ADC5_GEN4_AMUX6_THM_100K_PU(0, 1)>;
++
++			trips {
++				trip0 {
++					temperature = <70000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++
++				trip1 {
++					temperature = <90000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++			};
++		};
++
++		sys-6-thermal {
++			thermal-sensors = <&pmk8850_vadc ADC5_GEN4_AMUX4_THM_100K_PU(1, 7)>;
++
++			trips {
++				trip0 {
++					temperature = <70000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++
++				trip1 {
++					temperature = <90000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++			};
++		};
++
++		sys-7-thermal {
++			thermal-sensors = <&pmk8850_vadc ADC5_GEN4_AMUX4_GPIO_100K_PU(1, 7)>;
++
++			trips {
++				trip0 {
++					temperature = <70000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++
++				trip1 {
++					temperature = <90000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++			};
++		};
++	};
++
+ 	wcd939x: audio-codec {
+ 		compatible = "qcom,wcd9395-codec", "qcom,wcd9390-codec";
+ 
+@@ -1032,6 +1180,14 @@ led-1 {
+ 	};
+ };
+ 
++&pmh0101_gpios {
++	sys_therm_5_gpio3: sys-therm-5-gpio3-state {
++		pins = "gpio3";
++		function = PMIC_GPIO_FUNC_NORMAL;
++		bias-high-impedance;
++	};
++};
++
+ &pmh0101_pwm {
+ 	status = "okay";
+ 
+@@ -1059,6 +1215,11 @@ led@3 {
+ 	};
+ };
+ 
++&pmh0101_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 1)>;
++	io-channel-names = "thermal";
++};
++
+ &pmh0104_j_e1_gpios {
+ 	bt_default: bt-default-state {
+ 		pins = "gpio5";
+@@ -1089,6 +1250,11 @@ sde_mdp_vsync_p_1p8_active: sde-mdp-vsync-p-1p8-active-state {
+ 	};
+ };
+ 
++&pmh0110_d_e0_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 3)>;
++	io-channel-names = "thermal";
++};
++
+ &pmh0110_f_e0_gpios {
+ 	sde_disp0_rst_1p2_active: sde-disp0-rst-1p2-active-state {
+ 		pins = "gpio9";
+@@ -1107,6 +1273,152 @@ sde_disp0_rst_1p8_active: sde-disp0-rst-1p8-active-state {
+ 	};
+ };
+ 
++&pmh0110_f_e0_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 5)>;
++	io-channel-names = "thermal";
++};
++
++&pmh0110_g_e0_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 6)>;
++	io-channel-names = "thermal";
++};
++
++&pmh0110_i_e0_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 8)>;
++	io-channel-names = "thermal";
++};
++
++&pmih0108_e1_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(1, 7)>;
++	io-channel-names = "thermal";
++};
++
++&pmk8850_vadc {
++	pinctrl-0 = <&sys_therm_5_gpio3>;
++	pinctrl-names = "default";
++
++	channel@103 {
++		reg = <ADC5_GEN4_DIE_TEMP(0, 1)>;
++		label = "pmh0101_die_temp";
++	};
++
++	channel@18e {
++		reg = <ADC5_GEN4_VPH_PWR(0, 1)>;
++		label = "pmh0101_vph_pwr";
++	};
++
++	channel@303 {
++		reg = <ADC5_GEN4_DIE_TEMP(0, 3)>;
++		label = "pmh0110_3_die_temp";
++	};
++
++	channel@38e {
++		reg = <ADC5_GEN4_VPH_PWR(0, 3)>;
++		label = "pmh0110_3_vph_pwr";
++	};
++
++	channel@503 {
++		reg = <ADC5_GEN4_DIE_TEMP(0, 5)>;
++		label = "pmh0110_5_die_temp";
++	};
++
++	channel@58e {
++		reg = <ADC5_GEN4_VPH_PWR(0, 5)>;
++		label = "pmh0110_5_vph_pwr";
++	};
++
++	channel@603 {
++		reg = <ADC5_GEN4_DIE_TEMP(0, 6)>;
++		label = "pmh0110_6_die_temp";
++	};
++
++	channel@68e {
++		reg = <ADC5_GEN4_VPH_PWR(0, 6)>;
++		label = "pmh0110_6_vph_pwr";
++	};
++
++	channel@803 {
++		reg = <ADC5_GEN4_DIE_TEMP(0, 8)>;
++		label = "pmh0110_8_die_temp";
++	};
++
++	channel@88e {
++		reg = <ADC5_GEN4_VPH_PWR(0, 8)>;
++		label = "pmh0110_8_vph_pwr";
++	};
++
++	channel@2703 {
++		reg = <ADC5_GEN4_DIE_TEMP(1, 7)>;
++		label = "pmih0108_e1_die_temp";
++	};
++
++	channel@278e {
++		reg = <ADC5_GEN4_VPH_PWR(1, 7)>;
++		label = "pmih0108_e1_vph_pwr";
++	};
++
++	channel@278f {
++		reg = <ADC5_GEN4_VBAT_SNS_QBG(1, 7)>;
++		label = "pmih0108_e1_vbat_sns_qbg";
++	};
++
++	channel@144 {
++		reg = <ADC5_GEN4_AMUX1_THM_100K_PU(0, 1)>;
++		label = "pmh0101_therm_1";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@145 {
++		reg = <ADC5_GEN4_AMUX2_THM_100K_PU(0, 1)>;
++		label = "pmh0101_therm_2";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@146 {
++		reg = <ADC5_GEN4_AMUX3_THM_100K_PU(0, 1)>;
++		label = "pmh0101_therm_3";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@147 {
++		reg = <ADC5_GEN4_AMUX4_THM_100K_PU(0, 1)>;
++		label = "pmh0101_therm_4";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@149 {
++		reg = <ADC5_GEN4_AMUX6_THM_100K_PU(0, 1)>;
++		label = "pmh0101_therm_5";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@2747 {
++		reg = <ADC5_GEN4_AMUX4_THM_100K_PU(1, 7)>;
++		label = "pmih0108_e1_therm_6";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@274d {
++		reg = <ADC5_GEN4_AMUX4_GPIO_100K_PU(1, 7)>;
++		label = "pmih0108_e1_therm_7";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++};
++
+ &pon_resin {
+ 	linux,code = <KEY_VOLUMEDOWN>;
+ 
+diff --git a/arch/arm64/boot/dts/qcom/kaanapali-qrd.dts b/arch/arm64/boot/dts/qcom/kaanapali-qrd.dts
+index f6b02223f..d9f1507de 100644
+--- a/arch/arm64/boot/dts/qcom/kaanapali-qrd.dts
++++ b/arch/arm64/boot/dts/qcom/kaanapali-qrd.dts
+@@ -8,8 +8,10 @@
+ #include <dt-bindings/gpio/gpio.h>
+ #include <dt-bindings/input/linux-event-codes.h>
+ #include <dt-bindings/leds/common.h>
++#include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+ #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+ #include "kaanapali.dtsi"
++#include "qcom-adc5-gen4.h"
+ 
+ #include "pm8010-kaanapali.dtsi"     /* SPMI1: SID-12/13   */
+ #include "pmd8028-kaanapali.dtsi"    /* SPMI1: SID-4       */
+@@ -123,6 +125,152 @@ pmic_glink_sbu: endpoint {
+ 			};
+ 		};
+ 	};
++
++	thermal-zones {
++		sys-0-thermal {
++			thermal-sensors = <&pmk8850_vadc ADC5_GEN4_AMUX1_THM_100K_PU(0, 0)>;
++
++			trips {
++				trip0 {
++					temperature = <70000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++
++				trip1 {
++					temperature = <90000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++			};
++		};
++
++		sys-1-thermal {
++			thermal-sensors = <&pmk8850_vadc ADC5_GEN4_AMUX1_THM_100K_PU(0, 1)>;
++
++			trips {
++				trip0 {
++					temperature = <70000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++
++				trip1 {
++					temperature = <90000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++			};
++		};
++
++		sys-2-thermal {
++			thermal-sensors = <&pmk8850_vadc ADC5_GEN4_AMUX2_THM_100K_PU(0, 1)>;
++
++			trips {
++				trip0 {
++					temperature = <70000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++
++				trip1 {
++					temperature = <90000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++			};
++		};
++
++		sys-3-thermal {
++			thermal-sensors = <&pmk8850_vadc ADC5_GEN4_AMUX3_THM_100K_PU(0, 1)>;
++
++			trips {
++				trip0 {
++					temperature = <70000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++
++				trip1 {
++					temperature = <90000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++			};
++		};
++
++		sys-4-thermal {
++			thermal-sensors = <&pmk8850_vadc ADC5_GEN4_AMUX4_THM_100K_PU(0, 1)>;
++
++			trips {
++				trip0 {
++					temperature = <70000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++
++				trip1 {
++					temperature = <90000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++			};
++		};
++
++		sys-5-thermal {
++			thermal-sensors = <&pmk8850_vadc ADC5_GEN4_AMUX6_THM_100K_PU(0, 1)>;
++
++			trips {
++				trip0 {
++					temperature = <70000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++
++				trip1 {
++					temperature = <90000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++			};
++		};
++
++		sys-6-thermal {
++			thermal-sensors = <&pmk8850_vadc ADC5_GEN4_AMUX4_THM_100K_PU(1, 7)>;
++
++			trips {
++				trip0 {
++					temperature = <70000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++
++				trip1 {
++					temperature = <90000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++			};
++		};
++
++		sys-7-thermal {
++			thermal-sensors = <&pmk8850_vadc ADC5_GEN4_AMUX4_GPIO_100K_PU(1, 7)>;
++
++			trips {
++				trip0 {
++					temperature = <70000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++
++				trip1 {
++					temperature = <90000>;
++					hysteresis = <2000>;
++					type = "hot";
++				};
++			};
++		};
++	};
+ };
+ 
+ &apps_rsc {
+@@ -768,6 +916,14 @@ led-1 {
+ 	};
+ };
+ 
++&pmh0101_gpios {
++	sys_therm_5_gpio3: sys-therm-5-gpio3-state {
++		pins = "gpio3";
++		function = PMIC_GPIO_FUNC_NORMAL;
++		bias-high-impedance;
++	};
++};
++
+ &pmh0101_pwm {
+ 	status = "okay";
+ 
+@@ -795,11 +951,167 @@ led@3 {
+ 	};
+ };
+ 
++&pmh0101_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 1)>;
++	io-channel-names = "thermal";
++};
++
++&pmh0110_d_e0_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 3)>;
++	io-channel-names = "thermal";
++};
++
++&pmh0110_f_e0_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 5)>;
++	io-channel-names = "thermal";
++};
++
++&pmh0110_g_e0_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 6)>;
++	io-channel-names = "thermal";
++};
++
++&pmh0110_i_e0_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 8)>;
++	io-channel-names = "thermal";
++};
++
+ &pmih0108_e1_eusb2_repeater {
+ 	vdd18-supply = <&vreg_l15b_1p8>;
+ 	vdd3-supply = <&vreg_l5b_3p1>;
+ };
+ 
++&pmih0108_e1_temp_alarm {
++	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(1, 7)>;
++	io-channel-names = "thermal";
++};
++
++&pmk8850_vadc {
++	pinctrl-0 = <&sys_therm_5_gpio3>;
++	pinctrl-names = "default";
++
++	channel@103 {
++		reg = <ADC5_GEN4_DIE_TEMP(0, 1)>;
++		label = "pmh0101_die_temp";
++	};
++
++	channel@18e {
++		reg = <ADC5_GEN4_VPH_PWR(0, 1)>;
++		label = "pmh0101_vph_pwr";
++	};
++
++	channel@303 {
++		reg = <ADC5_GEN4_DIE_TEMP(0, 3)>;
++		label = "pmh0110_3_die_temp";
++	};
++
++	channel@38e {
++		reg = <ADC5_GEN4_VPH_PWR(0, 3)>;
++		label = "pmh0110_3_vph_pwr";
++	};
++
++	channel@503 {
++		reg = <ADC5_GEN4_DIE_TEMP(0, 5)>;
++		label = "pmh0110_5_die_temp";
++	};
++
++	channel@58e {
++		reg = <ADC5_GEN4_VPH_PWR(0, 5)>;
++		label = "pmh0110_5_vph_pwr";
++	};
++
++	channel@603 {
++		reg = <ADC5_GEN4_DIE_TEMP(0, 6)>;
++		label = "pmh0110_6_die_temp";
++	};
++
++	channel@68e {
++		reg = <ADC5_GEN4_VPH_PWR(0, 6)>;
++		label = "pmh0110_6_vph_pwr";
++	};
++
++	channel@803 {
++		reg = <ADC5_GEN4_DIE_TEMP(0, 8)>;
++		label = "pmh0110_8_die_temp";
++	};
++
++	channel@88e {
++		reg = <ADC5_GEN4_VPH_PWR(0, 8)>;
++		label = "pmh0110_8_vph_pwr";
++	};
++
++	channel@2703 {
++		reg = <ADC5_GEN4_DIE_TEMP(1, 7)>;
++		label = "pmih0108_e1_die_temp";
++	};
++
++	channel@278e {
++		reg = <ADC5_GEN4_VPH_PWR(1, 7)>;
++		label = "pmih0108_e1_vph_pwr";
++	};
++
++	channel@278f {
++		reg = <ADC5_GEN4_VBAT_SNS_QBG(1, 7)>;
++		label = "pmih0108_e1_vbat_sns_qbg";
++	};
++
++	channel@144 {
++		reg = <ADC5_GEN4_AMUX1_THM_100K_PU(0, 1)>;
++		label = "pmh0101_therm_1";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@145 {
++		reg = <ADC5_GEN4_AMUX2_THM_100K_PU(0, 1)>;
++		label = "pmh0101_therm_2";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@146 {
++		reg = <ADC5_GEN4_AMUX3_THM_100K_PU(0, 1)>;
++		label = "pmh0101_therm_3";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@147 {
++		reg = <ADC5_GEN4_AMUX4_THM_100K_PU(0, 1)>;
++		label = "pmh0101_therm_4";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@149 {
++		reg = <ADC5_GEN4_AMUX6_THM_100K_PU(0, 1)>;
++		label = "pmh0101_therm_5";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@2747 {
++		reg = <ADC5_GEN4_AMUX4_THM_100K_PU(1, 7)>;
++		label = "pmih0108_e1_therm_6";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++
++	channel@274d {
++		reg = <ADC5_GEN4_AMUX4_GPIO_100K_PU(1, 7)>;
++		label = "pmih0108_e1_therm_7";
++		qcom,ratiometric;
++		qcom,hw-settle-time = <200>;
++		qcom,adc-tm;
++	};
++};
++
+ &pon_resin {
+ 	linux,code = <KEY_VOLUMEDOWN>;
+ 
+diff --git a/arch/arm64/boot/dts/qcom/pmk8850.dtsi b/arch/arm64/boot/dts/qcom/pmk8850.dtsi
+index c7ba72fd4..44d1d1957 100644
+--- a/arch/arm64/boot/dts/qcom/pmk8850.dtsi
++++ b/arch/arm64/boot/dts/qcom/pmk8850.dtsi
+@@ -7,6 +7,7 @@
+ #include <dt-bindings/input/linux-event-codes.h>
+ #include <dt-bindings/interrupt-controller/irq.h>
+ #include <dt-bindings/spmi/spmi.h>
++#include "qcom-adc5-gen4.h"
+ 
+ &spmi_bus0 {
+ 	pmic@0 {
+@@ -45,6 +46,30 @@ pmk8850_gpios: gpio@b800 {
+ 			#interrupt-cells = <2>;
+ 		};
+ 
++		pmk8850_vadc: adc@9000 {
++			compatible = "qcom,spmi-adc5-gen4";
++			reg = <0x9000>, <0x9100>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++			interrupts = <0x0 0x90 0x1 IRQ_TYPE_EDGE_RISING>,
++				     <0x0 0x91 0x1 IRQ_TYPE_EDGE_RISING>;
++			#thermal-sensor-cells = <1>;
++			#io-channel-cells = <1>;
++
++			channel@3 {
++				reg = <ADC5_GEN4_DIE_TEMP(0, 0)>;
++				label = "pmk8850_die_temp";
++			};
++
++			channel@44 {
++				reg = <ADC5_GEN4_AMUX1_THM_100K_PU(0, 0)>;
++				label = "pmk8850_therm_0";
++				qcom,ratiometric;
++				qcom,hw-settle-time = <200>;
++				qcom,adc-tm;
++			};
++		};
++
+ 		pmk8850_rtc: rtc@6100 {
+ 			compatible = "qcom,pmk8350-rtc";
+ 			reg = <0x6100>,
+diff --git a/arch/arm64/boot/dts/qcom/qcom-adc5-gen4.h b/arch/arm64/boot/dts/qcom/qcom-adc5-gen4.h
+new file mode 100644
+index 000000000..cf94e3185
+--- /dev/null
++++ b/arch/arm64/boot/dts/qcom/qcom-adc5-gen4.h
+@@ -0,0 +1,96 @@
++/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause) */
++/*
++ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
++ */
++
++#ifndef __DTS_ARM64_QCOM_ADC5_GEN4_H__
++#define __DTS_ARM64_QCOM_ADC5_GEN4_H__
++
++/* ADC channels for PMIC5 Gen4 */
++
++#define ADC5_GEN4_VIRT_CHAN(bus_id, sid, chan)	((bus_id) << 13 | (sid) << 8 | (chan))
++
++#define ADC5_GEN4_OFFSET_REF(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x00)
++#define ADC5_GEN4_1P25VREF(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x01)
++#define ADC5_GEN4_VREF_VADC(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x02)
++#define ADC5_GEN4_DIE_TEMP(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x03)
++
++#define ADC5_GEN4_AMUX1_THM(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x04)
++#define ADC5_GEN4_AMUX2_THM(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x05)
++#define ADC5_GEN4_AMUX3_THM(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x06)
++#define ADC5_GEN4_AMUX4_THM(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x07)
++#define ADC5_GEN4_AMUX5_THM(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x08)
++#define ADC5_GEN4_AMUX6_THM(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x09)
++#define ADC5_GEN4_AMUX1_GPIO(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x0a)
++#define ADC5_GEN4_AMUX2_GPIO(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x0b)
++#define ADC5_GEN4_AMUX3_GPIO(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x0c)
++#define ADC5_GEN4_AMUX4_GPIO(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x0d)
++#define ADC5_GEN4_AMUX5_GPIO(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x1e)
++
++#define ADC5_GEN4_CHG_TEMP(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x10)
++#define ADC5_GEN4_USB_SNS_DIV20(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x11)
++#define ADC5_GEN4_VIN_DIV20_MUX(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x12)
++#define ADC5_GEN4_USBC_MUX(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x13)
++#define ADC5_GEN4_VREF_BAT_THERM(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x15)
++#define ADC5_GEN4_IIN(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x17)
++
++#define ADC5_GEN4_VREF_BAT2_THERM(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x1a)
++#define ADC5_GEN4_ATEST1(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x1b)
++#define ADC5_GEN4_ATEST2(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x1c)
++#define ADC5_GEN4_VBAT_2S_MID_CHGR(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x1d)
++
++/* 10k pull-up1 */
++#define ADC5_GEN4_AMUX1_THM_10K_PU(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x24)
++#define ADC5_GEN4_AMUX2_THM_10K_PU(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x25)
++#define ADC5_GEN4_AMUX3_THM_10K_PU(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x26)
++#define ADC5_GEN4_AMUX4_THM_10K_PU(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x27)
++#define ADC5_GEN4_AMUX5_THM_10K_PU(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x28)
++#define ADC5_GEN4_AMUX6_THM_10K_PU(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x29)
++#define ADC5_GEN4_AMUX1_GPIO_10K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x2a)
++#define ADC5_GEN4_AMUX2_GPIO_10K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x2b)
++#define ADC5_GEN4_AMUX3_GPIO_10K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x2c)
++#define ADC5_GEN4_AMUX4_GPIO_10K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x2d)
++#define ADC5_GEN4_USBC_MUX_10K_PU(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x33)
++#define ADC5_GEN4_AMUX5_GPIO_10K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x3e)
++
++/* 100k pull-up2 */
++#define ADC5_GEN4_AMUX1_THM_100K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x44)
++#define ADC5_GEN4_AMUX2_THM_100K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x45)
++#define ADC5_GEN4_AMUX3_THM_100K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x46)
++#define ADC5_GEN4_AMUX4_THM_100K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x47)
++#define ADC5_GEN4_AMUX5_THM_100K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x48)
++#define ADC5_GEN4_AMUX6_THM_100K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x49)
++#define ADC5_GEN4_AMUX1_GPIO_100K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x4a)
++#define ADC5_GEN4_AMUX2_GPIO_100K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x4b)
++#define ADC5_GEN4_AMUX3_GPIO_100K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x4c)
++#define ADC5_GEN4_AMUX4_GPIO_100K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x4d)
++#define ADC5_GEN4_USBC_MUX_100K_PU(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x53)
++#define ADC5_GEN4_AMUX5_GPIO_100K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x5e)
++
++/* 400k pull-up3 */
++#define ADC5_GEN4_AMUX1_THM_400K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x64)
++#define ADC5_GEN4_AMUX2_THM_400K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x65)
++#define ADC5_GEN4_AMUX3_THM_400K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x66)
++#define ADC5_GEN4_AMUX4_THM_400K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x67)
++#define ADC5_GEN4_AMUX5_THM_400K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x68)
++#define ADC5_GEN4_AMUX6_THM_400K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x69)
++#define ADC5_GEN4_AMUX1_GPIO_400K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x6a)
++#define ADC5_GEN4_AMUX2_GPIO_400K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x6b)
++#define ADC5_GEN4_AMUX3_GPIO_400K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x6c)
++#define ADC5_GEN4_AMUX4_GPIO_400K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x6d)
++#define ADC5_GEN4_USBC_MUX_400K_PU(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x73)
++#define ADC5_GEN4_AMUX5_GPIO_400K_PU(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x7e)
++
++/* 1/3 Divider */
++#define ADC5_GEN4_AMUX1_GPIO_DIV3(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x8a)
++#define ADC5_GEN4_VPH_PWR(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x8e)
++#define ADC5_GEN4_VBAT_SNS_QBG(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x8f)
++#define ADC5_GEN4_VBAT_SNS_CHG(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x94)
++#define ADC5_GEN4_VBAT_2S_MID_QBG(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x96)
++#define ADC5_GEN4_VPH2_PWR(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x99)
++#define ADC5_GEN4_VBAT_2S_MID_CHGR_DIV3(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x9d)
++#define ADC5_GEN4_VBAT_2S_MID2(bus_id, sid)	ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0x9f)
++
++#define ADC5_GEN4_ICHG_FB(bus_id, sid)		ADC5_GEN4_VIRT_CHAN(bus_id, sid, 0xa1)
++
++#endif /* __DTS_ARM64_QCOM_ADC5_GEN4_H__ */
+diff --git a/drivers/iio/adc/qcom-spmi-adc5-gen3.c b/drivers/iio/adc/qcom-spmi-adc5-gen3.c
+index c68c6c5f6..810d25b66 100644
+--- a/drivers/iio/adc/qcom-spmi-adc5-gen3.c
++++ b/drivers/iio/adc/qcom-spmi-adc5-gen3.c
+@@ -86,7 +86,9 @@ int adc5_gen3_write(struct adc5_device_data *adc, unsigned int sdam_index,
+ }
+ EXPORT_SYMBOL_NS_GPL(adc5_gen3_write, "QCOM_SPMI_ADC5_GEN3");
+ 
+-static int adc5_gen3_read_voltage_data(struct adc5_chip *adc, u16 *data)
++static int adc5_gen3_read_voltage_data(struct adc5_chip *adc,
++				       struct adc5_channel_common_prop *prop,
++				       u16 *data)
+ {
+ 	u8 rslt[2];
+ 	int ret;
+@@ -99,8 +101,10 @@ static int adc5_gen3_read_voltage_data(struct adc5_chip *adc, u16 *data)
+ 	*data = get_unaligned_le16(rslt);
+ 
+ 	if (*data == ADC5_USR_DATA_CHECK) {
+-		dev_err(adc->dev, "Invalid data:%#x\n", *data);
+-		return -EINVAL;
++		if (!(prop->generation == ADC5_GEN4 && prop->cal_method == ADC5_RATIOMETRIC_CAL)) {
++			dev_err(adc->dev, "Invalid data:%#x\n", *data);
++			return -EINVAL;
++		}
+ 	}
+ 
+ 	dev_dbg(adc->dev, "voltage raw code:%#x\n", *data);
+@@ -131,8 +135,9 @@ static int adc5_gen3_configure(struct adc5_chip *adc,
+ 	if (ret)
+ 		return ret;
+ 
+-	/* Write SID */
+-	buf[0] = FIELD_PREP(ADC5_GEN3_SID_MASK, prop->sid);
++	/* Write SID and bus_id*/
++	buf[0] = FIELD_PREP(ADC5_GEN4_BUS_INDEX_MASK, prop->bus_index) |
++		 FIELD_PREP(ADC5_GEN4_SID_MASK, prop->sid);
+ 
+ 	/*
+ 	 * Use channel 0 by default for immediate conversion and to indicate
+@@ -268,7 +273,7 @@ static int adc5_gen3_do_conversion(struct adc5_chip *adc,
+ 		return -ETIMEDOUT;
+ 	}
+ 
+-	ret = adc5_gen3_read_voltage_data(adc, data_volt);
++	ret = adc5_gen3_read_voltage_data(adc, prop, data_volt);
+ 	if (ret)
+ 		return ret;
+ 
+@@ -325,7 +330,7 @@ static int adc5_gen3_fwnode_xlate(struct iio_dev *indio_dev,
+ 	int i, v_channel;
+ 
+ 	for (i = 0; i < adc->nchannels; i++) {
+-		v_channel = ADC5_GEN3_V_CHAN(adc->chan_props[i].common_props);
++		v_channel = ADC5_GEN4_V_CHAN(adc->chan_props[i].common_props);
+ 		if (v_channel == iiospec->args[0])
+ 			return i;
+ 	}
+@@ -351,7 +356,7 @@ static int adc5_gen3_read_raw(struct iio_dev *indio_dev,
+ 			return ret;
+ 
+ 		ret = qcom_adc5_hw_scale(prop->scale_fn_type, prop->prescale,
+-					 adc->data, adc_code_volt, val);
++					 prop->data, adc_code_volt, val);
+ 		if (ret)
+ 			return ret;
+ 
+@@ -433,15 +438,89 @@ static const struct adc5_channels adc5_gen3_chans_pmic[ADC5_MAX_CHANNEL] = {
+ 					SCALE_HW_CALIB_THERM_100K_PU_PM7)
+ };
+ 
++static const struct adc5_channels adc5_gen4_chans_pmic[ADC5_MAX_CHANNEL] = {
++	[ADC5_GEN4_OFFSET_REF]		= ADC5_CHAN_VOLT(0,
++						SCALE_HW_CALIB_DEFAULT)
++	[ADC5_GEN4_1P25VREF]		= ADC5_CHAN_VOLT(0,
++						SCALE_HW_CALIB_DEFAULT)
++	[ADC5_GEN4_VPH_PWR]		= ADC5_CHAN_VOLT(1,
++						SCALE_HW_CALIB_DEFAULT)
++	[ADC5_GEN4_VBAT_SNS_QBG]	= ADC5_CHAN_VOLT(1,
++						SCALE_HW_CALIB_DEFAULT)
++	[ADC5_GEN4_DIE_TEMP]		= ADC5_CHAN_TEMP(0,
++						SCALE_HW_CALIB_PMIC_THERM_PM7)
++	[ADC5_GEN4_AMUX1_THM_100K_PU]	= ADC5_CHAN_TEMP(0,
++						SCALE_HW_CALIB_THERM_100K_PU_GEN4)
++	[ADC5_GEN4_AMUX2_THM_100K_PU]	= ADC5_CHAN_TEMP(0,
++						SCALE_HW_CALIB_THERM_100K_PU_GEN4)
++	[ADC5_GEN4_AMUX3_THM_100K_PU]	= ADC5_CHAN_TEMP(0,
++						SCALE_HW_CALIB_THERM_100K_PU_GEN4)
++	[ADC5_GEN4_AMUX4_THM_100K_PU]	= ADC5_CHAN_TEMP(0,
++						SCALE_HW_CALIB_THERM_100K_PU_GEN4)
++	[ADC5_GEN4_AMUX5_THM_100K_PU]	= ADC5_CHAN_TEMP(0,
++						SCALE_HW_CALIB_THERM_100K_PU_GEN4)
++	[ADC5_GEN4_AMUX6_THM_100K_PU]	= ADC5_CHAN_TEMP(0,
++						SCALE_HW_CALIB_THERM_100K_PU_GEN4)
++	[ADC5_GEN4_AMUX1_GPIO_100K_PU]	= ADC5_CHAN_TEMP(0,
++						SCALE_HW_CALIB_THERM_100K_PU_GEN4)
++	[ADC5_GEN4_AMUX2_GPIO_100K_PU]	= ADC5_CHAN_TEMP(0,
++						SCALE_HW_CALIB_THERM_100K_PU_GEN4)
++	[ADC5_GEN4_AMUX3_GPIO_100K_PU]	= ADC5_CHAN_TEMP(0,
++						SCALE_HW_CALIB_THERM_100K_PU_GEN4)
++	[ADC5_GEN4_AMUX4_GPIO_100K_PU]	= ADC5_CHAN_TEMP(0,
++						SCALE_HW_CALIB_THERM_100K_PU_GEN4)
++	[ADC5_GEN4_AMUX5_GPIO_100K_PU]	= ADC5_CHAN_TEMP(0,
++						SCALE_HW_CALIB_THERM_100K_PU_GEN4)
++};
++
++static const struct adc5_data adc5_gen3_data_pmic = {
++	.full_scale_code_volt = 0x70e4,
++	.adc_chans = adc5_gen3_chans_pmic,
++	.info = &adc5_gen3_info,
++	.decimation = (unsigned int [ADC5_DECIMATION_SAMPLES_MAX])
++			   { 85, 340, 1360 },
++	.hw_settle_1 = (unsigned int [VADC_HW_SETTLE_SAMPLES_MAX])
++			   { 15, 100, 200, 300,
++			     400, 500, 600, 700,
++			     1000, 2000, 4000, 8000,
++			     16000, 32000, 64000, 128000 },
++};
++
++static const struct adc5_data adc5_gen4_data_pmic = {
++	.full_scale_code_volt = 0x70e4,
++	.adc_chans = adc5_gen4_chans_pmic,
++	.info = &adc5_gen3_info,
++	.decimation = (unsigned int [ADC5_DECIMATION_SAMPLES_MAX])
++			   { 85, 340, 1360 },
++	.hw_settle_1 = (unsigned int [VADC_HW_SETTLE_SAMPLES_MAX])
++			   { 15, 100, 200, 300,
++			     400, 500, 600, 700,
++			     1000, 2000, 4000, 8000,
++			     16000, 32000, 64000, 128000 },
++};
++
++static const struct of_device_id adc5_match_table[] = {
++	{
++		.compatible = "qcom,spmi-adc5-gen3",
++		.data = &adc5_gen3_data_pmic,
++	},
++	{
++		.compatible = "qcom,spmi-adc5-gen4",
++		.data = &adc5_gen4_data_pmic,
++	},
++	{ }
++};
++MODULE_DEVICE_TABLE(of, adc5_match_table);
++
+ static int adc5_gen3_get_fw_channel_data(struct adc5_chip *adc,
+ 					 struct adc5_channel_prop *prop,
+ 					 struct fwnode_handle *fwnode)
+ {
+ 	const char *name = fwnode_get_name(fwnode);
+-	const struct adc5_data *data = adc->data;
++	const struct adc5_data *data;
++	u32 chan, value, sid, bus_index;
+ 	struct device *dev = adc->dev;
+ 	const char *channel_name;
+-	u32 chan, value, sid;
+ 	u32 varr[2];
+ 	int ret;
+ 
+@@ -452,27 +531,46 @@ static int adc5_gen3_get_fw_channel_data(struct adc5_chip *adc,
+ 
+ 	/*
+ 	 * Value read from "reg" is virtual channel number
+-	 * virtual channel number = sid << 8 | channel number
++	 * virtual channel number = bus index << 13 | sid << 8 | channel number
++	 * For ADC5 GEN3 channels, bus index = 0
+ 	 */
+-	sid = FIELD_GET(ADC5_GEN3_VIRTUAL_SID_MASK, chan);
+-	chan = FIELD_GET(ADC5_GEN3_CHANNEL_MASK, chan);
++	bus_index = FIELD_GET(ADC5_GEN4_V_CHAN_BUS_INDEX_MASK, chan);
++	sid = FIELD_GET(ADC5_GEN4_V_CHAN_SID_MASK, chan);
++	chan = FIELD_GET(ADC5_GEN4_V_CHAN_CHANNEL_MASK, chan);
+ 
+ 	if (chan >= ADC5_MAX_CHANNEL)
+ 		return dev_err_probe(dev, -EINVAL,
+ 				     "%s invalid channel number %d\n",
+ 				     name, chan);
+ 
++	prop->common_props.bus_index = bus_index;
+ 	prop->common_props.channel = chan;
+ 	prop->common_props.sid = sid;
+ 
+-	if (!adc->data->adc_chans[chan].info_mask)
++	if (fwnode_property_read_bool(fwnode, "qcom,adc5-gen4")) {
++		prop->common_props.generation = ADC5_GEN4;
++		data = &adc5_gen4_data_pmic;
++	} else if (fwnode_property_read_bool(fwnode, "qcom,adc5-gen3")) {
++		prop->common_props.generation = ADC5_GEN3;
++		data = &adc5_gen3_data_pmic;
++	} else {
++		prop->common_props.generation = (adc->data == &adc5_gen3_data_pmic) ?
++						 ADC5_GEN3 : ADC5_GEN4;
++		data = adc->data;
++	}
++	prop->common_props.data = data;
++
++	if (!data->adc_chans[chan].info_mask)
+ 		return dev_err_probe(dev, -EINVAL, "Channel %#x not supported\n", chan);
+ 
+ 	channel_name = name;
+ 	fwnode_property_read_string(fwnode, "label", &channel_name);
+ 	prop->common_props.label = channel_name;
+ 
+-	value = data->decimation[ADC5_DECIMATION_DEFAULT];
++	if (prop->common_props.generation == ADC5_GEN3)
++		value = data->decimation[ADC5_DECIMATION_DEFAULT];
++	else
++		value = data->decimation[ADC5_GEN4_DECIMATION_DEFAULT];
+ 	fwnode_property_read_u32(fwnode, "qcom,decimation", &value);
+ 	ret = qcom_adc5_decimation_from_dt(value, data->decimation);
+ 	if (ret < 0)
+@@ -480,7 +578,7 @@ static int adc5_gen3_get_fw_channel_data(struct adc5_chip *adc,
+ 				     chan, value);
+ 	prop->common_props.decimation = ret;
+ 
+-	prop->common_props.prescale = adc->data->adc_chans[chan].prescale_index;
++	prop->common_props.prescale = data->adc_chans[chan].prescale_index;
+ 	ret = fwnode_property_read_u32_array(fwnode, "qcom,pre-scaling", varr, 2);
+ 	if (!ret) {
+ 		ret = qcom_adc5_prescaling_from_dt(varr[0], varr[1]);
+@@ -526,34 +624,13 @@ static int adc5_gen3_get_fw_channel_data(struct adc5_chip *adc,
+ 	return 0;
+ }
+ 
+-static const struct adc5_data adc5_gen3_data_pmic = {
+-	.full_scale_code_volt = 0x70e4,
+-	.adc_chans = adc5_gen3_chans_pmic,
+-	.info = &adc5_gen3_info,
+-	.decimation = (unsigned int [ADC5_DECIMATION_SAMPLES_MAX])
+-			   { 85, 340, 1360 },
+-	.hw_settle_1 = (unsigned int [VADC_HW_SETTLE_SAMPLES_MAX])
+-			   { 15, 100, 200, 300,
+-			     400, 500, 600, 700,
+-			     1000, 2000, 4000, 8000,
+-			     16000, 32000, 64000, 128000 },
+-};
+-
+-static const struct of_device_id adc5_match_table[] = {
+-	{
+-		.compatible = "qcom,spmi-adc5-gen3",
+-		.data = &adc5_gen3_data_pmic,
+-	},
+-	{ }
+-};
+-MODULE_DEVICE_TABLE(of, adc5_match_table);
+-
+ static int adc5_get_fw_data(struct adc5_chip *adc)
+ {
+ 	const struct adc5_channels *adc_chan;
+ 	struct adc5_channel_prop *chan_props;
+ 	struct iio_chan_spec *iio_chan;
+ 	struct device *dev = adc->dev;
++	const struct adc5_data *data;
+ 	unsigned int index = 0;
+ 	int ret;
+ 
+@@ -582,10 +659,11 @@ static int adc5_get_fw_data(struct adc5_chip *adc)
+ 			return ret;
+ 
+ 		chan_props->chip = adc;
+-		adc_chan = &adc->data->adc_chans[chan_props->common_props.channel];
++		data = chan_props->common_props.data;
++		adc_chan = &data->adc_chans[chan_props->common_props.channel];
+ 		chan_props->common_props.scale_fn_type = adc_chan->scale_fn_type;
+ 
+-		iio_chan->channel = ADC5_GEN3_V_CHAN(chan_props->common_props);
++		iio_chan->channel = ADC5_GEN4_V_CHAN(chan_props->common_props);
+ 		iio_chan->info_mask_separate = adc_chan->info_mask;
+ 		iio_chan->type = adc_chan->type;
+ 		iio_chan->address = index;
+@@ -697,7 +775,7 @@ int adc5_gen3_get_scaled_reading(struct device *dev,
+ 
+ 	return qcom_adc5_hw_scale(common_props->scale_fn_type,
+ 				  common_props->prescale,
+-				  adc->data, adc_code_volt, val);
++				  common_props->data, adc_code_volt, val);
+ }
+ EXPORT_SYMBOL_NS_GPL(adc5_gen3_get_scaled_reading, "QCOM_SPMI_ADC5_GEN3");
+ 
+@@ -705,12 +783,9 @@ int adc5_gen3_therm_code_to_temp(struct device *dev,
+ 				 struct adc5_channel_common_prop *common_props,
+ 				 u16 code, int *val)
+ {
+-	struct iio_dev *indio_dev = dev_get_drvdata(dev->parent);
+-	struct adc5_chip *adc = iio_priv(indio_dev);
+-
+ 	return qcom_adc5_hw_scale(common_props->scale_fn_type,
+ 				  common_props->prescale,
+-				  adc->data, code, val);
++				  common_props->data, code, val);
+ }
+ EXPORT_SYMBOL_NS_GPL(adc5_gen3_therm_code_to_temp, "QCOM_SPMI_ADC5_GEN3");
+ 
+diff --git a/drivers/iio/adc/qcom-vadc-common.c b/drivers/iio/adc/qcom-vadc-common.c
+index b03cf584b..25bd4622c 100644
+--- a/drivers/iio/adc/qcom-vadc-common.c
++++ b/drivers/iio/adc/qcom-vadc-common.c
+@@ -301,6 +301,10 @@ static const struct u32_fract adc5_prescale_ratios[] = {
+ 	{ .numerator =  1, .denominator = 16 },
+ };
+ 
++static int qcom_adc5_gen4_scale_hw_calib_therm(
++				const struct u32_fract *prescale,
++				const struct adc5_data *data,
++				u16 adc_code, int *result_mdec);
+ static int qcom_vadc_scale_hw_calib_volt(
+ 				const struct u32_fract *prescale,
+ 				const struct adc5_data *data,
+@@ -341,6 +345,8 @@ static const struct qcom_adc5_scale_type scale_adc5_fn[] = {
+ 					qcom_vadc7_scale_hw_calib_die_temp},
+ 	[SCALE_HW_CALIB_PM5_CHG_TEMP] = {qcom_vadc_scale_hw_chg5_temp},
+ 	[SCALE_HW_CALIB_PM5_SMB_TEMP] = {qcom_vadc_scale_hw_smb_temp},
++	[SCALE_HW_CALIB_THERM_100K_PU_GEN4] = {
++					qcom_adc5_gen4_scale_hw_calib_therm},
+ };
+ 
+ static int qcom_vadc_map_voltage_temp(const struct vadc_map_pt *pts,
+@@ -556,6 +562,32 @@ static int qcom_vadc7_scale_hw_calib_therm(
+ 	return 0;
+ }
+ 
++static int qcom_adc5_gen4_scale_hw_calib_therm(
++				const struct u32_fract *prescale,
++				const struct adc5_data *data,
++				u16 adc_code, int *result_mdec)
++{
++	s64 resistance = adc_code;
++	int ret, result;
++
++	if (adc_code >= RATIO_MAX_ADC5_GEN4)
++		return -EINVAL;
++
++	/* (ADC code * R_PULLUP (100Kohm)) / (full_scale_code - ADC code)*/
++	resistance *= R_PU_100K;
++	resistance = div64_s64(resistance, RATIO_MAX_ADC5_GEN4 - adc_code);
++
++	ret = qcom_vadc_map_voltage_temp(adcmap7_100k,
++					 ARRAY_SIZE(adcmap7_100k),
++					 resistance, &result);
++	if (ret)
++		return ret;
++
++	*result_mdec = result;
++
++	return 0;
++}
++
+ static int qcom_vadc_scale_hw_calib_volt(
+ 				const struct u32_fract *prescale,
+ 				const struct adc5_data *data,
+@@ -688,6 +720,17 @@ u16 qcom_adc_tm5_gen2_temp_res_scale(int temp)
+ }
+ EXPORT_SYMBOL(qcom_adc_tm5_gen2_temp_res_scale);
+ 
++u16 qcom_adc_tm5_gen4_temp_res_scale(int temp)
++{
++	s64 resistance;
++
++	resistance = qcom_vadc_map_temp_voltage(adcmap7_100k,
++						ARRAY_SIZE(adcmap7_100k), temp);
++
++	return div64_s64(resistance * RATIO_MAX_ADC5_GEN4, resistance + R_PU_100K);
++}
++EXPORT_SYMBOL(qcom_adc_tm5_gen4_temp_res_scale);
++
+ int qcom_adc5_hw_scale(enum vadc_scale_fn_type scaletype,
+ 		    unsigned int prescale_ratio,
+ 		    const struct adc5_data *data,
+diff --git a/drivers/thermal/qcom/qcom-spmi-adc-tm5-gen3.c b/drivers/thermal/qcom/qcom-spmi-adc-tm5-gen3.c
+index 9cf552d36..80e820b6d 100644
+--- a/drivers/thermal/qcom/qcom-spmi-adc-tm5-gen3.c
++++ b/drivers/thermal/qcom/qcom-spmi-adc-tm5-gen3.c
+@@ -207,15 +207,23 @@ static int adc_tm5_gen3_disable_channel(struct adc_tm5_gen3_channel_props *prop)
+ 			       ADC5_GEN3_CONV_REQ, &val, sizeof(val));
+ }
+ 
++typedef u16 (*temp_res_scale)(int temp);
++
+ static int adc_tm5_gen3_configure(struct adc_tm5_gen3_channel_props *prop,
+ 				  int low_temp, int high_temp)
+ {
+ 	struct adc_tm5_gen3_chip *adc_tm5 = prop->chip;
+ 	u8 buf[ADC_TM5_GEN3_CONFIG_REGS];
++	temp_res_scale tm_scal_fn;
+ 	u8 conv_req;
+ 	u16 adc_code;
+ 	int ret;
+ 
++	if (prop->common_props.generation == ADC5_GEN4)
++		tm_scal_fn = qcom_adc_tm5_gen4_temp_res_scale;
++	else
++		tm_scal_fn = qcom_adc_tm5_gen2_temp_res_scale;
++
+ 	ret = adc5_gen3_poll_wait_hs(adc_tm5->dev_data, prop->sdam_index);
+ 	if (ret < 0)
+ 		return ret;
+@@ -225,8 +233,9 @@ static int adc_tm5_gen3_configure(struct adc_tm5_gen3_channel_props *prop,
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	/* Write SID */
+-	buf[0] = FIELD_PREP(ADC5_GEN3_SID_MASK, prop->common_props.sid);
++	/* Write SID and bus_id*/
++	buf[0] = FIELD_PREP(ADC5_GEN4_BUS_INDEX_MASK, prop->common_props.bus_index) |
++		 FIELD_PREP(ADC5_GEN4_SID_MASK, prop->common_props.sid);
+ 
+ 	/* Select TM channel and indicate there is an actual conversion request */
+ 	buf[1] = ADC5_GEN3_CHAN_CONV_REQ | prop->tm_chan_index;
+@@ -252,7 +261,7 @@ static int adc_tm5_gen3_configure(struct adc_tm5_gen3_channel_props *prop,
+ 	/* High temperature corresponds to low voltage threshold */
+ 	prop->low_thr_en = (high_temp != INT_MAX);
+ 	if (prop->low_thr_en) {
+-		adc_code = qcom_adc_tm5_gen2_temp_res_scale(high_temp);
++		adc_code = tm_scal_fn(high_temp);
+ 		put_unaligned_le16(adc_code, &buf[8]);
+ 		buf[7] |= ADC5_GEN3_LOW_THR_INT_EN;
+ 	}
+@@ -260,7 +269,7 @@ static int adc_tm5_gen3_configure(struct adc_tm5_gen3_channel_props *prop,
+ 	/* Low temperature corresponds to high voltage threshold */
+ 	prop->high_thr_en = (low_temp != -INT_MAX);
+ 	if (prop->high_thr_en) {
+-		adc_code = qcom_adc_tm5_gen2_temp_res_scale(low_temp);
++		adc_code = tm_scal_fn(low_temp);
+ 		put_unaligned_le16(adc_code, &buf[10]);
+ 		buf[7] |= ADC5_GEN3_HIGH_THR_INT_EN;
+ 	}
+@@ -306,7 +315,7 @@ static int adc_tm5_register_tzd(struct adc_tm5_gen3_chip *adc_tm5)
+ 	int ret;
+ 
+ 	for (int i = 0; i < adc_tm5->nchannels; i++) {
+-		channel = ADC5_GEN3_V_CHAN(adc_tm5->chan_props[i].common_props);
++		channel = ADC5_GEN4_V_CHAN(adc_tm5->chan_props[i].common_props);
+ 		tzd = devm_thermal_of_zone_register(adc_tm5->dev, channel,
+ 						    &adc_tm5->chan_props[i],
+ 						    &adc_tm_ops);
+diff --git a/include/linux/iio/adc/qcom-adc5-gen3-common.h b/include/linux/iio/adc/qcom-adc5-gen3-common.h
+index 39cbfcbdb..5d8e38350 100644
+--- a/include/linux/iio/adc/qcom-adc5-gen3-common.h
++++ b/include/linux/iio/adc/qcom-adc5-gen3-common.h
+@@ -40,7 +40,8 @@
+ #define ADC5_GEN3_CONV_ERR_CLR_REQ		BIT(0)
+ 
+ #define ADC5_GEN3_SID				0x4f
+-#define ADC5_GEN3_SID_MASK			GENMASK(3, 0)
++#define ADC5_GEN4_SID_MASK			GENMASK(4, 0)
++#define ADC5_GEN4_BUS_INDEX_MASK		GENMASK(6, 5)
+ 
+ #define ADC5_GEN3_PERPH_CH			0x50
+ #define ADC5_GEN3_CHAN_CONV_REQ			BIT(7)
+@@ -51,6 +52,7 @@
+ #define ADC5_GEN3_DIG_PARAM			0x52
+ #define ADC5_GEN3_DIG_PARAM_CAL_SEL_MASK	GENMASK(5, 4)
+ #define ADC5_GEN3_DIG_PARAM_DEC_RATIO_SEL_MASK	GENMASK(3, 2)
++#define ADC5_GEN4_DECIMATION_DEFAULT	1
+ 
+ #define ADC5_GEN3_FAST_AVG			0x53
+ #define ADC5_GEN3_FAST_AVG_CTL_EN		BIT(7)
+@@ -75,10 +77,13 @@
+ #define ADC5_GEN3_CONV_REQ			0xe5
+ #define ADC5_GEN3_CONV_REQ_REQ			BIT(0)
+ 
+-#define ADC5_GEN3_VIRTUAL_SID_MASK		GENMASK(15, 8)
+-#define ADC5_GEN3_CHANNEL_MASK			GENMASK(7, 0)
+-#define ADC5_GEN3_V_CHAN(x)		\
+-	(FIELD_PREP(ADC5_GEN3_VIRTUAL_SID_MASK, (x).sid) | (x).channel)
++#define ADC5_GEN4_V_CHAN_BUS_INDEX_MASK		GENMASK(14, 13)
++#define ADC5_GEN4_V_CHAN_SID_MASK		GENMASK(12, 8)
++#define ADC5_GEN4_V_CHAN_CHANNEL_MASK		GENMASK(7, 0)
++#define ADC5_GEN4_V_CHAN(x) \
++	(FIELD_PREP(ADC5_GEN4_V_CHAN_BUS_INDEX_MASK, (x).bus_index) | \
++	 FIELD_PREP(ADC5_GEN4_V_CHAN_SID_MASK, (x).sid) | \
++	 FIELD_PREP(ADC5_GEN4_V_CHAN_CHANNEL_MASK, (x).channel))
+ 
+ /* ADC channels for PMIC5 Gen3 */
+ #define ADC5_GEN3_REF_GND			0x00
+@@ -102,6 +107,27 @@
+ 
+ #define ADC5_MAX_CHANNEL			0xc0
+ 
++/* ADC channels for PMIC5 Gen4 */
++#define ADC5_GEN4_OFFSET_REF		0x00
++#define ADC5_GEN4_1P25VREF			0x01
++#define ADC5_GEN4_DIE_TEMP			0x03
++#define ADC5_GEN4_USB_SNS_DIV20			0x11
++#define ADC5_GEN4_VIN_DIV20_MUX			0x12
++#define ADC5_GEN4_VPH_PWR			0x8e
++#define ADC5_GEN4_VBAT_SNS_QBG			0x8f
++/* 100k pull-up channels */
++#define ADC5_GEN4_AMUX1_THM_100K_PU		0x44
++#define ADC5_GEN4_AMUX2_THM_100K_PU		0x45
++#define ADC5_GEN4_AMUX3_THM_100K_PU		0x46
++#define ADC5_GEN4_AMUX4_THM_100K_PU		0x47
++#define ADC5_GEN4_AMUX5_THM_100K_PU		0x48
++#define ADC5_GEN4_AMUX6_THM_100K_PU		0x49
++#define ADC5_GEN4_AMUX1_GPIO_100K_PU		0x4a
++#define ADC5_GEN4_AMUX2_GPIO_100K_PU		0x4b
++#define ADC5_GEN4_AMUX3_GPIO_100K_PU		0x4c
++#define ADC5_GEN4_AMUX4_GPIO_100K_PU		0x4d
++#define ADC5_GEN4_AMUX5_GPIO_100K_PU		0x5e
++
+ enum adc5_cal_method {
+ 	ADC5_NO_CAL = 0,
+ 	ADC5_RATIOMETRIC_CAL,
+@@ -117,6 +143,11 @@ enum adc5_time_select {
+ 	MEAS_INT_NONE,
+ };
+ 
++enum adc_generation {
++	ADC5_GEN3 = 0,
++	ADC5_GEN4,
++};
++
+ /**
+  * struct adc5_sdam_data - data per SDAM allocated for adc usage
+  * @base_addr: base address for the ADC SDAM peripheral.
+@@ -166,6 +197,9 @@ struct adc5_channel_common_prop {
+ 	unsigned int hw_settle_time_us;
+ 	unsigned int avg_samples;
+ 	enum vadc_scale_fn_type scale_fn_type;
++	enum adc_generation generation;
++	unsigned int bus_index;
++	const struct adc5_data *data;
+ };
+ 
+ /**
+diff --git a/include/linux/iio/adc/qcom-vadc-common.h b/include/linux/iio/adc/qcom-vadc-common.h
+index 3bf4c4972..55efad27e 100644
+--- a/include/linux/iio/adc/qcom-vadc-common.h
++++ b/include/linux/iio/adc/qcom-vadc-common.h
+@@ -54,6 +54,7 @@
+ 
+ #define R_PU_100K				100000
+ #define RATIO_MAX_ADC7				BIT(14)
++#define RATIO_MAX_ADC5_GEN4			0xffff
+ 
+ /*
+  * VADC_CALIB_ABSOLUTE: uses the 625mV and 1.25V as reference channels.
+@@ -105,6 +106,8 @@ struct vadc_linear_graph {
+  *	charger temperature.
+  * @SCALE_HW_CALIB_PM5_SMB_TEMP: Returns result in millidegrees for PMIC5
+  *	SMB1390 temperature.
++ * @SCALE_HW_CALIB_THERM_100K_PU_GEN4: Returns temperature in millidegC using
++ *	lookup table for PMIC5 Gen4 ADC. The hardware applies offset/slope to adc code.
+  */
+ enum vadc_scale_fn_type {
+ 	SCALE_DEFAULT = 0,
+@@ -120,6 +123,7 @@ enum vadc_scale_fn_type {
+ 	SCALE_HW_CALIB_PMIC_THERM_PM7,
+ 	SCALE_HW_CALIB_PM5_CHG_TEMP,
+ 	SCALE_HW_CALIB_PM5_SMB_TEMP,
++	SCALE_HW_CALIB_THERM_100K_PU_GEN4,
+ 	/* private: */
+ 	SCALE_HW_CALIB_INVALID,
+ };
+@@ -155,6 +159,8 @@ u16 qcom_adc_tm5_temp_volt_scale(unsigned int prescale_ratio,
+ 
+ u16 qcom_adc_tm5_gen2_temp_res_scale(int temp);
+ 
++u16 qcom_adc_tm5_gen4_temp_res_scale(int temp);
++
+ int qcom_adc5_prescaling_from_dt(u32 num, u32 den);
+ 
+ int qcom_adc5_hw_settle_time_from_dt(u32 value, const unsigned int *hw_settle);
+-- 
+2.43.0
+

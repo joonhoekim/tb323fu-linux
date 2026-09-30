@@ -1,0 +1,52 @@
+From fce5de6518c602fcc2e577477f8e38d39e094dde Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 08:31:25 +0000
+Subject: [PATCH 60/61] soc: qcom: pmic_glink_altmode: handle notifications on
+ the freezable workqueue (y705 0045)
+
+Unplugging a DisplayPort alt-mode sink while the system is in s2idle
+makes the firmware send an alt-mode notification. The glink interrupt
+wakes a CPU, the altmode work runs right away on system_wq, and it
+reprograms the orientation switch and the Type-C mux while every device
+is still suspended:
+
+  i2c i2c-2: Transfer while suspended
+  WARNING: drivers/i2c/i2c-core.h:57 at __i2c_transfer
+  Workqueue: events pmic_glink_altmode_worker
+   fsa4480_set / fsa4480_switch_set / typec_switch_set
+
+after which (Lenovo TB323FU, kaanapali) the s2idle loop never resumes,
+the power key does nothing and the board ends up in download mode.
+
+Queue the work on system_freezable_wq instead: a notification that
+arrives during suspend is then handled after the tasks are thawed, with
+the I2C controller and the PHY resumed.
+---
+ drivers/soc/qcom/pmic_glink_altmode.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/soc/qcom/pmic_glink_altmode.c b/drivers/soc/qcom/pmic_glink_altmode.c
+index 13c434f8d..465e5d231 100644
+--- a/drivers/soc/qcom/pmic_glink_altmode.c
++++ b/drivers/soc/qcom/pmic_glink_altmode.c
+@@ -451,7 +451,7 @@ static void pmic_glink_altmode_sc8180xp_notify(struct pmic_glink_altmode *altmod
+ 	alt_port->mode = mode;
+ 	alt_port->hpd_state = hpd_state;
+ 	alt_port->hpd_irq = hpd_irq;
+-	schedule_work(&alt_port->work);
++	queue_work(system_freezable_wq, &alt_port->work);
+ }
+ 
+ #define SC8280XP_DPAM_MASK	0x3f
+@@ -502,7 +502,7 @@ static void pmic_glink_altmode_sc8280xp_notify(struct pmic_glink_altmode *altmod
+ 		alt_port->tbt_data = *tbt;
+ 	}
+ 
+-	schedule_work(&alt_port->work);
++	queue_work(system_freezable_wq, &alt_port->work);
+ }
+ 
+ static void pmic_glink_altmode_callback(const void *data, size_t len, void *priv)
+-- 
+2.43.0
+

@@ -1,0 +1,99 @@
+From 80b4c8fa9882970fcf0527ff024cdeb86337b729 Mon Sep 17 00:00:00 2001
+From: Wangao Wang <wangao.wang@oss.qualcomm.com>
+Date: Wed, 23 Sep 2026 10:41:13 +0800
+Subject: [PATCH 85/95] media: iris: add AV1 decode buffer size support for
+ vpu4x
+
+Add necessary buffer size calculation to support AV1 decode for vpu4x
+
+- wire AV1 into iris_vpu4x_dec_line_size() via hfi_buffer_line_av1d()
+- add hfi_vpu4x_buffer_persist_av1d() for the vpu4x's persist buffer
+  size calculation
+- add BUF_PARTIAL to the vpu4x decoder dispatch table, which AV1D
+  requires
+
+Signed-off-by: Wangao Wang <wangao.wang@oss.qualcomm.com>
+---
+ .../platform/qcom/iris/iris_vpu_buffer.c      | 34 +++++++++++++++++--
+ .../platform/qcom/iris/iris_vpu_buffer.h      |  1 +
+ 2 files changed, 32 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/media/platform/qcom/iris/iris_vpu_buffer.c b/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
+index faebb5472..bb8135bd2 100644
+--- a/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
++++ b/drivers/media/platform/qcom/iris/iris_vpu_buffer.c
+@@ -1833,6 +1833,8 @@ static u32 iris_vpu4x_dec_line_size(struct iris_inst *inst)
+ 	else if (inst->codec == V4L2_PIX_FMT_VP9)
+ 		return hfi_vpu4x_buffer_line_vp9d(width, height, out_min_count, is_opb,
+ 						  num_vpp_pipes);
++	else if (inst->codec == V4L2_PIX_FMT_AV1)
++		return hfi_buffer_line_av1d(width, height, is_opb, num_vpp_pipes);
+ 
+ 	return 0;
+ }
+@@ -1856,14 +1858,39 @@ static u32 hfi_vpu4x_buffer_persist_vp9d(void)
+ 		HDR10_HIST_EXTRADATA_SIZE;
+ }
+ 
++static u32 hfi_vpu4x_buffer_persist_av1d(u32 max_width, u32 max_height,
++					 u32 total_ref_count, u32 rpu_enabled)
++{
++	u32 comv_size = hfi_buffer_comv_av1d(max_width, max_height, total_ref_count);
++	u32 seq_hdr = SIZE_AV1D_SEQUENCE_HEADER * 2 + SIZE_AV1D_METADATA;
++	u32 per_pic = AV1D_NUM_HW_PIC_BUF *
++		      (SIZE_AV1D_TILE_OFFSET + SIZE_AV1D_QM + SIZE_AV1D_ARP + SIZE_AV1D_METADATA);
++	u32 frame_hdr = AV1D_NUM_FRAME_HEADERS *
++			(SIZE_AV1D_FRAME_HEADER + 2 * SIZE_AV1D_PROB_TABLE);
++	u32 extradata = HDR10_HIST_EXTRADATA_SIZE +
++			rpu_enabled * NUM_HW_PIC_BUF * SIZE_DOLBY_RPU_METADATA;
++
++	return ALIGN(seq_hdr + per_pic + frame_hdr + comv_size + extradata, DMA_ALIGNMENT);
++}
++
+ static u32 iris_vpu4x_dec_persist_size(struct iris_inst *inst)
+ {
+-	if (inst->codec == V4L2_PIX_FMT_H264)
++	struct platform_inst_caps *caps;
++
++	if (inst->codec == V4L2_PIX_FMT_H264) {
+ 		return hfi_buffer_persist_h264d();
+-	else if (inst->codec == V4L2_PIX_FMT_HEVC)
++	} else if (inst->codec == V4L2_PIX_FMT_HEVC) {
+ 		return hfi_vpu4x_buffer_persist_h265d(0);
+-	else if (inst->codec == V4L2_PIX_FMT_VP9)
++	} else if (inst->codec == V4L2_PIX_FMT_VP9) {
+ 		return hfi_vpu4x_buffer_persist_vp9d();
++	} else if (inst->codec == V4L2_PIX_FMT_AV1) {
++		caps = inst->core->iris_platform_data->inst_caps;
++		if (inst->fw_caps[DRAP].value)
++			return hfi_vpu4x_buffer_persist_av1d(caps->max_frame_width,
++			caps->max_frame_height, 16, 0);
++		else
++			return hfi_vpu4x_buffer_persist_av1d(0, 0, 0, 0);
++	}
+ 
+ 	return 0;
+ }
+@@ -2163,6 +2190,7 @@ u32 iris_vpu4x_buf_size(struct iris_inst *inst, enum iris_buffer_type buffer_typ
+ 		{BUF_PERSIST,     iris_vpu4x_dec_persist_size   },
+ 		{BUF_DPB,         iris_vpu_dec_dpb_size         },
+ 		{BUF_SCRATCH_1,   iris_vpu_dec_scratch1_size    },
++		{BUF_PARTIAL,     iris_vpu_dec_partial_size     },
+ 	};
+ 
+ 	static const struct iris_vpu_buf_type_handle enc_internal_buf_type_handle[] = {
+diff --git a/drivers/media/platform/qcom/iris/iris_vpu_buffer.h b/drivers/media/platform/qcom/iris/iris_vpu_buffer.h
+index 8c0d6b7b5..c7020931a 100644
+--- a/drivers/media/platform/qcom/iris/iris_vpu_buffer.h
++++ b/drivers/media/platform/qcom/iris/iris_vpu_buffer.h
+@@ -116,6 +116,7 @@ struct iris_inst;
+ #define SIZE_AV1D_TILE_OFFSET     65536
+ #define SIZE_AV1D_QM              3328
+ #define SIZE_AV1D_PROB_TABLE      22784
++#define SIZE_AV1D_ARP             9728
+ 
+ #define SIZE_SLICE_CMD_BUFFER (ALIGN(20480, 256))
+ #define SIZE_SPS_PPS_SLICE_HDR (2048 + 4096)
+-- 
+2.43.0
+

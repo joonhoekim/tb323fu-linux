@@ -1,0 +1,770 @@
+From c71df119483415a5a9e4650993cc66d9ab26ef96 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Wed, 30 Sep 2026 11:10:31 +0000
+Subject: [PATCH 110/111] drm/msm/dpu: baldur: lower the refresh rate in the
+ kernel when idle
+
+Idle refresh used to be a user daemon (baldur-refreshd, 9-100) that
+switched between the 120/60/30 Hz modes. Every switch is a mode change
+for mutter (monitors-changed), which closes GNOME's overview and app grid.
+
+Do it inside the kernel instead: the committed mode stays 120 Hz and only
+the vertical front porch of the running DSI video interface is stretched
+(vtotal 3400 -> 6800 -> 13600 = 120 -> 60 -> 30 Hz). The DSI TOTAL
+register and the INTF vsync period are rewritten (0051's update_vfp), then
+the INTFs are flushed outside a commit under the CRTC's commit lock, so
+userspace never sees a mode change. dpu_crtc_get_scanout_position() uses
+the live vtotal so vblank timestamps stay right while stretched.
+
+Policy (msm.y705_idle_* parameters): 2 = auto (default): 1 s without
+commits -> 60 Hz, 5 s -> 30 Hz; the next commit or an input event returns
+to the mode. 1 = manual rate, 0 = off. The mode's vtotal is restored and
+latched before system suspend and on encoder disable (a 30 Hz sleep once
+ended in a TZ err-fatal, 9-100).
+
+Tested (y705 plan 9-104, idlevfp-t1 and t19): manual 120/60/30 changes
+hit the rate on the INTF frame counter with a stable CRC and no errors,
+and a person watching saw no flicker at any change; auto drops to 60 then
+30 Hz and a commit or a key press brings back 120; with the overview open
+it goes down to 30 Hz, the overview stays open and mutter emits no
+MonitorsChanged; suspend at 30 Hz restores 3400 first and resumes fine.
+
+Risks: the INTF flush outside a commit had never been used on this
+hardware before (y705_idle_selfflush=0 turns it off, so a change only lands
+with the next commit); underruns cannot be counted while the encoder is in
+RC idle; the first frame after a long idle can be up to ~33 ms late.
+Not meant for upstream in this form (y705 names, one DSI encoder only).
+---
+ drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c    |   3 +
+ drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c | 498 ++++++++++++++++++++
+ drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h |   2 +
+ drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c  |  22 +
+ drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.h  |   2 +
+ drivers/gpu/drm/msm/dsi/dsi.c               |   7 +
+ drivers/gpu/drm/msm/dsi/dsi.h               |   1 +
+ drivers/gpu/drm/msm/dsi/dsi_host.c          |  18 +
+ drivers/gpu/drm/msm/msm_drv.h               |   4 +
+ 9 files changed, 557 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
+index 0786f09cb..657b009ac 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
+@@ -297,6 +297,9 @@ static bool dpu_crtc_get_scanout_position(struct drm_crtc *crtc,
+ 
+ 	/* last scan line before VSYNC */
+ 	vfp_end = mode->crtc_vtotal;
++	/* y705: idle refresh stretches the VFP behind the mode's back */
++	if (dpu_encoder_y705_live_vtotal(encoder) > vfp_end)
++		vfp_end = dpu_encoder_y705_live_vtotal(encoder);
+ 
+ 	if (stime)
+ 		*stime = ktime_get();
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
+index 73211060c..baad51c03 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
+@@ -9,7 +9,10 @@
+ 
+ #define pr_fmt(fmt)	"[drm:%s:%d] " fmt, __func__, __LINE__
+ #include <linux/debugfs.h>
++#include <linux/input.h>
+ #include <linux/kthread.h>
++#include <linux/moduleparam.h>
++#include <linux/suspend.h>
+ #include <linux/seq_file.h>
+ 
+ #include <drm/drm_atomic.h>
+@@ -215,6 +218,14 @@ struct dpu_encoder_virt {
+ 
+ 	/* DSC configuration */
+ 	struct drm_dsc_config *dsc;
++
++	/* y705: idle refresh (vertical totals of the DSI video interface) */
++	struct drm_display_mode y705_base_mode;	/* the committed mode */
++	u32 y705_base_vt;			/* its vtotal */
++	u32 y705_live_vt;			/* programmed vtotal, >= base */
++	unsigned long y705_last_kick;		/* jiffies of the last kickoff */
++	unsigned long y705_last_input;		/* jiffies of the last input event */
++	struct delayed_work y705_idle_work;
+ };
+ 
+ #define to_dpu_encoder_virt(x) container_of(x, struct dpu_encoder_virt, base)
+@@ -1360,6 +1371,10 @@ static void dpu_encoder_update_ppb_size(struct dpu_encoder_virt *dpu_enc,
+ 							   pixels_per_pp);
+ }
+ 
++/* y705: idle refresh, defined further down */
++static void y705_idle_enable(struct dpu_encoder_virt *e, const struct drm_display_mode *mode);
++static void y705_idle_disable(struct dpu_encoder_virt *e);
++
+ static void dpu_encoder_virt_atomic_enable(struct drm_encoder *drm_enc,
+ 					struct drm_atomic_commit *state)
+ {
+@@ -1404,6 +1419,7 @@ static void dpu_encoder_virt_atomic_enable(struct drm_encoder *drm_enc,
+ 	_dpu_encoder_virt_enable_helper(drm_enc);
+ 
+ 	dpu_enc->enabled = true;
++	y705_idle_enable(dpu_enc, cur_mode);
+ 
+ out:
+ 	mutex_unlock(&dpu_enc->enc_lock);
+@@ -1461,6 +1477,7 @@ static void dpu_encoder_virt_atomic_disable(struct drm_encoder *drm_enc,
+ 		return;
+ 
+ 	mutex_lock(&dpu_enc->enc_lock);
++	y705_idle_disable(dpu_enc);
+ 	dpu_enc->enabled = false;
+ 
+ 	trace_dpu_enc_disable(DRMID(drm_enc));
+@@ -2168,6 +2185,463 @@ static void dpu_encoder_prep_dsc(struct dpu_encoder_virt *dpu_enc,
+  *	Delayed: Block until next trigger can be issued.
+  * @drm_enc:	encoder pointer
+  */
++
++/*
++ * y705: idle refresh inside the kernel (plan 9-100/9-104, decision 2026-09-30,
++ * study/research/2026-09-30-idle-refresh-options.md options C + A).
++ *
++ * The committed mode stays 120 Hz; when the screen is idle the vertical front
++ * porch of the running DSI video interface is stretched (vtotal 3400 -> 6800
++ * -> 13600 = 120 -> 60 -> 30 Hz) and the INTFs are flushed outside a commit,
++ * so userspace never sees a mode change (no monitors-changed in mutter). The
++ * next commit (auto policy) or an input event brings it back to the mode.
++ *
++ * Knobs, /sys/module/msm/parameters/y705_idle_*:
++ *   policy     0 off, 1 manual (y705_idle_hz is kept across commits),
++ *              2 auto (ms60 / ms30 without commits -> 60 / 30 Hz; default)
++ *   hz         manual rate (e.g. 120, 60, 30)
++ *   ms60 ms30  auto thresholds in ms (default 1000 / 5000)
++ *   min_hz     lowest rate ever programmed (default 30)
++ *   input      1 = an input event returns to the mode at once (auto)
++ *   selfflush  bit0 flush the INTFs outside a commit (without it a change only
++ *              lands with the next commit), bit1 add the CTL bit (default 3)
++ *   state      read-only: current values and counters
++ * Before system suspend and on encoder disable the mode's vtotal is restored
++ * and latched first (a 30 Hz sleep ended in TZ err-fatal in 9-100).
++ */
++static int y705_idle_policy = 2;
++static unsigned int y705_idle_hz = 60;
++static unsigned int y705_idle_ms60 = 1000;
++static unsigned int y705_idle_ms30 = 5000;
++static unsigned int y705_idle_min_hz = 30;
++static bool y705_idle_input = true;
++static unsigned int y705_idle_selfflush = 3;
++
++static struct dpu_encoder_virt *y705_idle_enc;
++static bool y705_idle_suspending;
++static struct {
++	unsigned int stretch, restore_kick, input_kick, flush, busy, nolatch;
++} y705_idle_cnt;
++
++module_param_named(y705_idle_ms60, y705_idle_ms60, uint, 0644);
++module_param_named(y705_idle_ms30, y705_idle_ms30, uint, 0644);
++module_param_named(y705_idle_min_hz, y705_idle_min_hz, uint, 0644);
++module_param_named(y705_idle_input, y705_idle_input, bool, 0644);
++module_param_named(y705_idle_selfflush, y705_idle_selfflush, uint, 0644);
++
++static void y705_idle_kick_work(unsigned long delay)
++{
++	struct dpu_encoder_virt *e = READ_ONCE(y705_idle_enc);
++
++	if (e)
++		mod_delayed_work(system_highpri_wq, &e->y705_idle_work, delay);
++}
++
++static int y705_idle_set_kick(const char *val, const struct kernel_param *kp)
++{
++	int ret = param_set_uint(val, kp);
++
++	if (!ret)
++		y705_idle_kick_work(0);
++	return ret;
++}
++
++static const struct kernel_param_ops y705_idle_kick_ops = {
++	.set = y705_idle_set_kick,
++	.get = param_get_uint,
++};
++module_param_cb(y705_idle_policy, &y705_idle_kick_ops, &y705_idle_policy, 0644);
++module_param_cb(y705_idle_hz, &y705_idle_kick_ops, &y705_idle_hz, 0644);
++
++static int y705_idle_state_get(char *buf, const struct kernel_param *kp)
++{
++	struct dpu_encoder_virt *e = READ_ONCE(y705_idle_enc);
++	unsigned int hz = 0, idle = 0;
++
++	if (e && e->y705_live_vt)
++		hz = DIV_ROUND_CLOSEST(drm_mode_vrefresh(&e->y705_base_mode) * e->y705_base_vt,
++				       e->y705_live_vt);
++	if (e)
++		idle = jiffies_to_msecs(jiffies - e->y705_last_kick);
++	return sysfs_emit(buf,
++		"policy %d enabled %d suspending %d base %u live %u hz %u idle_ms %u "
++		"stretch %u restore_kick %u input_kick %u flush %u busy %u nolatch %u\n",
++		y705_idle_policy, e ? e->enabled : 0, y705_idle_suspending,
++		e ? e->y705_base_vt : 0, e ? e->y705_live_vt : 0, hz, idle,
++		y705_idle_cnt.stretch, y705_idle_cnt.restore_kick, y705_idle_cnt.input_kick,
++		y705_idle_cnt.flush, y705_idle_cnt.busy, y705_idle_cnt.nolatch);
++}
++
++static const struct kernel_param_ops y705_idle_state_ops = {
++	.get = y705_idle_state_get,
++};
++module_param_cb(y705_idle_state, &y705_idle_state_ops, NULL, 0444);
++
++u32 dpu_encoder_y705_live_vtotal(struct drm_encoder *drm_enc)
++{
++	struct dpu_encoder_virt *dpu_enc = to_dpu_encoder_virt(drm_enc);
++
++	return dpu_enc == READ_ONCE(y705_idle_enc) ? READ_ONCE(dpu_enc->y705_live_vt) : 0;
++}
++
++/* @base with the vertical front porch stretched to @vtotal lines */
++static void y705_stretch_mode(struct drm_display_mode *m,
++			      const struct drm_display_mode *base, u32 vtotal)
++{
++	int d = (int)vtotal - base->vtotal;
++
++	drm_mode_copy(m, base);
++	if (d <= 0)
++		return;
++	m->vsync_start += d;
++	m->vsync_end += d;
++	m->vtotal += d;
++	m->crtc_vsync_start += d;
++	m->crtc_vsync_end += d;
++	m->crtc_vtotal += d;
++	m->crtc_vblank_end += d;
++}
++
++/*
++ * The vtotal the policy wants now for @base. @kick: called for a commit.
++ * *@next: jiffies until the policy should look again (0 = no need).
++ */
++static u32 y705_idle_target(struct dpu_encoder_virt *e,
++			    const struct drm_display_mode *base, bool kick,
++			    unsigned long *next)
++{
++	unsigned int hz = drm_mode_vrefresh(base), want = hz;
++	unsigned long idle, t60, t30, last;
++	u32 vt;
++
++	*next = 0;
++	if (READ_ONCE(y705_idle_suspending) || !hz)
++		return base->vtotal;
++	switch (READ_ONCE(y705_idle_policy)) {
++	case 1:
++		want = READ_ONCE(y705_idle_hz);
++		break;
++	case 2:
++		if (kick)
++			return base->vtotal;
++		last = e->y705_last_kick;
++		if (y705_idle_input && time_after(e->y705_last_input, last))
++			last = e->y705_last_input;
++		idle = jiffies - last;
++		t60 = msecs_to_jiffies(y705_idle_ms60);
++		t30 = msecs_to_jiffies(max(y705_idle_ms30, y705_idle_ms60));
++		if (idle >= t30) {
++			want = 30;
++		} else if (idle >= t60) {
++			want = 60;
++			*next = t30 - idle;
++		} else {
++			*next = t60 - idle;
++		}
++		break;
++	default:
++		return base->vtotal;
++	}
++	if (want < y705_idle_min_hz)
++		want = y705_idle_min_hz;
++	if (!want || want >= hz)
++		return base->vtotal;
++	vt = DIV_ROUND_UP(base->vtotal * hz, want);
++	return min_t(u32, vt, 20000);
++}
++
++/*
++ * Write @vtotal into the DSI hosts and the INTFs (phys update_vfp() also marks
++ * the INTFs in the next commit's pending flush). Caller holds the CRTC's
++ * commit_lock. Returns true if anything was written.
++ */
++static bool y705_idle_program(struct dpu_encoder_virt *e, u32 vtotal)
++{
++	struct msm_drm_private *priv = e->base.dev->dev_private;
++	struct drm_display_mode m;
++	unsigned int i;
++
++	if (vtotal == e->y705_live_vt &&
++	    e->phys_encs[0]->cached_mode.vtotal == vtotal)
++		return false;
++	y705_stretch_mode(&m, &e->y705_base_mode, vtotal);
++	for (i = 0; i < e->disp_info.num_of_h_tiles; i++)
++		msm_dsi_y705_live_vtotal(priv->kms->dsi[e->disp_info.h_tile_instance[i]], vtotal);
++	for (i = 0; i < e->num_phys_encs; i++) {
++		struct dpu_encoder_phys *phys = e->phys_encs[i];
++
++		if (phys->ops.update_vfp)
++			phys->ops.update_vfp(phys, &m);
++	}
++	if (vtotal > e->y705_base_vt)
++		y705_idle_cnt.stretch++;
++	WRITE_ONCE(e->y705_live_vt, vtotal);
++	return true;
++}
++
++/* flush the INTFs of every CTL of the encoder, outside a commit */
++static void y705_idle_self_flush(struct dpu_encoder_virt *e)
++{
++	struct dpu_hw_ctl *ctl = NULL;
++	u32 mask = 0;
++	unsigned int i;
++
++	for (i = 0; i < e->num_phys_encs; i++) {
++		struct dpu_encoder_phys *phys = e->phys_encs[i];
++
++		if (!phys->hw_intf || !phys->hw_ctl)
++			continue;
++		if (ctl && ctl != phys->hw_ctl) {
++			dpu_hw_ctl_y705_flush_intf(ctl, mask, y705_idle_selfflush & 2);
++			mask = 0;
++		}
++		ctl = phys->hw_ctl;
++		mask |= BIT(phys->hw_intf->idx - INTF_0);
++	}
++	if (ctl && mask)
++		dpu_hw_ctl_y705_flush_intf(ctl, mask, y705_idle_selfflush & 2);
++	y705_idle_cnt.flush++;
++}
++
++static bool y705_idle_flush_busy(struct dpu_encoder_virt *e, struct drm_crtc *crtc)
++{
++	struct msm_drm_private *priv = e->base.dev->dev_private;
++	struct dpu_hw_ctl *ctl = e->phys_encs[0]->hw_ctl;
++
++	if (ctl && ctl->ops.get_flush_register && ctl->ops.get_flush_register(ctl))
++		return true;	/* a flush is still waiting for its vsync */
++	return priv->kms->pending_crtc_mask & drm_crtc_mask(crtc);	/* async commit */
++}
++
++/* wait (at most ~2 stretched frames) until the CTL flush has latched */
++static bool y705_idle_wait_latch(struct dpu_encoder_virt *e)
++{
++	struct dpu_hw_ctl *ctl = e->phys_encs[0]->hw_ctl;
++	int i;
++
++	for (i = 0; i < 70; i++) {
++		if (!ctl || !ctl->ops.get_flush_register || !ctl->ops.get_flush_register(ctl))
++			return true;
++		usleep_range(1000, 1200);
++	}
++	y705_idle_cnt.nolatch++;
++	return false;
++}
++
++/*
++ * Apply @vtotal now. Caller holds the commit_lock. @force: also while the
++ * CRTC is being disabled. -EBUSY: a flush is in flight, try again later.
++ */
++static int y705_idle_apply_locked(struct dpu_encoder_virt *e, u32 vtotal, bool force)
++{
++	struct drm_crtc *crtc = e->base.crtc;
++	bool flush = y705_idle_selfflush & 1;
++
++	/*
++	 * Video mode enters RC IDLE 58 ms after the last frame, but that only
++	 * masks the interrupts; the clocks and registers stay on.
++	 */
++	if (!crtc || !e->num_phys_encs ||
++	    (e->rc_state != DPU_ENC_RC_STATE_ON && e->rc_state != DPU_ENC_RC_STATE_IDLE))
++		return -ENODEV;
++	if (!force && (!e->enabled || !crtc->state || !crtc->state->active ||
++		       crtc->state->adjusted_mode.vtotal != e->y705_base_vt))
++		return -EAGAIN;	/* off, or a real mode change is on its way */
++	if (vtotal == e->y705_live_vt)
++		return 0;
++	if (flush && y705_idle_flush_busy(e, crtc)) {
++		y705_idle_cnt.busy++;
++		return -EBUSY;
++	}
++	if (y705_idle_program(e, vtotal) && flush)
++		y705_idle_self_flush(e);
++	return 0;
++}
++
++static void y705_idle_work_fn(struct work_struct *work)
++{
++	struct dpu_encoder_virt *e = container_of(to_delayed_work(work),
++						  struct dpu_encoder_virt, y705_idle_work);
++	struct msm_drm_private *priv = e->base.dev->dev_private;
++	struct drm_crtc *crtc = e->base.crtc;
++	unsigned long next = 0;
++	struct mutex *lock;
++	int ret;
++
++	if (!e->enabled || !crtc)
++		return;
++	lock = &priv->kms->commit_lock[drm_crtc_index(crtc)];
++	/* never block: a commit that disables us waits for this work */
++	if (!mutex_trylock(lock)) {
++		mod_delayed_work(system_highpri_wq, &e->y705_idle_work, msecs_to_jiffies(5));
++		return;
++	}
++	ret = y705_idle_apply_locked(e, y705_idle_target(e, &e->y705_base_mode, false, &next),
++				     false);
++	mutex_unlock(lock);
++	if (ret == -EBUSY)
++		next = msecs_to_jiffies(5);
++	if (next)
++		mod_delayed_work(system_highpri_wq, &e->y705_idle_work, next);
++}
++
++/* back to the mode and wait for it to latch; caller holds the commit_lock */
++static void y705_idle_restore_locked(struct dpu_encoder_virt *e)
++{
++	int i;
++
++	if (!e->y705_live_vt || e->y705_live_vt == e->y705_base_vt)
++		return;
++	for (i = 0; i < 20; i++) {
++		if (y705_idle_apply_locked(e, e->y705_base_vt, true) != -EBUSY)
++			break;
++		y705_idle_wait_latch(e);
++	}
++	y705_idle_wait_latch(e);
++	pr_info("y705 idle: restored vtotal %u before disable/suspend\n", e->y705_base_vt);
++}
++
++static void y705_input_event(struct input_handle *handle, unsigned int type,
++			     unsigned int code, int value)
++{
++	struct dpu_encoder_virt *e = READ_ONCE(y705_idle_enc);
++
++	if (!e || READ_ONCE(y705_idle_policy) != 2 || !y705_idle_input)
++		return;
++	e->y705_last_input = jiffies;
++	if (READ_ONCE(e->y705_live_vt) != e->y705_base_vt) {
++		y705_idle_cnt.input_kick++;
++		mod_delayed_work(system_highpri_wq, &e->y705_idle_work, 0);
++	}
++}
++
++static int y705_input_connect(struct input_handler *handler, struct input_dev *dev,
++			      const struct input_device_id *id)
++{
++	struct input_handle *handle;
++	int err;
++
++	handle = kzalloc(sizeof(*handle), GFP_KERNEL);
++	if (!handle)
++		return -ENOMEM;
++	handle->dev = dev;
++	handle->handler = handler;
++	handle->name = "y705_idle";
++	err = input_register_handle(handle);
++	if (err)
++		goto err_free;
++	err = input_open_device(handle);
++	if (err)
++		goto err_unregister;
++	return 0;
++err_unregister:
++	input_unregister_handle(handle);
++err_free:
++	kfree(handle);
++	return err;
++}
++
++static void y705_input_disconnect(struct input_handle *handle)
++{
++	input_close_device(handle);
++	input_unregister_handle(handle);
++	kfree(handle);
++}
++
++static const struct input_device_id y705_input_ids[] = {
++	{	/* touchscreens */
++		.flags = INPUT_DEVICE_ID_MATCH_EVBIT | INPUT_DEVICE_ID_MATCH_ABSBIT,
++		.evbit = { BIT_MASK(EV_ABS) },
++		.absbit = { [BIT_WORD(ABS_MT_POSITION_X)] = BIT_MASK(ABS_MT_POSITION_X) },
++	},
++	{	/* keys, keyboards, buttons */
++		.flags = INPUT_DEVICE_ID_MATCH_EVBIT,
++		.evbit = { BIT_MASK(EV_KEY) },
++	},
++	{	/* mice */
++		.flags = INPUT_DEVICE_ID_MATCH_EVBIT,
++		.evbit = { BIT_MASK(EV_REL) },
++	},
++	{ },
++};
++
++static struct input_handler y705_input_handler = {
++	.event		= y705_input_event,
++	.connect	= y705_input_connect,
++	.disconnect	= y705_input_disconnect,
++	.name		= "y705_idle",
++	.id_table	= y705_input_ids,
++};
++
++static int y705_pm_notify(struct notifier_block *nb, unsigned long ev, void *unused)
++{
++	struct dpu_encoder_virt *e = READ_ONCE(y705_idle_enc);
++	struct msm_drm_private *priv;
++	struct drm_crtc *crtc;
++
++	switch (ev) {
++	case PM_SUSPEND_PREPARE:
++	case PM_HIBERNATION_PREPARE:
++		WRITE_ONCE(y705_idle_suspending, true);
++		if (!e)
++			break;
++		cancel_delayed_work_sync(&e->y705_idle_work);
++		crtc = e->base.crtc;
++		if (!e->enabled || !crtc)
++			break;
++		priv = e->base.dev->dev_private;
++		mutex_lock(&priv->kms->commit_lock[drm_crtc_index(crtc)]);
++		if (e->enabled)
++			y705_idle_restore_locked(e);
++		mutex_unlock(&priv->kms->commit_lock[drm_crtc_index(crtc)]);
++		break;
++	case PM_POST_SUSPEND:
++	case PM_POST_HIBERNATION:
++		WRITE_ONCE(y705_idle_suspending, false);
++		if (e && e->enabled && READ_ONCE(y705_idle_policy))
++			y705_idle_kick_work(msecs_to_jiffies(y705_idle_ms60));
++		break;
++	}
++	return NOTIFY_OK;
++}
++
++static struct notifier_block y705_pm_nb = {
++	.notifier_call = y705_pm_notify,
++};
++
++/* encoder enabled: track it if it is the DSI video interface */
++static void y705_idle_enable(struct dpu_encoder_virt *e, const struct drm_display_mode *mode)
++{
++	static bool registered;
++
++	if (e->disp_info.intf_type != INTF_DSI || !e->num_phys_encs ||
++	    !e->phys_encs[0]->ops.update_vfp)
++		return;
++	drm_mode_copy(&e->y705_base_mode, mode);
++	e->y705_base_vt = mode->vtotal;
++	WRITE_ONCE(e->y705_live_vt, mode->vtotal);
++	e->y705_last_kick = jiffies;
++	WRITE_ONCE(y705_idle_enc, e);
++	if (!registered) {
++		registered = true;
++		register_pm_notifier(&y705_pm_nb);
++		if (y705_idle_input && input_register_handler(&y705_input_handler))
++			pr_warn("y705 idle: no input handler\n");
++	}
++	if (READ_ONCE(y705_idle_policy))
++		mod_delayed_work(system_highpri_wq, &e->y705_idle_work,
++				 msecs_to_jiffies(y705_idle_ms60));
++}
++
++/* encoder about to be disabled (commit_lock held): back to the mode first */
++static void y705_idle_disable(struct dpu_encoder_virt *e)
++{
++	if (e != READ_ONCE(y705_idle_enc))
++		return;
++	cancel_delayed_work_sync(&e->y705_idle_work);
++	y705_idle_restore_locked(e);
++}
++
+ /*
+  * A commit whose CRTC mode differs from the running one only in the vertical
+  * front porch arrives here without a modeset (dpu_crtc_atomic_check() cleared
+@@ -2178,14 +2652,37 @@ static void dpu_encoder_update_vfp(struct drm_encoder *drm_enc)
+ 	struct msm_drm_private *priv = drm_enc->dev->dev_private;
+ 	struct dpu_encoder_virt *dpu_enc = to_dpu_encoder_virt(drm_enc);
+ 	const struct drm_display_mode *mode;
++	unsigned long next;
+ 	unsigned int i;
+ 
+ 	if (!drm_enc->crtc || !drm_enc->crtc->state || !dpu_enc->num_phys_encs)
+ 		return;
+ 	mode = &drm_enc->crtc->state->adjusted_mode;
++
++	/* y705: idle refresh -- a commit brings the mode back (auto) */
++	if (dpu_enc == READ_ONCE(y705_idle_enc) && mode->vtotal == dpu_enc->y705_base_vt) {
++		u32 target = y705_idle_target(dpu_enc, mode, true, &next);
++
++		dpu_enc->y705_last_kick = jiffies;
++		if (dpu_enc->y705_live_vt > target)
++			y705_idle_cnt.restore_kick++;
++		y705_idle_program(dpu_enc, target);
++		if (READ_ONCE(y705_idle_policy) == 2)
++			mod_delayed_work(system_highpri_wq, &dpu_enc->y705_idle_work,
++					 msecs_to_jiffies(y705_idle_ms60));
++		return;
++	}
++
+ 	if (dpu_enc->phys_encs[0]->cached_mode.vtotal == mode->vtotal ||
+ 	    dpu_enc->disp_info.intf_type != INTF_DSI)
+ 		return;
++	/* y705: a real VFP-only mode change resets the idle base */
++	if (dpu_enc == READ_ONCE(y705_idle_enc)) {
++		drm_mode_copy(&dpu_enc->y705_base_mode, mode);
++		dpu_enc->y705_base_vt = mode->vtotal;
++		WRITE_ONCE(dpu_enc->y705_live_vt, mode->vtotal);
++		dpu_enc->y705_last_kick = jiffies;
++	}
+ 
+ 	DPU_DEBUG_ENC(dpu_enc, "seamless vtotal %d -> %d\n",
+ 		      dpu_enc->phys_encs[0]->cached_mode.vtotal, mode->vtotal);
+@@ -2923,6 +3420,7 @@ struct drm_encoder *dpu_encoder_init(struct drm_device *dev,
+ 
+ 	INIT_DELAYED_WORK(&dpu_enc->delayed_off_work,
+ 			dpu_encoder_off_work);
++	INIT_DELAYED_WORK(&dpu_enc->y705_idle_work, y705_idle_work_fn);
+ 	dpu_enc->idle_timeout = IDLE_TIMEOUT;
+ 
+ 	memcpy(&dpu_enc->disp_info, disp_info, sizeof(*disp_info));
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h
+index cc236be5b..cc097c970 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h
+@@ -68,6 +68,8 @@ struct drm_encoder *dpu_encoder_init(struct drm_device *dev,
+ 
+ int dpu_encoder_get_linecount(struct drm_encoder *drm_enc);
+ 
++u32 dpu_encoder_y705_live_vtotal(struct drm_encoder *drm_enc);
++
+ int dpu_encoder_get_vsync_count(struct drm_encoder *drm_enc);
+ 
+ bool dpu_encoder_is_widebus_enabled(const struct drm_encoder *drm_enc);
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c
+index 8401c7662..18211a830 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c
+@@ -180,6 +180,28 @@ static inline void dpu_hw_ctl_trigger_flush_v1(struct dpu_hw_ctl *ctx)
+ 	DPU_REG_WRITE(&ctx->hw, CTL_FLUSH, ctx->pending_flush_mask);
+ }
+ 
++/*
++ * y705: idle refresh. Flush the given INTFs (bit n = INTF_n) outside a
++ * commit, without touching the cached pending masks of the next commit.
++ * Same register sequence as dpu_hw_ctl_trigger_flush_v1(): the INTF sub-flush,
++ * then CTL_FLUSH. @ctl_bit adds the CTL bit a normal commit flush always has.
++ */
++void dpu_hw_ctl_y705_flush_intf(struct dpu_hw_ctl *ctx, u32 intf_mask, bool ctl_bit)
++{
++	u32 flush = ctl_bit ? CTL_FLUSH_MASK_CTL : 0;
++	int i;
++
++	if (ctx->mdss_ver->core_major_ver >= 5) {
++		DPU_REG_WRITE(&ctx->hw, CTL_INTF_FLUSH, intf_mask);
++		flush |= BIT(INTF_IDX);
++	} else {
++		for (i = 0; i < 4; i++)
++			if (intf_mask & BIT(i))
++				flush |= BIT(31 - i);
++	}
++	DPU_REG_WRITE(&ctx->hw, CTL_FLUSH, flush);
++}
++
+ static inline void dpu_hw_ctl_trigger_flush(struct dpu_hw_ctl *ctx)
+ {
+ 	trace_dpu_hw_ctl_trigger_pending_flush(ctx->pending_flush_mask,
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.h b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.h
+index e535bf013..69ad9e074 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.h
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.h
+@@ -358,4 +358,6 @@ struct dpu_hw_ctl *dpu_hw_ctl_init(struct drm_device *dev,
+ 				   u32 mixer_count,
+ 				   const struct dpu_lm_cfg *mixer);
+ 
++void dpu_hw_ctl_y705_flush_intf(struct dpu_hw_ctl *ctx, u32 intf_mask, bool ctl_bit);
++
+ #endif /*_DPU_HW_CTL_H */
+diff --git a/drivers/gpu/drm/msm/dsi/dsi.c b/drivers/gpu/drm/msm/dsi/dsi.c
+index 05e1cbde6..a56d0bcd8 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi.c
++++ b/drivers/gpu/drm/msm/dsi/dsi.c
+@@ -24,6 +24,13 @@ void msm_dsi_update_vtotal(struct msm_dsi *msm_dsi,
+ 		msm_dsi_host_update_vtotal(msm_dsi->host, mode);
+ }
+ 
++/* y705: idle refresh -- live V_TOTAL, the stored mode is kept */
++void msm_dsi_y705_live_vtotal(struct msm_dsi *msm_dsi, u32 vtotal)
++{
++	if (msm_dsi && msm_dsi->host)
++		msm_dsi_host_y705_live_vtotal(msm_dsi->host, vtotal);
++}
++
+ bool msm_dsi_wide_bus_enabled(struct msm_dsi *msm_dsi)
+ {
+ 	return msm_dsi_host_is_wide_bus_enabled(msm_dsi->host);
+diff --git a/drivers/gpu/drm/msm/dsi/dsi.h b/drivers/gpu/drm/msm/dsi/dsi.h
+index 322439982..45eeb8a6d 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi.h
++++ b/drivers/gpu/drm/msm/dsi/dsi.h
+@@ -78,6 +78,7 @@ int msm_dsi_host_power_on(struct mipi_dsi_host *host,
+ int msm_dsi_host_power_off(struct mipi_dsi_host *host);
+ void msm_dsi_host_update_vtotal(struct mipi_dsi_host *host,
+ 				const struct drm_display_mode *mode);
++void msm_dsi_host_y705_live_vtotal(struct mipi_dsi_host *host, u32 vtotal);
+ int msm_dsi_host_set_display_mode(struct mipi_dsi_host *host,
+ 				  const struct drm_display_mode *mode);
+ enum drm_mode_status msm_dsi_host_check_dsc(struct mipi_dsi_host *host,
+diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
+index e6e05afc3..bb6ef34c1 100644
+--- a/drivers/gpu/drm/msm/dsi/dsi_host.c
++++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
+@@ -2660,6 +2660,24 @@ void msm_dsi_host_update_vtotal(struct mipi_dsi_host *host,
+ 	dsi_write(msm_host, REG_DSI_TOTAL, total | DSI_TOTAL_V_TOTAL(mode->vtotal - 1));
+ }
+ 
++/*
++ * y705: idle refresh (study/research/2026-09-30-idle-refresh-options.md).
++ * Rewrite V_TOTAL only; unlike msm_dsi_host_update_vtotal() the stored mode is
++ * left alone, so the next power-on programs the committed mode, never the
++ * stretched one.
++ */
++void msm_dsi_host_y705_live_vtotal(struct mipi_dsi_host *host, u32 vtotal)
++{
++	struct msm_dsi_host *msm_host = to_msm_dsi_host(host);
++	u32 total;
++
++	if (!msm_host->power_on)
++		return;
++	total = dsi_read(msm_host, REG_DSI_TOTAL);
++	total &= ~DSI_TOTAL_V_TOTAL__MASK;
++	dsi_write(msm_host, REG_DSI_TOTAL, total | DSI_TOTAL_V_TOTAL(vtotal - 1));
++}
++
+ int msm_dsi_host_set_display_mode(struct mipi_dsi_host *host,
+ 				  const struct drm_display_mode *mode)
+ {
+diff --git a/drivers/gpu/drm/msm/msm_drv.h b/drivers/gpu/drm/msm/msm_drv.h
+index fe233e20b..fff27c2e0 100644
+--- a/drivers/gpu/drm/msm/msm_drv.h
++++ b/drivers/gpu/drm/msm/msm_drv.h
+@@ -303,6 +303,7 @@ bool msm_dsi_is_master_dsi(struct msm_dsi *msm_dsi);
+ bool msm_dsi_wide_bus_enabled(struct msm_dsi *msm_dsi);
+ void msm_dsi_update_vtotal(struct msm_dsi *msm_dsi,
+ 			   const struct drm_display_mode *mode);
++void msm_dsi_y705_live_vtotal(struct msm_dsi *msm_dsi, u32 vtotal);
+ struct drm_dsc_config *msm_dsi_get_dsc_config(struct msm_dsi *msm_dsi);
+ const char *msm_dsi_get_te_source(struct msm_dsi *msm_dsi);
+ #else
+@@ -337,6 +338,9 @@ static inline void msm_dsi_update_vtotal(struct msm_dsi *msm_dsi,
+ 					 const struct drm_display_mode *mode)
+ {
+ }
++static inline void msm_dsi_y705_live_vtotal(struct msm_dsi *msm_dsi, u32 vtotal)
++{
++}
+ 
+ static inline bool msm_dsi_wide_bus_enabled(struct msm_dsi *msm_dsi)
+ {
+-- 
+2.43.0
+

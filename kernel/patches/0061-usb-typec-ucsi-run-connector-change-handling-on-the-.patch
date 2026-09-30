@@ -1,0 +1,41 @@
+From 2bb339d8929b488ba010fcad2944edbf647cdbb8 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 08:31:25 +0000
+Subject: [PATCH 61/61] usb: typec: ucsi: run connector change handling on the
+ freezable workqueue (y705 0046)
+
+The same unplug-during-s2idle also raises a UCSI connector change, and
+ucsi_handle_connector_change() runs on system_wq while devices are
+suspended. On pmic_glink it sets the orientation through the FSA4480
+switch over a suspended I2C bus:
+
+  i2c i2c-2: Transfer while suspended
+  Workqueue: events ucsi_handle_connector_change
+   fsa4480_set / typec_switch_set / typec_set_orientation
+   pmic_glink_ucsi_connector_status / ucsi_handle_connector_change
+
+and the board again never comes back from s2idle. Queue the work on
+system_freezable_wq; EVENT_PENDING already folds events that arrive
+before it runs, so the change is handled once after resume. With this
+and the altmode change, unplugging the sink during suspend and pressing
+the power key resumes normally.
+---
+ drivers/usb/typec/ucsi/ucsi.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/usb/typec/ucsi/ucsi.c b/drivers/usb/typec/ucsi/ucsi.c
+index bef3f9b71..b9126d71d 100644
+--- a/drivers/usb/typec/ucsi/ucsi.c
++++ b/drivers/usb/typec/ucsi/ucsi.c
+@@ -1575,7 +1575,7 @@ void ucsi_connector_change(struct ucsi *ucsi, u8 num)
+ 	con = &ucsi->connector[num - 1];
+ 
+ 	if (!test_and_set_bit(EVENT_PENDING, &ucsi->flags))
+-		schedule_work(&con->work);
++		queue_work(system_freezable_wq, &con->work);
+ }
+ EXPORT_SYMBOL_GPL(ucsi_connector_change);
+ 
+-- 
+2.43.0
+

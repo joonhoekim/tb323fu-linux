@@ -1,0 +1,70 @@
+From ebfbf312a861e7cea66c8a2f3fa879ba4c49a22e Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:28:20 +0000
+Subject: [PATCH 34/56] ASoC: qcom: sc8280xp: optional S32_LE on MI2S backends
+
+For y705-mainline-plan.md 9-49. The backend fixup pins every backend to
+S16_LE. TB323FU's Awinic AW882xx speaker amplifiers sit on primary MI2S
+and are set up by their parameter file (aw882xx_acf.bin) for 32-bit slots,
+64 fs BCLK, as Android runs that backend (MI2S-LPAIF-RX-PRIMARY, 48 kHz,
+2 ch, 32 bit). At 16 bit their PLL and clock checks pass but the boost
+converter never reports "finished" (SYSST 0x0011) and the driver refuses to
+start them. With the board's sound node carrying qcom,mi2s-s32le, the MI2S
+backends are fixed up to S32_LE instead (the front end stays S16_LE and the
+DSP converts); the amplifiers then start (SYSST 0x0315, as on Android).
+
+A local property, not a proposed binding: upstream would more likely take
+the format from the topology or from the codec's constraints.
+
+[y705 rebase 7.3: re-applied by hand: 7.3 sc8280xp has per-compatible priv data (data->priv) and its own MI2S clock handling; same three edits]
+y705-source: 0019-asoc-qcom-sc8280xp-mi2s-s32.patch
+---
+ sound/soc/qcom/sc8280xp.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/sound/soc/qcom/sc8280xp.c b/sound/soc/qcom/sc8280xp.c
+index 4d48e1012..2ada3145e 100644
+--- a/sound/soc/qcom/sc8280xp.c
++++ b/sound/soc/qcom/sc8280xp.c
+@@ -81,6 +81,7 @@ struct sc8280xp_snd_data {
+ 	struct snd_soc_jack dp_jack[8];
+ 	const struct qcom_snd_soc_common *priv;
+ 	bool jack_setup;
++	bool mi2s_s32;
+ };
+ 
+ static inline int sc8280xp_get_mclk_freq(struct snd_pcm_hw_params *params)
+@@ -218,6 +219,7 @@ static int sc8280xp_snd_init(struct snd_soc_pcm_runtime *rtd)
+ static int sc8280xp_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+ 				     struct snd_pcm_hw_params *params)
+ {
++	struct sc8280xp_snd_data *data = snd_soc_card_get_drvdata(rtd->card);
+ 	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, 0);
+ 	struct snd_interval *rate = hw_param_interval(params,
+ 					SNDRV_PCM_HW_PARAM_RATE);
+@@ -236,6 +238,14 @@ static int sc8280xp_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+ 	case TX_CODEC_DMA_TX_3:
+ 		channels->min = 1;
+ 		break;
++	case PRIMARY_MI2S_RX ... QUATERNARY_MI2S_TX:
++	case QUINARY_MI2S_RX ... QUINARY_MI2S_TX:
++		/* amplifiers set up for 32-bit slots (64 fs BCLK) */
++		if (data->mi2s_s32) {
++			snd_mask_none(fmt);
++			snd_mask_set_format(fmt, SNDRV_PCM_FORMAT_S32_LE);
++		}
++		break;
+ 	default:
+ 		break;
+ 	}
+@@ -426,6 +436,7 @@ static int sc8280xp_platform_probe(struct platform_device *pdev)
+ 		return ret;
+ 
+ 	card->driver_name = data->priv->driver_name;
++	data->mi2s_s32 = of_property_read_bool(dev->of_node, "qcom,mi2s-s32le");
+ 	sc8280xp_add_be_ops(card);
+ 	return devm_snd_soc_register_card(dev, card);
+ }
+-- 
+2.43.0
+

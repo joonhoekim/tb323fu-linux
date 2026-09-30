@@ -1,0 +1,39 @@
+From 83e44160db123b16edfc8265239a5f9397a35384 Mon Sep 17 00:00:00 2001
+From: Akhil P Oommen <akhilpo@oss.qualcomm.com>
+Date: Tue, 7 Jul 2026 03:10:24 +0530
+Subject: [PATCH 05/56] arm64: dts: qcom: kaanapali-mtp: Enable GPU
+
+Add the secure firmware name property and enable GPU support on
+Kaanapali MTP device.
+
+Reviewed-by: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
+Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
+Signed-off-by: Akhil P Oommen <akhilpo@oss.qualcomm.com>
+Link: https://patch.msgid.link/20260707-kaana-gpu-dt-v3-6-8dac9a60dd5c@oss.qualcomm.com
+Signed-off-by: Bjorn Andersson <bjorn.andersson@oss.qualcomm.com>
+---
+ arch/arm64/boot/dts/qcom/kaanapali-mtp.dts | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/kaanapali-mtp.dts b/arch/arm64/boot/dts/qcom/kaanapali-mtp.dts
+index 6d817381b..9b04066f8 100644
+--- a/arch/arm64/boot/dts/qcom/kaanapali-mtp.dts
++++ b/arch/arm64/boot/dts/qcom/kaanapali-mtp.dts
+@@ -908,6 +908,14 @@ vreg_l7n_3p3: ldo7 {
+ 	};
+ };
+ 
++&gpu {
++	status = "okay";
++};
++
++&gpu_zap_shader {
++	firmware-name = "qcom/kaanapali/gen80200_zap.mbn";
++};
++
+ &lpass_vamacro {
+ 	pinctrl-0 = <&dmic01_default>, <&dmic23_default>;
+ 	pinctrl-names = "default";
+-- 
+2.43.0
+

@@ -1,0 +1,60 @@
+From ccf43c3935da1d7fa721bb7860b14d9042840684 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sun, 27 Sep 2026 04:28:44 +0000
+Subject: [PATCH 66/66] drm/panel: nt36523: baldur CSOT 60 and 30 Hz modes
+ (y705 0052)
+
+The vendor dfps timings dtiming@1/@2: same pixel clock and horizontal timing
+as 120 Hz, a longer vertical front porch (3426, 10226). With the in-place
+VFP change in msm the display switches between them without a modeset.
+The vendor 165/144/90 Hz timings change the horizontal timing or break the
+picture and are left out (y705-mainline-plan.md 9-96, 9-100).
+
+Signed-off-by: joonhoekim <26rote@gmail.com>
+---
+ drivers/gpu/drm/panel/panel-novatek-nt36523.c | 29 +++++++++++++++++++
+ 1 file changed, 29 insertions(+)
+
+diff --git a/drivers/gpu/drm/panel/panel-novatek-nt36523.c b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
+index 834cfbdce..ecd029a45 100644
+--- a/drivers/gpu/drm/panel/panel-novatek-nt36523.c
++++ b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
+@@ -1376,6 +1376,35 @@ static const struct drm_display_mode baldur_csot_modes[] = {
+ 		.vsync_end = 3040 + 26 + 4,
+ 		.vtotal = 3040 + 26 + 4 + 330,
+ 	},
++	/*
++	 * 60 and 30 Hz: the vendor dfps timings (qcom,dfps-timings dtiming@1/2)
++	 * -- same pixel clock and horizontal timing, only the vertical front
++	 * porch is longer, so the display switches to them in place (msm
++	 * dpu_crtc_vfp_only()). The vendor 165/144/90 Hz timings change the
++	 * horizontal timing or break the picture (y705 plan 9-96).
++	 */
++	{
++		.clock = (952 + 90 + 16 + 64) * 2 * (3040 + 3426 + 4 + 330) * 60 / 1000,
++		.hdisplay = 952 * 2,
++		.hsync_start = (952 + 90) * 2,
++		.hsync_end = (952 + 90 + 16) * 2,
++		.htotal = (952 + 90 + 16 + 64) * 2,
++		.vdisplay = 3040,
++		.vsync_start = 3040 + 3426,
++		.vsync_end = 3040 + 3426 + 4,
++		.vtotal = 3040 + 3426 + 4 + 330,
++	},
++	{
++		.clock = (952 + 90 + 16 + 64) * 2 * (3040 + 10226 + 4 + 330) * 30 / 1000,
++		.hdisplay = 952 * 2,
++		.hsync_start = (952 + 90) * 2,
++		.hsync_end = (952 + 90 + 16) * 2,
++		.htotal = (952 + 90 + 16 + 64) * 2,
++		.vdisplay = 3040,
++		.vsync_start = 3040 + 10226,
++		.vsync_end = 3040 + 10226 + 4,
++		.vtotal = 3040 + 10226 + 4 + 330,
++	},
+ };
+ 
+ static const struct panel_desc baldur_csot_desc = {
+-- 
+2.43.0
+

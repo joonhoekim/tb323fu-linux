@@ -1,0 +1,141 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * TB323FU ("baldur"): board-temperature (skin) throttling after Android's
+ * thermal-engine (y705 plan 9-104, study/research/2026-09-30-thermal-cooling.md).
+ *
+ * baldur-thermal.dtsi only protects the silicon (95 C junction, passive, per
+ * CPU zone); kaanapali.dtsi does 105 C for the GPU. Android throttles long
+ * before that, on the board NTC "quiet-therm" (PMK8850 AMUX3_GPIO, our
+ * quiet-thermal): /vendor/etc/thermal-engine_cpu_0.conf and _gpu_0.conf of
+ * the default user case 0 (logs/2026-09-27-android-thermal-policy.txt):
+ *
+ *   quiet-therm  43 C  45 C  47 C  49 C     (clear 2 C lower)
+ *   cluster 1    2.88  1.75  1.02  0.88 GHz  (cpu6-7, policy6)
+ *   cluster 0    2.00  1.00  0.38  0.38 GHz  (cpu0-5, policy0)
+ *   quiet-therm  44 C  46 C  48 C  50 C
+ *   GPU          902   646   539   222 MHz   (539 is not an OPP here: 500)
+ *
+ * Each step is a passive trip whose cooling map pins the device to one state
+ * (min = max: step_wise clamps its target to the map's range, and the core
+ * applies the deepest target of all instances of a device). States count from
+ * the highest frequency: cpufreq-cpu0 has 28 (0 = 3.6288 GHz), cpufreq-cpu6
+ * 29 including the two disabled boost frequencies (0 = 4.608 GHz,
+ * 2 = 4.3968 GHz), the GPU devfreq 17 (0 = 1200 MHz).
+ *
+ * Not carried over: the LCD backlight cap at lcm 55 C (no backlight cooling
+ * device) and the charging-current steps (thermal-engine_battery_N.conf).
+ * The zone is an ADC channel; poll it every second like thermal-engine does
+ * instead of relying on ADC_TM threshold interrupts.
+ */
+
+&{/thermal-zones/quiet-thermal} {
+	polling-delay = <1000>;
+	polling-delay-passive = <1000>;
+
+	trips {
+		quiet_43: quiet-43 {
+			temperature = <43000>;
+			hysteresis = <2000>;
+			type = "passive";
+		};
+
+		quiet_44: quiet-44 {
+			temperature = <44000>;
+			hysteresis = <2000>;
+			type = "passive";
+		};
+
+		quiet_45: quiet-45 {
+			temperature = <45000>;
+			hysteresis = <2000>;
+			type = "passive";
+		};
+
+		quiet_46: quiet-46 {
+			temperature = <46000>;
+			hysteresis = <2000>;
+			type = "passive";
+		};
+
+		quiet_47: quiet-47 {
+			temperature = <47000>;
+			hysteresis = <2000>;
+			type = "passive";
+		};
+
+		quiet_48: quiet-48 {
+			temperature = <48000>;
+			hysteresis = <2000>;
+			type = "passive";
+		};
+
+		quiet_49: quiet-49 {
+			temperature = <49000>;
+			hysteresis = <2000>;
+			type = "passive";
+		};
+
+		quiet_50: quiet-50 {
+			temperature = <50000>;
+			hysteresis = <2000>;
+			type = "passive";
+		};
+	};
+
+	cooling-maps {
+		map0 {	/* cluster 0 -> 1996800 kHz */
+			trip = <&quiet_43>;
+			cooling-device = <&cpu0 13 13>;
+		};
+
+		map1 {	/* cluster 1 -> 2880000 kHz */
+			trip = <&quiet_43>;
+			cooling-device = <&cpu6 13 13>;
+		};
+
+		map2 {	/* GPU -> 902 MHz */
+			trip = <&quiet_44>;
+			cooling-device = <&gpu 3 3>;
+		};
+
+		map3 {	/* cluster 0 -> 998400 kHz */
+			trip = <&quiet_45>;
+			cooling-device = <&cpu0 22 22>;
+		};
+
+		map4 {	/* cluster 1 -> 1747200 kHz */
+			trip = <&quiet_45>;
+			cooling-device = <&cpu6 20 20>;
+		};
+
+		map5 {	/* GPU -> 646 MHz */
+			trip = <&quiet_46>;
+			cooling-device = <&gpu 6 6>;
+		};
+
+		map6 {	/* cluster 0 -> 384000 kHz */
+			trip = <&quiet_47>;
+			cooling-device = <&cpu0 27 27>;
+		};
+
+		map7 {	/* cluster 1 -> 1017600 kHz */
+			trip = <&quiet_47>;
+			cooling-device = <&cpu6 26 26>;
+		};
+
+		map8 {	/* GPU -> 500 MHz */
+			trip = <&quiet_48>;
+			cooling-device = <&gpu 8 8>;
+		};
+
+		map9 {	/* cluster 1 -> 883200 kHz */
+			trip = <&quiet_49>;
+			cooling-device = <&cpu6 27 27>;
+		};
+
+		map10 {	/* GPU -> 222 MHz */
+			trip = <&quiet_50>;
+			cooling-device = <&gpu 14 14>;
+		};
+	};
+};

@@ -1,0 +1,264 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * TB323FU ("baldur") PMIC ADC: board thermistors and PMIC die temperatures
+ * (y705-mainline-plan.md 9-59). The ADC is PMK8850's PMIC5 Gen4 VADC at
+ * 0x9000 (pmk8850.dtsi, upstream series 0025); it reads channels of every
+ * PMIC on the bus. Channel numbers are the vendor DT's (vadc@9000) as they
+ * are: bits 14:13 bus, 12:8 SID, 7:0 channel -- 0x27xx is PMIH0108 (bus 1,
+ * SID 7), 0x1xx PMH0101 (SID 1), 0x0xx PMK8850.
+ *
+ * All NTCs are 100 kOhm pull-up ratiometric thermistors. The vendor DT names
+ * them; where it is one we know on the board, the name says so. The vendor's
+ * thermal zones on them have only 125 C placeholder trips (Android's
+ * thermal-engine throttles in userspace, from skin_therm mostly), so these
+ * zones get one "hot" trip each, for notification, and no cooling maps.
+ * PMIC die temperatures feed the temp-alarm zones, which otherwise estimate
+ * from the alarm stage (a flat 37 C).
+ */
+
+#include "qcom-adc5-gen4.h"
+
+&pmh0101_gpios {
+	/* ADC inputs: the vendor sets these two high-Z for the ADC */
+	qtm_therm_default: qtm-therm-default-state {
+		pins = "gpio2";
+		function = "normal";
+		bias-high-impedance;
+	};
+
+	quiet_therm_default: quiet-therm-default-state {
+		pins = "gpio3";
+		function = "normal";
+		bias-high-impedance;
+	};
+};
+
+&pmk8850_vadc {
+	pinctrl-0 = <&qtm_therm_default>, <&quiet_therm_default>;
+	pinctrl-names = "default";
+
+	/* pmk8850.dtsi's AMUX1 channel: the vendor's xo_therm */
+	channel@44 {
+		label = "xo_therm";
+	};
+
+	channel@47 {
+		reg = <ADC5_GEN4_AMUX4_THM_100K_PU(0, 0)>;
+		label = "lcm_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,adc-tm;
+	};
+
+	channel@103 {
+		reg = <ADC5_GEN4_DIE_TEMP(0, 1)>;
+		label = "pmh0101_die_temp";
+	};
+
+	channel@18e {
+		reg = <ADC5_GEN4_VPH_PWR(0, 1)>;
+		label = "pmh0101_vph_pwr";
+	};
+
+	channel@144 {
+		reg = <ADC5_GEN4_AMUX1_THM_100K_PU(0, 1)>;
+		label = "skin_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,adc-tm;
+	};
+
+	channel@145 {
+		reg = <ADC5_GEN4_AMUX2_THM_100K_PU(0, 1)>;
+		label = "flash_led_ntc";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,adc-tm;
+	};
+
+	channel@146 {
+		reg = <ADC5_GEN4_AMUX3_THM_100K_PU(0, 1)>;
+		label = "wlan_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,adc-tm;
+	};
+
+	channel@148 {
+		reg = <ADC5_GEN4_AMUX5_THM_100K_PU(0, 1)>;
+		label = "usb2_conn_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,adc-tm;
+	};
+
+	channel@14a {
+		reg = <ADC5_GEN4_AMUX1_GPIO_100K_PU(0, 1)>;
+		label = "rear_cam_ntc";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,adc-tm;
+	};
+
+	channel@14b {
+		reg = <ADC5_GEN4_AMUX2_GPIO_100K_PU(0, 1)>;
+		label = "qtm_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,adc-tm;
+	};
+
+	channel@14c {
+		reg = <ADC5_GEN4_AMUX3_GPIO_100K_PU(0, 1)>;
+		label = "quiet_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,adc-tm;
+	};
+
+	channel@303 {
+		reg = <ADC5_GEN4_DIE_TEMP(0, 3)>;
+		label = "pmh0110_d_die_temp";
+	};
+
+	channel@503 {
+		reg = <ADC5_GEN4_DIE_TEMP(0, 5)>;
+		label = "pmh0110_f_die_temp";
+	};
+
+	channel@603 {
+		reg = <ADC5_GEN4_DIE_TEMP(0, 6)>;
+		label = "pmh0110_g_die_temp";
+	};
+
+	channel@803 {
+		reg = <ADC5_GEN4_DIE_TEMP(0, 8)>;
+		label = "pmh0110_i_die_temp";
+	};
+
+	channel@2703 {
+		reg = <ADC5_GEN4_DIE_TEMP(1, 7)>;
+		label = "pmih0108_die_temp";
+	};
+
+	channel@278e {
+		reg = <ADC5_GEN4_VPH_PWR(1, 7)>;
+		label = "pmih0108_vph_pwr";
+	};
+
+	channel@278f {
+		reg = <ADC5_GEN4_VBAT_SNS_QBG(1, 7)>;
+		label = "vbat_sns_qbg";
+	};
+
+	channel@2744 {
+		reg = <ADC5_GEN4_AMUX1_THM_100K_PU(1, 7)>;
+		label = "batt_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,adc-tm;
+	};
+
+	channel@2747 {
+		reg = <ADC5_GEN4_AMUX4_THM_100K_PU(1, 7)>;
+		label = "usb_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,adc-tm;
+	};
+
+	channel@274b {
+		reg = <ADC5_GEN4_AMUX2_GPIO_100K_PU(1, 7)>;
+		label = "ufs_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,adc-tm;
+	};
+
+	channel@274c {
+		reg = <ADC5_GEN4_AMUX3_GPIO_100K_PU(1, 7)>;
+		label = "batt_therm_2";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,adc-tm;
+	};
+
+	channel@274d {
+		reg = <ADC5_GEN4_AMUX4_GPIO_100K_PU(1, 7)>;
+		label = "wls_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,adc-tm;
+	};
+
+	channel@275e {
+		reg = <ADC5_GEN4_AMUX5_GPIO_100K_PU(1, 7)>;
+		label = "fcam_ntc";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,adc-tm;
+	};
+};
+
+&pmh0101_temp_alarm {
+	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 1)>;
+	io-channel-names = "thermal";
+};
+
+&pmh0110_d_e0_temp_alarm {
+	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 3)>;
+	io-channel-names = "thermal";
+};
+
+&pmh0110_f_e0_temp_alarm {
+	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 5)>;
+	io-channel-names = "thermal";
+};
+
+&pmh0110_g_e0_temp_alarm {
+	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 6)>;
+	io-channel-names = "thermal";
+};
+
+&pmh0110_i_e0_temp_alarm {
+	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(0, 8)>;
+	io-channel-names = "thermal";
+};
+
+&pmih0108_e1_temp_alarm {
+	io-channels = <&pmk8850_vadc ADC5_GEN4_DIE_TEMP(1, 7)>;
+	io-channel-names = "thermal";
+};
+
+#define BALDUR_NTC_ZONE(_name, _chan)					\
+	_name {								\
+		thermal-sensors = <&pmk8850_vadc _chan>;		\
+									\
+		trips {							\
+			hot {						\
+				temperature = <80000>;			\
+				hysteresis = <2000>;			\
+				type = "hot";				\
+			};						\
+		};							\
+	}
+
+/ {
+	thermal-zones {
+		BALDUR_NTC_ZONE(xo-thermal, ADC5_GEN4_AMUX1_THM_100K_PU(0, 0));
+		BALDUR_NTC_ZONE(lcm-thermal, ADC5_GEN4_AMUX4_THM_100K_PU(0, 0));
+		BALDUR_NTC_ZONE(skin-thermal, ADC5_GEN4_AMUX1_THM_100K_PU(0, 1));
+		BALDUR_NTC_ZONE(flash-led-thermal, ADC5_GEN4_AMUX2_THM_100K_PU(0, 1));
+		BALDUR_NTC_ZONE(wlan-thermal, ADC5_GEN4_AMUX3_THM_100K_PU(0, 1));
+		BALDUR_NTC_ZONE(usb2-conn-thermal, ADC5_GEN4_AMUX5_THM_100K_PU(0, 1));
+		BALDUR_NTC_ZONE(rear-cam-thermal, ADC5_GEN4_AMUX1_GPIO_100K_PU(0, 1));
+		BALDUR_NTC_ZONE(qtm-thermal, ADC5_GEN4_AMUX2_GPIO_100K_PU(0, 1));
+		BALDUR_NTC_ZONE(quiet-thermal, ADC5_GEN4_AMUX3_GPIO_100K_PU(0, 1));
+		BALDUR_NTC_ZONE(batt-thermal, ADC5_GEN4_AMUX1_THM_100K_PU(1, 7));
+		BALDUR_NTC_ZONE(usb-thermal, ADC5_GEN4_AMUX4_THM_100K_PU(1, 7));
+		BALDUR_NTC_ZONE(ufs-thermal, ADC5_GEN4_AMUX2_GPIO_100K_PU(1, 7));
+		BALDUR_NTC_ZONE(batt2-thermal, ADC5_GEN4_AMUX3_GPIO_100K_PU(1, 7));
+		BALDUR_NTC_ZONE(wls-thermal, ADC5_GEN4_AMUX4_GPIO_100K_PU(1, 7));
+		BALDUR_NTC_ZONE(fcam-thermal, ADC5_GEN4_AMUX5_GPIO_100K_PU(1, 7));
+	};
+};

@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * TB323FU ("baldur"), stage 5: the board tree plus the panel
+ * (y705-mainline-plan.md 9-18). Kept as its own top-level tree so the stage-4
+ * image, which reads its log off the bootloader's splash buffer, stays as it
+ * is: bringing MDSS up gives that buffer away.
+ */
+
+#include "kaanapali-lenovo-baldur.dts"
+/* the panel's reset line is GPIO 10 of pmh0110 F (SPMI0 SID 5) */
+#include "pmh0110-kaanapali.dtsi"
+#include "baldur-display.dtsi"
+#include "baldur-gpu.dtsi"
+/*
+ * Wi-Fi (WCN7860 on PCIe0) is written but does not come up yet: the chip
+ * never answers link training (plan 9-23). Kept out until it does.
+ *
+ */
+#include "pmh0104-kaanapali.dtsi"
+#include "baldur-wifi.dtsi"
+#include "baldur-backlight.dtsi"
+#include "baldur-touch.dtsi"
+#include "baldur-audio.dtsi"
+#include "baldur-cdsp.dtsi"
+#include "pmh0101.dtsi"
+#include "baldur-haptics-flash.dtsi"
+#include "baldur-adc.dtsi"
+#include "baldur-skin-thermal.dtsi"
+#include "baldur-camera.dtsi"
+#include "baldur-ledring.dtsi"
+#include "baldur-stats.dtsi"
+#include "baldur-video.dtsi"
+#include "baldur-dp.dtsi"

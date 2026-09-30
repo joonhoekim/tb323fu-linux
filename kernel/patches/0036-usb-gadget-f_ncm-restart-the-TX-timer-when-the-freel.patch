@@ -1,0 +1,47 @@
+From 6a6eeb8fc4a7e8b294068c56b977cc22dc2b6e46 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:28:21 +0000
+Subject: [PATCH 36/56] usb: gadget: f_ncm: restart the TX timer when the
+ freelist is empty
+
+For y705-mainline-plan.md 9-51. The same fix as upstream's "usb: gadget:
+f_ncm: restart the TX timer if the TX freelist is empty" (Cosmin Tanislav,
+2026-08, Fixes: 6d3865f9d41f) / "Restart timer when eth_start_xmit()
+fails" (Francesco Lavra, 2026-07), which this tree predates.
+
+When the 300 us flush timer fires while no USB request is free,
+eth_start_xmit(NULL) returns NETDEV_TX_BUSY and the timer does not run
+again until a new NTB is started: the half-filled NTB (ping replies, TCP
+ACKs) sits until more traffic fills it. On TB323FU the USB network stopped
+now and then (link UP, ARP REACHABLE, no replies) until the gadget was
+rebound. Re-arm the timer instead.
+
+y705-source: 0021-usb-gadget-f_ncm-rearm-tx-timer.patch
+---
+ drivers/usb/gadget/function/f_ncm.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/usb/gadget/function/f_ncm.c b/drivers/usb/gadget/function/f_ncm.c
+index 500c9c19c..489fea5c7 100644
+--- a/drivers/usb/gadget/function/f_ncm.c
++++ b/drivers/usb/gadget/function/f_ncm.c
+@@ -1158,7 +1158,15 @@ static enum hrtimer_restart ncm_tx_timeout(struct hrtimer *data)
+ 		 *
+ 		 * This will call directly into u_ether's eth_start_xmit()
+ 		 */
+-		netdev->netdev_ops->ndo_start_xmit(NULL, netdev);
++		if (netdev->netdev_ops->ndo_start_xmit(NULL, netdev) == NETDEV_TX_BUSY) {
++			/*
++			 * No free request to send the pending NTB: try again
++			 * later, or it waits for the next datagram, which may
++			 * never come (the link stalls, 9-51).
++			 */
++			hrtimer_forward_now(data, TX_TIMEOUT_NSECS);
++			return HRTIMER_RESTART;
++		}
+ 	}
+ 	return HRTIMER_NORESTART;
+ }
+-- 
+2.43.0
+

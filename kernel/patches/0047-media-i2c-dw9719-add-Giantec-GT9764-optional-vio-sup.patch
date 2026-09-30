@@ -1,0 +1,136 @@
+From 56d773ac7031fec64f9a543b039a6b84f1f84f36 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:30:48 +0000
+Subject: [PATCH 47/56] media: i2c: dw9719: add Giantec GT9764, optional vio
+ supply
+
+The TB323FU rear lens VCM (y705-mainline-plan.md 9-61) is a Giantec GT9764
+with the DW9719 register map. The vendor stack writes CONTROL 0x02, MODE
+0x40 (SAC 4), VCM_FREQ 0x7c and 16-bit positions to register 3; it has no
+INFO register we can rely on, so skip detection like the DW9800K. Its bus
+pull-ups sit on the sensor I/O rail: take an optional vio supply and keep it
+on while the VCM is.
+
+y705-source: 0033-media-i2c-dw9719-gt9764.patch
+---
+ drivers/media/i2c/dw9719.c | 39 ++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 37 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/media/i2c/dw9719.c b/drivers/media/i2c/dw9719.c
+index 3b7ba88fd..195e95909 100644
+--- a/drivers/media/i2c/dw9719.c
++++ b/drivers/media/i2c/dw9719.c
+@@ -72,6 +72,10 @@
+ #define DW9800K_MODE_SAC_SHIFT		6
+ #define DW9800K_DEFAULT_VCM_FREQ		0x10
+ 
++/* Giantec GT9764: DW9719 register map, no INFO; values the vendor stack writes */
++#define GT9764_DEFAULT_SAC		4
++#define GT9764_DEFAULT_VCM_FREQ		0x7c
++
+ #define to_dw9719_device(x) container_of(x, struct dw9719_device, sd)
+ 
+ enum dw9719_model {
+@@ -79,6 +83,7 @@ enum dw9719_model {
+ 	DW9719,
+ 	DW9761,
+ 	DW9800K,
++	GT9764,
+ };
+ 
+ struct dw9719_device {
+@@ -86,6 +91,7 @@ struct dw9719_device {
+ 	struct device *dev;
+ 	struct regmap *regmap;
+ 	struct regulator *regulator;
++	struct regulator *vio;	/* optional: I/O rail the bus pull-ups sit on */
+ 	enum dw9719_model model;
+ 	u32 mode_low_bits;
+ 	u32 sac_mode;
+@@ -99,6 +105,7 @@ struct dw9719_device {
+ 
+ static int dw9719_power_down(struct dw9719_device *dw9719)
+ {
++	int ret;
+ 	u32 reg_pwr = dw9719->model == DW9718S ? DW9718S_PD : DW9719_CONTROL;
+ 
+ 	/*
+@@ -107,7 +114,11 @@ static int dw9719_power_down(struct dw9719_device *dw9719)
+ 	 */
+ 	if (cci_write(dw9719->regmap, reg_pwr, DW9719_SHUTDOWN, NULL))
+ 		dev_err(dw9719->dev, "Error writing to power register\n");
+-	return regulator_disable(dw9719->regulator);
++	ret = regulator_disable(dw9719->regulator);
++	if (dw9719->vio)
++		regulator_disable(dw9719->vio);
++
++	return ret;
+ }
+ 
+ static int dw9719_power_up(struct dw9719_device *dw9719, bool detect)
+@@ -117,9 +128,18 @@ static int dw9719_power_up(struct dw9719_device *dw9719, bool detect)
+ 	int ret;
+ 	int err;
+ 
++	if (dw9719->vio) {
++		ret = regulator_enable(dw9719->vio);
++		if (ret)
++			return ret;
++	}
++
+ 	ret = regulator_enable(dw9719->regulator);
+-	if (ret)
++	if (ret) {
++		if (dw9719->vio)
++			regulator_disable(dw9719->vio);
+ 		return ret;
++	}
+ 
+ 	/*
+ 	 * Need 100us to transition from SHUTDOWN to STANDBY.
+@@ -144,6 +164,11 @@ static int dw9719_power_up(struct dw9719_device *dw9719, bool detect)
+ 			dw9719->sac_mode = DW9800K_DEFAULT_SAC;
+ 			dw9719->vcm_freq = DW9800K_DEFAULT_VCM_FREQ;
+ 			goto props;
++		case GT9764:
++			dw9719->mode_low_bits = 0x00;
++			dw9719->sac_mode = GT9764_DEFAULT_SAC;
++			dw9719->vcm_freq = GT9764_DEFAULT_VCM_FREQ;
++			goto props;
+ 		default:
+ 			break;
+ 		}
+@@ -212,6 +237,7 @@ static int dw9719_power_up(struct dw9719_device *dw9719, bool detect)
+ 			  DW9761_DEFAULT_VCM_PRELOAD, &ret);
+ 		fallthrough;
+ 	case DW9719:
++	case GT9764:
+ 		cci_write(dw9719->regmap, DW9719_CONTROL, DW9719_ENABLE_RINGING, &ret);
+ 		cci_write(dw9719->regmap, DW9719_MODE, dw9719->mode_low_bits |
+ 				  (dw9719->sac_mode << DW9719_MODE_SAC_SHIFT), &ret);
+@@ -367,6 +393,14 @@ static int dw9719_probe(struct i2c_client *client)
+ 
+ 	dw9719->dev = &client->dev;
+ 
++	dw9719->vio = devm_regulator_get_optional(&client->dev, "vio");
++	if (IS_ERR(dw9719->vio)) {
++		if (PTR_ERR(dw9719->vio) != -ENODEV)
++			return dev_err_probe(&client->dev, PTR_ERR(dw9719->vio),
++					     "getting vio regulator\n");
++		dw9719->vio = NULL;
++	}
++
+ 	dw9719->regulator = devm_regulator_get(&client->dev, "vdd");
+ 	if (IS_ERR(dw9719->regulator))
+ 		return dev_err_probe(&client->dev, PTR_ERR(dw9719->regulator),
+@@ -453,6 +487,7 @@ static const struct of_device_id dw9719_of_table[] = {
+ 	{ .compatible = "dongwoon,dw9719", .data = (const void *)DW9719 },
+ 	{ .compatible = "dongwoon,dw9761", .data = (const void *)DW9761 },
+ 	{ .compatible = "dongwoon,dw9800k", .data = (const void *)DW9800K },
++	{ .compatible = "giantec,gt9764", .data = (const void *)GT9764 },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(of, dw9719_of_table);
+-- 
+2.43.0
+

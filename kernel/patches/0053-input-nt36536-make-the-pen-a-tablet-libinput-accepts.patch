@@ -1,0 +1,89 @@
+From 2efd6fd664aee2e9afa620d1fb40c619a5a279b4 Mon Sep 17 00:00:00 2001
+From: joonhoekim <26rote@gmail.com>
+Date: Sat, 26 Sep 2026 01:33:07 +0000
+Subject: [PATCH 53/56] input: nt36536: make the pen a tablet libinput accepts
+
+The pen input device had no BTN_STYLUS and no resolution, so libinput
+dropped it ("missing tablet capabilities: btn-stylus resolution"). Declare
+BTN_STYLUS/BTN_STYLUS2 and report the two barrel buttons the driver already
+parses (point_data[77] bits 0/1), and give ABS_X/ABS_Y a resolution: the
+pen reports 10x the panel pixels, 19040 x 30400 over the 118.6 x 189.4 mm
+8.8" panel = 160 units/mm. libinput then lists it as a tablet, 119x190mm
+(y705-mainline-plan.md 9-71). Untested with a pen (no AES pen at hand), so
+axis orientation and the button bits are unverified. Applies after 0010.
+
+y705-source: 0040-input-nt36536-pen-tablet-caps.patch
+---
+ drivers/input/touchscreen/nt36536/nt36xxx.c | 16 ++++++++++++++++
+ drivers/input/touchscreen/nt36536/nt36xxx.h |  2 ++
+ 2 files changed, 18 insertions(+)
+
+diff --git a/drivers/input/touchscreen/nt36536/nt36xxx.c b/drivers/input/touchscreen/nt36536/nt36xxx.c
+index a93a57959..f76769a2c 100644
+--- a/drivers/input/touchscreen/nt36536/nt36xxx.c
++++ b/drivers/input/touchscreen/nt36536/nt36xxx.c
+@@ -725,6 +725,8 @@ static void release_pen_event(void) {
+ 		input_report_abs(ts->pen_input_dev, ABS_DISTANCE, 0);
+ 		input_report_key(ts->pen_input_dev, BTN_TOUCH, 0);
+ 		input_report_key(ts->pen_input_dev, BTN_TOOL_PEN, 0);
++		input_report_key(ts->pen_input_dev, BTN_STYLUS, 0);
++		input_report_key(ts->pen_input_dev, BTN_STYLUS2, 0);
+ 		input_sync(ts->pen_input_dev);
+ 	}
+ }
+@@ -1037,6 +1039,8 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
+ 				input_report_abs(ts->pen_input_dev, ABS_TILT_Y, pen_tilt_y);
+ 				input_report_abs(ts->pen_input_dev, ABS_DISTANCE, pen_distance);
+ 				input_report_key(ts->pen_input_dev, BTN_TOOL_PEN, !!pen_distance || !!pen_pressure);
++				input_report_key(ts->pen_input_dev, BTN_STYLUS, pen_btn1);
++				input_report_key(ts->pen_input_dev, BTN_STYLUS2, pen_btn2);
+ 				// TBD: pen battery event report
+ 				// NVT_LOG("pen_battery=%d\n", pen_battery);
+ 			} else if (pen_format_id == 0xF0) {
+@@ -1054,6 +1058,8 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
+ 			input_report_abs(ts->pen_input_dev, ABS_DISTANCE, 0);
+ 			input_report_key(ts->pen_input_dev, BTN_TOUCH, 0);
+ 			input_report_key(ts->pen_input_dev, BTN_TOOL_PEN, 0);
++			input_report_key(ts->pen_input_dev, BTN_STYLUS, 0);
++			input_report_key(ts->pen_input_dev, BTN_STYLUS2, 0);
+ 		}
+ 
+ 		input_sync(ts->pen_input_dev);
+@@ -1369,11 +1375,21 @@ static int32_t nvt_ts_probe(struct spi_device *client)
+ 		ts->pen_input_dev->evbit[0] = BIT_MASK(EV_SYN) | BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
+ 		ts->pen_input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
+ 		ts->pen_input_dev->keybit[BIT_WORD(BTN_TOOL_PEN)] |= BIT_MASK(BTN_TOOL_PEN);
++		__set_bit(BTN_STYLUS, ts->pen_input_dev->keybit);
++		__set_bit(BTN_STYLUS2, ts->pen_input_dev->keybit);
+ 		//ts->pen_input_dev->keybit[BIT_WORD(BTN_TOOL_RUBBER)] |= BIT_MASK(BTN_TOOL_RUBBER);
+ 		ts->pen_input_dev->propbit[0] = BIT(INPUT_PROP_DIRECT);
+ 
+ 		input_set_abs_params(ts->pen_input_dev, ABS_X, 0, ts->abs_x_max - 1, 0, 0);
+ 		input_set_abs_params(ts->pen_input_dev, ABS_Y, 0, ts->abs_y_max - 1, 0, 0);
++		/*
++		 * libinput ignores a tablet without BTN_STYLUS and a resolution
++		 * ("missing tablet capabilities: btn-stylus resolution"). The pen
++		 * reports 10x the panel pixels: 19040 x 30400 over the 8.8" 1904 x
++		 * 3040 panel (118.6 x 189.4 mm) = 160 units/mm.
++		 */
++		input_abs_set_res(ts->pen_input_dev, ABS_X, NVT_UNITS_PER_MM);
++		input_abs_set_res(ts->pen_input_dev, ABS_Y, NVT_UNITS_PER_MM);
+ 		input_set_abs_params(ts->pen_input_dev, ABS_PRESSURE, 0, PEN_PRESSURE_MAX, 0, 0);
+ 		input_set_abs_params(ts->pen_input_dev, ABS_DISTANCE, 0, PEN_DISTANCE_MAX, 0, 0);
+ 		input_set_abs_params(ts->pen_input_dev, ABS_TILT_X, PEN_TILT_MIN, PEN_TILT_MAX, 0, 0);
+diff --git a/drivers/input/touchscreen/nt36536/nt36xxx.h b/drivers/input/touchscreen/nt36536/nt36xxx.h
+index bdc456ee2..0bad171cb 100644
+--- a/drivers/input/touchscreen/nt36536/nt36xxx.h
++++ b/drivers/input/touchscreen/nt36536/nt36xxx.h
+@@ -61,6 +61,8 @@
+ 
+ //---Input device info.---
+ #define NVT_TS_NAME "NVTCapacitiveTouchScreen"
++/* pen/touch coordinate units per mm on TB323FU (10x pixels, 1904x3040 at 8.8") */
++#define NVT_UNITS_PER_MM 160
+ #define NVT_PEN_NAME "NVTCapacitivePen"
+ 
+ //---Touch info.---
+-- 
+2.43.0
+
