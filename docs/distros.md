@@ -15,8 +15,7 @@ The kernel does not depend on a distribution. These are the systems that have be
 
 ¹ `systemd-analyze` "Startup finished" (kernel + userspace), with automatic login.
 ² graphical.target; "Startup finished" is 15 s while first-boot timer jobs (plocate, fstrim) still run. iSCSI and plymouth are masked (see the builder).
-³ Needs the netfilter module set ([kernel/config/baldur-netfilter.fragment](../kernel/config/)) and `IPv6_rpfilter=no`
-until a kernel with `NFT_FIB_IPV6` is built.
+³ Needs the netfilter set in [kernel/config/baldur-netfilter.fragment](../kernel/config/) (in the kernel since t26).
 ⁴ Steam's own client, run with `FEXBash -c "~/steam-launcher/steam -no-cef-sandbox"`; games not tried yet.
 There is no public arm64 SteamOS; Fedora + FEX is the stand-in.
 
@@ -41,7 +40,7 @@ Learned from the first boots; the builders do all of it.
 
 ## Known gaps
 
-- Wi-Fi can stop receiving under sustained heavy traffic (ath12k RX buffer ring runs dry and is never refilled);
-  reboot to recover. A driver fix is being tested.
+- Wi-Fi used to stop receiving under sustained heavy traffic (the ath12k RX buffers leave circulation and are never
+  replaced); fixed by `kernel/patches/0113` (30–45 min soaks clean where the unpatched kernel stalls in 7 min).
 - No SELinux in the kernel (Fedora runs with the config set to permissive).
 - Fedora: x86 binaries go through FEX only if `qemu-user-static-x86` is not installed (its binfmt entry wins).
