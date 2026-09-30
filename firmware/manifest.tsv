@@ -1,0 +1,45 @@
+# Firmware the mainline kernel loads on the TB323FU, and where each file comes
+# from on the tablet's own Android. The files are Lenovo/Qualcomm binaries and
+# are NOT in this repository: extract them from your device with
+# extract-on-device.sh (see README.md).
+#
+# Columns (tab-separated):
+#   target      path under the Linux root filesystem
+#   sha256      hash of the file extracted from Android build
+#               TB323FU_ROW 18.0.12.104 (another firmware version gives other
+#               hashes; that is a warning, not an error)
+#   source      where it comes from on Android; "X.mdt + .bNN" means a split
+#               PIL image that is merged back into one .mbn (pil-squash.py)
+#
+# target	sha256	source on device
+lib/firmware/qcom/gen80200_aqe.fw	ed7916ca84e663d63fa94b0d40cc8c222e362e6cff860c539a8cca30d3721b68	/vendor/firmware/gen80200_aqe.fw
+lib/firmware/qcom/gen80200_gmu.bin	06f4484fa06f91638aa4ae2412051bcddffdad69a7e2f83849c72412e6daa44d	/vendor/firmware/gen80200_gmu.bin
+lib/firmware/qcom/gen80200_sqe.fw	e2d4e74282f50e40788b83b9ba4a5f5894c7975ed356c03a0161372d78f12932	/vendor/firmware/gen80200_sqe.fw
+lib/firmware/qcom/kaanapali/lenovo/baldur/adsp.mbn	c78a60cea1587f5fed656499f0b1c3fe52d244329b5e946482f60980a01a812c	/vendor/firmware_mnt/image/adsp.mdt + .bNN
+lib/firmware/qcom/kaanapali/lenovo/baldur/adsp_dtb.mbn	6f24ea5ab3fcc9a6524ec0f95d3fc6b0758f1ea8427b4748a20185c0793d4738	/vendor/firmware_mnt/image/adsp_dtb.mdt + .bNN
+lib/firmware/qcom/kaanapali/lenovo/baldur/adspr.jsn	66ce8531efb7979d234e0f0eabbe18d038ac97da771a8a194f613df8f0724e81	/vendor/firmware_mnt/image/adspr.jsn
+lib/firmware/qcom/kaanapali/lenovo/baldur/adsps.jsn	12ac2f3ae8ced12aa4b06b3ab3a01bc4d8efe1c92ebea503c002f209a6ec176f	/vendor/firmware_mnt/image/adsps.jsn
+lib/firmware/qcom/kaanapali/lenovo/baldur/adspua.jsn	982a99853495e34726b8e44697fdfad303334de0a67cbf6cde306c8f1731000b	/vendor/firmware_mnt/image/adspua.jsn
+lib/firmware/qcom/kaanapali/lenovo/baldur/adspuo.jsn	92402f429bedf262f1ab4ea5b21a39b2f65ef52f1c46fb0e885a40b5ff442a4d	/vendor/firmware_mnt/image/adspuo.jsn
+lib/firmware/qcom/kaanapali/lenovo/baldur/cdsp.mbn	d8d7202ac34dc70b2226f202eb10280b59897d183a17dc05df62b4a4213d1c90	/vendor/firmware_mnt/image/cdsp.mdt + .bNN
+lib/firmware/qcom/kaanapali/lenovo/baldur/cdsp_dtb.mbn	e2f980655c678e01160b84d0dd7237cc5da386042d2be68a25bd198f91635957	/vendor/firmware_mnt/image/cdsp_dtb.mdt + .bNN
+lib/firmware/qcom/kaanapali/lenovo/baldur/cdspr.jsn	c623de31ae21044085f60b1560a6bed2b9444af2f4ff7d3a05f1a70ac04737f8	/vendor/firmware_mnt/image/cdspr.jsn
+lib/firmware/qcom/kaanapali/Lenovo/baldur/gen80200_zap.mbn	25e836c603d52107a2cbb2f1a7eb46997837e94c2fb70bb5cc44b5e700d8936a	/vendor/firmware/gen80200_zap.mbn
+lib/firmware/qcom/kaanapali/lenovo/baldur/ipa_fws.mbn	83fd3208e6f7fbb07f5664e3be0c9cf671fa6172cd3fdfebe0e762f2583fb6e6	/vendor/firmware_mnt/image/ipa_fws.mdt + .bNN
+lib/firmware/qcom/kaanapali/lenovo/baldur/modem.mbn	309844a758b17aea854b7fc320dcec6cee9662951dac46b8193847ebf7a162d7	/vendor/firmware_mnt/image/modem.mdt + .bNN
+lib/firmware/qcom/kaanapali/lenovo/baldur/modem_dtb.mbn	615fa91099de4d95469c7e553b40868ee27e5d080441a3e772f296fa691e3edd	/vendor/firmware_mnt/image/modem_dtb.mdt + .bNN
+lib/firmware/qcom/kaanapali/lenovo/baldur/modemr.jsn	07138bd0e249fa43db4eeb1a4516037db3bfe4bb88285e8c36f594be2b2a4b43	/vendor/firmware_mnt/image/modemr.jsn
+lib/firmware/qcom/kaanapali/Lenovo/baldur/soccp.mbn	3b5cc0bfaf682df86d68567012c65c4c103987dee987d8bf6fdc95068e06dd22	/vendor/soccp_firmware/image/soccp.mbn
+lib/firmware/qcom/kaanapali/Lenovo/baldur/soccp_dtb.mbn	d5ca18cd118403adf84ba0ee0aabfd101c96a77cbaceacfd22fdc30b8b94b548	/vendor/soccp_firmware/image/soccp_dtb.mbn
+lib/firmware/novatek/novatek_ts_fw.bin	a374ce0856f9e61bd62de955e93d2585963a0636ff7390de2248386e896c114f	/vendor/firmware/novatek_ts_fw.bin
+lib/firmware/novatek/novatek_ts_mp.bin	1b83ad26961e9e445b7f7bba172c0211928d64f82eea698e1685e8273b09ec30	/vendor/firmware/novatek_ts_mp.bin
+lib/firmware/qcom/kaanapali/lenovo/baldur/vpu40_2v.mbn	62a5aab31c26eaeb92cb90ad451197507781d4e16db37c039dec08267cbd7b24	/vendor/firmware/vpu40_2v.mbn
+lib/firmware/ath12k/WCN7860/hw2.0/amss.bin	cf29e45f6c7d02b60b6548ee2dbabb687a108f65772daf0e8f9034ce2344e4a8	/vendor/firmware_mnt/image/peach/amss20.bin (renamed)
+lib/firmware/ath12k/WCN7860/hw2.0/m3.bin	fff1d5014b0cabde8a6a5f969df3626f3270eb0e61e1013ddb0434b57327879c	/vendor/firmware_mnt/image/peach/phy_ucode20.elf (renamed)
+lib/firmware/ath12k/WCN7860/hw2.0/aux_ucode.bin	e60ea09fd44c77f1ee34a3732a1355b63e3ca1d1059ff15546ee9ffd69a5ce10	/vendor/firmware_mnt/image/peach/aux_ucode20.elf (renamed)
+lib/firmware/ath12k/WCN7860/hw2.0/board.bin	c877c11d3e08969a9475e2b244131f6b58cfea04c728e04430aa9611dcfcdae9	/vendor/firmware_mnt/image/peach/bdwlan.elf (renamed)
+lib/firmware/ath12k/WCN7860/hw2.0/regdb.bin	6610773ec7fae47294f9dd76dbbbd0793a9d9b708938e847fe3d8a0758d8b59d	/vendor/firmware_mnt/image/peach/regdb.bin
+lib/firmware/ath12k/WCN7860/hw2.0/qdss.cfg	4683d8683437a11172723dc5820801aaaf5eb082336875a7664142582cc90cbb	/vendor/firmware_mnt/image/peach/qdss_trace_config_v2.cfg (renamed; without it QMI stalls)
+lib/firmware/qca/brhbtfw20.mbn	a311478656f0486c1749c4c33861862225b58db08f51f1bf1538ea4bf4340084	/vendor/bt_firmware/image/brhbtfw20.mbn
+lib/firmware/qca/brhbtnv20.bin	c9237c4c79df08c9a29b20212eae664330fcdce7e82dcd49b16591833dab8175	/vendor/bt_firmware/image/brhbtnv20.bin
+lib/firmware/aw882xx_acf.bin	d3133216d789643acd0be4ec7873e792d8f5f1b0ec162256927835db68f9f7f3	/vendor/firmware/aw882xx_acf.bin

@@ -1,0 +1,68 @@
+#!/bin/busybox sh
+# SPDX-License-Identifier: MIT
+# back-to-android: put the Android kernel back into boot_a from the running
+# Linux, then reboot into it. Installed on the Linux side as
+# /usr/local/sbin/back-to-android (also used by the emergency key combo).
+#
+# The Android image is kept in boot_b, which the tablet never boots (slot _b
+# is unbootable; virtual A/B). It is copied there once from Android.
+#
+#   back-to-android SHA256        # SHA-256 the copy must have; nothing is
+#                                 # written unless boot_b matches it
+#
+# Partitions are found by their GPT name only (PARTNAME in sysfs), never by
+# number: the same LUN holds the bootloaders. Every step is checked, and on
+# any doubt it stops without writing.
+
+want=$1
+[ ${#want} -eq 64 ] || { echo "usage: back-to-android <sha256 of the Android boot image>"; exit 2; }
+
+find_part() {
+	for u in /sys/class/block/*/uevent; do
+		grep -q "^PARTNAME=$1\$" "$u" || continue
+		d=$(grep '^DEVNAME=' "$u" | cut -d= -f2)
+		echo "/dev/$d"
+	done
+}
+
+a=$(find_part boot_a); b=$(find_part boot_b)
+[ "$(echo "$a" | wc -w)" = 1 ] && [ "$(echo "$b" | wc -w)" = 1 ] || { echo "boot_a/boot_b not unique: '$a' '$b'"; exit 1; }
+[ -b "$a" ] && [ -b "$b" ] || { echo "no block device for $a or $b"; exit 1; }
+[ "$(cat /sys/class/block/${a#/dev/}/size)" = "$(cat /sys/class/block/${b#/dev/}/size)" ] || { echo "boot_a and boot_b differ in size"; exit 1; }
+echo "boot_a=$a boot_b=$b"
+
+hb=$(sha256sum "$b" | cut -d' ' -f1)
+echo "boot_b sha256 $hb"
+[ "$hb" = "$want" ] || { echo "boot_b is not the expected image; not writing"; exit 1; }
+
+# Keep the Linux image we are leaving, so Android's "Switch to Linux"
+# (KernelSU module switch-to-linux) boots the same one back without staging:
+# /var/lib/tb323fu/linux-current.img + .sha256 on the Linux root,
+# which Android mounts read-only. Only on the running Linux root (not from the
+# initramfs); a failure here only warns -- going back to Android must not
+# depend on it.
+save_current() {
+	[ -f /etc/os-release ] && [ -w /var/lib ] || return 0
+	ha=$(sha256sum "$a" | cut -d' ' -f1)
+	[ "$ha" = "$want" ] && return 0	# boot_a already holds Android
+	s=/var/lib/tb323fu
+	mkdir -p $s && dd if="$a" of=$s/linux-current.img.tmp bs=1M 2>/dev/null &&
+		[ "$(sha256sum $s/linux-current.img.tmp | cut -d' ' -f1)" = "$ha" ] &&
+		mv $s/linux-current.img.tmp $s/linux-current.img &&
+		echo "$ha" > $s/linux-current.img.sha256 && sync &&
+		echo "saved the running Linux image ($(echo $ha | cut -c1-16)) to $s" && return 0
+	rm -f $s/linux-current.img.tmp
+	echo "warning: could not save the Linux image to $s (going on)"
+}
+save_current
+
+dd if="$b" of="$a" bs=1M conv=fsync 2>&1 | tail -1
+sync
+echo 3 > /proc/sys/vm/drop_caches
+ha=$(sha256sum "$a" | cut -d' ' -f1)
+echo "boot_a sha256 $ha"
+[ "$ha" = "$want" ] || { echo "boot_a does not match after the copy -- do NOT reboot; use EDL"; exit 1; }
+
+echo "boot_a is Android again; rebooting"
+sync
+reboot -f

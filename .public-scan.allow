@@ -1,0 +1,6 @@
+# the tablet's documented USB-gadget network (device side .2, host side .1)
+^ip\|.*192\.168\.7\.[12]([^0-9]|$)
+# kernel patches carry authors' and mailing-list addresses in headers and trailers
+^email\|[^|]*:[0-9]+:.*(Signed-off-by|Reviewed-by|Acked-by|Tested-by|Reported-by|Co-developed-by|Suggested-by|Cc|To|From|Author):
+^email\|[^|]*\.patch:
+^email\|[^|]*@(vger\.kernel\.org|lists\.linux\.dev|lists\.freedesktop\.org|kernel\.org|linaro\.org|oss\.qualcomm\.com|quicinc\.com)
