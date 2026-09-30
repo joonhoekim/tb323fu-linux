@@ -173,6 +173,15 @@ dnf install --allowerasing --skip-unavailable $(echo $base $desk $fexp $ssc)
 # the Mobian helpers that hold the boot or poke the Android A/B slots.
 ch systemctl mask rmtfs.service tqftpserv.service droid-juicer.service qbootctl.service \
 	bootmac-bluetooth.service ModemManager.service >/dev/null 2>&1 || true
+# Boot time (graphical.target 22.9 s -> 7.5 s):
+# - iscsi.service orders itself After=network-online.target and Before=
+#   remote-fs.target even when its condition skips it, so GDM (after
+#   systemd-user-sessions, after remote-fs) waited for NetworkManager-wait-online.
+# - plymouth: with automatic login Fedora's GDM never quits it (the PostLogin
+#   script that works on Debian does not run here), plymouth-quit-wait held
+#   multi-user.target for 26 s. The default here is the boot log, not a splash.
+ch systemctl mask iscsi.service iscsid.service iscsiuio.service iscsid.socket iscsiuio.socket \
+	plymouth-start.service plymouth-quit-wait.service plymouth-read-write.service >/dev/null 2>&1 || true
 # Fedora's presets (what a first boot with an empty machine-id also applies)
 ch systemctl preset-all >/dev/null 2>&1 || true
 # firewalld's stock nftables ruleset needs nft_compat and friends: in the
