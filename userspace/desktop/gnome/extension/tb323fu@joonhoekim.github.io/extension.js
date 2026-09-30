@@ -128,19 +128,26 @@ class Helper {
 
 // ---- the quick-settings tile ---------------------------------------------
 
+function launchSettings() {
+    const app = Gio.DesktopAppInfo.new(SETTINGS_DESKTOP_ID);
+    if (app)
+        app.launch([], global.create_app_launch_context(0, -1));
+    else
+        Main.notify('Tablet', 'Tablet Settings is not installed');
+}
+
 const TabletToggle = GObject.registerClass(
 class TabletToggle extends QuickMenuToggle {
     _init() {
-        super._init({title: 'Tablet', iconName: 'computer-symbolic', toggleMode: true});
+        super._init({title: 'Tablet', iconName: 'computer-symbolic', toggleMode: false});
         this.menu.setHeader('computer-symbolic', 'Tablet');
         this._helper = new Helper(() => this._sync());
 
-        // toggle itself = adaptive (auto) refresh on/off
+        // the tile opens the settings app; the arrow opens the detailed menu.
+        // The tile stays highlighted while adaptive refresh is on.
         this.connect('clicked', () => {
-            if (!this._helper.has('Refresh'))
-                return;
-            const auto = this._helper.props.Refresh?.Policy === 'auto';
-            this._helper.call('Refresh', 'SetPolicy', 's', [auto ? 'off' : 'auto']);
+            Main.panel.closeQuickSettings?.();
+            launchSettings();
         });
         this.menu.connect('open-state-changed', (_m, open) => {
             if (open)
@@ -201,13 +208,7 @@ class TabletToggle extends QuickMenuToggle {
         // GPU, USB wake, idle timing, Android switch: in the settings app
         this._inner.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this._settings = new PopupMenu.PopupMenuItem('Tablet Settings…');
-        this._settings.connect('activate', () => {
-            const app = Gio.DesktopAppInfo.new(SETTINGS_DESKTOP_ID);
-            if (app)
-                app.launch([], global.create_app_launch_context(0, -1));
-            else
-                Main.notify('Tablet', 'Tablet Settings is not installed');
-        });
+        this._settings.connect('activate', () => launchSettings());
         this._inner.addMenuItem(this._settings);
 
         this.menu.addMenuItem(this._inner);

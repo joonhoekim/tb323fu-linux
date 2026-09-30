@@ -33,3 +33,5 @@ System-wide: copy the directory to `/usr/share/gnome-shell/extensions/` instead.
 ## License
 
 GPL-2.0-or-later (GNOME Shell extensions run inside and import GNOME Shell, which is GPL); the rest of the repository is MIT.
+
+Tile behaviour: pressing the tile opens Tablet Settings (and closes the panel); the arrow opens the detailed menu. The tile is highlighted while adaptive refresh is on.
