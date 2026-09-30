@@ -142,7 +142,7 @@ cat > "$T/etc/dnf/dnf.conf" <<'EOF'
 # TB323FU: the kernel, its modules and firmware come from the device's boot
 # image (tb323fu-linux); a distribution kernel, bootloader or linux-firmware
 # would only take space or shadow the device firmware in /usr/lib/firmware.
-excludepkgs=kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kernel-uki-virt,grub2-*,shim-*,linux-firmware,qcom-firmware,atheros-firmware,qcom-wwan-firmware,gnome-initial-setup,rmtfs,tqftpserv
+excludepkgs=kernel,kernel-core,kernel-modules,kernel-modules-core,kernel-modules-extra,kernel-uki-virt,grub2-*,shim-*,linux-firmware,qcom-firmware,atheros-firmware,qcom-wwan-firmware,gnome-initial-setup,rmtfs,tqftpserv,qemu-user-static-x86
 EOF
 say "dnf upgrade"
 dnf upgrade --refresh
@@ -175,9 +175,17 @@ ch systemctl mask rmtfs.service tqftpserv.service droid-juicer.service qbootctl.
 	bootmac-bluetooth.service ModemManager.service >/dev/null 2>&1 || true
 # Fedora's presets (what a first boot with an empty machine-id also applies)
 ch systemctl preset-all >/dev/null 2>&1 || true
-# firewalld's stock nftables ruleset needs netfilter modules (fib, log, ...)
-# the t24 kernel does not build yet: it fails at boot. Off until they are in.
-ch systemctl disable firewalld.service >/dev/null 2>&1 || true
+# firewalld's stock nftables ruleset needs nft_compat and friends: in the
+# t24 kernel they are the separate netfilter module set
+# (kernel/config/baldur-netfilter.fragment); without them firewalld fails at
+# boot, so it is only kept when the copied modules have nft_compat. IPv6
+# rpfilter needs NFT_FIB_IPV6, which needs a new Image -- off until then.
+if find "$T/usr/lib/modules" -name 'nft_compat.ko*' | grep -q .; then
+	sed -i 's/^IPv6_rpfilter=.*/IPv6_rpfilter=no/' "$T/etc/firewalld/firewalld.conf"
+	grep -q '^IPv6_rpfilter=' "$T/etc/firewalld/firewalld.conf" || echo 'IPv6_rpfilter=no' >> "$T/etc/firewalld/firewalld.conf"
+else
+	ch systemctl disable firewalld.service >/dev/null 2>&1 || true
+fi
 
 # 4. kernel modules and firmware of the kernel that boots it
 if [ -d "$MODULES_FROM" ]; then
@@ -324,9 +332,13 @@ fi
 
 # 9b. FEX: use Fedora's x86-64 RootFS (fex-emu-rootfs-fedora, an EROFS image; this
 # kernel has no EROFS, FEX mounts it with erofsfuse) unless configured otherwise.
-# The page size is 4K, so no muvm is needed. Steam itself is not packaged for
-# aarch64: its bootstrap is staged for the user, run it with
-#   FEXBash -c ~/steam-launcher/steam
+# The page size is 4K, so no muvm is needed. qemu-user-static-x86 is excluded:
+# its binfmt entry takes x86 binaries before FEX's does. Steam itself is not
+# packaged for aarch64: its bootstrap is staged for the user, run it with
+#   FEXBash -c "~/steam-launcher/steam -no-cef-sandbox"
+# (steamwebhelper's sandboxed zygote dies under FEX: zygote_host_impl_linux
+# "Check failed ... No such file or directory"; Steam also falls back to no
+# sandbox by itself after that crash).
 if [ "$FEX" = 1 ]; then
 	c=$T/usr/share/fex-emu/Config.json   # FEX's global configuration
 	[ -e "$c" ] || printf '{\n  "Config": {\n    "RootFS": "default.erofs"\n  }\n}\n' > "$c"
