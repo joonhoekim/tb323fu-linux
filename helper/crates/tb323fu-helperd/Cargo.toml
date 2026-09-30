@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT
+[package]
+name = "tb323fu-helperd"
+description = "System D-Bus service for the device-specific features of the Lenovo TB323FU"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+tb323fu-helper-core = { path = "../tb323fu-helper-core" }
+zbus.workspace = true
+async-io = "2"
