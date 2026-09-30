@@ -7,7 +7,9 @@
 //! `baldur-root-sd` and `tb323fu-*`. The selection files live on the UFS root
 //! only: `/etc/tb323fu/boot-next` (consumed by the initramfs on the next boot)
 //! and `/etc/tb323fu/boot-default`. When the helper runs from another root it
-//! mounts the UFS root under `/run/tb323fu/ufs` for the read or write.
+//! mounts the UFS root under `/run/tb323fu/ufs` for the read or write. A root
+//! that is already mounted (e.g. the desktop's automounter on another distro)
+//! is used where it is instead: a second ext4 mount with other options fails.
 //!
 //! Tests: with `TB323FU_SYSFS_ROOT` set, partitions come from the fake
 //! `/sys/class/block`, the selection files from the fake `/etc/tb323fu`, the
@@ -108,6 +110,22 @@ fn umount(at: &str) {
     let _ = Command::new("umount").arg(at).status();
 }
 
+/// Where `dev` is mounted already, and whether read-write (first entry wins).
+fn mounted_at(dev: &str) -> Option<(PathBuf, bool)> {
+    let real = fs::canonicalize(dev).ok()?;
+    let t = fs::read_to_string("/proc/self/mounts").ok()?;
+    t.lines().find_map(|l| {
+        let mut f = l.split_whitespace();
+        let (src, dir, _ty, opts) = (f.next()?, f.next()?, f.next()?, f.next()?);
+        if fs::canonicalize(src).ok()? != real {
+            return None;
+        }
+        // /proc/mounts escapes blanks in paths as octal (\040)
+        let dir = dir.replace("\\040", " ");
+        Some((PathBuf::from(dir), opts.split(',').any(|o| o == "rw")))
+    })
+}
+
 /// Run `f` with the UFS root's /etc/tb323fu (read-only unless `write`).
 fn with_ufs_etc<T>(write: bool, f: impl FnOnce(&Path) -> Res<T>) -> Res<T> {
     if testing() || current_root() == DEFAULT_ROOT {
@@ -118,6 +136,20 @@ fn with_ufs_etc<T>(write: bool, f: impl FnOnce(&Path) -> Res<T>) -> Res<T> {
         return f(&d);
     }
     let dev = partition_dev(DEFAULT_ROOT).ok_or("no baldur-root partition")?;
+    if let Some((at, rw)) = mounted_at(&dev) {
+        if write && !rw {
+            return Err(format!("{dev} is mounted read-only on {}", at.display()));
+        }
+        let d = at.join("etc/tb323fu");
+        if write {
+            fs::create_dir_all(&d).map_err(|e| format!("{}: {e}", d.display()))?;
+        }
+        let r = f(&d);
+        if write {
+            let _ = Command::new("sync").status();
+        }
+        return r;
+    }
     mount(&dev, UFS_MNT, write)?;
     let d = PathBuf::from(UFS_MNT).join("etc/tb323fu");
     let r = (|| {
@@ -190,9 +222,41 @@ pub fn set_default(name: &str) -> Res<()> {
 }
 
 /// What a mounted (or current) root contains: (PRETTY_NAME, init kind).
+/// `rel` inside the root at `dir`, following symlinks (absolute ones relative
+/// to `dir`) component by component -- NixOS's /etc/os-release is
+/// /etc/static/os-release, itself a link into /nix/store.
+fn in_root(dir: &Path, rel: &str) -> PathBuf {
+    let mut todo: Vec<String> = rel.split('/').filter(|c| !c.is_empty()).rev().map(String::from).collect();
+    let mut cur: Vec<String> = Vec::new();
+    let mut hops = 0;
+    while let Some(c) = todo.pop() {
+        match c.as_str() {
+            "." => continue,
+            ".." => {
+                cur.pop();
+                continue;
+            }
+            _ => {}
+        }
+        let here = dir.join(cur.join("/")).join(&c);
+        match fs::read_link(&here) {
+            Ok(t) if hops < 40 => {
+                hops += 1;
+                let t = t.to_string_lossy().into_owned();
+                if t.starts_with('/') {
+                    cur.clear();
+                }
+                todo.extend(t.split('/').filter(|c| !c.is_empty()).rev().map(String::from));
+            }
+            _ => cur.push(c),
+        }
+    }
+    dir.join(cur.join("/"))
+}
+
 fn inspect(dir: &Path) -> (String, String) {
-    let label = fs::read_to_string(dir.join("etc/os-release"))
-        .or_else(|_| fs::read_to_string(dir.join("usr/lib/os-release")))
+    let label = fs::read_to_string(in_root(dir, "etc/os-release"))
+        .or_else(|_| fs::read_to_string(in_root(dir, "usr/lib/os-release")))
         .ok()
         .and_then(|t| {
             t.lines().find_map(|l| l.strip_prefix("PRETTY_NAME=").map(|v| v.trim_matches('"').to_string()))
@@ -220,6 +284,8 @@ pub fn roots() -> Vec<Root> {
                 inspect(&sys::path(&format!("/roots/{name}")))
             } else if name == cur {
                 inspect(Path::new("/"))
+            } else if let Some((at, _)) = mounted_at(&dev) {
+                inspect(&at)
             } else if mount(&dev, PROBE_MNT, false).is_ok() {
                 let r = inspect(Path::new(PROBE_MNT));
                 umount(PROBE_MNT);
