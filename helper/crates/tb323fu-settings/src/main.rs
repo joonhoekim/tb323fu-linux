@@ -37,6 +37,15 @@ fn info(g: &adw::PreferencesGroup, title: &str) -> gtk::Label {
     let l = gtk::Label::new(Some("…"));
     l.add_css_class("dim-label");
     l.set_selectable(true);
+    // Long values (kernel version string, series tag, export path) must wrap
+    // instead of widening the row past the window; keep them right-aligned.
+    l.set_wrap(true);
+    l.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+    l.set_max_width_chars(28);
+    l.set_width_chars(4);
+    l.set_xalign(1.0);
+    l.set_justify(gtk::Justification::Right);
+    l.set_valign(gtk::Align::Center);
     row.add_suffix(&l);
     g.add(&row);
     l
@@ -874,7 +883,9 @@ impl Ui {
             });
             for (file, st) in &fw {
                 let row = adw::ActionRow::builder().title(file.as_str()).subtitle(st.as_str()).build();
-                row.set_title_lines(1);
+                // file paths wrap (0 = unlimited lines) rather than widen the page
+                row.set_title_lines(0);
+                row.set_subtitle_lines(0);
                 self.ab_fw.add_row(&row);
                 self.ab_fw_rows.borrow_mut().push(row);
             }

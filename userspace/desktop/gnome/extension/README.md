@@ -8,11 +8,13 @@ and permissions are decided by the helper's polkit policy. Without the helper th
 |---|---|
 | tile on/off = adaptive refresh (lower the rate when idle); subtitle = current Hz | `Refresh.SetPolicy` |
 | battery %, state (charging / bypass / …), charger contract; charge limit 60 / 80 / 100 %; bypass charging | `Battery` |
-| refresh policy (adaptive / fixed / always 120 Hz) and idle timing presets | `Refresh` |
+| refresh policy (adaptive / fixed / always 120 Hz) | `Refresh.SetPolicy` |
 | torch on/off and level | `Torch` |
-| GPU follows the power mode | `Gpu.SetFollowPowerProfiles` |
-| wake from USB devices | `Usb.SetWake` |
-| Switch to Android… (asks for confirmation, then the tablet restarts) | `Android.SwitchToAndroid` |
+| Tablet Settings… — opens the settings app (`io.github.joonhoekim.tb323fu.Settings.desktop`) | — |
+
+The menu is kept short so it fits a landscape screen; idle timing presets, GPU-follow, USB wake and the Android switch are in
+the settings app. As a fallback the items sit in a scroll view capped to about half the work area height, so nothing can be
+pushed off the screen. Choices (charge limit, policy, switches) keep the menu open.
 
 Items whose helper object is missing (the helper exports only what the running kernel supports) are hidden.
 
