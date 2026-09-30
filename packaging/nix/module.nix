@@ -61,7 +61,11 @@ in {
       # layer 1: udev rules, systemd units, audio, sensors, emergency key
       services.udev.packages = [ platform ];
       systemd.packages = [ platform ];
-      environment.systemPackages = [ platform ];
+      environment.systemPackages = [ platform pkgs.ladspaPlugins ];
+      # the speaker protection filter-chain uses the swh LADSPA compressor (sc4);
+      # without it the mandatory filter-chain module fails and PipeWire does not start
+      systemd.user.services.pipewire.environment.LADSPA_PATH = "${pkgs.ladspaPlugins}/lib/ladspa";
+      hardware.wirelessRegulatoryDatabase = true;
       systemd.services = lib.genAttrs platformUnits (_: {
         wantedBy = [ "multi-user.target" ];
         path = toolPath ++ [ platform ];

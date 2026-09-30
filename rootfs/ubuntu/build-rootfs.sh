@@ -12,7 +12,7 @@
 #   DESKTOP=gnome                   gnome (minimal GNOME + GDM) or none
 #   MIRROR=http://ports.ubuntu.com/ubuntu-ports
 #   MODULES_FROM=/lib/modules/$(uname -r)   kernel modules of the kernel that will boot it
-#   FIRMWARE_FROM=/lib/firmware     copy qcom/ ath12k/ qca/ (and aw882xx_acf.bin) from here
+#   FIRMWARE_FROM=/lib/firmware     copy qcom/ ath12k/ qca/ novatek/ (and aw882xx_acf.bin) from here
 #   DEBS_FROM=DIR                   install the tb323fu-*.deb packages found here
 #   CONFIG_FROM=/etc/tb323fu        copy bt-address, android-boot.sha256, audio.conf,
 #                                   emergency-key.conf when present (device-specific,
@@ -79,7 +79,7 @@ ch $NICE apt-get -y -q dist-upgrade
 # 3. packages
 base="linux-firmware- systemd-resolved network-manager openssh-server sudo bluez pipewire \
 	pipewire-pulse wireplumber alsa-ucm-conf alsa-utils iio-sensor-proxy dbus-user-session \
-	polkitd rmtfs tqftpserv qrtr-tools rfkill locales tzdata vim-tiny less"
+	polkitd rmtfs tqftpserv qrtr-tools rfkill locales tzdata vim-tiny less \n	wpasupplicant wireless-regdb swh-plugins"
 case $DESKTOP in
 gnome) desk="gdm3 gnome-shell gnome-session gnome-control-center gnome-terminal nautilus \
 	gnome-text-editor gnome-shell-extension-prefs gnome-initial-setup- mesa-vulkan-drivers \
@@ -97,6 +97,10 @@ ch apt-get -y -q purge snapd 2>/dev/null || true
 # later and takes the whole SoC down (900E). Keep the modem services off unless
 # GNSS is being set up on purpose (tools/gnss-start.sh starts them by hand).
 ch systemctl disable rmtfs.service tqftpserv.service >/dev/null 2>&1 || true
+# Mobian-derived helpers pulled in by hexagonrpcd / qcom-phone-utils: droid-juicer
+# (extracts firmware from Android partitions) waits forever and holds the boot;
+# qbootctl marks Android A/B slots and fails here. Neither applies to this setup.
+ch systemctl mask droid-juicer.service qbootctl.service >/dev/null 2>&1 || true
 
 # 4. kernel modules and firmware of the kernel that boots it
 if [ -d "$MODULES_FROM" ]; then
@@ -106,7 +110,7 @@ if [ -d "$MODULES_FROM" ]; then
 	rm -rf "$T/lib/modules/$v"; cp -a "$MODULES_FROM" "$T/lib/modules/$v"
 	ch depmod -a "$v"
 fi
-for d in qcom ath12k qca; do
+for d in qcom ath12k qca novatek; do   # novatek: the touch controller firmware
 	[ -d "$FIRMWARE_FROM/$d" ] || continue
 	mkdir -p "$T/lib/firmware/$d"; cp -a "$FIRMWARE_FROM/$d/." "$T/lib/firmware/$d/"
 done

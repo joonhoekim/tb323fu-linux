@@ -61,7 +61,7 @@ build() {
 
 # ---- tb323fu-platform
 DESTDIR=$work/tb323fu-platform PREFIX=/usr SYSCONFDIR=/etc sh "$root/userspace/platform/install.sh" > /dev/null
-control tb323fu-platform "$ARCH" "systemd, udev, bluez" \
+control tb323fu-platform "$ARCH" "systemd, udev, bluez, swh-plugins, wireless-regdb" \
 	"pipewire, wireplumber, alsa-ucm-conf, iio-sensor-proxy, hexagonrpcd, qrtr-tools, rmtfs, tqftpserv, tb323fu-helper" \
 	"Lenovo Legion Tab Gen 5 (TB323FU) platform files" \
 	"udev rules, systemd units (Bluetooth address, DSP start, audio defaults, USB port
