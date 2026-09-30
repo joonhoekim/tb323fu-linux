@@ -4,8 +4,11 @@ Description=Generate this install's Bluetooth address and Wi-Fi MAC (once)
 # Images carry no real address. Runs before udev applies .link files, so the
 # Wi-Fi MAC is in place for the first rename, and before tb323fu-btaddr reads
 # the BT address. Does nothing once both files exist (never overwritten).
+# Only /etc must be writable: not After=local-fs.target -- with fstab entries
+# that wait for udev devices that orders coldplug after local-fs.target, and
+# boot stalls until the device timeout (Fedora on SD: 45 s).
 DefaultDependencies=no
-After=systemd-remount-fs.service local-fs.target
+After=systemd-remount-fs.service
 Before=systemd-udev-trigger.service tb323fu-btaddr.service
 ConditionPathExists=|!/etc/tb323fu/bt-address
 ConditionPathExists=|!/etc/systemd/network/10-tb323fu-wlan-mac.link
