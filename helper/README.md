@@ -6,7 +6,8 @@ restart into Android, flashlight, RGB-ring charge indicator, idle refresh policy
 USB wakeup and developer USB access, the emergency key combination, and a diagnostics export.
 Design and API contract: [docs/helper.md](../docs/helper.md).
 
-Status: **phase 1** (daemon + CLI). The GNOME quick-settings extension and the GTK settings app come next.
+The GTK settings app is in [`crates/tb323fu-settings/`](#settings-app-tb323fu-settings); the GNOME quick-settings tile is in
+[`userspace/desktop/gnome/extension/`](../userspace/desktop/gnome/extension/README.md).
 Booting never depends on this; it only drives interfaces the kernel already exposes.
 
 ## Build and install
@@ -78,9 +79,8 @@ dbus-run-session -- sh tests/fake-sysfs-test.sh target/release   # daemon on a p
 
 ## Notes
 
-- The charge limit is owned by the helper. If a udev rule still gives UPower a `CHARGE_LIMIT` hint, GNOME's
-  "preserve battery health" switch writes the same threshold: remove that hint when installing the helper.
-- The emergency key settings are written to `/etc/tb323fu/emergency-key.conf` (`ENABLED`, `HOLD_SECONDS`);
-  the platform service that watches the keys must read that file.
-- The previous LED-ring and GPU-profile shell services apply the same logic; disable them when switching over,
-  so only one writer remains.
+- The charge limit is owned by the helper. If a udev rule still gives UPower a `CHARGE_LIMIT` hint (the platform's
+  optional `upower-charge-limit` rule), GNOME's "preserve battery health" switch writes the same threshold: leave that
+  rule out when installing the helper.
+- The emergency key settings are written to `/etc/tb323fu/emergency-key.conf` (`ENABLED`, `HOLD_SECONDS`), which the
+  platform service `tb323fu-emergency-key` reads.
