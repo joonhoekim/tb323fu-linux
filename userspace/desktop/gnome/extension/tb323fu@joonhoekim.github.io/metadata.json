@@ -1,7 +1,7 @@
 {
   "uuid": "tb323fu@joonhoekim.github.io",
   "name": "TB323FU Tablet",
-  "description": "Quick settings for the Lenovo Legion Tab Gen 5 / Y700 5th Gen (TB323FU): charge limit and bypass, refresh policy, torch, GPU profile, USB wake, switch to Android. Talks to the tb323fu-helperd system service; does nothing without it.",
+  "description": "Quick settings for the Lenovo Legion Tab Gen 5 / Y700 5th Gen (TB323FU): battery charge and state, charge limit and bypass, refresh rate policy, torch with brightness. The tile opens Tablet Settings for everything else (GPU, USB, emergency key, systems, Android). Talks to the tb323fu-helperd system service; without it the menu only says so.",
   "shell-version": [
     "48",
     "49",

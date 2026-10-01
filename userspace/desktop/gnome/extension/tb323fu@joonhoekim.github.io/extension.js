@@ -9,6 +9,7 @@ import GLib from 'gi://GLib';
 import St from 'gi://St';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import {Slider} from 'resource:///org/gnome/shell/ui/slider.js';
 import {QuickMenuToggle, SystemIndicator} from 'resource:///org/gnome/shell/ui/quickSettings.js';
@@ -18,6 +19,31 @@ const BUS = 'io.github.joonhoekim.tb323fu.Helper';
 const ROOT = '/io/github/joonhoekim/tb323fu/Helper';
 const OBJ = name => ({path: `${ROOT}/${name}`, iface: `${BUS}.${name}`});
 const SETTINGS_DESKTOP_ID = 'io.github.joonhoekim.tb323fu.Settings.desktop';
+
+// Labels for the daemon's ids (the settings app uses the same words).
+const STATE_LABELS = {
+    charging: 'Charging', discharging: 'Discharging', full: 'Full',
+    'not-charging': 'Not Charging', bypass: 'Held at Limit',
+};
+// What a failed call was about, for the notification title.
+const METHOD_TITLES = {
+    SetChargeLimit: 'Charge limit', SetBypass: 'Bypass charging', SetPolicy: 'Refresh rate',
+    Set: 'Torch', SetLevel: 'Torch brightness',
+};
+
+// One notification source for the extension, reused (created on demand).
+let notifySource = null;
+function notify(title, body) {
+    if (!notifySource) {
+        notifySource = new MessageTray.Source({title: 'Tablet', iconName: 'computer-symbolic'});
+        notifySource.connect('destroy', () => {
+            notifySource = null;
+        });
+        Main.messageTray.add(notifySource);
+    }
+    const n = new MessageTray.Notification({source: notifySource, title, body});
+    notifySource.addNotification(n);
+}
 
 // ---- small D-Bus layer ---------------------------------------------------
 
@@ -119,7 +145,13 @@ class Helper {
                 try {
                     conn.call_finish(res);
                 } catch (e) {
-                    Main.notify('Tablet', `${method}: ${e.message}`);
+                    // a cancelled or refused authentication is the user's choice: no banner
+                    const remote = Gio.DBusError.get_remote_error(e) ?? '';
+                    if (!remote.endsWith('.AccessDenied')) {
+                        Gio.DBusError.strip_remote_error(e);
+                        const msg = e.message ? e.message[0].toUpperCase() + e.message.slice(1) : 'Something went wrong';
+                        notify(METHOD_TITLES[method] ?? 'Tablet', msg);
+                    }
                 }
                 this.refresh(name);
             });
@@ -133,7 +165,7 @@ function launchSettings() {
     if (app)
         app.launch([], global.create_app_launch_context(0, -1));
     else
-        Main.notify('Tablet', 'Tablet Settings is not installed');
+        notify('Tablet Settings', 'The settings app is not installed');
 }
 
 const TabletToggle = GObject.registerClass(
@@ -143,8 +175,8 @@ class TabletToggle extends QuickMenuToggle {
         this.menu.setHeader('computer-symbolic', 'Tablet');
         this._helper = new Helper(() => this._sync());
 
-        // the tile opens the settings app; the arrow opens the detailed menu.
-        // The tile stays highlighted while adaptive refresh is on.
+        // the tile opens the settings app; the arrow opens the detailed menu
+        // (also without the helper: it then says so and offers the app).
         this.connect('clicked', () => {
             Main.panel.closeQuickSettings?.();
             launchSettings();
@@ -154,34 +186,33 @@ class TabletToggle extends QuickMenuToggle {
                 this._helper.refreshAll();
         });
 
-        this._absent = new PopupMenu.PopupMenuItem('Helper service not running', {reactive: false});
+        this._absent = new PopupMenu.PopupMenuItem('The helper service is not running', {reactive: false});
         this.menu.addMenuItem(this._absent);
 
         // Everything else sits in one section that is re-parented into a
         // scroll view (below), so a landscape screen can never cut items off.
         this._inner = new PopupMenu.PopupMenuSection();
 
-        // battery
+        // battery (charge and state are in the menu header)
         this._batSection = new PopupMenu.PopupMenuSection();
-        this._batInfo = new PopupMenu.PopupMenuItem('', {reactive: false});
-        this._batSection.addMenuItem(this._batInfo);
+        this._batSection.addMenuItem(new PopupMenu.PopupSeparatorMenuItem('Charge Limit'));
         this._limitItems = {};
         for (const p of [60, 80, 100]) {
-            const it = stayItem(`Charge limit ${p} %`, this._limitItems, p,
+            const it = stayItem(`${p}%`, this._limitItems, p,
                 () => this._helper.call('Battery', 'SetChargeLimit', 'u', [p]));
             this._limitItems[p] = it;
             this._batSection.addMenuItem(it);
         }
-        this._bypass = staySwitch('Bypass charging',
+        this._bypass = staySwitch('Bypass Charging',
             on => this._helper.call('Battery', 'SetBypass', 'b', [on]));
         this._batSection.addMenuItem(this._bypass);
         this._inner.addMenuItem(this._batSection);
 
         // refresh policy (idle timing presets live in the app)
         this._refSection = new PopupMenu.PopupMenuSection();
-        this._refSection.addMenuItem(new PopupMenu.PopupSeparatorMenuItem('Refresh rate'));
+        this._refSection.addMenuItem(new PopupMenu.PopupSeparatorMenuItem('Refresh Rate'));
         this._policyItems = {};
-        for (const [pol, label] of [['auto', 'Adaptive'], ['manual', 'Fixed rate'], ['off', 'Always 120 Hz']]) {
+        for (const [pol, label] of [['auto', 'Adaptive'], ['manual', 'Fixed'], ['off', 'Always 120 Hz']]) {
             const it = stayItem(label, this._policyItems, pol,
                 () => this._helper.call('Refresh', 'SetPolicy', 's', [pol]));
             this._policyItems[pol] = it;
@@ -249,29 +280,41 @@ class TabletToggle extends QuickMenuToggle {
         const h = this._helper;
         const present = h.present && h.features.length > 0;
         this._absent.visible = !present;
-        this.reactive = present;
+        // the tile stays usable: it opens the app, the arrow says what is wrong
+        this.reactive = true;
+        this.checked = false;
 
         const bat = h.props.Battery;
         this._batSection.actor.visible = h.has('Battery');
-        if (bat) {
-            const contract = bat.ChargerContract ? ` · ${bat.ChargerContract}` : '';
-            this._batInfo.label.text = `Battery ${bat.Capacity} % · ${bat.State}${contract}`;
+        if (bat && present) {
+            const plugged = bat.ChargerContract && !['none', 'unknown'].includes(bat.ChargerContract);
+            const state = bat.State === 'bypass' && bat.Bypass ? 'Bypass' : STATE_LABELS[bat.State] ?? 'Unknown';
+            const level = Math.min(100, Math.max(0, Math.round(bat.Capacity / 10) * 10));
+            const charging = bat.State === 'charging' ? '-charging' : '';
+            this.menu.setHeader(`battery-level-${level}${charging}-symbolic`, 'Tablet',
+                `${bat.Capacity}% · ${state}${plugged ? ` · ${bat.ChargerContract}` : ''}`);
             for (const [p, it] of Object.entries(this._limitItems))
                 it.setOrnament(Number(p) === bat.ChargeLimit && !bat.Bypass ? PopupMenu.Ornament.CHECK : PopupMenu.Ornament.NONE);
             this._bypass.setToggleState(!!bat.Bypass);
+        } else {
+            this.menu.setHeader('computer-symbolic', 'Tablet', present ? null : 'Helper not running');
         }
 
         const ref = h.props.Refresh;
         this._refSection.actor.visible = h.has('Refresh');
-        if (ref) {
-            this.checked = ref.Policy === 'auto';
-            this.subtitle = `${ref.LiveRate} Hz`;
+        if (ref && present) {
+            this._policyItems.manual.label.text = `Fixed (${ref.Rate} Hz)`;
             for (const [pol, it] of Object.entries(this._policyItems))
                 it.setOrnament(pol === ref.Policy ? PopupMenu.Ornament.CHECK : PopupMenu.Ornament.NONE);
-        } else {
-            this.checked = false;
-            this.subtitle = present ? null : 'helper not running';
         }
+        if (!present)
+            this.subtitle = 'Helper not running';
+        else if (bat && ref)
+            this.subtitle = `${bat.Capacity}% · ${ref.LiveRate} Hz`;
+        else if (bat)
+            this.subtitle = `${bat.Capacity}%`;
+        else
+            this.subtitle = ref ? `${ref.LiveRate} Hz` : null;
 
         const t = h.props.Torch;
         this._torchSection.actor.visible = h.has('Torch');
@@ -281,8 +324,6 @@ class TabletToggle extends QuickMenuToggle {
             this._torchSlider.value = t.MaxLevel ? t.Level / t.MaxLevel : 0;
             this._sliderSync = false;
         }
-
-
     }
 
     destroy() {
@@ -313,5 +354,7 @@ export default class TabletExtension extends Extension {
     disable() {
         this._indicator?.destroy();
         this._indicator = null;
+        notifySource?.destroy();
+        notifySource = null;
     }
 }
