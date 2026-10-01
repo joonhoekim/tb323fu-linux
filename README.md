@@ -27,9 +27,9 @@ See [docs/hardware-status.md](docs/hardware-status.md). A feature is only marked
 | `userspace/` | `platform/`: distribution-neutral platform files every install needs (udev, systemd units, audio/UCM, sensors, emergency key) with `install.sh`; `desktop/`: optional desktop extras |
 | `helper/` | device helper: `tb323fu-helperd` (system D-Bus), `tb323fu-ctl`, the `tb323fu-settings` app ([docs/helper.md](docs/helper.md)) |
 | `packaging/` | Debian (`build-debs.sh`), Arch (`PKGBUILD`) and Nix (`flake.nix` at the root) recipes |
-| `android/` | Android-side helpers (switching between Android and Linux) |
+| `android/` | Android-side helpers (switching between Android and Linux; setup in [docs/rooting.md](docs/rooting.md)) |
 | `tools/` | build and flash scripts |
-| `docs/` | documentation |
+| `docs/` | documentation, including [rooting and dual boot setup](docs/rooting.md) (backup, LTBox, KernelSU, switching, recovery) |
 
 ## License
 
