@@ -276,6 +276,24 @@ cat > "$T/etc/systemd/user/gamescope-session.service.d/99-tb323fu.conf" <<EOF
 [Service]
 Environment=GAMESCOPE_ORIENTATION=$ORIENTATION
 EOF
+# The rotation shader turns the picture only: touch came in unrotated and landed
+# elsewhere. Rotate the touchscreen and pen with a libinput calibration matrix
+# (gamescope reads it through wlroots/libinput). Measured for "right" on the
+# device: landscape x = native y, landscape y = 1 - native x. The others follow
+# from it (not tried on the device).
+case $ORIENTATION in
+right) cal="0 1 0 -1 0 1" ;;
+left) cal="0 -1 1 1 0 0" ;;
+upsidedown) cal="-1 0 1 0 -1 1" ;;
+*) cal="" ;;
+esac
+if [ -n "$cal" ]; then
+	cat > "$T/etc/udev/rules.d/99-tb323fu-touch-gamescope.rules" <<EOF
+# TB323FU on SteamOS: Gaming Mode is turned $ORIENTATION by gamescope's rotation shader,
+# which does not rotate touch input; rotate the touchscreen and pen to match.
+ATTRS{name}=="NVTCapacitiveTouchScreen|NVTCapacitivePen", ENV{LIBINPUT_CALIBRATION_MATRIX}="$cal"
+EOF
+fi
 
 # 10. developer access over the USB cable (the initramfs creates the gadget)
 if [ "$DEV_ACCESS" = 1 ]; then
