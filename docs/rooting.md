@@ -2,7 +2,7 @@
 
 How the TB323FU used for this project got from a stock tablet to Android and mainline Linux on the same device:
 backup, root **without unlocking the bootloader** (LTBox), KernelSU on Android, Android's boot image kept in `boot_b`,
-Linux written to `boot_a`, and how to get back when something goes wrong.
+Linux written to `boot_a`. When something goes wrong, see [Recovery](recovery.md).
 
 This is a record of what was done on one unit, not a polished installer. "Checked" means it was done on the device;
 anything else is marked as not checked. Commands are given only where they were actually used.
@@ -12,7 +12,7 @@ anything else is marked as not checked. Commands are given only where they were 
 | Step | What changes on the tablet | Reversible? |
 |---|---|---|
 | 1. Back up | nothing (read-only EDL dump) | — |
-| 2. Root with LTBox | `efisp` gets a patched GBL EFI app, `init_boot_a` gets the KernelSU loader | yes: unroot restores `init_boot`; `efisp` can be erased (see [Recovery](#undoing-the-root)) |
+| 2. Root with LTBox | `efisp` gets a patched GBL EFI app, `init_boot_a` gets the KernelSU loader | yes: unroot restores `init_boot`; `efisp` can be erased (see [Undoing the root](recovery.md#undoing-the-root)) |
 | 3. KernelSU | manager app, root for `adb shell` | yes |
 | 4. Dual boot | `boot_b` ← copy of your Android boot image; a Linux root partition; `boot_a` ← Linux when you switch | `boot_a`/`boot_b`: yes. Making room for a Linux root on the internal storage **wipes Android's data** |
 | 5. First Linux boot | nothing more | — |
@@ -36,7 +36,7 @@ The bootloader stays **locked** the whole time (`ro.boot.flash.locked=1`, verifi
   Let LTBox choose and verify the file.
 - **Only `boot_a` is used for Linux.** The patched bootloader relaxes verified boot for `boot` only. A modified
   `recovery` image was rejected (red "Your device is corrupt" screen) and the whole slot was marked unbootable — it
-  took an EDL partition-table rewrite to recover (see [Recovery](#slot-marked-unbootable)). Do not put experiments in
+  took an EDL partition-table rewrite to recover (see [Slot marked unbootable](recovery.md#slot-marked-unbootable)). Do not put experiments in
   `recovery`, `dtbo`, `vbmeta`, `vendor_boot` or anything in `super`.
 - **Slot `_b` is not a fallback.** The tablet uses virtual A/B: `super` holds only `_a` system partitions, so slot `_b`
   has no system to boot. That is why `boot_b` can be used as storage for the Android boot image.
@@ -82,13 +82,18 @@ The package contains the **EDL loader**: `image/qsahara_device_programmer.x` plu
 On this chipset the loader is not a single file — keep the whole `image/` folder together. The loader only has to
 match the model, not the firmware version or region.
 
+The package does not contain anything device-specific (its `persist.img` etc. are factory defaults), and the stock
+images in it are only good for the version it was built for. It does not replace a dump of your own device.
+
+<details>
+<summary>LTBox v3.3.1 accepted only an <code>.xml</code> loader</summary>
+
 LTBox v3.3.1's loader picker accepted only `.xml` for this model, while the package ships the encrypted `.x`.
 It was decrypted to `qsahara_device_programmer.xml` with the same method LTBox's own code uses
 (`crates/ltbox-core/src/crypto.rs`), and the eight images were copied next to it. Whether newer LTBox versions
 accept the `.x` directly: not checked.
 
-The package does not contain anything device-specific (its `persist.img` etc. are factory defaults), and the stock
-images in it are only good for the version it was built for. It does not replace a dump of your own device.
+</details>
 
 ### Dump every partition
 
@@ -104,9 +109,16 @@ LTBox → **Advanced → Dump Partitions**:
 
 Checked results (twice): 142 files, 26.21 GiB, about 5 minutes; the tablet booted back to Android by itself.
 **LTBox v3.3.1/v3.3.2 shows no completion message** — it just returns to the first screen, and the file log does not
-record the dump. Verify the result instead: compare each `<name>.img` size with the partition sizes in the package's
-`gpt_main0.bin` … `gpt_main5.bin` (4096-byte sectors). Expected differences: `userdata` (excluded) and `last_parti`
-(size 0 in the package GPT, present on LUN 1–5 under the same name, so only one file is left).
+record the dump. Verify the result instead:
+
+<details>
+<summary>How to verify the dump</summary>
+
+Compare each `<name>.img` size with the partition sizes in the package's `gpt_main0.bin` … `gpt_main5.bin`
+(4096-byte sectors). Expected differences: `userdata` (excluded) and `last_parti` (size 0 in the package GPT, present
+on LUN 1–5 under the same name, so only one file is left).
+
+</details>
 
 Write a SHA-256 list of the dump and copy dump, list and firmware package to a second place.
 
@@ -120,22 +132,25 @@ empty `efisp`.
 
 ## 2. Root without unlocking (LTBox)
 
-### Why no bootloader unlock
+LTBox writes through **EDL (Qualcomm emergency download, USB `05c6:9008`)** and puts a patched **GBL** EFI
+application into the `efisp` partition. The bootloader (ABL) loads that application, which patches ABL in memory so
+that it treats itself as unlocked while still reporting `locked` / `green`. The method depends on the firmware's ABL
+loading `efisp`; LTBox checks the device's `abl_a` before writing and stops without writing anything if the check
+does not pass.
+
+<details>
+<summary>Why not a classic bootloader unlock</summary>
 
 There are two separate choices: *how* a modified boot image gets onto the device, and *which* root manager runs.
 The classic way to write images is a bootloader unlock plus `fastboot flash`. On this tablet that path is unattractive:
 unlocking wipes the device, relocking is effectively blocked, and the fastboot of this bootloader cannot even flash
-(it has no `fastboot boot`, and `flash` and `set_active` answer `unknown command`).
+(it has no `fastboot boot`, and `flash` and `set_active` answer `unknown command`). The older Lenovo "AOSP test key"
+method described in guides for earlier Y700 generations does not apply to this model.
 
-LTBox instead writes through **EDL (Qualcomm emergency download, USB `05c6:9008`)** and puts a patched **GBL** EFI
-application into the `efisp` partition. The bootloader (ABL) loads that application, which patches ABL in memory so
-that it treats itself as unlocked while still reporting `locked` / `green`. The older Lenovo "AOSP test key" method
-described in guides for earlier Y700 generations does not apply to this model.
+</details>
 
-The method depends on the firmware's ABL loading `efisp`. LTBox checks the device's `abl_a` before writing and stops
-without writing anything if the check does not pass.
-
-### What LTBox writes
+<details>
+<summary>What LTBox writes, step by step</summary>
 
 Read from the LTBox v3.3.1 source and confirmed by its log on this unit:
 
@@ -150,8 +165,10 @@ Read from the LTBox v3.3.1 source and confirmed by its log on this unit:
    `userdata`.
 5. Reboots (two or three times).
 
+</details>
+
 If a write fails after another one succeeded, LTBox **leaves the device in EDL on purpose** — do not force a reboot
-then (see [Recovery](#ltbox-stopped-in-the-middle-of-a-write)).
+then (see [LTBox stopped in the middle of a write](recovery.md#ltbox-stopped-in-the-middle-of-a-write)).
 
 ### Steps (checked)
 
@@ -216,9 +233,9 @@ The model (details in [`android/README.md`](../android/README.md)):
 - Switching to Linux writes the Linux boot image into `boot_a`; switching back copies `boot_b` into `boot_a`.
   Only `boot_a` changes. Partitions are found by GPT name, never by number.
 
-### Set up the way back (checked)
+### Set up the way back
 
-In rooted Android with USB debugging, from a clone of this repository:
+Checked. In rooted Android with USB debugging, from a clone of this repository:
 
 ```sh
 android/install-module.sh prepare-boot-b      # copies the running Android boot image (boot_a) into boot_b; asks first
@@ -256,20 +273,25 @@ The initramfs looks for root filesystems by **GPT partition name**: `baldur-root
 internal UFS storage after `userdata`), `baldur-root-sd` (microSD fallback) and `tb323fu-*` partitions for more
 systems ([multiboot](../kernel/initramfs/README.md#root-partitions-and-multiboot)).
 
-How this unit was set up:
+| Where | What it costs | Notes |
+|---|---|---|
+| microSD (new GPT, ext4) | nothing on the tablet | Android then reports the card as unsupported; that is expected |
+| internal UFS, after `userdata` | **a factory reset of Android** | `userdata` is f2fs (cannot shrink) and encrypted; afterwards reinstall the KernelSU manager, allow Shell and disable the OTA apps again. A step-by-step procedure is not written yet |
 
-- First, a microSD card with a new GPT and an ext4 root. Android then reports the card as unsupported; that is
-  expected.
-- Later, `baldur-root` on UFS: `userdata` (the last partition of LUN 0) was cut to 128 GiB and a ~322 GiB ext4
-  partition named `baldur-root` was added after it. `userdata` is f2fs (cannot shrink) and encrypted, so this
-  **is a factory reset**: `userdata` and `metadata` were cleared, and Android formatted them on its next boot and
-  started at the setup wizard. The GPT was edited from Linux with `sgdisk`, after saving a GPT backup (`sgdisk -b`);
-  Android's own `sgdisk` cannot do this. A step-by-step procedure for this is not written yet.
+<details>
+<summary>How the UFS root was made on the development unit</summary>
+
+- `userdata` (the last partition of LUN 0) was cut to 128 GiB and a ~322 GiB ext4 partition named `baldur-root` was
+  added after it. `userdata` and `metadata` were cleared; Android formatted them on its next boot and started at the
+  setup wizard.
+- The GPT was edited from Linux with `sgdisk`, after saving a GPT backup (`sgdisk -b`); Android's own `sgdisk` cannot
+  do this.
 - After that reset: `/data/adb` (KernelSU's userspace and allow list) was gone while root in `init_boot` stayed; the
   KernelSU manager APK of the same version was reinstalled with adb and Shell allowed again; the OTA apps had to be
   disabled again.
+- `boot_a` and `boot_b` were unchanged after the reset, slot still `_a` (checked).
 
-`boot_a` and `boot_b` were unchanged after the reset, slot still `_a` (checked).
+</details>
 
 ### Switching
 
@@ -293,99 +315,7 @@ to Linux module finds a bad write, it copies Android back from `boot_b` before g
   summary on the panel, then switches to the selected root. Holding **volume up** during the summary stays in the
   initramfs.
 - In mainline Linux the power button alone does not force the tablet off; hold **power + volume down**.
-
-## Recovery
-
-Start with the smallest step: rebooting → fixing `boot_a` from Android (`adb` + `dd`) → unroot → one partition over
-EDL → full firmware with data kept → factory reset. Check every file's hash before writing it.
-
-### Modes and how to reach them
-
-| Mode | USB ID | How to get there | Notes |
-|---|---|---|---|
-| Android (adb) | `17ef:…` | — | `adb reboot edl` goes to EDL (checked) |
-| **EDL** | `05c6:9008` "Qualcomm HS-USB QDLoader 9008" | see below | the real recovery mode: partitions can be read and written with a loader |
-| Fastboot | — | power + volume up from off (not checked); also shown after a verified-boot rejection | **read-only on this bootloader** (`getvar`, `download`). `START` boots normally. **Do not choose "Boot to Alternate Slot"** — slot `_b` cannot boot |
-| Recovery | — | volume down + volume up, then power, from off (checked) | stock AOSP recovery, not TWRP; has "Apply update from ADB"; the default entry is "Enter fastboot" |
-| **Crash dump** | `05c6:900E` "Qualcomm HS-USB Diagnostics" | the SoC falls into it after a crash | **not a recovery mode** — nothing can be written. A dump tool gets one Sahara session; afterwards the tablet resets |
-
-Getting into EDL (all three checked; what matters is that volume up is held while ABL reads the keys twice, about
-5 s apart, with USB connected):
-
-1. **Tablet off:** hold **volume up**, plug in USB, keep holding about 10 s → logo → black screen, 9008 appears.
-2. **Stuck in a crash/dump loop (900E):** keep USB plugged in, force a restart (long power, or **power + volume down**
-   if power alone does nothing), and hold **volume up from the moment the splash appears**.
-3. **If 2 does not work:** unplug USB, hold **power + volume down** to force it off, then hold **volume up** (only the
-   backlight comes on); it enumerates as 9008.
-
-Leave EDL with LTBox → Reboot Device → **System** (needs the loader). EDL survives unplugging and replugging the
-cable.
-
-Do not let a failing image reboot over and over: repeated boot failures can make ABL switch to slot `_b`, which does
-not boot. Go to EDL and restore `boot_a` instead. [`tools/flash-boot.sh`](../tools/flash-boot.sh) switches Qualcomm
-download mode off before writing, so a crash on the way reboots instead of stopping in 900E.
-
-### Linux does not boot
-
-- If the initramfs comes up (boot summary on the panel, USB serial/network): hold volume up + volume down 10 s, or run
-  `back-to-android <hash>` on the serial shell.
-- If it hangs before that: EDL → LTBox → Advanced → EDL Operations → **Flash Partitions** → `boot_a` ← your Android
-  boot image (the copy in `boot_b`, your dump's `boot_a`, or the package's `boot.img` for the same firmware version);
-  all other rows **Skip** → write → Reboot Device → System. Checked several times.
-- Afterwards confirm `adb shell getprop ro.boot.slot_suffix` is `_a`.
-
-### Android does not boot after rooting
-
-- If adb works (e.g. from recovery): LTBox → **Unroot Device** (method Magisk / LKM, the backup folder from step 2).
-  Unroot can only start from adb or fastboot, not from EDL.
-- EDL only: Flash Partitions → `init_boot_a` ← the backed-up `init_boot.img` (or the package's `image/init_boot.img`
-  if it is the same version); everything else Skip.
-
-These two paths come from the LTBox source; they were not needed on this unit.
-
-### LTBox stopped in the middle of a write
-
-Leave the cable and LTBox as they are, save the message and the Work History. The `Flashed …` lines show how far it
-got. If `efisp` was written but `init_boot_a` failed, write the stock `init_boot.img` to `init_boot_a` with Flash
-Partitions; the GBL in `efisp` does not prevent a stock boot. (From the LTBox source; not experienced here.)
-
-### Slot marked unbootable
-
-A partition that fails verified boot makes ABL mark the **whole slot** unbootable in the GPT attribute bits, and the
-mark stays after the partition is restored. Fastboot cannot clear it and LTBox does not show the GPT. What worked
-(checked once): the open-source [`edl`](https://github.com/bkerler/edl) tool with the loader `.xml`, after switching
-the 9008 device to the **WinUSB** driver with Zadig, rewriting the first 6 sectors of the affected LUN from a known-good
-copy (`edl.py rs` to read, compare byte by byte, `edl.py ws` to write, read back, `edl.py reset`). Do not flip the bit
-by hand — the GPT header CRC covers it. Notes from that session: the serial (COM) driver path never got past the
-Sahara handshake; the libusb-win32 driver crashed; set `PYTHONIOENCODING=utf-8` on Windows, otherwise the progress bar
-can crash the tool mid-write; after the driver switch LTBox no longer sees the device until the driver is removed in
-Device Manager.
-
-### Full reinstall
-
-- **Same version, keep data:** LTBox → Flash Firmware → matching region → **Keep Data**, from a fresh copy of the
-  unpacked package (LTBox writes decrypted files into the folder). Per the LTBox source and the package's XML this
-  skips `userdata`, `metadata`, `persist`, `efisp` and the modem calibration partitions and writes slot `_a` only;
-  root is lost (`init_boot` is stock again), `efisp` stays. Not run on this unit.
-- **Do not use Advanced → Simple Firmware Flasher** to keep data: it writes the package's `userdata` and `metadata`
-  images as they are and wipes the device.
-- **Factory state:** LTBox Flash Firmware → **Wipe Data** (also erases `efisp`), or Software Fix → Rescue (installs
-  the newest firmware). Both wipe the tablet.
-- Device-specific partitions (`persist`, `modemst*`, `fsg`, …) are restored only from **your own** dump, one partition
-  at a time, and only when the symptom clearly points at them. Never use the package's `persist.img`.
-
-### Undoing the root
-
-LTBox → Unroot Device restores `init_boot` only; it leaves the GBL in `efisp`. To clear `efisp` too, use Flash
-Partitions with `efisp` set to Erase (or write your all-zero `efisp.img` from the dump) — after making sure
-`init_boot_a` is stock. Not done on this unit.
-
-### Updating Android firmware later
-
-Not done on this unit since rooting. The order prepared from the LTBox source: confirm the new firmware's ABL still
-loads `efisp` (otherwise you cannot root again, and the update cannot be undone) → restore the stock `boot_a` and
-unroot → enable the OTA apps and update → disable them → root again (LTBox then writes only `init_boot`) → redo
-`prepare-boot-b` / `install` and update the hash on the Linux side.
+- If Linux does not come up: [Recovery](recovery.md#linux-does-not-boot).
 
 ## Terms
 
@@ -413,4 +343,4 @@ unroot → enable the OTA apps and update → disable them → root again (LTBox
 - [XDA thread for the TB323FU](https://xdaforums.com/t/gen-5-lenovo-legion-tab-5-global-tb323fu-how-to-root-and-bootloader-unlock.4800204/)
 - In this repository: [android/](../android/README.md), [firmware/](../firmware/README.md),
   [kernel/initramfs/](../kernel/initramfs/README.md), [tools/](../tools/README.md), [distros](distros.md),
-  [helper](helper.md), [hardware status](hardware-status.md)
+  [helper](helper.md), [hardware status](hardware-status.md), [recovery](recovery.md)

@@ -27,7 +27,7 @@ export interface DocEntry {
 const HIDDEN = new Set(["docs/photo-shotlist.md"]);
 
 /** Preferred order of docs/*.md in the navigation; the rest follow alphabetically. */
-const DOCS_ORDER = ["hardware-status", "distros", "rooting", "helper"];
+const DOCS_ORDER = ["hardware-status", "distros", "rooting", "recovery", "helper"];
 
 /** Directory READMEs worth reading on the site, in navigation order. */
 const SOURCE_READMES = [
