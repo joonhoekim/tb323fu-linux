@@ -26,7 +26,7 @@ git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0113, in 
 | `baldur.fragment` | the board fragment, merged after `arch/arm64/configs/kaanapali-oneplus-infiniti_defconfig` (the OnePlus 15 fragment, added by patch 0011) |
 | `baldur-display.fragment`, `baldur-kexec.fragment` | variants for the display bring-up and kexec images |
 | `baldur-netfilter.fragment` | netfilter for distribution firewalls and containers (iptables-nft, firewalld, ipset), merged last; see below |
-| `t21-reference.config` | the full `.config` of the kernel on the development tablet ([see below](#the-kernel-on-the-development-tablet)), for comparison |
+| `reference.config` | the full `.config` of the kernel on the development tablet ([see below](#the-kernel-on-the-development-tablet)), for comparison |
 
 The same fragments are also added to the tree by patch 0055 (`arch/arm64/configs/`). The copies here have
 `CONFIG_INITRAMFS_SOURCE` blanked — set it to your own initramfs (built with [`initramfs/build.sh`](initramfs/)); the version inside patch 0055 still names the path of the original build machine.
@@ -47,7 +47,7 @@ zones/labels, ARP tables.
 ```sh
 make ARCH=arm64 LLVM=1 O=out defconfig
 scripts/kconfig/merge_config.sh -m -O out out/.config \
-    arch/arm64/configs/kaanapali-oneplus-infiniti_defconfig arch/arm64/configs/baldur.fragment
+    arch/arm64/configs/kaanapali-oneplus-infiniti_defconfig arch/arm64/configs/baldur.fragment \n    /path/to/tb323fu-linux/kernel/config/baldur-netfilter.fragment
 make ARCH=arm64 LLVM=1 O=out olddefconfig
 make ARCH=arm64 LLVM=1 O=out -j"$(nproc)" Image dtbs modules
 ```
@@ -92,12 +92,12 @@ The bootloader on this tablet cannot be made to pass our device tree or command 
 
 ## The kernel on the development tablet
 
-The kernel running on the development tablet (config: `config/t21-reference.config`) is this series (0001-0112) **plus test-only changes that are not part of the series**:
+The kernel running on the development tablet (config: `config/reference.config`) is this series (0001-0113) **plus test-only changes that are not part of the series**:
 
 - a knob exposing experimental panel modes (vendor 144/165 Hz and a 143 Hz variant; only 90 and 164 Hz are in the series, 0109),
 - an idle-state flight recorder for crash analysis, and a knob that refuses the CPU cluster idle state,
 - modem (MPSS) device tree nodes, remoteproc knobs and QRTR logging used to investigate GNSS (the tablet appears to have no usable GNSS antenna),
-- a q6apm change that polls for the audio framework instead of a fixed 5 s wait (an upstream candidate, not yet in the series).
+- a q6apm change that polls for the audio framework instead of a fixed 5 s wait, and a QRTR name-service change that retries announcements to a node that is not ready yet (upstream candidates, not yet in the series).
 
 Default knobs in the series: the idle refresh rate policy is automatic (`msm.idle_refresh_policy=2`, patch 0110).
 The iris and q6apm drivers are modules; the tested device loads rebuilt modules from `/lib/modules/<version>/updates/`.
