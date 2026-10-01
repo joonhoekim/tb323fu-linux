@@ -59,14 +59,14 @@ pub struct Battery(pub Arc<Shared>);
 impl Snapshot for Battery {
     const IFACE: &'static str = "io.github.joonhoekim.tb323fu.Helper.Battery";
     const PROPS: &'static [&'static str] = &["ChargeLimit", "Bypass", "Status", "State", "Capacity", "CurrentMa", "VoltageMv",
-        "TemperatureC", "Health", "CycleCount", "DesignCapacityMah", "ChargerType", "ChargerContract"];
+        "TemperatureC", "Health", "CycleCount", "DesignCapacityMah", "ChargerType", "ChargerContract", "ChargerAdapter", "InputVoltageMv", "InputCurrentMa"];
     fn snapshot(&self) -> String {
         // current/voltage/temperature move all the time: only state-like values
         // trigger a signal (clients poll the live values while showing them)
         let i = f::battery_info().ok();
-        let (t, c) = f::charger();
-        format!("{:?} {} {:?} {t} {c}", i.as_ref().map(|i| (i.charge_limit, i.capacity, &i.status, &i.health)),
-            self.0.cfg().battery.bypass, i.as_ref().map(f::battery_state))
+        let bypass = self.0.cfg().battery.bypass;
+        format!("{:?} {bypass} {:?} {}", i.as_ref().map(|i| (i.charge_limit, i.capacity, &i.status, &i.health)),
+            i.as_ref().map(|i| f::battery_state(i, bypass)), f::charger_info().stable_key())
     }
 }
 
@@ -86,7 +86,8 @@ impl Battery {
     }
     #[zbus(property)]
     fn state(&self) -> String {
-        f::battery_info().map(|i| f::battery_state(&i).to_string()).unwrap_or_else(|_| "unknown".into())
+        let bypass = self.0.cfg().battery.bypass;
+        f::battery_info().map(|i| f::battery_state(&i, bypass).to_string()).unwrap_or_else(|_| "unknown".into())
     }
     #[zbus(property)]
     fn capacity(&self) -> u32 {
@@ -123,6 +124,20 @@ impl Battery {
     #[zbus(property)]
     fn charger_contract(&self) -> String {
         f::charger().1
+    }
+    /// battmgr adapter type: SDP, DCP, CDP, PD, PD_PPS, ... ("" unknown)
+    #[zbus(property)]
+    fn charger_adapter(&self) -> String {
+        f::charger_info().adapter
+    }
+    /// measured charger input (0 unplugged / unknown)
+    #[zbus(property)]
+    fn input_voltage_mv(&self) -> u32 {
+        f::charger_info().input_mv
+    }
+    #[zbus(property)]
+    fn input_current_ma(&self) -> u32 {
+        f::charger_info().input_ma
     }
 
     async fn set_charge_limit(&self, percent: u32, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,

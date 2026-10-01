@@ -63,7 +63,20 @@ $C charge-limit 60 && check "set charge limit 60" $B/charge_control_end_threshol
 check "start lowered first" $B/charge_control_start_threshold 50
 $C charge-limit 10 2>/dev/null && bad "charge limit 10 accepted" || ok "charge limit 10 refused"
 $C bypass on && check "bypass holds at capacity" $B/charge_control_end_threshold 62
+$C --json battery | grep -q '"State": "charging"' && ok "bypass on, 1.5 A still flowing: charging" || bad "bypass transition state"
+mk $B/current_now 185000	# firmware still says Charging (t26)
+$C --json battery | grep -q '"State": "bypass"' && ok "bypass on, 185 mA: bypass" || bad "bypass state"
+mk $B/current_now 1500000
 $C bypass off && check "bypass off restores" $B/charge_control_end_threshold 60
+# PD/PPS charger: UCSI reports no contract, battmgr measures the input
+mk $U/voltage_now 0; mk $U/current_max 0
+UB=/sys/class/power_supply/qcom-battmgr-usb
+mk $UB/type USB; mk $UB/online 1; mk $UB/usb_type "Unknown SDP DCP CDP ACA C PD PD_DRP [PD_PPS] BrickID"
+mk $UB/voltage_now 9192000; mk $UB/current_now 4310000
+$C --json battery | grep -q '"ChargerContract": "PPS · 9.2 V in · ~40 W"' && ok "measured contract" || bad "measured contract"
+$C --json battery | grep -q '"ChargerAdapter": "PD_PPS"' && ok "adapter PPS" || bad "adapter"
+$C --json battery | grep -q '"InputVoltageMv": 9192' && ok "input voltage" || bad "input voltage"
+mk $U/voltage_now 9000000; mk $U/current_max 3000000
 
 $C torch on && check "torch on at default level" /sys/class/leds/white:flash/brightness 96
 $C torch level 40 && check "torch level while on" /sys/class/leds/white:flash/brightness 40

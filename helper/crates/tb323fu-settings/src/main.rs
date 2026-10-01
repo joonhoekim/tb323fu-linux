@@ -365,6 +365,7 @@ struct Ui {
     bat_cycles: gtk::Label,
     bat_design: gtk::Label,
     bat_charger: gtk::Label,
+    bat_input: gtk::Label,
     // Refresh
     ref_group: adw::PreferencesGroup,
     ref_policy: adw::ComboRow,
@@ -463,6 +464,7 @@ impl Ui {
         let bat_design = info(&g, "Design Capacity");
         let g = group(&b, "Charger", "");
         let bat_charger = info(&g, "Contract");
+        let bat_input = info(&g, "Input (Measured)");
 
         // Display
         let (p_ref, b) = page_box();
@@ -723,6 +725,7 @@ impl Ui {
             bat_cycles,
             bat_design,
             bat_charger,
+            bat_input,
             ref_group,
             ref_policy,
             ref_rate,
@@ -1461,6 +1464,15 @@ impl Ui {
         } else {
             contract.as_str()
         });
+        // measured charger input (battmgr), also when UCSI reports no contract
+        let (imv, ima) = (dbus::u(p, "InputVoltageMv").unwrap_or(0), dbus::u(p, "InputCurrentMa").unwrap_or(0));
+        if let Some(r) = row_of(&self.bat_input) {
+            r.set_visible(imv > 0);
+        }
+        if imv > 0 {
+            let (v, a) = (imv as f64 / 1000.0, ima as f64 / 1000.0);
+            set_text(&self.bat_input, &format!("{v:.2} V · {a:.2} A · {:.1} W", v * a));
+        }
     }
 
     /// Show only the rows that apply to the current policy and timing.

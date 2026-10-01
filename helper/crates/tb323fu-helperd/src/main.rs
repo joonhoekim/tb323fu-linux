@@ -87,9 +87,10 @@ impl Shared {
         if !f::ledring_dir().exists() {
             return;
         }
-        let c = self.cfg().ledring;
+        let cfg = self.cfg();
+        let (c, bypass) = (cfg.ledring, cfg.battery.bypass);
         let color = if c.mode == "charge" {
-            f::battery_info().ok().and_then(|i| f::ledring_color(&i, c.low_percent))
+            f::battery_info().ok().and_then(|i| f::ledring_color(&i, c.low_percent, bypass))
         } else {
             None
         };

@@ -67,10 +67,26 @@ pub fn external_power() -> bool {
     })
 }
 
+/// Battery current (mA, either sign) at or below which the battery counts as
+/// idle: held at the limit or in bypass. The firmware never reports exactly 0
+/// in bypass (185 mA seen with a 65 W charger, 9 A while charging).
+pub const IDLE_MA: i32 = 300;
+
 /// `charging` / `discharging` / `bypass` / `full` / `not-charging`.
 /// battmgr keeps reporting "Charging" while the battery is held at the limit
-/// with no current (and in bypass), so the current decides.
-pub fn battery_state(i: &BatteryInfo) -> &'static str {
+/// and in bypass, so the current decides:
+/// - with the helper's Bypass switch on (`bypass`), external power and
+///   |current| <= IDLE_MA it is `bypass` whatever the status says; while the
+///   current is still larger (the switch was just flipped, or the charger
+///   cannot carry the load) status and current win, so it never claims an
+///   idle battery that is charging or draining;
+/// - without the switch, "Charging" with |current| <= IDLE_MA at or above the
+///   limit (or "Not charging" there) is also `bypass` (held at the limit).
+pub fn battery_state(i: &BatteryInfo, bypass: bool) -> &'static str {
+    let idle = i.current_ma.abs() <= IDLE_MA;
+    if bypass && i.online && idle && i.status != "Full" {
+        return "bypass";
+    }
     match i.status.as_str() {
         "Discharging" => "discharging",
         "Full" => "full",
@@ -78,7 +94,7 @@ pub fn battery_state(i: &BatteryInfo) -> &'static str {
             if i.online && i.capacity >= i.charge_limit { "bypass" } else { "not-charging" }
         }
         "Charging" => {
-            if i.current_ma.abs() < 50 && i.capacity >= i.charge_limit { "bypass" } else { "charging" }
+            if idle && i.capacity >= i.charge_limit { "bypass" } else { "charging" }
         }
         _ => "not-charging",
     }
@@ -109,10 +125,82 @@ pub fn set_charge_limit(pct: u32) -> Res<()> {
     Ok(())
 }
 
-/// The active charger: selected type and negotiated voltage/current of the
-/// online UCSI source (e.g. "PD", "PD 9.0 V 3.00 A").
-pub fn charger() -> (String, String) {
+/// The active charger as the kernel reports it.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ChargerInfo {
+    /// selected `usb_type` of the online UCSI source ("C", "PD", ...);
+    /// "USB" when only the battmgr USB supply is online, "none" unplugged
+    pub kind: String,
+    /// adapter type the battery manager detected (battmgr USB `usb_type`:
+    /// "SDP", "DCP", "CDP", "PD", "PD_PPS", ...; "" when unknown)
+    pub adapter: String,
+    /// negotiated contract from UCSI, mV / mA (0 when not reported: the
+    /// TB323FU firmware answers 0 for PD/PPS chargers)
+    pub contract_mv: u32,
+    pub contract_ma: u32,
+    /// measured charger input, mV / mA (battmgr USB `voltage_now` /
+    /// `current_now`; 0 when unplugged or unknown)
+    pub input_mv: u32,
+    pub input_ma: u32,
+}
+
+impl ChargerInfo {
+    /// Short name: "PPS" for a PPS adapter, "PD" for a PD one, else the UCSI type.
+    pub fn label(&self) -> String {
+        match self.adapter.as_str() {
+            "PD_PPS" => "PPS".into(),
+            "PD" | "PD_DRP" => "PD".into(),
+            _ => self.kind.clone(),
+        }
+    }
+
+    /// Whether `contract()` comes from the measured input.
+    pub fn measured(&self) -> bool {
+        (self.contract_mv == 0 || self.contract_ma == 0) && self.input_mv > 0
+    }
+
+    /// "PD 9.0 V 3.00 A" (negotiated), "PPS · 9.2 V in · ~40 W" (contract not
+    /// reported: the measured input, marked "in"), "unknown" (powered, nothing
+    /// known), "none" (unplugged).
+    pub fn contract(&self) -> String {
+        if self.kind == "none" {
+            return "none".into();
+        }
+        let ty = self.label();
+        if self.contract_mv > 0 && self.contract_ma > 0 {
+            return format!("{ty} {:.1} V {:.2} A", self.contract_mv as f64 / 1000.0, self.contract_ma as f64 / 1000.0);
+        }
+        if self.input_mv > 0 {
+            let v = self.input_mv as f64 / 1000.0;
+            let w = self.input_mv as f64 * self.input_ma as f64 / 1e6;
+            return if w >= 0.5 { format!("{ty} · {v:.1} V in · ~{w:.0} W") } else { format!("{ty} · {v:.1} V in") };
+        }
+        "unknown".into()
+    }
+
+    /// What should raise a change signal (not the live input samples).
+    pub fn stable_key(&self) -> String {
+        if self.measured() {
+            format!("{} {} measured", self.kind, self.adapter)
+        } else {
+            format!("{} {} {}", self.kind, self.adapter, self.contract())
+        }
+    }
+}
+
+pub fn charger_info() -> ChargerInfo {
     let base = sys::path("/sys/class/power_supply");
+    let mut c = ChargerInfo::default();
+    let usb = base.join("qcom-battmgr-usb");
+    let usb_online = sys::read_opt(&usb.join("online")).as_deref() == Some("1");
+    if usb_online {
+        c.adapter = sys::read_opt(&usb.join("usb_type"))
+            .and_then(|t| sys::selected(&t))
+            .filter(|t| t != "Unknown")
+            .unwrap_or_default();
+        c.input_mv = (sys::read_i64(&usb.join("voltage_now")).unwrap_or(0) / 1000).max(0) as u32;
+        c.input_ma = (sys::read_i64(&usb.join("current_now")).unwrap_or(0) / 1000).max(0) as u32;
+    }
     for n in sys::list_dir(&base) {
         if !n.starts_with("ucsi-source-psy") {
             continue;
@@ -121,16 +209,20 @@ pub fn charger() -> (String, String) {
         if sys::read_opt(&d.join("online")).as_deref() != Some("1") {
             continue;
         }
-        let ty = sys::read_opt(&d.join("usb_type")).and_then(|c| sys::selected(&c)).unwrap_or_else(|| "USB".into());
-        let v = sys::read_i64(&d.join("voltage_now")).unwrap_or(0) as f64 / 1e6;
-        let a = sys::read_i64(&d.join("current_max")).unwrap_or(0) as f64 / 1e6;
-        return (ty.clone(), format!("{ty} {v:.1} V {a:.2} A"));
+        c.kind = sys::read_opt(&d.join("usb_type")).and_then(|t| sys::selected(&t)).unwrap_or_else(|| "USB".into());
+        c.contract_mv = (sys::read_i64(&d.join("voltage_now")).unwrap_or(0) / 1000).max(0) as u32;
+        c.contract_ma = (sys::read_i64(&d.join("current_max")).unwrap_or(0) / 1000).max(0) as u32;
+        return c;
     }
-    if external_power() {
-        ("USB".into(), "unknown".into())
-    } else {
-        ("none".into(), "none".into())
-    }
+    c.kind = if usb_online || external_power() { "USB".into() } else { "none".into() };
+    c
+}
+
+/// The active charger: (type, contract) -- the `ChargerType` and
+/// `ChargerContract` D-Bus properties (see `ChargerInfo::contract`).
+pub fn charger() -> (String, String) {
+    let c = charger_info();
+    (c.kind.clone(), c.contract())
 }
 
 // ---------------------------------------------------------------- android
@@ -188,8 +280,8 @@ pub fn ledring_dir() -> PathBuf {
 
 /// The colour the charge indicator shows: amber charging, green full / held /
 /// bypass, red at or below `low` % on battery, otherwise off.
-pub fn ledring_color(i: &BatteryInfo, low: u32) -> Option<[u32; 3]> {
-    match battery_state(i) {
+pub fn ledring_color(i: &BatteryInfo, low: u32, bypass: bool) -> Option<[u32; 3]> {
+    match battery_state(i, bypass) {
         "charging" => Some([255, 90, 0]),
         "full" | "not-charging" | "bypass" => Some([0, 255, 0]),
         _ if i.capacity <= low => Some([255, 0, 0]),
@@ -612,17 +704,81 @@ mod tests {
     }
     #[test]
     fn states() {
-        assert_eq!(battery_state(&info("Charging", 60, 1500, 80)), "charging");
-        assert_eq!(battery_state(&info("Charging", 80, 0, 80)), "bypass");
-        assert_eq!(battery_state(&info("Discharging", 50, -300, 80)), "discharging");
-        assert_eq!(battery_state(&info("Full", 100, 0, 100)), "full");
+        assert_eq!(battery_state(&info("Charging", 60, 1500, 80), false), "charging");
+        assert_eq!(battery_state(&info("Charging", 80, 0, 80), false), "bypass");
+        assert_eq!(battery_state(&info("Discharging", 50, -300, 80), false), "discharging");
+        assert_eq!(battery_state(&info("Full", 100, 0, 100), false), "full");
+        // Bypass on: the firmware still says Charging, 185 mA (t26, 65 W PPS charger)
+        assert_eq!(battery_state(&info("Charging", 99, 185, 99), true), "bypass");
+        // capacity drifted under the held limit: still bypass
+        assert_eq!(battery_state(&info("Charging", 98, 120, 99), true), "bypass");
+        assert_eq!(battery_state(&info("Discharging", 70, -150, 70), true), "bypass");
+        // just switched on, current still large: say what the battery does
+        assert_eq!(battery_state(&info("Charging", 70, 9000, 70), true), "charging");
+        assert_eq!(battery_state(&info("Discharging", 70, -1200, 70), true), "discharging");
+        // no external power: the switch means nothing
+        let mut i = info("Discharging", 70, -100, 70);
+        i.online = false;
+        assert_eq!(battery_state(&i, true), "discharging");
+        // without the switch, 185 mA under the limit is charging
+        assert_eq!(battery_state(&info("Charging", 60, 185, 80), false), "charging");
     }
     #[test]
     fn colours() {
-        assert_eq!(ledring_color(&info("Charging", 60, 1500, 80), 15), Some([255, 90, 0]));
-        assert_eq!(ledring_color(&info("Charging", 80, 0, 80), 15), Some([0, 255, 0]));
-        assert_eq!(ledring_color(&info("Discharging", 10, -300, 80), 15), Some([255, 0, 0]));
-        assert_eq!(ledring_color(&info("Discharging", 50, -300, 80), 15), None);
+        assert_eq!(ledring_color(&info("Charging", 60, 1500, 80), 15, false), Some([255, 90, 0]));
+        assert_eq!(ledring_color(&info("Charging", 80, 0, 80), 15, false), Some([0, 255, 0]));
+        assert_eq!(ledring_color(&info("Charging", 99, 185, 99), 15, true), Some([0, 255, 0]));
+        assert_eq!(ledring_color(&info("Discharging", 10, -300, 80), 15, false), Some([255, 0, 0]));
+        assert_eq!(ledring_color(&info("Discharging", 50, -300, 80), 15, false), None);
+    }
+    #[test]
+    fn charger_contract() {
+        let c = |kind: &str, adapter: &str, cmv, cma, imv, ima| ChargerInfo {
+            kind: kind.into(), adapter: adapter.into(), contract_mv: cmv, contract_ma: cma, input_mv: imv, input_ma: ima };
+        // negotiated contract reported
+        assert_eq!(c("PD", "PD", 9000, 3000, 9100, 2000).contract(), "PD 9.0 V 3.00 A");
+        assert_eq!(c("C", "SDP", 5000, 100, 5023, 187).contract(), "C 5.0 V 0.10 A");
+        // t26 65 W PPS charger: UCSI contract 0, input ~9.25 V, ~4.3 A
+        let pps = c("PD", "PD_PPS", 0, 0, 9248, 4300);
+        assert!(pps.measured());
+        assert_eq!(pps.contract(), "PPS · 9.2 V in · ~40 W");
+        assert_eq!(c("PD", "PD", 0, 0, 9192, 0).contract(), "PD · 9.2 V in");
+        assert_eq!(c("USB", "", 0, 0, 0, 0).contract(), "unknown");
+        assert_eq!(c("none", "", 0, 0, 0, 0).contract(), "none");
+        // live samples do not change the signal key
+        assert_eq!(pps.stable_key(), c("PD", "PD_PPS", 0, 0, 9180, 4100).stable_key());
+    }
+    #[test]
+    fn charger_from_sysfs() {
+        let _g = crate::sys::TEST_ENV.lock().unwrap_or_else(|e| e.into_inner());
+        let r = std::env::temp_dir().join(format!("tb323fu-charger-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&r);
+        let mk = |rel: String, v: &str| {
+            let p = r.join(rel);
+            std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+            std::fs::write(p, format!("{v}\n")).unwrap();
+        };
+        let u = "sys/class/power_supply/qcom-battmgr-usb";
+        mk(format!("{u}/type"), "USB");
+        mk(format!("{u}/online"), "1");
+        mk(format!("{u}/usb_type"), "Unknown SDP DCP CDP ACA C PD PD_DRP [PD_PPS] BrickID");
+        mk(format!("{u}/voltage_now"), "9192000");
+        mk(format!("{u}/current_now"), "4310000");
+        let s = "sys/class/power_supply/ucsi-source-psy-pmic_glink.ucsi.02";
+        mk(format!("{s}/type"), "USB");
+        mk(format!("{s}/online"), "1");
+        mk(format!("{s}/usb_type"), "C [PD] PD_PPS");
+        mk(format!("{s}/voltage_now"), "0");
+        mk(format!("{s}/current_max"), "0");
+        std::env::set_var("TB323FU_SYSFS_ROOT", &r);
+        let c = charger_info();
+        assert_eq!((c.kind.as_str(), c.adapter.as_str(), c.input_mv, c.input_ma), ("PD", "PD_PPS", 9192, 4310));
+        assert_eq!(charger(), ("PD".to_string(), "PPS · 9.2 V in · ~40 W".to_string()));
+        mk(format!("{u}/online"), "0");
+        mk(format!("{s}/online"), "0");
+        assert_eq!(charger(), ("none".to_string(), "none".to_string()));
+        std::env::remove_var("TB323FU_SYSFS_ROOT");
+        let _ = std::fs::remove_dir_all(&r);
     }
     #[test]
     fn thermal_zones() {

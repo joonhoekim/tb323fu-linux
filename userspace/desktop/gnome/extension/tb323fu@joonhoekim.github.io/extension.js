@@ -289,12 +289,16 @@ class TabletToggle extends QuickMenuToggle {
         this._batSection.actor.visible = h.has('Battery');
         if (bat && present) {
             const plugged = bat.ChargerContract && !['none', 'unknown'].includes(bat.ChargerContract);
+            // "PPS · 9.2 V in · ~40 W" (measured input, no UCSI contract) is
+            // too long for the header: keep the type and the power
+            const parts = plugged ? bat.ChargerContract.split(' · ') : [];
+            const charger = parts.length === 3 ? `${parts[0]} · ${parts[2]}` : bat.ChargerContract;
             const state = bat.State === 'bypass' && bat.Bypass ? 'Bypass' : STATE_LABELS[bat.State] ?? 'Unknown';
             const level = Math.min(100, Math.max(0, Math.round(bat.Capacity / 10) * 10));
             // Adwaita has no battery-level-100-charging icon, only -charged
             const charging = bat.State === 'charging' ? (level === 100 ? '-charged' : '-charging') : '';
             this.menu.setHeader(`battery-level-${level}${charging}-symbolic`, 'Tablet',
-                `${bat.Capacity}% · ${state}${plugged ? ` · ${bat.ChargerContract}` : ''}`);
+                `${bat.Capacity}% · ${state}${plugged ? ` · ${charger}` : ''}`);
             for (const [p, it] of Object.entries(this._limitItems))
                 it.setOrnament(Number(p) === bat.ChargeLimit && !bat.Bypass ? PopupMenu.Ornament.CHECK : PopupMenu.Ornament.NONE);
             // a limit set in the app (75 %) checks no preset: show it in the label
