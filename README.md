@@ -12,10 +12,16 @@ The main product is the **kernel port**: a patch series on top of a fixed upstre
 Distribution and desktop integration (a Debian/GNOME image, services, udev rules) are provided as an optional add-on, not a requirement —
 the kernel does not assume a particular distribution or desktop.
 
-## Hardware status
+## Where to start
 
-See [docs/hardware-status.md](docs/hardware-status.md). A feature is only marked as working after it was checked on the device
-(measured, or seen/heard by a person); "the driver probes" does not count.
+| You want to | Read |
+|---|---|
+| know what works | [Hardware status](docs/hardware-status.md) — a feature is marked as working only after it was checked on the device (measured, or seen/heard by a person); "the driver probes" does not count |
+| see which distributions boot | [Distributions](docs/distros.md) |
+| understand how the tablet was set up for dual boot | [Rooting and dual boot setup](docs/rooting.md) (backup, LTBox, KernelSU, switching) and [Recovery](docs/recovery.md) |
+| build or review the kernel | [kernel/](kernel/README.md), [PROVENANCE.md](kernel/PROVENANCE.md), [initramfs](kernel/initramfs/README.md) |
+| put together a root filesystem | [platform files](userspace/platform/README.md), [firmware](firmware/README.md), [`rootfs/`](rootfs/) builders |
+| use the tablet settings (charge limit, refresh rate, multiboot) | [Device helper](docs/helper.md) |
 
 ## Layout
 
@@ -29,7 +35,7 @@ See [docs/hardware-status.md](docs/hardware-status.md). A feature is only marked
 | `packaging/` | Debian (`build-debs.sh`), Arch (`PKGBUILD`) and Nix (`flake.nix` at the root) recipes |
 | `android/` | Android-side helpers (switching between Android and Linux; setup in [docs/rooting.md](docs/rooting.md)) |
 | `tools/` | build and flash scripts |
-| `docs/` | documentation, including [rooting and dual boot setup](docs/rooting.md) (backup, LTBox, KernelSU, switching, recovery) |
+| `docs/` | documentation (see [Where to start](#where-to-start)) |
 
 ## License
 
