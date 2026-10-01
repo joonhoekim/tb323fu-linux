@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import DocsSidebar from "./DocsSidebar";
 import { TocAside, TocInline } from "./Toc";
+import PanelToggles from "./PanelToggles";
 import { githubUrl } from "@/lib/config";
 import { readDocSource, type DocEntry } from "@/lib/docs";
 import { renderMarkdown } from "@/lib/markdown";
@@ -16,6 +17,7 @@ export default async function DocPage({ entry }: { entry: DocEntry }) {
       <DocsSidebar current={entry.route} />
       <main id="main" className="doc-main">
         <article className="doc">
+          <PanelToggles hasToc={doc.toc.length >= 2} />
           <p className="doc-path">
             <a href={githubUrl(entry.file)}>{entry.file}</a>
           </p>

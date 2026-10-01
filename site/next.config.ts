@@ -13,6 +13,8 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   env: { PAGES_BASE_PATH: basePath },
   poweredByHeader: false,
+  // Next 16 writes AGENTS.md/CLAUDE.md into the project on `next dev`; not wanted here.
+  agentRules: false,
 };
 
 export default nextConfig;

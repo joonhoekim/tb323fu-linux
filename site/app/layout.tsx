@@ -21,7 +21,8 @@ export const viewport: Viewport = {
 };
 
 // Applies a saved light/dark choice before the first paint (no flash).
-const themeScript = `try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
+// Also the docs panel choices (components/PanelToggles.tsx).
+const themeScript = `try{var d=document.documentElement,t=localStorage.getItem("theme");if(t==="light"||t==="dark")d.dataset.theme=t;if(localStorage.getItem("hide-nav"))d.dataset.navHidden="";if(localStorage.getItem("hide-toc"))d.dataset.tocHidden=""}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
