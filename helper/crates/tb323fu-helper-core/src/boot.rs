@@ -112,20 +112,85 @@ fn umount(at: &str) {
     let _ = Command::new("umount").arg(at).status();
 }
 
-/// Where `dev` is mounted already, and whether read-write (first entry wins).
-fn mounted_at(dev: &str) -> Option<(PathBuf, bool)> {
-    let real = fs::canonicalize(dev).ok()?;
-    let t = fs::read_to_string("/proc/self/mounts").ok()?;
-    t.lines().find_map(|l| {
-        let mut f = l.split_whitespace();
-        let (src, dir, _ty, opts) = (f.next()?, f.next()?, f.next()?, f.next()?);
-        if fs::canonicalize(src).ok()? != real {
+/// "major:minor" of a device number (glibc's encoding).
+fn majmin(dev: u64) -> String {
+    let major = ((dev >> 8) & 0xfff) | ((dev >> 32) & !0xfff);
+    let minor = (dev & 0xff) | ((dev >> 12) & !0xff);
+    format!("{major}:{minor}")
+}
+
+/// The device number of a block device node.
+fn rdev(dev: &str) -> Option<u64> {
+    use std::os::unix::fs::FileTypeExt;
+    let md = fs::metadata(dev).ok()?;
+    md.file_type().is_block_device().then(|| md.rdev())
+}
+
+/// /proc/self/mountinfo escapes blanks, tabs, newlines and backslashes as octal.
+fn unescape(s: &str) -> String {
+    s.replace("\\040", " ").replace("\\011", "\t").replace("\\012", "\n").replace("\\134", "\\")
+}
+
+/// In a mountinfo text: where the filesystem on device `mm` ("major:minor")
+/// is mounted with its own root (not a bind mount of a subdirectory) and not
+/// covered by a later mount on the same point, and whether read-write. The
+/// first such entry wins. Matching the device number (not the source string)
+/// is exact: no symlink resolution, no relative source names ("tmpfs",
+/// "none") resolved against the working directory.
+///
+/// The covered case is the Ubuntu bug of 10-01: the Fedora root mounted on
+/// /mnt/t and the SD Debian root mounted over it made `boot list` show
+/// Fedora as Debian with the SD root's health warnings.
+fn find_mount(mountinfo: &str, mm: &str) -> Option<(PathBuf, bool)> {
+    // id parent major:minor root mount-point options ... - type source super-options
+    let rows: Vec<Vec<&str>> = mountinfo.lines().map(|l| l.split(' ').collect::<Vec<_>>()).filter(|f| f.len() >= 6).collect();
+    rows.iter().enumerate().find_map(|(i, f)| {
+        if f[2] != mm || f[3] != "/" || rows[i + 1..].iter().any(|g| g[4] == f[4]) {
             return None;
         }
-        // /proc/mounts escapes blanks in paths as octal (\040)
-        let dir = dir.replace("\\040", " ");
-        Some((PathBuf::from(dir), opts.split(',').any(|o| o == "rw")))
+        Some((PathBuf::from(unescape(f[4])), f[5].split(',').any(|o| o == "rw")))
     })
+}
+
+/// Whether something is mounted on `dir` (per mountinfo).
+fn is_mount_point(mountinfo: &str, dir: &str) -> bool {
+    mountinfo.lines().any(|l| l.split(' ').nth(4).is_some_and(|m| unescape(m) == dir))
+}
+
+fn mountinfo() -> String {
+    fs::read_to_string("/proc/self/mountinfo").unwrap_or_default()
+}
+
+/// Where `dev` is mounted already (and still visible there), and whether
+/// read-write.
+fn mounted_at(dev: &str) -> Option<(PathBuf, bool)> {
+    find_mount(&mountinfo(), &majmin(rdev(dev)?)).filter(|(at, _)| is_mounted_here(dev, at))
+}
+
+/// The filesystem mounted on `dir` is the one on `dev`.
+fn is_mounted_here(dev: &str, dir: &Path) -> bool {
+    match (rdev(dev), fs::metadata(dir)) {
+        (Some(r), Ok(md)) => md.dev() == r,
+        _ => false,
+    }
+}
+
+/// Unmount everything stacked on `dir` (a probe left behind by an earlier
+/// umount that failed, e.g. busy); lazily as the last resort.
+fn clear_mount_point(dir: &str) {
+    for _ in 0..4 {
+        if !is_mount_point(&mountinfo(), dir) {
+            return;
+        }
+        umount(dir);
+    }
+    while is_mount_point(&mountinfo(), dir) {
+        let ok = Command::new("umount").args(["-l", dir]).status().is_ok_and(|s| s.success());
+        if !ok {
+            eprintln!("tb323fu-helperd: cannot unmount {dir}");
+            return;
+        }
+    }
 }
 
 /// Run `f` with the UFS root's /etc/tb323fu (read-only unless `write`).
@@ -152,7 +217,12 @@ fn with_ufs_etc<T>(write: bool, f: impl FnOnce(&Path) -> Res<T>) -> Res<T> {
         }
         return r;
     }
+    clear_mount_point(UFS_MNT);
     mount(&dev, UFS_MNT, write)?;
+    if !is_mounted_here(&dev, Path::new(UFS_MNT)) {
+        clear_mount_point(UFS_MNT);
+        return Err(format!("{UFS_MNT} does not hold {dev} after mounting it"));
+    }
     let d = PathBuf::from(UFS_MNT).join("etc/tb323fu");
     let r = (|| {
         if write {
@@ -163,7 +233,7 @@ fn with_ufs_etc<T>(write: bool, f: impl FnOnce(&Path) -> Res<T>) -> Res<T> {
     if write {
         let _ = Command::new("sync").status();
     }
-    umount(UFS_MNT);
+    clear_mount_point(UFS_MNT);
     r
 }
 
@@ -313,6 +383,23 @@ fn inspect(dir: &Path) -> (String, String) {
     (label, init.to_string())
 }
 
+/// Mount `dev` read-only on the probe point and run `f` on it -- only when
+/// the probe point then really holds `dev` (a stale mount left there must
+/// never be read as this root).
+fn probe<T>(dev: &str, f: impl FnOnce(&Path) -> T) -> Option<T> {
+    clear_mount_point(PROBE_MNT);
+    mount(dev, PROBE_MNT, false).ok()?;
+    let dir = Path::new(PROBE_MNT);
+    let r = if is_mounted_here(dev, dir) {
+        Some(f(dir))
+    } else {
+        eprintln!("tb323fu-helperd: {PROBE_MNT} does not hold {dev} after mounting it");
+        None
+    };
+    clear_mount_point(PROBE_MNT);
+    r
+}
+
 /// Every candidate root with its label and init kind. Mounts other roots
 /// read-only (no journal replay) for a moment; the daemon caches the result.
 pub fn roots() -> Vec<Root> {
@@ -332,9 +419,7 @@ pub fn roots() -> Vec<Root> {
                 look(Path::new("/"))
             } else if let Some((at, _)) = mounted_at(&dev) {
                 look(&at)
-            } else if mount(&dev, PROBE_MNT, false).is_ok() {
-                let r = look(Path::new(PROBE_MNT));
-                umount(PROBE_MNT);
+            } else if let Some(r) = probe(&dev, &look) {
                 r
             } else {
                 (String::new(), "none".to_string(), Vec::new())
@@ -421,6 +506,41 @@ mod tests {
         set_default("baldur-root").unwrap();
         assert!(!r.join("etc/tb323fu/boot-default").exists());
         std::env::remove_var("TB323FU_SYSFS_ROOT");
+    }
+
+    #[test]
+    fn mount_lookup() {
+        // an Ubuntu root on mmcblk0p2 (179:2) inside the daemon's namespace
+        // (ProtectSystem=strict: bind mounts of its own subdirectories), the
+        // SD Debian root (179:1) bind-mounted from a subdirectory only, the
+        // Fedora root (179:5) automounted with a blank in the path, and a
+        // stale probe mount of 179:1 under a later one of 179:3
+        let mi = "\
+24 1 179:2 / / ro,relatime shared:1 - ext4 /dev/mmcblk0p2 rw\n\
+25 24 179:2 /var/lib /var/lib rw,relatime shared:1 - ext4 /dev/mmcblk0p2 rw\n\
+26 24 0:5 / /dev rw,nosuid shared:2 - devtmpfs devtmpfs rw\n\
+27 24 0:40 / /tmp rw,nosuid - tmpfs tmpfs rw\n\
+30 24 179:1 /srv/x /srv/x ro,relatime - ext4 /dev/mmcblk0p1 rw\n\
+31 24 179:5 / /media/baldur/fedora\\040root rw,nosuid shared:9 - ext4 /dev/mmcblk0p5 rw\n\
+40 24 179:1 / /run/tb323fu/probe ro,relatime - ext4 /dev/mmcblk0p1 ro,norecovery\n\
+41 40 179:3 / /run/tb323fu/probe ro,relatime - ext4 /dev/mmcblk0p3 ro,norecovery\n";
+        assert_eq!(find_mount(mi, "179:2"), Some((PathBuf::from("/"), false)));
+        assert_eq!(find_mount(mi, "179:5"), Some((PathBuf::from("/media/baldur/fedora root"), true)));
+        // a bind mount of a subdirectory is not the root; a covered mount is not visible
+        assert_eq!(find_mount(mi, "179:1"), None);
+        assert_eq!(find_mount(mi, "179:3"), Some((PathBuf::from("/run/tb323fu/probe"), false)));
+        assert_eq!(find_mount(mi, "179:4"), None);
+        // 10-01 on Ubuntu: Fedora on /mnt/t, the SD Debian root mounted over it
+        let over = "\
+24 1 179:2 / / rw,noatime shared:1 - ext4 /dev/mmcblk0p2 rw\n\
+50 24 179:5 / /mnt/t ro,relatime shared:30 - ext4 /dev/mmcblk0p5 ro,norecovery\n\
+51 50 179:1 / /mnt/t ro,relatime shared:31 - ext4 /dev/mmcblk0p1 ro,norecovery\n";
+        assert_eq!(find_mount(over, "179:5"), None, "Fedora is covered: probe it instead");
+        assert_eq!(find_mount(over, "179:1"), Some((PathBuf::from("/mnt/t"), false)));
+        assert!(is_mount_point(mi, "/run/tb323fu/probe"));
+        assert!(!is_mount_point(mi, "/run/tb323fu/ufs"));
+        assert_eq!(majmin((179 << 8) | 5), "179:5");
+        assert_eq!(majmin((259u64 << 8) | (0x12345 & 0xff) | ((0x12345u64 & !0xff) << 12)), "259:74565");
     }
 
     #[test]
