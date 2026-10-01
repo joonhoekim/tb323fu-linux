@@ -6,6 +6,11 @@
 //! Pages whose object the daemon does not export (feature absent on this
 //! kernel) are hidden; with no daemon at all a status page explains it.
 //! Privileges are decided by the daemon through polkit, not here.
+//!
+//! Layout rules (the panel is 1904x3040, 952x1520 sp at 200 %): short
+//! values sit on one line at the end of a row and ellipsize; long values
+//! (kernel, paths, hashes) go under the row title with a copy button; group
+//! descriptions are one short sentence, longer help sits behind a "?" popover.
 
 mod dbus;
 
@@ -13,42 +18,128 @@ use adw::prelude::*;
 use dbus::{Client, Props};
 use gtk::{gio, glib};
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::rc::Rc;
+use std::time::Duration;
 
 const APP_ID: &str = "io.github.joonhoekim.tb323fu.Settings";
-const REFRESH_PROFILES: [&str; 3] = ["off", "auto", "manual"];
-const REFRESH_PRESETS: [&str; 3] = ["power-saver", "balanced", "smooth"];
+const REPO: &str = "https://github.com/joonhoekim/tb323fu-linux";
+/// D-Bus ids and the labels shown for them (same order).
+const REFRESH_POLICIES: [&str; 3] = ["off", "auto", "manual"];
+const REFRESH_POLICY_LABELS: [&str; 3] = ["Always 120 Hz", "Adaptive", "Fixed Rate"];
+/// (id, label, ms before 60 Hz, ms before 30 Hz) as in docs/helper.md.
+const TIMINGS: [(&str, &str, u32, u32); 3] =
+    [("power-saver", "Power Saver", 500, 2000), ("balanced", "Balanced", 1000, 5000), ("smooth", "Smooth", 3000, 15000)];
 const GPU_PROFILES: [&str; 3] = ["power-saver", "balanced", "performance"];
-const LED_MODES: [&str; 2] = ["charge", "off"];
+const GPU_PROFILE_LABELS: [&str; 3] = ["Power Saver", "Balanced", "Performance"];
+/// Every object the helper can export (for "N of M available").
+const KNOWN_FEATURES: usize = 11;
+const DEBOUNCE: Duration = Duration::from_millis(400);
+
+const CSS: &str = "
+.tag { font-size: smaller; font-weight: bold; padding: 2px 8px; border-radius: 999px;
+       background-color: alpha(currentColor, 0.12); }
+";
 
 // ---------------------------------------------------------------- widgets --
 
-fn group(page: &adw::PreferencesPage, title: &str, desc: &str) -> adw::PreferencesGroup {
-    let g = adw::PreferencesGroup::builder().title(title).build();
+/// A page body: scrolls vertically, rows clamped to 760 px (wider than
+/// AdwPreferencesPage's 600 px, so values and titles share one line).
+fn page_box() -> (gtk::ScrolledWindow, gtk::Box) {
+    let bx = gtk::Box::new(gtk::Orientation::Vertical, 24);
+    bx.set_margin_top(24);
+    bx.set_margin_bottom(24);
+    bx.set_margin_start(12);
+    bx.set_margin_end(12);
+    let clamp = adw::Clamp::builder().maximum_size(760).tightening_threshold(600).child(&bx).build();
+    let sw = gtk::ScrolledWindow::builder().hscrollbar_policy(gtk::PolicyType::Never).child(&clamp).vexpand(true).build();
+    (sw, bx)
+}
+
+fn group(page: &gtk::Box, title: &str, desc: &str) -> adw::PreferencesGroup {
+    let g = adw::PreferencesGroup::new();
+    if !title.is_empty() {
+        g.set_title(title);
+    }
     if !desc.is_empty() {
         g.set_description(Some(desc));
     }
-    page.add(&g);
+    page.append(&g);
     g
 }
 
+/// A "?" button in the group header whose popover holds the longer text.
+fn group_help(g: &adw::PreferencesGroup, text: &str) {
+    let l = gtk::Label::new(Some(text));
+    l.set_wrap(true);
+    l.set_max_width_chars(40);
+    l.set_xalign(0.0);
+    l.set_margin_top(6);
+    l.set_margin_bottom(6);
+    l.set_margin_start(6);
+    l.set_margin_end(6);
+    let pop = gtk::Popover::builder().child(&l).build();
+    let b = gtk::MenuButton::builder().icon_name("help-about-symbolic").popover(&pop).valign(gtk::Align::Center).build();
+    b.add_css_class("flat");
+    b.set_tooltip_text(Some("More information"));
+    g.set_header_suffix(Some(&b));
+}
+
+/// A short read-only value at the end of the row: one line, ellipsized, the
+/// full text in the tooltip (set_text keeps it in sync).
 fn info(g: &adw::PreferencesGroup, title: &str) -> gtk::Label {
     let row = adw::ActionRow::builder().title(title).build();
     let l = gtk::Label::new(Some("…"));
     l.add_css_class("dim-label");
-    l.set_selectable(true);
-    // Long values (kernel version string, series tag, export path) must wrap
-    // instead of widening the row past the window; keep them right-aligned.
-    l.set_wrap(true);
-    l.set_wrap_mode(gtk::pango::WrapMode::WordChar);
-    l.set_max_width_chars(28);
-    l.set_width_chars(4);
+    l.set_wrap(false);
+    l.set_ellipsize(gtk::pango::EllipsizeMode::End);
     l.set_xalign(1.0);
-    l.set_justify(gtk::Justification::Right);
     l.set_valign(gtk::Align::Center);
     row.add_suffix(&l);
     g.add(&row);
     l
+}
+
+/// A long read-only value under the row title (property style, at most two
+/// lines) with a copy button that copies the full text.
+#[derive(Clone)]
+struct LongInfo {
+    row: adw::ActionRow,
+    full: Rc<RefCell<String>>,
+}
+
+impl LongInfo {
+    fn set(&self, shown: &str, full: &str) {
+        if self.row.subtitle().as_deref() != Some(shown) {
+            self.row.set_subtitle(shown);
+        }
+        if *self.full.borrow() != full {
+            *self.full.borrow_mut() = full.to_string();
+            self.row.set_tooltip_text(Some(full));
+        }
+    }
+}
+
+fn info_long(g: &adw::PreferencesGroup, title: &str, toasts: &adw::ToastOverlay) -> LongInfo {
+    let row = adw::ActionRow::builder().title(title).subtitle("…").build();
+    row.add_css_class("property");
+    row.set_subtitle_lines(2);
+    // Not selectable: a selectable label grabs focus and opens highlighted;
+    // the copy button covers the use.
+    let full = Rc::new(RefCell::new(String::new()));
+    let b = gtk::Button::from_icon_name("edit-copy-symbolic");
+    b.add_css_class("flat");
+    b.set_valign(gtk::Align::Center);
+    b.set_tooltip_text(Some("Copy"));
+    b.update_property(&[gtk::accessible::Property::Label(&format!("Copy {title}"))]);
+    let (f2, t2) = (full.clone(), toasts.clone());
+    b.connect_clicked(move |b| {
+        b.clipboard().set_text(&f2.borrow());
+        t2.add_toast(adw::Toast::builder().title("Copied").timeout(2).build());
+    });
+    row.add_suffix(&b);
+    g.add(&row);
+    LongInfo { row, full }
 }
 
 fn spin(g: &adw::PreferencesGroup, title: &str, subtitle: &str, lo: f64, hi: f64, step: f64) -> adw::SpinRow {
@@ -70,13 +161,13 @@ fn switch(g: &adw::PreferencesGroup, title: &str, subtitle: &str) -> adw::Switch
     r
 }
 
-fn combo(g: &adw::PreferencesGroup, title: &str, items: &[&str]) -> adw::ComboRow {
-    let r = adw::ComboRow::builder().title(title).model(&gtk::StringList::new(items)).build();
+fn combo(g: &adw::PreferencesGroup, title: &str, labels: &[&str]) -> adw::ComboRow {
+    let r = adw::ComboRow::builder().title(title).model(&gtk::StringList::new(labels)).build();
     g.add(&r);
     r
 }
 
-fn button(g: &adw::PreferencesGroup, title: &str, subtitle: &str, label: &str) -> gtk::Button {
+fn button(g: &adw::PreferencesGroup, title: &str, subtitle: &str, label: &str) -> (adw::ActionRow, gtk::Button) {
     let row = adw::ActionRow::builder().title(title).build();
     if !subtitle.is_empty() {
         row.set_subtitle(subtitle);
@@ -86,18 +177,45 @@ fn button(g: &adw::PreferencesGroup, title: &str, subtitle: &str, label: &str) -
     row.add_suffix(&b);
     row.set_activatable_widget(Some(&b));
     g.add(&row);
-    b
+    (row, b)
+}
+
+/// A small rounded state label ("Running", "Default", ...).
+fn tag(text: &str, class: &str) -> gtk::Label {
+    let l = gtk::Label::new(Some(text));
+    l.add_css_class("tag");
+    l.add_css_class(class);
+    l.set_valign(gtk::Align::Center);
+    l
+}
+
+fn row_of(w: &impl IsA<gtk::Widget>) -> Option<gtk::Widget> {
+    w.ancestor(adw::ActionRow::static_type())
 }
 
 fn set_text(l: &gtk::Label, t: &str) {
     if l.text() != t {
         l.set_text(t);
+        l.set_tooltip_text(Some(t));
     }
 }
-fn set_spin(r: &adw::SpinRow, v: Option<u32>) {
+fn set_class(w: &impl IsA<gtk::Widget>, class: &str, on: bool) {
+    if w.has_css_class(class) != on {
+        if on {
+            w.add_css_class(class);
+        } else {
+            w.remove_css_class(class);
+        }
+    }
+}
+/// The spin row (its text entry) has keyboard focus: the user is typing.
+fn editing(r: &adw::SpinRow) -> bool {
+    r.root().and_then(|w| w.focus()).is_some_and(|f| f.is_ancestor(r))
+}
+fn set_spin(r: &adw::SpinRow, v: Option<f64>) {
     if let Some(v) = v {
-        if (r.value() - v as f64).abs() > 0.5 {
-            r.set_value(v as f64);
+        if !editing(r) && (r.value() - v).abs() > 1e-6 {
+            r.set_value(v);
         }
     }
 }
@@ -108,17 +226,54 @@ fn set_switch(r: &adw::SwitchRow, v: Option<bool>) {
         }
     }
 }
-fn set_combo(r: &adw::ComboRow, items: &[&str], v: Option<String>) {
-    if let Some(i) = v.and_then(|v| items.iter().position(|x| *x == v)) {
+fn set_combo(r: &adw::ComboRow, ids: &[&str], v: Option<String>) {
+    if let Some(i) = v.and_then(|v| ids.iter().position(|x| *x == v)) {
         if r.selected() != i as u32 {
             r.set_selected(i as u32);
         }
     }
 }
-fn unknown_i(v: Option<i32>, unit: &str) -> String {
+fn yes_no(v: Option<bool>) -> &'static str {
     match v {
-        Some(x) if x >= 0 => format!("{x}{unit}"),
-        _ => "unknown".into(),
+        Some(true) => "Yes",
+        Some(false) => "No",
+        None => "Unknown",
+    }
+}
+fn capitalize(s: &str) -> String {
+    let mut c = s.chars();
+    c.next().map(|f| f.to_uppercase().chain(c).collect()).unwrap_or_default()
+}
+fn degrees(v: Option<f64>) -> String {
+    match v {
+        Some(t) if t.is_finite() => format!("{t:.1} °C"),
+        _ => "Unknown".into(),
+    }
+}
+
+/// The release from /proc/version ("Linux version 7.3.0-y705 (...)").
+fn kernel_release(full: &str) -> String {
+    full.split_whitespace().nth(2).unwrap_or(full).to_string()
+}
+
+/// Board sensor names (Thermal.Zones keys) for people.
+fn zone_label(z: &str) -> String {
+    match z {
+        "skin" => "Back Cover".into(),
+        "quiet" => "Board".into(),
+        "batt" => "Battery".into(),
+        "batt2" => "Battery 2".into(),
+        "usb" => "USB".into(),
+        "usb2-conn" => "USB Connector".into(),
+        "lcm" => "Display Panel".into(),
+        "wlan" => "Wi-Fi".into(),
+        "ddr" => "Memory".into(),
+        "ufs" => "Storage".into(),
+        "xo" => "Clock Crystal".into(),
+        "rear-cam" => "Rear Camera".into(),
+        "fcam" => "Front Camera".into(),
+        "wls" => "Wireless".into(),
+        other => capitalize(other),
     }
 }
 
@@ -130,15 +285,30 @@ struct Page {
     nav: adw::NavigationPage,
 }
 
+/// The last Boot values the rows were built from.
+#[derive(PartialEq, Default, Clone)]
+struct BootState {
+    roots: Vec<(String, String, bool, String)>,
+    cur: String,
+    def: String,
+    next: String,
+    health: Vec<(String, Vec<String>)>,
+}
+
 struct Ui {
     client: RefCell<Client>,
     updating: Cell<bool>,
+    /// calls in flight (and open confirmation dialogs / pending debounces) per
+    /// object: refresh() leaves that object's widgets alone meanwhile
+    pending: RefCell<HashMap<&'static str, u32>>,
+    timers: RefCell<HashMap<&'static str, glib::SourceId>>,
     window: adw::ApplicationWindow,
     toasts: adw::ToastOverlay,
+    stack: gtk::Stack,
     split: adw::NavigationSplitView,
     sidebar: gtk::ListBox,
     pages: Vec<Page>,
-    absent: adw::NavigationPage,
+    selected: Cell<Option<usize>>,
     daemon_up: Cell<Option<bool>>,
 
     // Battery
@@ -146,6 +316,7 @@ struct Ui {
     bat_bypass: adw::SwitchRow,
     bat_state: gtk::Label,
     bat_cap: gtk::Label,
+    bat_power: gtk::Label,
     bat_cur: gtk::Label,
     bat_volt: gtk::Label,
     bat_temp: gtk::Label,
@@ -156,22 +327,31 @@ struct Ui {
     // Refresh
     ref_policy: adw::ComboRow,
     ref_rate: adw::SpinRow,
-    ref_preset: adw::ComboRow,
-    ref_ms60: adw::SpinRow,
-    ref_ms30: adw::SpinRow,
+    ref_timing: adw::ComboRow,
+    ref_custom: Cell<bool>,
+    ref_s60: adw::SpinRow,
+    ref_s30: adw::SpinRow,
     ref_min: gtk::Label,
     ref_input: gtk::Label,
-    ref_live: gtk::Label,
     // Gpu
     gpu_profile: adw::ComboRow,
     gpu_follow: adw::SwitchRow,
-    gpu_limits: Vec<(&'static str, adw::SpinRow, adw::SpinRow)>,
+    gpu_limits: Vec<(&'static str, adw::ExpanderRow, adw::SpinRow, adw::SpinRow)>,
+    gpu_seen: RefCell<Vec<(String, u32, u32)>>,
+    // Thermal (on the Performance page)
+    th_group: adw::PreferencesGroup,
+    th_surface: gtk::Label,
+    th_cpu: gtk::Label,
+    th_gpu: gtk::Label,
+    th_throttle: gtk::Label,
+    th_all: adw::ExpanderRow,
+    th_rows: RefCell<Vec<(String, adw::ActionRow, gtk::Label)>>,
     // Torch / LED
     torch_group: adw::PreferencesGroup,
     torch_on: adw::SwitchRow,
     torch_level: adw::SpinRow,
     led_group: adw::PreferencesGroup,
-    led_mode: adw::ComboRow,
+    led_charge: adw::SwitchRow,
     led_bright: adw::SpinRow,
     led_low: adw::SpinRow,
     // Usb
@@ -182,236 +362,309 @@ struct Ui {
     ek_hold: adw::SpinRow,
     // Android
     and_avail: gtk::Label,
-    and_hash: gtk::Label,
+    and_hash: LongInfo,
     and_auth: adw::SwitchRow,
+    and_row: adw::ActionRow,
     and_switch: gtk::Button,
     // Systems (multiboot)
     boot_group: adw::PreferencesGroup,
     boot_rows: RefCell<Vec<adw::ActionRow>>,
-    boot_last: RefCell<(Vec<(String, String, bool, String)>, String, String, String)>,
-    boot_next: gtk::Label,
-    boot_clear: gtk::Button,
-    boot_default: adw::ComboRow,
-    boot_default_names: RefCell<Vec<String>>,
+    boot_last: RefCell<BootState>,
+    boot_banner: adw::Banner,
     // Diagnostics
     diag_crash: gtk::Label,
     diag_clean: gtk::Label,
-    diag_path: gtk::Label,
-    diag_open: gtk::Button,
+    diag_export: gtk::Button,
+    diag_path: LongInfo,
+    diag_open_row: adw::ActionRow,
     diag_last: RefCell<Option<String>>,
     // About
     ab_version: gtk::Label,
-    ab_kernel: gtk::Label,
-    ab_series: gtk::Label,
-    ab_features: gtk::Label,
+    ab_kernel: LongInfo,
+    ab_series: LongInfo,
+    ab_features: LongInfo,
     ab_fw: adw::ExpanderRow,
     ab_fw_rows: RefCell<Vec<adw::ActionRow>>,
-    ab_fw_last: RefCell<Vec<(String, String)>>,
+    ab_fw_last: RefCell<Option<Vec<(String, String)>>>,
+    about_debug: RefCell<String>,
 }
 
-fn content_page(title: &str, child: &impl IsA<gtk::Widget>) -> adw::NavigationPage {
+fn content_page(title: &str, child: &impl IsA<gtk::Widget>, banner: Option<&adw::Banner>) -> adw::NavigationPage {
     let tv = adw::ToolbarView::new();
     tv.add_top_bar(&adw::HeaderBar::new());
+    if let Some(b) = banner {
+        tv.add_top_bar(b);
+    }
     tv.set_content(Some(child));
     adw::NavigationPage::builder().title(title).tag(title).child(&tv).build()
 }
 
 impl Ui {
     fn new(app: &adw::Application) -> Rc<Self> {
+        let toasts = adw::ToastOverlay::new();
+
         // Battery
-        let p_bat = adw::PreferencesPage::new();
-        let g = group(&p_bat, "Charging", "The helper owns the charge limit; the battery stops charging at the limit.");
-        let bat_limit = spin(&g, "Charge limit", "Percent (20–100). 80 keeps the battery healthier.", 20.0, 100.0, 5.0);
-        let bat_bypass = switch(&g, "Bypass charging", "Run from the charger and leave the battery idle at its current charge");
-        let g = group(&p_bat, "Battery", "");
+        let (p_bat, b) = page_box();
+        let g = group(&b, "Charging", "");
+        let bat_limit = spin(&g, "Charge Limit (%)", "80% keeps the battery healthier", 20.0, 100.0, 5.0);
+        let bat_bypass = switch(&g, "Bypass Charging", "Run from the charger, battery idle");
+        let g = group(&b, "Status", "");
         let bat_state = info(&g, "State");
         let bat_cap = info(&g, "Charge");
+        let bat_power = info(&g, "Power");
         let bat_cur = info(&g, "Current");
         let bat_volt = info(&g, "Voltage");
         let bat_temp = info(&g, "Temperature");
         let bat_health = info(&g, "Health");
-        let bat_cycles = info(&g, "Charge cycles");
-        let bat_design = info(&g, "Design capacity");
-        let g = group(&p_bat, "Charger", "");
+        let bat_cycles = info(&g, "Charge Cycles");
+        let bat_design = info(&g, "Design Capacity");
+        let g = group(&b, "Charger", "");
         let bat_charger = info(&g, "Contract");
 
         // Display
-        let p_ref = adw::PreferencesPage::new();
-        let g = group(&p_ref, "Idle refresh rate", "The panel stays in its 120 Hz mode; when nothing changes on screen the kernel slows it to 60 and then 30 Hz, and any update brings it back at once.");
-        let ref_policy = combo(&g, "Policy", &REFRESH_PROFILES);
-        let ref_rate = spin(&g, "Manual rate", "Used when the policy is manual (Hz)", 30.0, 120.0, 30.0);
-        let ref_live = info(&g, "Current rate");
-        let g = group(&p_ref, "Timing", "");
-        let ref_preset = combo(&g, "Preset", &REFRESH_PRESETS);
-        let preset_btn = button(&g, "Apply preset", "Sets both idle times below", "Apply");
-        let ref_ms60 = spin(&g, "Idle time before 60 Hz", "Milliseconds without screen updates", 100.0, 60000.0, 100.0);
-        let ref_ms30 = spin(&g, "Idle time before 30 Hz", "Milliseconds without screen updates", 100.0, 120000.0, 100.0);
-        let ref_min = info(&g, "Lowest rate");
-        let ref_input = info(&g, "Touch and keys wake to 120 Hz");
+        let (p_ref, b) = page_box();
+        let g = group(&b, "Idle Refresh", "Slows to 60, then 30 Hz while the screen is still.");
+        group_help(&g, "The panel stays in its 120 Hz mode. When nothing changes on screen the kernel lowers the rate, and any update or touch brings 120 Hz back at once.");
+        let ref_policy = combo(&g, "Refresh Rate", &REFRESH_POLICY_LABELS);
+        let ref_rate = spin(&g, "Fixed Rate (Hz)", "", 30.0, 120.0, 30.0);
+        let mut timing_labels: Vec<&str> = TIMINGS.iter().map(|t| t.1).collect();
+        timing_labels.push("Custom");
+        let ref_timing = combo(&g, "Timing", &timing_labels);
+        let ref_s60 = spin(&g, "Before 60 Hz (s)", "", 0.1, 120.0, 0.1);
+        ref_s60.set_digits(1);
+        let ref_s30 = spin(&g, "Before 30 Hz (s)", "", 0.1, 120.0, 0.1);
+        ref_s30.set_digits(1);
+        let details = adw::ExpanderRow::builder().title("Details").build();
+        let ref_min = {
+            let row = adw::ActionRow::builder().title("Lowest Rate").build();
+            let l = gtk::Label::new(Some("…"));
+            l.add_css_class("dim-label");
+            row.add_suffix(&l);
+            details.add_row(&row);
+            l
+        };
+        let ref_input = {
+            let row = adw::ActionRow::builder().title("Input Wakes to 120 Hz").build();
+            let l = gtk::Label::new(Some("…"));
+            l.add_css_class("dim-label");
+            row.add_suffix(&l);
+            details.add_row(&row);
+            l
+        };
+        g.add(&details);
 
         // Performance
-        let p_gpu = adw::PreferencesPage::new();
-        let g = group(&p_gpu, "GPU", "");
-        let gpu_profile = combo(&g, "Profile", &GPU_PROFILES);
-        let gpu_follow = switch(&g, "Follow the power profile", "Switch together with the system power mode");
-        let g = group(&p_gpu, "Frequency limits", "Lowest and highest GPU clock per profile (MHz).");
+        let (p_gpu, b) = page_box();
+        let g = group(&b, "GPU", "");
+        let gpu_profile = combo(&g, "GPU Profile", &GPU_PROFILE_LABELS);
+        let gpu_follow = switch(&g, "Follow Power Mode", "");
+        let g = group(&b, "Frequency Limits", "");
+        group_help(&g, "Lowest and highest GPU clock for each profile. Changes take effect when you press Apply.");
         let mut gpu_limits = Vec::new();
-        for p in GPU_PROFILES {
-            let exp = adw::ExpanderRow::builder().title(p).build();
+        let mut gpu_buttons = Vec::new();
+        for (p, label) in GPU_PROFILES.into_iter().zip(GPU_PROFILE_LABELS) {
+            let exp = adw::ExpanderRow::builder().title(label).subtitle("…").build();
             let lo = adw::SpinRow::with_range(100.0, 2000.0, 1.0);
-            lo.set_title("Minimum");
+            lo.set_title("Minimum (MHz)");
             let hi = adw::SpinRow::with_range(100.0, 2000.0, 1.0);
-            hi.set_title("Maximum");
+            hi.set_title("Maximum (MHz)");
             exp.add_row(&lo);
             exp.add_row(&hi);
-            let apply = adw::ActionRow::builder().title("Apply limits").build();
-            let b = gtk::Button::with_label("Apply");
-            b.set_valign(gtk::Align::Center);
-            apply.add_suffix(&b);
-            apply.set_activatable_widget(Some(&b));
+            let apply = adw::ActionRow::builder().title("Apply Limits").build();
+            let bt = gtk::Button::with_label("Apply");
+            bt.set_valign(gtk::Align::Center);
+            bt.set_tooltip_text(Some(&format!("Apply {label} limits")));
+            bt.update_property(&[gtk::accessible::Property::Label(&format!("Apply {label} limits"))]);
+            apply.add_suffix(&bt);
+            apply.set_activatable_widget(Some(&bt));
             exp.add_row(&apply);
             g.add(&exp);
-            gpu_limits.push((p, lo, hi, b));
+            gpu_limits.push((p, exp, lo, hi));
+            gpu_buttons.push(bt);
         }
+        let th_group = group(&b, "Temperature", "");
+        group_help(&th_group, "Read-only. Throttling means the kernel is lowering the CPU or GPU clock to cool down.");
+        let th_surface = info(&th_group, "Surface");
+        let th_cpu = info(&th_group, "CPU");
+        let th_gpu = info(&th_group, "GPU");
+        let th_throttle = info(&th_group, "Throttling");
+        let th_all = adw::ExpanderRow::builder().title("All Sensors").build();
+        th_group.add(&th_all);
 
         // Torch & LED ring
-        let p_led = adw::PreferencesPage::new();
-        let torch_group = group(&p_led, "Torch", "The rear camera light, at torch brightness (not the flash).");
+        let (p_led, b) = page_box();
+        let torch_group = group(&b, "Torch", "");
+        group_help(&torch_group, "The rear camera light at torch brightness, never the flash.");
         let torch_on = switch(&torch_group, "Torch", "");
         let torch_level = spin(&torch_group, "Brightness", "", 1.0, 255.0, 1.0);
-        let led_group = group(&p_led, "LED ring", "The RGB ring on the back.");
-        let led_mode = combo(&led_group, "Mode", &LED_MODES);
+        let led_group = group(&b, "LED Ring", "");
+        group_help(&led_group, "The RGB ring on the back: amber while charging, green when full or held at the limit, red when low.");
+        let led_charge = switch(&led_group, "Charge Indicator", "");
         let led_bright = spin(&led_group, "Brightness", "", 1.0, 255.0, 1.0);
-        let led_low = spin(&led_group, "Low battery below", "Percent: the ring turns red below this charge", 5.0, 50.0, 1.0);
+        let led_low = spin(&led_group, "Red Below (%)", "", 5.0, 50.0, 1.0);
 
         // USB
-        let p_usb = adw::PreferencesPage::new();
-        let g = group(&p_usb, "USB", "");
-        let usb_wake = switch(&g, "Wake from USB devices", "A keyboard or mouse on the USB-C port can wake the tablet");
-        let g = group(&p_usb, "Developer mode", "Exposes a network interface and a root serial console over the USB cable. Only turn this on for development.");
-        let usb_dev = switch(&g, "USB developer mode", "Asks for authentication");
+        let (p_usb, b) = page_box();
+        let g = group(&b, "", "");
+        let usb_wake = switch(&g, "Wake from USB Devices", "Keyboard or mouse on USB-C wakes it");
+        let g = group(&b, "Developer Mode", "Network link and root console over the USB cable.");
+        group_help(&g, "Only turn this on for development: anyone with a cable gets a root console. Turning it on asks for authentication.");
+        let usb_dev = switch(&g, "USB Developer Mode", "");
 
         // Emergency key
-        let p_ek = adw::PreferencesPage::new();
-        let g = group(&p_ek, "Emergency key", "Holding volume up and volume down together restarts into Android, even when the desktop is frozen.");
-        let ek_enabled = switch(&g, "Enabled", "Turning it off asks for authentication");
-        let ek_hold = spin(&g, "Hold time", "Seconds both keys must be held", 3.0, 30.0, 1.0);
+        let (p_ek, b) = page_box();
+        let g = group(&b, "", "Hold both volume keys to restart into Android.");
+        group_help(&g, "Works even when the desktop is frozen. Turning it off asks for authentication.");
+        let ek_enabled = switch(&g, "Restart into Android with Volume Keys", "");
+        let ek_hold = spin(&g, "Hold Time (s)", "", 3.0, 30.0, 1.0);
 
         // Android
-        let p_and = adw::PreferencesPage::new();
-        let g = group(&p_and, "Android", "Android stays installed on the tablet; the Linux image replaces it in the boot slot until you switch back.");
-        let and_avail = info(&g, "Android image");
-        let and_hash = info(&g, "Image SHA-256");
-        let and_auth = switch(&g, "Ask for authentication", "Require a password before switching (changing this asks for authentication)");
-        let g = group(&p_and, "", "");
-        let and_switch = button(&g, "Restart into Android", "Writes the Android image back and restarts now", "Restart…");
+        let (p_and, b) = page_box();
+        let g = group(&b, "", "Android stays installed; Linux takes its boot slot.");
+        group_help(&g, "Restarting into Android writes the Android boot image back into the boot slot. Linux returns when you flash it again.");
+        let and_avail = info(&g, "Android Image");
+        let and_hash = info_long(&g, "Image SHA-256", &toasts);
+        let and_auth = switch(&g, "Require Authentication", "");
+        let g = group(&b, "", "");
+        let (and_row, and_switch) = button(&g, "Restart into Android", "", "Restart…");
         and_switch.add_css_class("destructive-action");
 
         // Systems (multiboot)
-        let p_boot = adw::PreferencesPage::new();
-        let boot_group = group(&p_boot, "Installed systems", "Root filesystems the tablet can boot (UFS and the SD card). A restart into another system boots it once; the next restart comes back to the default.");
-        let g = group(&p_boot, "Next boot", "");
-        let boot_next = info(&g, "Next restart");
-        let boot_clear = button(&g, "Cancel the one-time choice", "", "Clear");
-        let g = group(&p_boot, "Default", "");
-        let boot_default = adw::ComboRow::builder().title("Default system").subtitle("Changing it asks for authentication").build();
-        g.add(&boot_default);
+        let (p_boot, b) = page_box();
+        let boot_group = group(&b, "", "Restarting into one boots it once.");
+        let rescan = gtk::Button::from_icon_name("view-refresh-symbolic");
+        rescan.add_css_class("flat");
+        rescan.set_valign(gtk::Align::Center);
+        rescan.set_tooltip_text(Some("Look for systems again"));
+        boot_group.set_header_suffix(Some(&rescan));
+        let boot_banner = adw::Banner::new("");
+        boot_banner.set_button_label(Some("Cancel"));
 
         // Diagnostics
-        let p_diag = adw::PreferencesPage::new();
-        let g = group(&p_diag, "Crash records", "");
-        let diag_crash = info(&g, "Stored records");
-        let diag_clean = info(&g, "Last boot ended cleanly");
-        let g = group(&p_diag, "Export", "Collects crash records, the end of the previous boot's log and versions into one archive. Addresses, host and user names are removed.");
-        let export_btn = button(&g, "Export diagnostics", "", "Export");
-        let diag_path = info(&g, "Archive");
-        let diag_open = button(&g, "Show the archive", "", "Open folder");
-        diag_open.set_sensitive(false);
+        let (p_diag, b) = page_box();
+        let g = group(&b, "Crash Records", "");
+        let diag_crash = info(&g, "Stored Records");
+        let diag_clean = info(&g, "Last Boot");
+        let g = group(&b, "Export", "Crash records, the last boot's log and versions, personal data removed.");
+        let (_, diag_export) = button(&g, "Export Diagnostics", "", "Export");
+        let diag_path = info_long(&g, "Archive", &toasts);
+        diag_path.row.set_subtitle_lines(1);
+        diag_path.row.set_visible(false);
+        let (diag_open_row, diag_open) = button(&g, "Show in Files", "", "Open Folder");
+        diag_open_row.set_visible(false);
 
         // About
-        let p_about = adw::PreferencesPage::new();
-        let g = group(&p_about, "Versions", "");
+        let (p_about, b) = page_box();
+        let g = group(&b, "Versions", "");
         let ab_version = info(&g, "Helper");
-        let ab_kernel = info(&g, "Kernel");
-        let ab_series = info(&g, "Patch series");
-        let ab_features = info(&g, "Features");
-        let g = group(&p_about, "Firmware", "Files from your own tablet, compared with the manifest.");
-        let ab_fw = adw::ExpanderRow::builder().title("Firmware files").build();
+        let ab_app = info(&g, "App");
+        set_text(&ab_app, env!("CARGO_PKG_VERSION"));
+        let ab_kernel = info_long(&g, "Kernel", &toasts);
+        let ab_series = info_long(&g, "Patch Series", &toasts);
+        let ab_features = info_long(&g, "Features", &toasts);
+        let g = group(&b, "Firmware", "Files from your tablet, checked against the manifest.");
+        let ab_fw = adw::ExpanderRow::builder().title("Firmware Files").build();
         g.add(&ab_fw);
 
         // Navigation
         let sidebar = gtk::ListBox::new();
         sidebar.add_css_class("navigation-sidebar");
         sidebar.set_selection_mode(gtk::SelectionMode::Single);
-        let defs: [(&str, &str, &'static [&'static str], &adw::PreferencesPage); 10] = [
-            ("Battery", "battery-good-symbolic", &["Battery"], &p_bat),
-            ("Display", "video-display-symbolic", &["Refresh"], &p_ref),
-            ("Performance", "power-profile-balanced-symbolic", &["Gpu"], &p_gpu),
-            ("Torch & LED ring", "weather-clear-symbolic", &["Torch", "LedRing"], &p_led),
-            ("USB", "media-removable-symbolic", &["Usb"], &p_usb),
-            ("Emergency key", "dialog-warning-symbolic", &["EmergencyKey"], &p_ek),
-            ("Systems", "drive-multidisk-symbolic", &["Boot"], &p_boot),
-            ("Android", "system-reboot-symbolic", &["Android"], &p_and),
-            ("Diagnostics", "utilities-system-monitor-symbolic", &["Diagnostics"], &p_diag),
-            ("About", "help-about-symbolic", &[""], &p_about),
+        let defs: [(&str, &str, &'static [&'static str], &gtk::ScrolledWindow, Option<&adw::Banner>); 10] = [
+            ("Battery", "battery-good-symbolic", &["Battery"], &p_bat, None),
+            ("Display", "video-display-symbolic", &["Refresh"], &p_ref, None),
+            ("Performance", "power-profile-balanced-symbolic", &["Gpu", "Thermal"], &p_gpu, None),
+            ("Torch & LED Ring", "display-brightness-symbolic", &["Torch", "LedRing"], &p_led, None),
+            ("USB", "media-removable-symbolic", &["Usb"], &p_usb, None),
+            ("Emergency Key", "dialog-warning-symbolic", &["EmergencyKey"], &p_ek, None),
+            ("Systems", "drive-multidisk-symbolic", &["Boot"], &p_boot, Some(&boot_banner)),
+            ("Android", "system-reboot-symbolic", &["Android"], &p_and, None),
+            ("Diagnostics", "utilities-system-monitor-symbolic", &["Diagnostics"], &p_diag, None),
+            ("About", "help-about-symbolic", &[""], &p_about, None),
         ];
         let mut pages = Vec::new();
-        for (title, icon, objects, page) in defs {
+        for (title, icon, objects, page, banner) in defs {
             let bx = gtk::Box::new(gtk::Orientation::Horizontal, 12);
             bx.append(&gtk::Image::from_icon_name(icon));
             let l = gtk::Label::new(Some(title));
             l.set_xalign(0.0);
+            l.set_ellipsize(gtk::pango::EllipsizeMode::End);
             bx.append(&l);
             let row = gtk::ListBoxRow::builder().child(&bx).build();
             sidebar.append(&row);
-            pages.push(Page { objects, row, nav: content_page(title, page) });
+            pages.push(Page { objects, row, nav: content_page(title, page, banner) });
         }
         let scroller = gtk::ScrolledWindow::builder().hscrollbar_policy(gtk::PolicyType::Never).child(&sidebar).build();
+        let menu = gio::Menu::new();
+        menu.append(Some("Keyboard Shortcuts"), Some("app.shortcuts"));
+        menu.append(Some("About Tablet Settings"), Some("app.about"));
+        let menu_btn = gtk::MenuButton::builder().icon_name("open-menu-symbolic").menu_model(&menu).primary(true).build();
+        menu_btn.set_tooltip_text(Some("Main Menu"));
+        let side_header = adw::HeaderBar::new();
+        side_header.pack_end(&menu_btn);
         let side_tv = adw::ToolbarView::new();
-        side_tv.add_top_bar(&adw::HeaderBar::new());
+        side_tv.add_top_bar(&side_header);
         side_tv.set_content(Some(&scroller));
-        let side_page = adw::NavigationPage::builder().title("TB323FU").child(&side_tv).build();
-
-        let status = adw::StatusPage::builder()
-            .icon_name("dialog-warning-symbolic")
-            .title("Helper service not running")
-            .description("This app talks to tb323fu-helperd. Start it with\nsystemctl start tb323fu-helperd")
-            .build();
-        let absent = content_page("TB323FU", &status);
+        let side_page = adw::NavigationPage::builder().title("Tablet").child(&side_tv).build();
 
         let split = adw::NavigationSplitView::new();
         split.set_sidebar(Some(&side_page));
-        split.set_content(Some(&absent));
+        split.set_content(Some(&pages[0].nav));
         split.set_min_sidebar_width(200.0);
+        split.set_max_sidebar_width(240.0);
+        split.set_sidebar_width_fraction(0.22);
 
-        let toasts = adw::ToastOverlay::new();
-        toasts.set_child(Some(&split));
+        // No daemon: the whole window says so (not a blank sidebar).
+        let retry = gtk::Button::with_label("Try Again");
+        retry.add_css_class("pill");
+        retry.add_css_class("suggested-action");
+        retry.set_halign(gtk::Align::Center);
+        let status = adw::StatusPage::builder()
+            .icon_name("dialog-warning-symbolic")
+            .title("Helper Service Not Running")
+            .description("This app needs tb323fu-helperd. Start it with <tt>systemctl start tb323fu-helperd</tt>")
+            .child(&retry)
+            .build();
+        let absent_tv = adw::ToolbarView::new();
+        absent_tv.add_top_bar(&adw::HeaderBar::new());
+        absent_tv.set_content(Some(&status));
+
+        let stack = gtk::Stack::new();
+        stack.add_named(&split, Some("main"));
+        stack.add_named(&absent_tv, Some("absent"));
+        toasts.set_child(Some(&stack));
         let window = adw::ApplicationWindow::builder()
             .application(app)
-            .title("Tablet settings")
+            .title("Tablet Settings")
             .default_width(900)
             .default_height(760)
             .content(&toasts)
             .build();
-        let bp = adw::Breakpoint::new(adw::BreakpointCondition::parse("max-width: 600sp").unwrap());
+        // Narrow windows (below 860 sp: half of a landscape screen, or
+        // portrait above 200 %) get list -> page navigation; a full portrait
+        // window at 200 % (952 sp) and landscape keep the split view.
+        let bp = adw::Breakpoint::new(adw::BreakpointCondition::parse("max-width: 860sp").unwrap());
         bp.add_setter(&split, "collapsed", Some(&true.to_value()));
         window.add_breakpoint(bp);
 
-        let gpu_buttons: Vec<gtk::Button> = gpu_limits.iter().map(|(_, _, _, b)| b.clone()).collect();
         let ui = Rc::new(Ui {
             client: RefCell::new(Client::connect()),
             updating: Cell::new(false),
+            pending: RefCell::new(HashMap::new()),
+            timers: RefCell::new(HashMap::new()),
             window,
             toasts,
+            stack,
             split,
             sidebar,
             pages,
-            absent,
+            selected: Cell::new(None),
             daemon_up: Cell::new(None),
             bat_limit,
             bat_bypass,
             bat_state,
             bat_cap,
+            bat_power,
             bat_cur,
             bat_volt,
             bat_temp,
@@ -421,20 +674,28 @@ impl Ui {
             bat_charger,
             ref_policy,
             ref_rate,
-            ref_preset,
-            ref_ms60,
-            ref_ms30,
+            ref_timing,
+            ref_custom: Cell::new(false),
+            ref_s60,
+            ref_s30,
             ref_min,
             ref_input,
-            ref_live,
             gpu_profile,
             gpu_follow,
-            gpu_limits: gpu_limits.into_iter().map(|(p, lo, hi, _)| (p, lo, hi)).collect(),
+            gpu_limits,
+            gpu_seen: RefCell::new(Vec::new()),
+            th_group,
+            th_surface,
+            th_cpu,
+            th_gpu,
+            th_throttle,
+            th_all,
+            th_rows: RefCell::new(Vec::new()),
             torch_group,
             torch_on,
             torch_level,
             led_group,
-            led_mode,
+            led_charge,
             led_bright,
             led_low,
             usb_wake,
@@ -444,18 +705,17 @@ impl Ui {
             and_avail,
             and_hash,
             and_auth,
+            and_row,
             and_switch,
             boot_group,
             boot_rows: RefCell::new(Vec::new()),
-            boot_last: RefCell::new((Vec::new(), String::new(), String::new(), String::new())),
-            boot_next,
-            boot_clear,
-            boot_default,
-            boot_default_names: RefCell::new(Vec::new()),
+            boot_last: RefCell::new(BootState::default()),
+            boot_banner,
             diag_crash,
             diag_clean,
+            diag_export,
             diag_path,
-            diag_open,
+            diag_open_row,
             diag_last: RefCell::new(None),
             ab_version,
             ab_kernel,
@@ -463,9 +723,10 @@ impl Ui {
             ab_features,
             ab_fw,
             ab_fw_rows: RefCell::new(Vec::new()),
-            ab_fw_last: RefCell::new(Vec::new()),
+            ab_fw_last: RefCell::new(None),
+            about_debug: RefCell::new(String::new()),
         });
-        ui.connect(preset_btn, export_btn, gpu_buttons);
+        ui.connect(gpu_buttons, rescan, diag_open, retry);
         ui
     }
 
@@ -473,21 +734,41 @@ impl Ui {
         self.toasts.add_toast(adw::Toast::new(msg));
     }
 
-    /// Run a method call off the main thread; toast errors, then refresh.
-    fn call<B, F>(self: &Rc<Self>, obj: &'static str, method: &'static str, body: B, on_ok: F)
+    fn hold(&self, obj: &'static str) {
+        *self.pending.borrow_mut().entry(obj).or_insert(0) += 1;
+    }
+    fn release(&self, obj: &'static str) {
+        let mut p = self.pending.borrow_mut();
+        if let Some(n) = p.get_mut(obj) {
+            *n = n.saturating_sub(1);
+            if *n == 0 {
+                p.remove(obj);
+            }
+        }
+    }
+    fn busy(&self, obj: &str) -> bool {
+        self.pending.borrow().get(obj).is_some_and(|n| *n > 0)
+    }
+
+    /// Run a method call off the main thread; toast errors (with the setting's
+    /// name), hand the result to `done`, then refresh.
+    fn call_then<B, F>(self: &Rc<Self>, obj: &'static str, method: &'static str, body: B, done: F)
     where
         B: serde::ser::Serialize + zbus::zvariant::DynamicType + Send + 'static,
-        F: FnOnce(&Rc<Ui>, Option<String>) + 'static,
+        F: FnOnce(&Rc<Ui>, Result<Option<String>, String>) + 'static,
     {
         let client = self.client.borrow().clone();
         let ui = self.clone();
+        self.hold(obj);
         glib::spawn_future_local(async move {
-            let res = gio::spawn_blocking(move || client.call(obj, method, &body)).await;
-            match res {
-                Ok(Ok(reply)) => on_ok(&ui, reply),
-                Ok(Err(e)) => ui.toast(&format!("{method}: {e}")),
-                Err(_) => ui.toast(&format!("{method}: failed")),
+            let res = gio::spawn_blocking(move || client.call(obj, method, &body))
+                .await
+                .unwrap_or_else(|_| Err("Something went wrong".into()));
+            ui.release(obj);
+            if let Err(e) = &res {
+                ui.toast(&format!("{}: {e}", dbus::setting_name(method)));
             }
+            done(&ui, res);
             ui.refresh();
         });
     }
@@ -496,10 +777,76 @@ impl Ui {
     where
         B: serde::ser::Serialize + zbus::zvariant::DynamicType + Send + 'static,
     {
-        self.call(obj, method, body, |_, _| {});
+        self.call_then(obj, method, body, |_, _| {});
     }
 
-    fn connect(self: &Rc<Self>, preset_btn: gtk::Button, export_btn: gtk::Button, gpu_buttons: Vec<gtk::Button>) {
+    /// Run `f` 400 ms after the last change under `key` (holding a spin
+    /// button's "+" sends one call). The object counts as busy meanwhile.
+    fn debounce(self: &Rc<Self>, key: &'static str, obj: &'static str, f: impl FnOnce(&Rc<Ui>) + 'static) {
+        let mut timers = self.timers.borrow_mut();
+        if let Some(id) = timers.remove(key) {
+            id.remove();
+        } else {
+            self.hold(obj);
+        }
+        let ui = self.clone();
+        let id = glib::timeout_add_local_once(DEBOUNCE, move || {
+            ui.timers.borrow_mut().remove(key);
+            ui.release(obj);
+            f(&ui);
+        });
+        timers.insert(key, id);
+    }
+
+    /// A spin row whose value (as u32) goes to `method` after the debounce.
+    fn spin_sends(self: &Rc<Self>, r: &adw::SpinRow, key: &'static str, obj: &'static str, method: &'static str) {
+        let ui = self.clone();
+        r.connect_value_notify(move |r| {
+            if ui.updating.get() {
+                return;
+            }
+            let v = r.value().round() as u32;
+            ui.debounce(key, obj, move |ui| ui.call_simple(obj, method, (v,)));
+        });
+    }
+
+    fn switch_sends(self: &Rc<Self>, r: &adw::SwitchRow, obj: &'static str, method: &'static str) {
+        let ui = self.clone();
+        r.connect_active_notify(move |r| {
+            if !ui.updating.get() {
+                ui.call_simple(obj, method, (r.is_active(),));
+            }
+        });
+    }
+
+    /// Ask before a risky switch change; the object stays busy while the
+    /// dialog is open, and Cancel puts the switch back.
+    #[allow(clippy::too_many_arguments)]
+    fn confirm_switch(self: &Rc<Self>, r: &adw::SwitchRow, obj: &'static str, heading: &str, body: &str, verb: &str,
+        go: impl Fn(&Rc<Ui>) + 'static) {
+        self.hold(obj);
+        let d = adw::AlertDialog::new(Some(heading), Some(body));
+        d.add_response("cancel", "Cancel");
+        d.add_response("go", verb);
+        d.set_response_appearance("go", adw::ResponseAppearance::Destructive);
+        d.set_default_response(Some("cancel"));
+        d.set_close_response("cancel");
+        let ui = self.clone();
+        let r = r.clone();
+        d.connect_response(None, move |_, resp| {
+            ui.release(obj);
+            if resp == "go" {
+                go(&ui);
+            } else {
+                ui.updating.set(true);
+                r.set_active(!r.is_active());
+                ui.updating.set(false);
+            }
+        });
+        d.present(Some(&self.window));
+    }
+
+    fn connect(self: &Rc<Self>, gpu_buttons: Vec<gtk::Button>, rescan: gtk::Button, diag_open: gtk::Button, retry: gtk::Button) {
         // Navigation
         // The selected row decides the page, so the highlight always matches
         // what is shown; activating a row (a tap, also in collapsed mode)
@@ -511,57 +858,64 @@ impl Ui {
             if i >= 0 {
                 if let Some(p) = ui.pages.get(i as usize) {
                     ui.split.set_content(Some(&p.nav));
+                    ui.selected.set(Some(i as usize));
                 }
             }
         });
-        let ui2 = self.clone();
+        let ui = self.clone();
         self.sidebar.connect_row_activated(move |lb, row| {
             if lb.selected_row().as_ref() != Some(row) {
                 lb.select_row(Some(row));
             }
-            ui2.split.set_show_content(true);
+            ui.split.set_show_content(true);
+        });
+        let ui = self.clone();
+        retry.connect_clicked(move |_| {
+            *ui.client.borrow_mut() = Client::connect();
+            ui.refresh();
+            if ui.daemon_up.get() != Some(true) {
+                ui.toast("Still not running");
+            }
         });
 
         // Battery
-        let ui = self.clone();
-        self.bat_limit.connect_value_notify(move |r| {
-            if !ui.updating.get() {
-                ui.call_simple("Battery", "SetChargeLimit", (r.value() as u32,));
-            }
-        });
-        let ui = self.clone();
-        self.bat_bypass.connect_active_notify(move |r| {
-            if !ui.updating.get() {
-                ui.call_simple("Battery", "SetBypass", (r.is_active(),));
-            }
-        });
+        self.spin_sends(&self.bat_limit, "limit", "Battery", "SetChargeLimit");
+        self.switch_sends(&self.bat_bypass, "Battery", "SetBypass");
 
         // Refresh
         let ui = self.clone();
         self.ref_policy.connect_selected_notify(move |r| {
             if !ui.updating.get() {
-                let p = REFRESH_PROFILES[r.selected() as usize % REFRESH_PROFILES.len()];
+                let p = REFRESH_POLICIES[r.selected() as usize % REFRESH_POLICIES.len()];
                 ui.call_simple("Refresh", "SetPolicy", (p.to_string(),));
             }
         });
+        self.spin_sends(&self.ref_rate, "rate", "Refresh", "SetRate");
         let ui = self.clone();
-        self.ref_rate.connect_value_notify(move |r| {
-            if !ui.updating.get() {
-                ui.call_simple("Refresh", "SetRate", (r.value() as u32,));
+        self.ref_timing.connect_selected_notify(move |r| {
+            if ui.updating.get() {
+                return;
             }
+            match TIMINGS.get(r.selected() as usize) {
+                Some((id, ..)) => {
+                    ui.ref_custom.set(false);
+                    ui.call_simple("Refresh", "ApplyPreset", (id.to_string(),));
+                }
+                None => ui.ref_custom.set(true),
+            }
+            ui.sync_refresh_rows();
         });
-        let ui = self.clone();
-        preset_btn.connect_clicked(move |_| {
-            let p = REFRESH_PRESETS[ui.ref_preset.selected() as usize % REFRESH_PRESETS.len()];
-            ui.call_simple("Refresh", "ApplyPreset", (p.to_string(),));
-        });
-        for spin in [&self.ref_ms60, &self.ref_ms30] {
+        for spin in [&self.ref_s60, &self.ref_s30] {
             let ui = self.clone();
             spin.connect_value_notify(move |_| {
-                if !ui.updating.get() {
-                    let (a, b) = (ui.ref_ms60.value() as u32, ui.ref_ms30.value() as u32);
-                    ui.call_simple("Refresh", "SetIdle", (a, b));
+                // before-30 can never be shorter than before-60
+                ui.ref_s30.adjustment().set_lower(ui.ref_s60.value());
+                if ui.updating.get() {
+                    return;
                 }
+                let ms = |v: f64| (v * 1000.0).round() as u32;
+                let (a, b) = (ms(ui.ref_s60.value()), ms(ui.ref_s30.value()));
+                ui.debounce("idle", "Refresh", move |ui| ui.call_simple("Refresh", "SetIdle", (a, b)));
             });
         }
 
@@ -573,60 +927,36 @@ impl Ui {
                 ui.call_simple("Gpu", "SetProfile", (p.to_string(),));
             }
         });
-        let ui = self.clone();
-        self.gpu_follow.connect_active_notify(move |r| {
-            if !ui.updating.get() {
-                ui.call_simple("Gpu", "SetFollowPowerProfiles", (r.is_active(),));
-            }
-        });
+        self.switch_sends(&self.gpu_follow, "Gpu", "SetFollowPowerProfiles");
         for (i, b) in gpu_buttons.into_iter().enumerate() {
+            let (_, _, lo, hi) = &self.gpu_limits[i];
+            // keep minimum <= maximum while editing
+            let hi2 = hi.clone();
+            lo.connect_value_notify(move |lo| hi2.adjustment().set_lower(lo.value()));
+            let lo2 = lo.clone();
+            hi.connect_value_notify(move |hi| lo2.adjustment().set_upper(hi.value()));
             let ui = self.clone();
             b.connect_clicked(move |_| {
-                let (p, lo, hi) = &ui.gpu_limits[i];
+                let (p, _, lo, hi) = &ui.gpu_limits[i];
                 ui.call_simple("Gpu", "SetLimits", (p.to_string(), lo.value() as u32, hi.value() as u32));
             });
         }
 
         // Torch / LED
+        self.switch_sends(&self.torch_on, "Torch", "Set");
+        self.spin_sends(&self.torch_level, "torch", "Torch", "SetLevel");
         let ui = self.clone();
-        self.torch_on.connect_active_notify(move |r| {
+        self.led_charge.connect_active_notify(move |r| {
             if !ui.updating.get() {
-                ui.call_simple("Torch", "Set", (r.is_active(),));
-            }
-        });
-        let ui = self.clone();
-        self.torch_level.connect_value_notify(move |r| {
-            if !ui.updating.get() {
-                ui.call_simple("Torch", "SetLevel", (r.value() as u32,));
-            }
-        });
-        let ui = self.clone();
-        self.led_mode.connect_selected_notify(move |r| {
-            if !ui.updating.get() {
-                let m = LED_MODES[r.selected() as usize % LED_MODES.len()];
+                let m = if r.is_active() { "charge" } else { "off" };
                 ui.call_simple("LedRing", "SetMode", (m.to_string(),));
             }
         });
-        let ui = self.clone();
-        self.led_bright.connect_value_notify(move |r| {
-            if !ui.updating.get() {
-                ui.call_simple("LedRing", "SetBrightness", (r.value() as u32,));
-            }
-        });
-        let ui = self.clone();
-        self.led_low.connect_value_notify(move |r| {
-            if !ui.updating.get() {
-                ui.call_simple("LedRing", "SetLowPercent", (r.value() as u32,));
-            }
-        });
+        self.spin_sends(&self.led_bright, "ledb", "LedRing", "SetBrightness");
+        self.spin_sends(&self.led_low, "ledlow", "LedRing", "SetLowPercent");
 
         // USB
-        let ui = self.clone();
-        self.usb_wake.connect_active_notify(move |r| {
-            if !ui.updating.get() {
-                ui.call_simple("Usb", "SetWake", (r.is_active(),));
-            }
-        });
+        self.switch_sends(&self.usb_wake, "Usb", "SetWake");
         let ui = self.clone();
         self.usb_dev.connect_active_notify(move |r| {
             if ui.updating.get() {
@@ -636,49 +966,29 @@ impl Ui {
                 ui.call_simple("Usb", "SetDevMode", (false,));
                 return;
             }
-            let d = adw::AlertDialog::new(
-                Some("Turn on USB developer mode?"),
-                Some("Anyone with a USB cable to this tablet gets a network link and a root console. Only turn this on for development."),
-            );
-            d.add_response("cancel", "Cancel");
-            d.add_response("on", "Turn on");
-            d.set_response_appearance("on", adw::ResponseAppearance::Destructive);
-            d.set_default_response(Some("cancel"));
-            d.set_close_response("cancel");
-            let ui2 = ui.clone();
-            d.connect_response(None, move |_, resp| {
-                if resp == "on" {
-                    ui2.call_simple("Usb", "SetDevMode", (true,));
-                } else {
-                    ui2.updating.set(true);
-                    ui2.usb_dev.set_active(false);
-                    ui2.updating.set(false);
-                }
-            });
-            d.present(Some(&ui.window));
+            ui.confirm_switch(r, "Usb", "Turn On USB Developer Mode?",
+                "Anyone with a USB cable to this tablet gets a network link and a root console. Only turn this on for development.",
+                "Turn On", |ui| ui.call_simple("Usb", "SetDevMode", (true,)));
         });
 
         // Emergency key
         let ui = self.clone();
         self.ek_enabled.connect_active_notify(move |r| {
-            if !ui.updating.get() {
-                ui.call_simple("EmergencyKey", "SetEnabled", (r.is_active(),));
+            if ui.updating.get() {
+                return;
             }
-        });
-        let ui = self.clone();
-        self.ek_hold.connect_value_notify(move |r| {
-            if !ui.updating.get() {
-                ui.call_simple("EmergencyKey", "SetHoldSeconds", (r.value() as u32,));
+            if r.is_active() {
+                ui.call_simple("EmergencyKey", "SetEnabled", (true,));
+                return;
             }
+            ui.confirm_switch(r, "EmergencyKey", "Turn Off the Emergency Key?",
+                "If the desktop freezes you will need a forced restart (volume down + power).",
+                "Turn Off", |ui| ui.call_simple("EmergencyKey", "SetEnabled", (false,)));
         });
+        self.spin_sends(&self.ek_hold, "hold", "EmergencyKey", "SetHoldSeconds");
 
         // Android
-        let ui = self.clone();
-        self.and_auth.connect_active_notify(move |r| {
-            if !ui.updating.get() {
-                ui.call_simple("Android", "SetRequireAuth", (r.is_active(),));
-            }
-        });
+        self.switch_sends(&self.and_auth, "Android", "SetRequireAuth");
         let ui = self.clone();
         self.and_switch.connect_clicked(move |_| {
             let d = adw::AlertDialog::new(
@@ -701,47 +1011,74 @@ impl Ui {
 
         // Systems
         let ui = self.clone();
-        self.boot_clear.connect_clicked(move |_| ui.call_simple("Boot", "ClearNext", ()));
+        self.boot_banner.connect_button_clicked(move |_| ui.call_simple("Boot", "ClearNext", ()));
         let ui = self.clone();
-        self.boot_default.connect_selected_notify(move |r| {
-            if ui.updating.get() {
-                return;
-            }
-            let name = ui.boot_default_names.borrow().get(r.selected() as usize).cloned();
-            if let Some(n) = name {
-                ui.call_simple("Boot", "SetDefault", (n,));
-            }
+        rescan.connect_clicked(move |b| {
+            b.set_sensitive(false);
+            let b2 = b.clone();
+            ui.call_then("Boot", "Rescan", (), move |_, _| b2.set_sensitive(true));
         });
 
         // Diagnostics
         let ui = self.clone();
-        export_btn.connect_clicked(move |_| {
-            ui.toast("Collecting diagnostics…");
-            ui.call("Diagnostics", "Export", (), |ui, reply| {
-                if let Some(path) = reply {
-                    set_text(&ui.diag_path, &path);
-                    ui.diag_open.set_sensitive(true);
-                    ui.toast("Diagnostics exported");
+        self.diag_export.connect_clicked(move |b| {
+            b.set_sensitive(false);
+            b.set_label("Exporting…");
+            ui.call_then("Diagnostics", "Export", (), |ui, res| {
+                ui.diag_export.set_sensitive(true);
+                ui.diag_export.set_label("Export");
+                if let Ok(Some(path)) = res {
+                    let name = std::path::Path::new(&path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or(path.clone());
+                    ui.diag_path.set(&name, &path);
+                    ui.diag_path.row.set_visible(true);
+                    ui.diag_open_row.set_visible(true);
                     *ui.diag_last.borrow_mut() = Some(path);
+                    let t = adw::Toast::builder().title("Diagnostics exported").button_label("Open Folder").build();
+                    let ui2 = ui.clone();
+                    t.connect_button_clicked(move |_| ui2.open_export());
+                    ui.toasts.add_toast(t);
                 }
             });
         });
         let ui = self.clone();
-        self.diag_open.connect_clicked(move |_| {
-            if let Some(path) = ui.diag_last.borrow().clone() {
-                let launcher = gtk::FileLauncher::new(Some(&gio::File::for_path(&path)));
-                let ui2 = ui.clone();
-                launcher.open_containing_folder(Some(&ui.window), None::<&gio::Cancellable>, move |r| {
-                    if let Err(e) = r {
-                        ui2.toast(&format!("Could not open the folder: {e}"));
-                    }
-                });
-            }
-        });
+        diag_open.connect_clicked(move |_| ui.open_export());
+    }
+
+    fn open_export(self: &Rc<Self>) {
+        if let Some(path) = self.diag_last.borrow().clone() {
+            let launcher = gtk::FileLauncher::new(Some(&gio::File::for_path(&path)));
+            let ui = self.clone();
+            launcher.open_containing_folder(Some(&self.window), None::<&gio::Cancellable>, move |r| {
+                if let Err(e) = r {
+                    ui.toast(&format!("Could not open the folder: {e}"));
+                }
+            });
+        }
+    }
+
+    fn about(self: &Rc<Self>) {
+        let d = adw::AboutDialog::builder()
+            .application_name("Tablet Settings")
+            .application_icon(APP_ID)
+            .version(env!("CARGO_PKG_VERSION"))
+            .developer_name("Joonhoe Kim")
+            .license_type(gtk::License::MitX11)
+            .website(REPO)
+            .issue_url(format!("{REPO}/issues"))
+            .comments("Settings for the Lenovo Legion Tab Gen 5 (TB323FU), through the tb323fu-helperd service.")
+            .debug_info(self.about_debug.borrow().as_str())
+            .build();
+        d.present(Some(&self.window));
+    }
+
+    fn shortcuts(self: &Rc<Self>) {
+        let d = adw::AlertDialog::new(Some("Keyboard Shortcuts"), Some("Ctrl+Q  Quit\nCtrl+W  Close the window"));
+        d.add_response("ok", "OK");
+        d.present(Some(&self.window));
     }
 
     /// Poll the daemon and update every visible widget without triggering
-    /// the change handlers.
+    /// the change handlers. Objects with a call in flight are skipped.
     fn refresh(self: &Rc<Self>) {
         if !self.client.borrow().connected() {
             *self.client.borrow_mut() = Client::connect();
@@ -751,266 +1088,426 @@ impl Ui {
         let up = root.is_some();
         if self.daemon_up.get() != Some(up) {
             self.daemon_up.set(Some(up));
-            if up {
-                // first visible page; row_selected shows it
-                if let Some(first) = self.pages.iter().find(|p| p.row.is_visible()).or(self.pages.first()) {
-                    self.sidebar.unselect_all();
-                    self.sidebar.select_row(Some(&first.row));
-                    self.split.set_content(Some(&first.nav));
-                }
-            } else {
-                self.split.set_content(Some(&self.absent));
-            }
+            self.stack.set_visible_child_name(if up { "main" } else { "absent" });
         }
         if !up {
-            for p in &self.pages {
-                p.row.set_visible(false);
-            }
             return;
         }
         self.updating.set(true);
-        let get = |o: &str| c.get_all(o);
-        let bat = get("Battery");
-        let rf = get("Refresh");
-        let gpu = get("Gpu");
-        let torch = get("Torch");
-        let led = get("LedRing");
-        let usb = get("Usb");
-        let ek = get("EmergencyKey");
-        let and = get("Android");
-        let diag = get("Diagnostics");
-        let bootp = get("Boot");
-        let present = |o: &str| match o {
-            "Boot" => bootp.is_some(),
-            "" => true,
-            "Battery" => bat.is_some(),
-            "Refresh" => rf.is_some(),
-            "Gpu" => gpu.is_some(),
-            "Torch" => torch.is_some(),
-            "LedRing" => led.is_some(),
-            "Usb" => usb.is_some(),
-            "EmergencyKey" => ek.is_some(),
-            "Android" => and.is_some(),
-            "Diagnostics" => diag.is_some(),
-            _ => false,
-        };
+        let get = |o: &'static str| if self.busy(o) { None } else { c.get_all(o) };
+        let objs: [&'static str; 11] = ["Battery", "Refresh", "Gpu", "Torch", "LedRing", "Usb", "EmergencyKey", "Android", "Diagnostics", "Boot", "Thermal"];
+        let props: HashMap<&str, Option<Props>> = objs.iter().map(|o| (*o, get(*o))).collect();
+        let features = root.as_ref().map(|r| dbus::strs(r, "Features")).unwrap_or_default();
+        // presence from the Features list, so a busy object keeps its page
+        let present = |o: &str| o.is_empty() || features.iter().any(|f| f == o);
+        let had_selection = self.sidebar.selected_row().is_some_and(|r| r.is_visible());
         for p in &self.pages {
             p.row.set_visible(p.objects.iter().any(|o| present(o)));
         }
-        if let Some(p) = &bat {
-            self.update_battery(p);
+        if !had_selection {
+            // first refresh or reconnect: back to the page the user was on
+            let want = self.selected.get().and_then(|i| self.pages.get(i)).filter(|p| p.row.is_visible());
+            if let Some(p) = want.or_else(|| self.pages.iter().find(|p| p.row.is_visible())) {
+                self.sidebar.select_row(Some(&p.row));
+            }
         }
-        if let Some(p) = &rf {
-            self.update_refresh(p);
+        let p = |o: &str| props.get(o).and_then(|x| x.as_ref());
+        if let Some(b) = p("Battery") {
+            self.update_battery(b);
         }
-        if let Some(p) = &gpu {
-            self.update_gpu(p);
+        if let Some(r) = p("Refresh") {
+            self.update_refresh(r);
         }
-        self.torch_group.set_visible(torch.is_some());
-        if let Some(p) = &torch {
-            set_switch(&self.torch_on, dbus::b(p, "On"));
-            if let Some(m) = dbus::u(p, "MaxLevel") {
+        if let Some(g) = p("Gpu") {
+            self.update_gpu(g);
+        }
+        self.th_group.set_visible(present("Thermal"));
+        if let Some(t) = p("Thermal") {
+            self.update_thermal(t);
+        }
+        self.torch_group.set_visible(present("Torch"));
+        if let Some(t) = p("Torch") {
+            set_switch(&self.torch_on, dbus::b(t, "On"));
+            if let Some(m) = dbus::u(t, "MaxLevel") {
                 if m > 0 && (self.torch_level.adjustment().upper() - m as f64).abs() > 0.5 {
                     self.torch_level.adjustment().set_upper(m as f64);
                 }
             }
-            set_spin(&self.torch_level, dbus::u(p, "Level"));
+            set_spin(&self.torch_level, dbus::u(t, "Level").map(f64::from));
         }
-        self.led_group.set_visible(led.is_some());
-        if let Some(p) = &led {
-            set_combo(&self.led_mode, &LED_MODES, dbus::s(p, "Mode"));
-            set_spin(&self.led_bright, dbus::u(p, "Brightness"));
-            set_spin(&self.led_low, dbus::u(p, "LowPercent"));
+        self.led_group.set_visible(present("LedRing"));
+        if let Some(l) = p("LedRing") {
+            set_switch(&self.led_charge, dbus::s(l, "Mode").map(|m| m == "charge"));
+            set_spin(&self.led_bright, dbus::u(l, "Brightness").map(f64::from));
+            set_spin(&self.led_low, dbus::u(l, "LowPercent").map(f64::from));
         }
-        if let Some(p) = &usb {
-            set_switch(&self.usb_wake, dbus::b(p, "WakeEnabled"));
-            set_switch(&self.usb_dev, dbus::b(p, "DevMode"));
+        if let Some(u) = p("Usb") {
+            set_switch(&self.usb_wake, dbus::b(u, "WakeEnabled"));
+            set_switch(&self.usb_dev, dbus::b(u, "DevMode"));
         }
-        if let Some(p) = &ek {
-            set_switch(&self.ek_enabled, dbus::b(p, "Enabled"));
-            set_spin(&self.ek_hold, dbus::u(p, "HoldSeconds"));
+        if let Some(e) = p("EmergencyKey") {
+            set_switch(&self.ek_enabled, dbus::b(e, "Enabled"));
+            set_spin(&self.ek_hold, dbus::u(e, "HoldSeconds").map(f64::from));
         }
-        if let Some(p) = &and {
-            let avail = dbus::b(p, "Available").unwrap_or(false);
-            set_text(&self.and_avail, if avail { "ready" } else { "not set up" });
-            let h = dbus::s(p, "ImageSha256").unwrap_or_default();
-            set_text(&self.and_hash, if h.len() >= 16 { &h[..16] } else if h.is_empty() { "unknown" } else { h.as_str() });
-            set_switch(&self.and_auth, dbus::b(p, "RequireAuth"));
-            self.and_switch.set_sensitive(avail);
+        if let Some(a) = p("Android") {
+            let avail = dbus::b(a, "Available").unwrap_or(false);
+            set_text(&self.and_avail, if avail { "Ready" } else { "Not Set Up" });
+            let h = dbus::s(a, "ImageSha256").unwrap_or_default();
+            let short = if h.len() > 12 { format!("{}…", &h[..12]) } else if h.is_empty() { "Unknown".into() } else { h.clone() };
+            self.and_hash.set(&short, &h);
+            set_switch(&self.and_auth, dbus::b(a, "RequireAuth"));
+            self.and_switch.set_visible(avail);
+            let sub = if avail { "Restarts now" } else { "Android image not set up" };
+            if self.and_row.subtitle().as_deref() != Some(sub) {
+                self.and_row.set_subtitle(sub);
+            }
         }
-        if let Some(p) = &diag {
-            set_text(&self.diag_crash, &dbus::u(p, "CrashRecords").map(|n| n.to_string()).unwrap_or_else(|| "unknown".into()));
-            set_text(
-                &self.diag_clean,
-                match dbus::b(p, "LastBootClean") {
-                    Some(true) => "yes",
-                    Some(false) => "no — see the crash records",
-                    None => "unknown",
-                },
-            );
+        if let Some(d) = p("Diagnostics") {
+            set_text(&self.diag_crash, &dbus::u(d, "CrashRecords").map(|n| n.to_string()).unwrap_or_else(|| "Unknown".into()));
+            let clean = dbus::b(d, "LastBootClean");
+            set_text(&self.diag_clean, match clean {
+                Some(true) => "Clean",
+                Some(false) => "Crashed",
+                None => "Unknown",
+            });
+            set_class(&self.diag_clean, "warning", clean == Some(false));
+            set_class(&self.diag_clean, "dim-label", clean != Some(false));
         }
-        if let Some(p) = &bootp {
-            self.update_boot(p);
+        if let Some(b) = p("Boot") {
+            self.update_boot(b);
         }
-        if let Some(p) = &root {
-            self.update_about(p);
+        if let Some(r) = &root {
+            self.update_about(r);
         }
         self.updating.set(false);
     }
 
     fn update_boot(self: &Rc<Self>, p: &Props) {
         let roots = dbus::roots(p, "Roots");
-        let cur = dbus::s(p, "Current").unwrap_or_default();
-        let def = dbus::s(p, "Default").unwrap_or_default();
-        let next = dbus::s(p, "Next").unwrap_or_default();
-        set_text(&self.boot_next, if next.is_empty() { "the default" } else { next.as_str() });
-        self.boot_clear.set_sensitive(!next.is_empty());
-        let state = (roots.clone(), cur.clone(), def.clone(), next.clone());
+        let mut health: Vec<(String, Vec<String>)> = dbus::dict_sas(p, "RootHealth").into_iter().collect();
+        health.sort();
+        let state = BootState {
+            cur: dbus::s(p, "Current").unwrap_or_default(),
+            def: dbus::s(p, "Default").unwrap_or_default(),
+            next: dbus::s(p, "Next").unwrap_or_default(),
+            roots,
+            health,
+        };
+        let name_of = |n: &str| {
+            state.roots.iter().find(|r| r.0 == n).map(|r| if r.1.is_empty() { r.0.clone() } else { r.1.clone() }).unwrap_or(n.to_string())
+        };
+        let show_banner = !state.next.is_empty();
+        if show_banner {
+            let t = format!("Next restart starts {}", name_of(&state.next));
+            if self.boot_banner.title() != t {
+                self.boot_banner.set_title(&t);
+            }
+        }
+        if self.boot_banner.is_revealed() != show_banner {
+            self.boot_banner.set_revealed(show_banner);
+        }
         if *self.boot_last.borrow() == state {
             return;
         }
         for r in self.boot_rows.borrow_mut().drain(..) {
             self.boot_group.remove(&r);
         }
-        for (name, label, _present, init) in &roots {
-            let mut marks = Vec::new();
-            if *name == cur {
-                marks.push("running");
-            }
-            if *name == def {
-                marks.push("default");
-            }
-            if *name == next {
-                marks.push("next restart");
-            }
-            let kind = if init == "none" { "no system installed" } else { init.as_str() };
-            let sub = if marks.is_empty() { format!("{name} · {kind}") } else { format!("{name} · {kind} · {}", marks.join(", ")) };
+        for (name, label, _present, init) in &state.roots {
             let title = if label.is_empty() { name.clone() } else { label.clone() };
-            let row = adw::ActionRow::builder().title(title.as_str()).subtitle(sub.as_str()).build();
-            row.set_title_lines(0);
-            row.set_subtitle_lines(0);
-            let b = gtk::Button::with_label("Restart…");
-            b.set_valign(gtk::Align::Center);
-            b.set_sensitive(init != "none" && *name != cur);
-            let ui = self.clone();
-            let n2 = name.clone();
-            b.connect_clicked(move |_| {
-                let d = adw::AlertDialog::new(
-                    Some(&format!("Restart into {title}?")),
-                    Some("The tablet restarts now and boots this system once; the next restart comes back to the default. Unsaved work is lost."),
-                );
-                d.add_response("cancel", "Cancel");
-                d.add_response("go", "Restart");
-                d.set_response_appearance("go", adw::ResponseAppearance::Destructive);
-                d.set_default_response(Some("cancel"));
-                d.set_close_response("cancel");
-                let ui2 = ui.clone();
-                let n3 = n2.clone();
-                d.connect_response(None, move |_, resp| {
-                    if resp == "go" {
-                        ui2.call_simple("Boot", "RebootInto", (n3.clone(),));
+            let problems = state.health.iter().find(|h| h.0 == *name).map(|h| h.1.clone()).unwrap_or_default();
+            let row = adw::ActionRow::builder().title(title.as_str()).build();
+            row.set_title_lines(1);
+            row.set_subtitle_lines(1);
+            let installed = init != "none";
+            if !installed {
+                row.set_subtitle("No system installed");
+                row.add_css_class("dim-label");
+            } else if let Some(first) = problems.first() {
+                row.set_subtitle(&capitalize(first));
+                let warn = gtk::Image::from_icon_name("dialog-warning-symbolic");
+                warn.add_css_class("warning");
+                row.add_prefix(&warn);
+                row.set_tooltip_text(Some(&format!("{name}\n{}", problems.iter().map(|p| capitalize(p)).collect::<Vec<_>>().join("\n"))));
+            } else {
+                row.set_subtitle(name);
+            }
+            let (running, is_def, is_next) = (*name == state.cur, *name == state.def, *name == state.next);
+            if running {
+                row.add_suffix(&tag("Running", "success"));
+            }
+            if is_def {
+                row.add_suffix(&tag("Default", "accent"));
+            }
+            if is_next {
+                row.add_suffix(&tag("Next", "accent"));
+            }
+            if installed {
+                let menu = gio::Menu::new();
+                let actions = gio::SimpleActionGroup::new();
+                if !running {
+                    menu.append(Some("Restart Now…"), Some("row.restart"));
+                    let a = gio::SimpleAction::new("restart", None);
+                    let (ui, n, t, pr) = (self.clone(), name.clone(), title.clone(), problems.clone());
+                    a.connect_activate(move |_, _| ui.confirm_restart(&n, &t, &pr));
+                    actions.add_action(&a);
+                    if !is_next {
+                        menu.append(Some("Start on Next Restart"), Some("row.next"));
+                        let a = gio::SimpleAction::new("next", None);
+                        let (ui, n) = (self.clone(), name.clone());
+                        a.connect_activate(move |_, _| ui.call_simple("Boot", "SetNext", (n.clone(),)));
+                        actions.add_action(&a);
                     }
-                });
-                d.present(Some(&ui.window));
-            });
-            row.add_suffix(&b);
+                }
+                if !is_def {
+                    menu.append(Some("Make Default"), Some("row.default"));
+                    let a = gio::SimpleAction::new("default", None);
+                    let (ui, n) = (self.clone(), name.clone());
+                    a.connect_activate(move |_, _| ui.call_simple("Boot", "SetDefault", (n.clone(),)));
+                    actions.add_action(&a);
+                }
+                if menu.n_items() > 0 {
+                    let mb = gtk::MenuButton::builder().icon_name("view-more-symbolic").menu_model(&menu).valign(gtk::Align::Center).build();
+                    mb.add_css_class("flat");
+                    mb.set_tooltip_text(Some("Actions"));
+                    mb.update_property(&[gtk::accessible::Property::Label(&format!("Actions for {title}"))]);
+                    row.insert_action_group("row", Some(&actions));
+                    row.add_suffix(&mb);
+                }
+            }
             self.boot_group.add(&row);
             self.boot_rows.borrow_mut().push(row);
         }
-        let bootable: Vec<&(String, String, bool, String)> = roots.iter().filter(|r| r.3 != "none").collect();
-        let names: Vec<String> = bootable.iter().map(|r| r.0.clone()).collect();
-        let labels: Vec<String> = bootable.iter().map(|r| if r.1.is_empty() { r.0.clone() } else { format!("{} ({})", r.1, r.0) }).collect();
-        let model = gtk::StringList::new(&labels.iter().map(String::as_str).collect::<Vec<_>>());
-        self.boot_default.set_model(Some(&model));
-        if let Some(i) = names.iter().position(|n| *n == def) {
-            self.boot_default.set_selected(i as u32);
-        }
-        *self.boot_default_names.borrow_mut() = names;
         *self.boot_last.borrow_mut() = state;
     }
 
+    fn confirm_restart(self: &Rc<Self>, name: &str, title: &str, problems: &[String]) {
+        let mut body = String::from("The tablet restarts now and boots this system once. Unsaved work is lost.");
+        if !problems.is_empty() {
+            body.push_str("\n\nThis system has problems:\n");
+            body.push_str(&problems.iter().map(|p| format!("• {}", capitalize(p))).collect::<Vec<_>>().join("\n"));
+        }
+        let d = adw::AlertDialog::new(Some(&format!("Restart into {title}?")), Some(&body));
+        d.add_response("cancel", "Cancel");
+        d.add_response("go", "Restart");
+        d.set_response_appearance("go", adw::ResponseAppearance::Destructive);
+        d.set_default_response(Some("cancel"));
+        d.set_close_response("cancel");
+        let ui = self.clone();
+        let n = name.to_string();
+        d.connect_response(None, move |_, resp| {
+            if resp == "go" {
+                ui.call_simple("Boot", "RebootInto", (n.clone(),));
+            }
+        });
+        d.present(Some(&self.window));
+    }
+
     fn update_battery(&self, p: &Props) {
-        set_spin(&self.bat_limit, dbus::u(p, "ChargeLimit"));
-        set_switch(&self.bat_bypass, dbus::b(p, "Bypass"));
-        set_text(&self.bat_state, &dbus::s(p, "State").unwrap_or_else(|| "unknown".into()));
-        set_text(&self.bat_cap, &dbus::u(p, "Capacity").map(|c| format!("{c} %")).unwrap_or_else(|| "unknown".into()));
-        set_text(&self.bat_cur, &dbus::i(p, "CurrentMa").map(|c| format!("{c} mA")).unwrap_or_else(|| "unknown".into()));
-        set_text(&self.bat_volt, &dbus::u(p, "VoltageMv").map(|v| format!("{:.2} V", v as f64 / 1000.0)).unwrap_or_else(|| "unknown".into()));
-        set_text(&self.bat_temp, &dbus::f(p, "TemperatureC").map(|t| format!("{t:.1} °C")).unwrap_or_else(|| "unknown".into()));
-        set_text(&self.bat_health, &dbus::s(p, "Health").unwrap_or_else(|| "unknown".into()));
-        set_text(&self.bat_cycles, &unknown_i(dbus::i(p, "CycleCount"), ""));
-        set_text(&self.bat_design, &unknown_i(dbus::i(p, "DesignCapacityMah"), " mAh"));
+        set_spin(&self.bat_limit, dbus::u(p, "ChargeLimit").map(f64::from));
+        let bypass = dbus::b(p, "Bypass");
+        set_switch(&self.bat_bypass, bypass);
+        let state = dbus::s(p, "State").unwrap_or_default();
+        let st = match state.as_str() {
+            "charging" => "Charging",
+            "discharging" => "Discharging",
+            "bypass" if bypass == Some(true) => "Bypass",
+            "bypass" => "Held at Limit",
+            "full" => "Full",
+            "not-charging" => "Not Charging",
+            _ => "Unknown",
+        };
+        set_text(&self.bat_state, st);
+        set_text(&self.bat_cap, &dbus::u(p, "Capacity").map(|c| format!("{c}%")).unwrap_or_else(|| "Unknown".into()));
+        let ma = dbus::i(p, "CurrentMa");
+        let mv = dbus::u(p, "VoltageMv");
+        set_text(&self.bat_cur, &match ma {
+            Some(0) => "0 mA".into(),
+            Some(c) => {
+                let dir = if c > 0 { "charging" } else { "discharging" };
+                let a = c.unsigned_abs();
+                if a >= 1000 { format!("{:.1} A {dir}", a as f64 / 1000.0) } else { format!("{a} mA {dir}") }
+            }
+            None => "Unknown".into(),
+        });
+        set_text(&self.bat_power, &match (ma, mv) {
+            (Some(c), Some(v)) => format!("{:.1} W", (c as f64 * v as f64 / 1e6).abs()),
+            _ => "Unknown".into(),
+        });
+        set_text(&self.bat_volt, &mv.map(|v| format!("{:.2} V", v as f64 / 1000.0)).unwrap_or_else(|| "Unknown".into()));
+        set_text(&self.bat_temp, &degrees(dbus::f(p, "TemperatureC")));
+        set_text(&self.bat_health, &dbus::s(p, "Health").map(|h| capitalize(&h)).unwrap_or_else(|| "Unknown".into()));
+        // unknown values (-1) hide their row instead of saying "unknown"
+        for (l, v, unit) in [(&self.bat_cycles, dbus::i(p, "CycleCount"), ""), (&self.bat_design, dbus::i(p, "DesignCapacityMah"), " mAh")] {
+            let known = v.is_some_and(|x| x >= 0);
+            if let Some(r) = row_of(l) {
+                r.set_visible(known);
+            }
+            if let Some(x) = v.filter(|x| *x >= 0) {
+                set_text(l, &format!("{x}{unit}"));
+            }
+        }
         let ty = dbus::s(p, "ChargerType").unwrap_or_default();
         let contract = dbus::s(p, "ChargerContract").unwrap_or_default();
-        set_text(
-            &self.bat_charger,
-            if contract.is_empty() && ty.is_empty() { "not connected" } else if contract.is_empty() { ty.as_str() } else { contract.as_str() },
-        );
+        let none = |s: &str| s.is_empty() || s == "none";
+        set_text(&self.bat_charger, if none(&contract) && none(&ty) {
+            "Not Connected"
+        } else if none(&contract) || contract == "unknown" {
+            ty.as_str()
+        } else {
+            contract.as_str()
+        });
+    }
+
+    /// Show only the rows that apply to the current policy and timing.
+    fn sync_refresh_rows(&self) {
+        let pol = self.ref_policy.selected();
+        self.ref_rate.set_visible(pol == 2);
+        self.ref_timing.set_visible(pol == 1);
+        let custom = pol == 1 && self.ref_timing.selected() as usize == TIMINGS.len();
+        self.ref_s60.set_visible(custom);
+        self.ref_s30.set_visible(custom);
     }
 
     fn update_refresh(&self, p: &Props) {
-        set_combo(&self.ref_policy, &REFRESH_PROFILES, dbus::s(p, "Policy"));
-        set_spin(&self.ref_rate, dbus::u(p, "Rate"));
-        set_spin(&self.ref_ms60, dbus::u(p, "IdleMs60"));
-        set_spin(&self.ref_ms30, dbus::u(p, "IdleMs30"));
-        set_text(&self.ref_min, &dbus::u(p, "MinHz").map(|h| format!("{h} Hz")).unwrap_or_else(|| "unknown".into()));
-        set_text(
-            &self.ref_input,
-            match dbus::b(p, "InputWakes") {
-                Some(true) => "yes",
-                Some(false) => "no",
-                None => "unknown",
-            },
-        );
-        set_text(&self.ref_live, &dbus::u(p, "LiveRate").map(|h| format!("{h} Hz")).unwrap_or_else(|| "unknown".into()));
-        self.ref_rate.set_sensitive(self.ref_policy.selected() == 2);
+        set_combo(&self.ref_policy, &REFRESH_POLICIES, dbus::s(p, "Policy"));
+        let live = dbus::u(p, "LiveRate").map(|h| format!("Now {h} Hz")).unwrap_or_default();
+        if self.ref_policy.subtitle().as_deref().unwrap_or("") != live {
+            self.ref_policy.set_subtitle(&live);
+        }
+        set_spin(&self.ref_rate, dbus::u(p, "Rate").map(f64::from));
+        let (a, b) = (dbus::u(p, "IdleMs60"), dbus::u(p, "IdleMs30"));
+        let preset = TIMINGS.iter().position(|t| Some(t.2) == a && Some(t.3) == b);
+        let sel = if self.ref_custom.get() { None } else { preset };
+        let want = sel.unwrap_or(TIMINGS.len()) as u32;
+        if self.ref_timing.selected() != want {
+            self.ref_timing.set_selected(want);
+        }
+        // bounds first, so 30's lower bound follows 60
+        set_spin(&self.ref_s60, a.map(|v| v as f64 / 1000.0));
+        set_spin(&self.ref_s30, b.map(|v| v as f64 / 1000.0));
+        set_text(&self.ref_min, &dbus::u(p, "MinHz").map(|h| format!("{h} Hz")).unwrap_or_else(|| "Unknown".into()));
+        set_text(&self.ref_input, yes_no(dbus::b(p, "InputWakes")));
+        self.sync_refresh_rows();
     }
 
     fn update_gpu(&self, p: &Props) {
         set_combo(&self.gpu_profile, &GPU_PROFILES, dbus::s(p, "Profile"));
-        set_switch(&self.gpu_follow, dbus::b(p, "FollowPowerProfiles"));
-        self.gpu_profile.set_sensitive(!self.gpu_follow.is_active());
+        let follow = dbus::b(p, "FollowPowerProfiles");
+        set_switch(&self.gpu_follow, follow);
+        let following = follow == Some(true);
+        self.gpu_profile.set_sensitive(!following);
+        let sub = if following { "Set by the power mode" } else { "" };
+        if self.gpu_profile.subtitle().as_deref().unwrap_or("") != sub {
+            self.gpu_profile.set_subtitle(sub);
+        }
         let floors = dbus::dict_suu(p, "Floors");
-        for (name, lo, hi) in &self.gpu_limits {
+        // only when the daemon's values change: never undo an edit before Apply
+        if *self.gpu_seen.borrow() == floors {
+            return;
+        }
+        for (name, exp, lo, hi) in &self.gpu_limits {
             if let Some((_, a, b)) = floors.iter().find(|(n, _, _)| n == name) {
-                set_spin(lo, Some(*a));
-                set_spin(hi, Some(*b));
+                exp.set_subtitle(&format!("{a}–{b} MHz"));
+                lo.adjustment().set_upper(2000.0);
+                hi.adjustment().set_lower(100.0);
+                hi.set_value(*b as f64);
+                lo.set_value(*a as f64);
             }
+        }
+        *self.gpu_seen.borrow_mut() = floors;
+    }
+
+    fn update_thermal(&self, p: &Props) {
+        set_text(&self.th_surface, &degrees(dbus::f(p, "Surface")));
+        set_text(&self.th_cpu, &degrees(dbus::f(p, "CpuMax")));
+        set_text(&self.th_gpu, &degrees(dbus::f(p, "GpuMax")));
+        let thr = dbus::b(p, "Throttling");
+        set_text(&self.th_throttle, yes_no(thr));
+        set_class(&self.th_throttle, "warning", thr == Some(true));
+        let zones = dbus::dict_sd(p, "Zones");
+        let same = {
+            let rows = self.th_rows.borrow();
+            rows.len() == zones.len() && rows.iter().zip(&zones).all(|(r, z)| r.0 == z.0)
+        };
+        if !same {
+            for (_, r, _) in self.th_rows.borrow_mut().drain(..) {
+                self.th_all.remove(&r);
+            }
+            for (z, _) in &zones {
+                let row = adw::ActionRow::builder().title(zone_label(z)).build();
+                let l = gtk::Label::new(None);
+                l.add_css_class("dim-label");
+                l.set_valign(gtk::Align::Center);
+                row.add_suffix(&l);
+                self.th_all.add_row(&row);
+                self.th_rows.borrow_mut().push((z.clone(), row, l));
+            }
+        }
+        for ((_, _, l), (_, v)) in self.th_rows.borrow().iter().zip(&zones) {
+            set_text(l, &degrees(Some(*v)));
         }
     }
 
     fn update_about(&self, p: &Props) {
-        set_text(&self.ab_version, &dbus::s(p, "Version").unwrap_or_else(|| "unknown".into()));
-        set_text(&self.ab_kernel, &dbus::s(p, "Kernel").unwrap_or_else(|| "unknown".into()));
-        set_text(&self.ab_series, &dbus::s(p, "SeriesTag").filter(|s| !s.is_empty()).unwrap_or_else(|| "unknown".into()));
-        set_text(&self.ab_features, &dbus::strs(p, "Features").join(", "));
+        set_text(&self.ab_version, &dbus::s(p, "Version").unwrap_or_else(|| "Unknown".into()));
+        let kernel = dbus::s(p, "Kernel").unwrap_or_else(|| "unknown".into());
+        let release = kernel_release(&kernel);
+        self.ab_kernel.set(&release, &kernel);
+        let series = dbus::s(p, "SeriesTag").filter(|s| !s.is_empty() && s != "unknown").unwrap_or_else(|| "Unknown".into());
+        self.ab_series.set(&series, &series);
+        let feats = dbus::strs(p, "Features");
+        self.ab_features.set(&format!("{} of {KNOWN_FEATURES} available", feats.len()), &feats.join(", "));
         let fw = dbus::dict_ss(p, "Firmware");
-        if *self.ab_fw_last.borrow() != fw {
-            for r in self.ab_fw_rows.borrow_mut().drain(..) {
-                self.ab_fw.remove(&r);
-            }
-            let bad = fw.iter().filter(|(_, st)| st != "ok").count();
-            self.ab_fw.set_subtitle(&if fw.is_empty() {
-                "no manifest".to_string()
-            } else if bad == 0 {
-                format!("{} files, all match", fw.len())
-            } else {
-                format!("{} files, {bad} differ or are missing", fw.len())
-            });
-            for (file, st) in &fw {
-                let row = adw::ActionRow::builder().title(file.as_str()).subtitle(st.as_str()).build();
-                // file paths wrap (0 = unlimited lines) rather than widen the page
-                row.set_title_lines(0);
-                row.set_subtitle_lines(0);
-                self.ab_fw.add_row(&row);
-                self.ab_fw_rows.borrow_mut().push(row);
-            }
-            *self.ab_fw_last.borrow_mut() = fw;
+        let bad = fw.iter().filter(|(_, st)| st != "ok").count();
+        let fw_summary = if fw.is_empty() {
+            "No manifest installed".to_string()
+        } else if bad == 0 {
+            format!("{} files, all match", fw.len())
+        } else {
+            format!("{} files, {bad} differ or are missing", fw.len())
+        };
+        *self.about_debug.borrow_mut() = format!(
+            "Kernel: {kernel}\nPatch series: {series}\nHelper: {}\nApp: {}\nFeatures: {}\nFirmware: {fw_summary}\n{}",
+            dbus::s(p, "Version").unwrap_or_default(),
+            env!("CARGO_PKG_VERSION"),
+            feats.join(" "),
+            fw.iter().filter(|(_, st)| st != "ok").map(|(f, st)| format!("  {f}: {st}\n")).collect::<String>()
+        );
+        if self.ab_fw_last.borrow().as_ref() == Some(&fw) {
+            return;
         }
+        for r in self.ab_fw_rows.borrow_mut().drain(..) {
+            self.ab_fw.remove(&r);
+        }
+        self.ab_fw.set_subtitle(&fw_summary);
+        self.ab_fw.set_enable_expansion(!fw.is_empty());
+        // problems first, then by path
+        let mut sorted = fw.clone();
+        sorted.sort_by_key(|(f, st)| (st == "ok", f.clone()));
+        for (file, st) in &sorted {
+            let path = std::path::Path::new(file.as_str());
+            let base = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or(file.clone());
+            let dir = path.parent().map(|d| d.to_string_lossy().into_owned()).unwrap_or_default();
+            let row = adw::ActionRow::builder().title(base.as_str()).subtitle(dir.as_str()).build();
+            row.set_title_lines(1);
+            row.set_subtitle_lines(1);
+            row.set_tooltip_text(Some(&format!("{file}: {st}")));
+            let (icon, class) = if st == "ok" { ("object-select-symbolic", "success") } else { ("dialog-warning-symbolic", "warning") };
+            let img = gtk::Image::from_icon_name(icon);
+            img.add_css_class(class);
+            img.update_property(&[gtk::accessible::Property::Label(&capitalize(st))]);
+            row.add_suffix(&img);
+            self.ab_fw.add_row(&row);
+            self.ab_fw_rows.borrow_mut().push(row);
+        }
+        *self.ab_fw_last.borrow_mut() = Some(fw);
     }
 }
 
-const USAGE: &str = "usage: tb323fu-settings [--help] [--version]
+const USAGE: &str = "usage: tb323fu-settings [--help] [--version] [--page NAME]
+
+  --page NAME   open on this page (battery, display, performance, lights, usb,
+                emergency-key, systems, android, diagnostics, about)
 
 GTK4/libadwaita settings for the Lenovo Legion Tab Gen 5 (TB323FU).
 Needs the tb323fu-helperd service on the system bus.";
@@ -1025,13 +1522,45 @@ fn main() -> glib::ExitCode {
         println!("tb323fu-settings {}", env!("CARGO_PKG_VERSION"));
         return glib::ExitCode::SUCCESS;
     }
+    const PAGE_NAMES: [&str; 10] = ["battery", "display", "performance", "lights", "usb", "emergency-key", "systems", "android", "diagnostics", "about"];
+    let page = args.iter().position(|a| a == "--page").and_then(|i| args.get(i + 1)).map(|n| n.to_lowercase());
+    let page = match page {
+        Some(n) => match PAGE_NAMES.iter().position(|p| *p == n) {
+            Some(i) => Some(i),
+            None => {
+                eprintln!("{USAGE}");
+                return glib::ExitCode::FAILURE;
+            }
+        },
+        None => None,
+    };
     let app = adw::Application::builder().application_id(APP_ID).build();
-    app.connect_activate(|app| {
+    app.connect_startup(|app| {
+        let css = gtk::CssProvider::new();
+        css.load_from_string(CSS);
+        if let Some(d) = gtk::gdk::Display::default() {
+            gtk::style_context_add_provider_for_display(&d, &css, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
+        }
+        let quit = gio::ActionEntry::builder("quit").activate(|app: &adw::Application, _, _| app.quit()).build();
+        app.add_action_entries([quit]);
+        app.set_accels_for_action("app.quit", &["<Ctrl>q"]);
+        app.set_accels_for_action("window.close", &["<Ctrl>w"]);
+    });
+    app.connect_activate(move |app| {
         if let Some(w) = app.active_window() {
             w.present();
             return;
         }
         let ui = Ui::new(app);
+        ui.selected.set(page);
+        let about = gio::SimpleAction::new("about", None);
+        let u = ui.clone();
+        about.connect_activate(move |_, _| u.about());
+        app.add_action(&about);
+        let sc = gio::SimpleAction::new("shortcuts", None);
+        let u = ui.clone();
+        sc.connect_activate(move |_, _| u.shortcuts());
+        app.add_action(&sc);
         ui.refresh();
         let ui2 = ui.clone();
         glib::timeout_add_seconds_local(2, move || {
@@ -1039,6 +1568,17 @@ fn main() -> glib::ExitCode {
             glib::ControlFlow::Continue
         });
         ui.window.present();
+        // the first focus selects the focused sidebar row, and the collapse
+        // breakpoint applies after the first frames: put both on the page we
+        // opened on once the window is up
+        let ui3 = ui.clone();
+        glib::timeout_add_local_once(Duration::from_millis(300), move || {
+            if let Some(p) = page.and_then(|i| ui3.pages.get(i)).filter(|p| p.row.is_visible()) {
+                p.row.grab_focus();
+                ui3.sidebar.select_row(Some(&p.row));
+                ui3.split.set_show_content(true);
+            }
+        });
     });
     app.run_with_args::<&str>(&[])
 }

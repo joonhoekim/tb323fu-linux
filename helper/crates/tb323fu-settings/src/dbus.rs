@@ -42,24 +42,69 @@ impl Client {
         reply.body().deserialize().ok()
     }
 
-    /// Call a method; Ok(Some(text)) when the method returns a string.
+    /// Call a method; Ok(Some(text)) when the method returns a string. Errors
+    /// come back as short text for a person (no D-Bus error names).
     pub fn call<B>(&self, obj: &str, method: &str, body: &B) -> Result<Option<String>, String>
     where
         B: serde::ser::Serialize + zbus::zvariant::DynamicType,
     {
-        let c = self.conn.as_ref().ok_or_else(|| "helper service not reachable".to_string())?;
+        let c = self.conn.as_ref().ok_or_else(|| NOT_RUNNING.to_string())?;
         match c.call_method(Some(BUS), path(obj).as_str(), Some(iface(obj).as_str()), method, body) {
             Ok(reply) => Ok(reply.body().deserialize::<String>().ok()),
-            Err(zbus::Error::MethodError(name, msg, _)) => {
-                let n = name.as_str();
-                let short = n.rsplit('.').next().unwrap_or(n);
-                Err(match msg {
-                    Some(m) if !m.is_empty() => format!("{short}: {m}"),
-                    _ => short.to_string(),
-                })
-            }
+            Err(zbus::Error::MethodError(name, msg, _)) => Err(human_error(name.as_str(), msg.as_deref())),
+            Err(zbus::Error::InputOutput(_)) => Err(NOT_RUNNING.to_string()),
             Err(e) => Err(e.to_string()),
         }
+    }
+}
+
+const NOT_RUNNING: &str = "The helper service is not running";
+
+/// D-Bus error name + message -> text for a toast.
+pub fn human_error(name: &str, msg: Option<&str>) -> String {
+    let short = name.rsplit('.').next().unwrap_or(name);
+    match short {
+        "AccessDenied" | "AuthFailed" | "InteractiveAuthorizationRequired" => "Authentication was cancelled or denied".into(),
+        "ServiceUnknown" | "NoReply" | "NameHasNoOwner" | "UnknownObject" | "Disconnected" => NOT_RUNNING.into(),
+        _ => match msg {
+            Some(m) if !m.is_empty() => {
+                let mut c = m.chars();
+                c.next().map(|f| f.to_uppercase().chain(c).collect()).unwrap_or_default()
+            }
+            _ => "Something went wrong".into(),
+        },
+    }
+}
+
+/// The setting a method changes, for error toasts.
+pub fn setting_name(method: &str) -> &'static str {
+    match method {
+        "SetChargeLimit" => "Charge limit",
+        "SetBypass" => "Bypass charging",
+        "SetPolicy" => "Refresh rate",
+        "SetRate" => "Fixed rate",
+        "SetIdle" | "ApplyPreset" => "Refresh timing",
+        "SetProfile" => "GPU profile",
+        "SetFollowPowerProfiles" => "Follow power mode",
+        "SetLimits" => "GPU limits",
+        "Set" => "Torch",
+        "SetLevel" => "Torch brightness",
+        "SetMode" => "Charge indicator",
+        "SetBrightness" => "LED ring brightness",
+        "SetLowPercent" => "Low battery colour",
+        "SetWake" => "USB wake",
+        "SetDevMode" => "Developer mode",
+        "SetEnabled" => "Emergency key",
+        "SetHoldSeconds" => "Hold time",
+        "SetRequireAuth" => "Android authentication",
+        "SwitchToAndroid" => "Restart into Android",
+        "SetNext" => "Next restart",
+        "ClearNext" => "Next restart",
+        "SetDefault" => "Default system",
+        "RebootInto" => "Restart",
+        "Rescan" => "Rescan",
+        "Export" => "Export",
+        _ => "Settings",
     }
 }
 
@@ -159,6 +204,41 @@ pub fn dict_suu(p: &Props, k: &str) -> Vec<(String, u32, u32)> {
         }
     }
     out.sort();
+    out
+}
+
+/// a{sd} as sorted pairs (NaN values kept).
+pub fn dict_sd(p: &Props, k: &str) -> Vec<(String, f64)> {
+    let mut out = Vec::new();
+    if let Some(Value::Dict(d)) = val(p, k) {
+        for (kk, vv) in d.iter() {
+            let v = match vv {
+                Value::Value(b) => &**b,
+                o => o,
+            };
+            if let (Some(a), Value::F64(x)) = (str_of(kk), v) {
+                out.push((a, *x));
+            }
+        }
+    }
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
+}
+
+/// a{sas}: key -> list of strings.
+pub fn dict_sas(p: &Props, k: &str) -> HashMap<String, Vec<String>> {
+    let mut out = HashMap::new();
+    if let Some(Value::Dict(d)) = val(p, k) {
+        for (kk, vv) in d.iter() {
+            let v = match vv {
+                Value::Value(b) => &**b,
+                o => o,
+            };
+            if let (Some(a), Value::Array(arr)) = (str_of(kk), v) {
+                out.insert(a, arr.iter().filter_map(str_of).collect());
+            }
+        }
+    }
     out
 }
 
