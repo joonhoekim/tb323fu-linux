@@ -1,7 +1,7 @@
 # Switching between Android and Linux
 
-> **Work in progress.** The full installation procedure (rooting, partitioning, the Linux root filesystem) is not documented yet.
-> This directory only describes the switching mechanism.
+This directory describes the switching mechanism. Rooting, setting it up and recovery are in
+[docs/rooting.md](../docs/rooting.md) and [docs/recovery.md](../docs/recovery.md).
 
 Android stays installed. Linux boots from the same `boot` partition slot Android uses, and each side can hand the tablet back to the other
 without a PC.
@@ -25,7 +25,8 @@ Which image the Action button writes: the Linux image that ran last (saved by `b
 the Linux root partition, GPT name `baldur-root`, mounted read-only from Android), else a staged fallback in `/data/adb/tb323fu/linux.img`.
 If the written `boot_a` does not verify, it copies Android back from `boot_b` before giving up.
 
-If both directions fail, the tablet can still be recovered with Qualcomm EDL and a full backup — make one before trying any of this.
+If both directions fail, the tablet can still be recovered with Qualcomm EDL and a full backup — make one before trying any of this
+([recovery](../docs/recovery.md)).
 
 ## Files
 
@@ -35,12 +36,9 @@ If both directions fail, the tablet can still be recovered with Qualcomm EDL and
 | `install-module.sh` | PC helper: `prepare-boot-b` (copy the running Android boot image into `boot_b` once), `install` (build the module with the hash of `boot_b` and install it), `stage IMG`, `status` |
 | `back-to-android` | the Linux-side script (busybox sh) |
 
-## Setting it up (outline)
+## Setting it up
 
-1. In rooted Android (KernelSU), with USB debugging: `android/install-module.sh prepare-boot-b` — copies the Android kernel you are
-   running into `boot_b` after asking for confirmation.
-2. `android/install-module.sh install` — refuses unless `boot_a` and `boot_b` are identical, records that hash in the module, installs it.
-   Note the printed hash: the Linux side needs it (`back-to-android <hash>`, the emergency key service, `tools/cycle.sh`).
-3. `android/install-module.sh stage linux-boot.img` — the fallback image for the Action button.
+`prepare-boot-b`, then `install` (note the printed hash — the Linux side needs it), then `stage linux-boot.img`.
+The full steps are in [docs/rooting.md](../docs/rooting.md#set-up-the-way-back).
 
 Nothing here contains device-specific data; the Android image hash is computed from your own `boot_b`.

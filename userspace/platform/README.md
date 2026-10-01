@@ -9,8 +9,8 @@ See [docs/helper.md](../../docs/helper.md) for the layer model.
 Install with [`install.sh`](install.sh) (`DESTDIR`, `PREFIX`, `SYSCONFDIR`, `CC`, `OPTIONAL`; no package manager
 calls), then enable the services it prints. Distribution recipes can call it or copy the same files.
 
-> Work in progress: these files come from the development image (Debian 13) and were re-packaged for this
-> repository; the renamed set has not been booted as a whole yet.
+These files come from the development image (Debian 13). The Fedora and SteamOS builders in `rootfs/` install
+them with `install.sh`; the Debian, Arch and Nix packages in `packaging/` carry the same files.
 
 ## Files
 
@@ -105,4 +105,4 @@ systemctl --global enable tb323fu-speaker-gain
 ## Conflicts
 
 - **`bootmac` (qcom-phone-utils)**: its `bootmac-bluetooth.service` generates a random Bluetooth address and brings the controller up through the legacy `hciconfig` path, which hides it from the management interface; `tb323fu-btaddr` then cannot set the real address and Bluetooth ends up with a random address or unusable. Mask it: `systemctl mask bootmac-bluetooth.service`.
-- **`rmtfs.service` (Debian/Ubuntu `rmtfs` package)**: runs `rmtfs -r -P -s`, and `-s` starts the modem. The tablet has no GNSS antenna and no cellular, so the modem has no use. Started at boot it crashed about a minute later (its watchdog; the cause is not known yet — the OEM image was present), and a modem crash currently resets the whole SoC. Mask `rmtfs` and `tqftpserv` (`systemctl mask`), so no other unit pulls them in.
+- **`rmtfs.service` (Debian/Ubuntu `rmtfs` package)**: runs `rmtfs -r -P -s`, and `-s` starts the modem. The tablet has no GNSS antenna and no cellular, so the modem has no use, and a modem crash currently resets the whole SoC. Mask `rmtfs` and `tqftpserv` (`systemctl mask`), so no other unit pulls them in.

@@ -1,6 +1,7 @@
 # Firmware
 
-> **Work in progress.** The installation procedure is not documented yet; this directory only describes how the firmware is obtained.
+This directory describes how the firmware is obtained. Rooting Android (needed for the extraction) is in
+[docs/rooting.md](../docs/rooting.md); what a root filesystem needs besides firmware is in [docs/distros.md](../docs/distros.md#what-every-root-needs).
 
 **No firmware files are stored in this repository.** The DSPs, GPU, video codec, Wi-Fi, Bluetooth, touch controller and speaker
 amplifiers need Lenovo/Qualcomm binaries that may not be redistributed. Every one of them is already on your tablet, in Android's

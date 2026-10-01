@@ -1,6 +1,6 @@
 # Tools
 
-> **Work in progress.** These are the scripts used while porting; the installation procedure is not documented yet.
+The scripts used while porting. There is no installer yet; the manual setup is in [docs/rooting.md](../docs/rooting.md).
 
 Every script starts with its usage. Hosts are never hard-coded except the tablet's USB network default: the root filesystem sets up a
 USB network gadget in which the tablet is **192.168.7.2** and the PC is 192.168.7.1. Set `TB323FU_HOST` to use another address
@@ -28,5 +28,5 @@ USB network gadget in which the tablet is **192.168.7.2** and the PC is 192.168.
 
 ## Safety notes
 
-- Writing `boot_a` is only safe when the way back exists: the stock Android boot image in `boot_b` (see `android/README.md`).
+- Writing `boot_a` is only safe when the way back exists: the stock Android boot image in `boot_b` (see [android/README.md](../android/README.md)).
 - Do not `rmmod qcom_iris` on kernels without the iris remove-path fix: it can deadlock and reboot the tablet.
