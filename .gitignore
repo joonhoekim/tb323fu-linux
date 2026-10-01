@@ -10,3 +10,10 @@ firmware/staged/
 *.cpio.gz
 out/
 .claude/
+# website (site/): dependencies, build output, doc images copied at build time
+site/node_modules/
+site/.next/
+site/out/
+site/public/_repo/
+site/next-env.d.ts
+site/*.tsbuildinfo
