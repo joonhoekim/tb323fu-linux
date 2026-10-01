@@ -52,8 +52,8 @@ Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 |---|:-:|---|---|
 | Touchscreen | ✅ | measured + observed | occasional firmware-reset message after resume. SteamOS Gaming Mode rotates only the picture, so the builder adds a touch calibration matrix |
 | Pen (AES) | ❓ | probe only | no pen available for testing |
-| Speakers (2 × Awinic aw882xx) | ✅ | measured + observed | both amplifiers start on every distribution listed in distros.md; protection is a PipeWire filter, not Android's DSP protection |
-| Microphones | ✅ | measured + observed | |
+| Speakers (2 × Awinic aw882xx) | ✅ | measured + observed | left/right heard clean on the current kernel; both amplifiers start on every distribution listed in distros.md; protection is a PipeWire filter, not Android's DSP protection |
+| Microphones | ✅ | measured | on the current kernel the internal microphone records speaker playback (noise floor −62 dBFS, playback peaks −26 dBFS) |
 | USB-C analog audio (headset adapter) | — | probe only | no audio route yet |
 | Rear camera (Samsung S5KJNS) | ✅ | measured + observed | 1080p via libcamera; auto-exposure is imprecise |
 | Front camera (GalaxyCore GC08A8) | ✅ | measured + observed | |
@@ -64,7 +64,7 @@ Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 | RGB ring light | ✅ | observed | |
 | Haptics (2 motors) | ✅ | observed | |
 | Volume and power keys | ✅ | observed | power key suspends and resumes (seen in SteamOS) |
-| Emergency key (volume up + down, 10 s → back to Android) | ✅ | user-reported | each key's events observed |
+| Emergency key (volume up + down, 10 s → back to Android) | ✅ | measured + observed | held by hand on the current kernel: Android restore starts exactly 10 s after the keys are detected and Android boots (1/1); switching back to Linux from Android works |
 
 ## Wireless, sensors, power
 
@@ -77,15 +77,15 @@ Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 | Accelerometer / auto-rotate | ✅ | measured + observed | via the sensor hub (SSC) |
 | Ambient light / auto-brightness | ✅ | measured + observed | |
 | Proximity | ✅ | measured | |
-| Compass | ✅ | user-reported | |
+| Compass | 🟡 | measured + observed | relative rotation is right (about 90° per quarter turn); absolute heading is about 30° off compared with a phone. Android's own map apps are 90–180° off on this device too, so the sensor is not calibrated even on the stock OS — not a Linux regression. GNOME's sensor proxy only lets authorised clients read it |
 | Gyroscope, SAR | — | untested | behind the sensor hub, not wired to iio-sensor-proxy |
 | Hall sensor (cover) | ❓ | measured | needs the original folio case |
 | GNSS / GPS | ❌ | measured | the modem, location service and a location session run, but no satellites are ever seen; Android on the same device gets no GPS fix either — most likely no antenna (Lenovo's spec sheet lists GPS) |
 | Modem (MPSS) | 🟡 | measured | boots and stays up when rmtfs and tqftpserv start before it; if its initialisation stalls, the SoC firmware resets the whole tablet and Linux cannot contain it. Kept off (rmtfs and tqftpserv masked): no cellular, no usable GNSS |
 | Thermal throttling | ✅ | measured | CPU (95 °C) and GPU (105 °C) chip limits, plus board-temperature steps from 43 °C following Android's policy; checked under a 10-minute full load |
-| Battery readings | ✅ | measured | |
-| USB PD charging, PPS | ✅ | measured | about 41 W measured on PPS |
-| Charge limit, bypass charging | ✅ | measured + observed | |
+| Battery readings | ✅ | measured | while bypass charging, `status` still reads "Charging" (display only) |
+| USB PD charging, PPS | ✅ | measured | about 40 W into the battery on PPS with a 65 W charger (about 9.25 V in), same as before on the current kernel. The USB-C controller reports the negotiated voltage and current as 0 |
+| Charge limit, bypass charging | ✅ | measured + observed | bypass cuts the battery current (9 A → 185 mA) and it comes back when turned off; the state shown stays "Charging" during bypass |
 | Suspend (s2idle) and resume | 🟡 | measured | works; a rare crash without an error message (also seen outside suspend, when idle or under load) is still under investigation |
 | Deep sleep (CX / DDR power collapse) | ✅ | measured | |
 | Wake sources | ✅ | measured | power key, RTC; USB wake off by default |
@@ -97,7 +97,7 @@ Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 | USB host (SuperSpeed+, hubs) | ✅ | measured | the second port is USB 2.0 only |
 | USB low-speed devices | ❌ | measured | enumeration fails |
 | USB gadget (network, serial) | ✅ | measured | |
-| DisplayPort alt mode | ✅ | measured + observed | 2 lanes HBR2, up to 3840×2160 at 30 Hz |
+| DisplayPort alt mode | ✅ | measured + observed | 2 lanes HBR2, up to 3840×2160 at 30 Hz. On the current kernel: TV via a USB-C to HDMI adapter as an extended desktop at 4K 30, no flicker on either screen while the internal panel idles down to 30 Hz, unplug/replug 3/3 restored. The adapter's own low-speed USB device fails to enumerate (harmless) |
 | DisplayPort MST (daisy chain / "extend" on MST hubs) | ❌ | measured | waiting for upstream MST support |
 | UFS storage | ✅ | measured | |
 | microSD | ✅ | measured | UHS-I SDR104; also used for the multiboot roots |
@@ -115,6 +115,8 @@ Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 - **165 Hz / 144 Hz**: the vendor timings underrun the display controller. 164 Hz (120 Hz horizontal timing) is offered instead; 144 Hz needs a different timing.
 - **No DisplayPort MST** yet: monitors that need MST for "extend" only mirror.
 - **GNSS**: no satellites on Linux, and no GPS fix on Android either — treated as not usable on this device.
+- **Compass**: only relative rotation can be trusted; the absolute heading is off on Android as well.
+- **Bypass charging** works, but the battery state still reads "Charging" while it is on.
 - **Modem**: a stalled modem start resets the whole SoC, so rmtfs and tqftpserv stay masked on every root (see [distros.md](distros.md)).
 - **Low-speed USB devices** (some keyboards, adapters) fail to enumerate.
 - **SteamOS's systemd 257.7** can hang a shutdown when the USB serial console is connected to a PC that is not reading it (the tty reset waits for output to drain, the watchdog then resets the tablet); the SteamOS builder turns off the tty reset on that console. Fixed in systemd 257.8 and later; the other distributions are not affected.
@@ -127,17 +129,12 @@ In rough order of value. Rows above marked user-reported, ❓ or 🟡, and rows 
 
 | What | How it will be settled | Needs a person |
 |---|---|---|
-| Emergency key | hold volume up + down for 10 s with key events logged, confirm Android boots, switch back | hands |
 | Camera with the screen off | stream both cameras with the display off, count frames and errors | no (scripted) |
-| Compass | log readings while turning the tablet to the four directions, compare with a phone | hands |
-| Speakers and microphones on the current kernel | left/right listening test; record speaker playback with the microphones and measure the level | ears (speakers) |
 | Suspend on the current kernel | 20 RTC suspend cycles, sensors and video decode checked after each resume | no (scripted) |
 | Wi-Fi 2.4 GHz soak on the current kernel, PCIe link width | 30-minute traffic soak, link status on each distribution | no (scripted) |
-| DisplayPort on the current kernel | plug, picture at 4K 30, unplug/replug three times, internal panel idle refresh while connected | hands, eyes |
 | 164 Hz in long sessions, SteamOS orientation and UI size, touch on Fedora and NixOS | 10+ minutes in Gaming Mode with underrun counters; first taps on each desktop | eyes, hands |
 | Bluetooth HFP | headset call profile, microphone loopback | ears, voice |
 | AV1 in applications | newer GStreamer / FFmpeg on Arch, Fedora or NixOS, compared bit-exact with a software decoder | no (scripted) |
-| Charging on the current kernel | PPS contract and current, bypass state shown correctly | hands (charger) |
 | 144 Hz | another vertical-porch variant, underruns and touch | eyes, hands |
 | From the spec sheet | battery design capacity, OpenCL, heavy Vulkan, full-resolution (50 MP) rear capture, touch report rate (up to 480 Hz), HBM (800 nit) and HDR, 8K and film-grain video | mostly no; touch rate needs a finger |
 | Flash strobe | trigger the strobe control and watch | eyes |
@@ -158,7 +155,7 @@ Sources: Lenovo PSREF "Legion Tab (8.8", 5)" and datasheet, Qualcomm Snapdragon 
 | Audio | 2 speakers, 2 microphones | ✅ |
 | Cameras | 50 MP rear with AF and flash, 8 MP front | ✅ at 1080p; AF manual only; full resolution untested |
 | Sensors | accelerometer + gyro, hall, proximity + light, compass, GPS | accelerometer, light, proximity, compass ✅; gyro not wired; GPS ❌ |
-| Charging | 68 W PD 3.0 / PPS, bypass charging | about 41 W on PPS ✅, bypass ✅ |
+| Charging | 68 W PD 3.0 / PPS, bypass charging | about 40 W on PPS ✅, bypass ✅ |
 | USB | USB-C 10 Gbps + DP, second port USB 2.0 | ✅ |
 | Storage | UFS 4.1, microSD up to 2 TB | ✅ |
 | Wi-Fi / Bluetooth | Wi-Fi 7, Bluetooth 6.0 | Wi-Fi ✅ (2.4 / 5 GHz; 6 GHz untested), BT ✅ (HFP and LE Audio untested) |
