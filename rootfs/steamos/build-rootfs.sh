@@ -326,6 +326,11 @@ if [ "$DEV_ACCESS" = 1 ]; then
 		> "$T/etc/systemd/network/50-usb0.network"
 	printf '[Service]\nExecStart=\nExecStart=-/usr/bin/agetty --autologin root --keep-baud 115200,57600,38400,9600 - $TERM\nTimeoutStopSec=5\n' \
 		> "$T/etc/systemd/system/serial-getty@ttyGS0.service.d/autologin.conf"
+	# SteamOS ships systemd 257.7: when a unit with TTYReset=yes stops, PID 1 itself asks the terminal
+	# for its size (ANSI DSR) after tcsetattr(TCSADRAIN), which waits until the output drains. If the PC
+	# is not reading the gadget's serial port nothing drains, PID 1 stops feeding the watchdog, and the
+	# reboot ends in a pretimeout panic (y705 plan 9-104, 2026-10-01). systemd 257.8 uses TCSANOW.
+	printf '[Service]\nTTYReset=no\n' > "$T/etc/systemd/system/serial-getty@ttyGS0.service.d/tty-no-reset.conf"
 	echo "PermitRootLogin yes" > "$T/etc/ssh/sshd_config.d/10-tb323fu-dev.conf"
 	if [ -n "$DEV_SSH_KEYS" ] && [ -f "$DEV_SSH_KEYS" ]; then
 		install -d -m 700 "$T/root/.ssh"; install -m 600 "$DEV_SSH_KEYS" "$T/root/.ssh/authorized_keys"
