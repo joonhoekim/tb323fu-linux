@@ -14,20 +14,15 @@ The kernel does not depend on a distribution. These are the systems that have be
 | NixOS 26.11 (unstable) | `tb323fu-nixos` | `rootfs/nixos` + `flake.nix` | 11.2 s | stage 2 straight from our initramfs, GNOME autologin, Wi-Fi, speakers, sensors, helper |
 | SteamOS (arm64, community handheld port⁵) | `tb323fu-spare` | `rootfs/steamos` | 14.1 s | Gaming Mode (landscape, seen on the panel; touch lands where tapped after a calibration matrix), Wi-Fi, speakers (protection filter), helper; Desktop Mode (KDE) starts and switches back |
 
-¹ `systemd-analyze` "Startup finished" (kernel + userspace), with automatic login.
-² graphical.target; "Startup finished" is 15 s while first-boot timer jobs (plocate, fstrim) still run. iSCSI and plymouth are masked (see the builder).
-³ Needs the netfilter set in [kernel/config/baldur-netfilter.fragment](../kernel/config/) (in the kernel since t26).
-⁴ Steam's own client, run with `FEXBash -c "~/steam-launcher/steam -no-cef-sandbox"`; games not tried yet.
-⁵ [SteamOS ARM for handhelds](https://github.com/hashtagbasit/SteamOS-ARM-Handhelds) v1.3-odin3-beta1 (SM8750 image, Valve's Steam Frame
-userspace and native arm64 Steam client; unofficial, not affiliated with Valve): its root and home are copied into one partition, the device's own
-kernel boots it. Gaming Mode turns the picture with gamescope's rotation shader, which does not turn touch: the builder adds a
-libinput calibration matrix for the touchscreen and pen. The power button suspends once `steamos-powerbuttond` runs (the Steam Frame unit
-only starts next to SteamVR; the builder replaces it). Valve also ships a native arm64
-Steam client for Linux since May 2026.
+¹ `systemd-analyze` "Startup finished" (kernel + userspace), with automatic login.\
+² graphical.target; "Startup finished" is 15 s while first-boot timer jobs (plocate, fstrim) still run. iSCSI and plymouth are masked (see the builder).\
+³ Needs the netfilter set in [kernel/config/baldur-netfilter.fragment](../kernel/config/).\
+⁴ Steam's own client, run with `FEXBash -c "~/steam-launcher/steam -no-cef-sandbox"`; games not tried yet.\
+⁵ [SteamOS ARM for handhelds](https://github.com/hashtagbasit/SteamOS-ARM-Handhelds) v1.3-odin3-beta1; unofficial, not affiliated with Valve. See [SteamOS notes](#steamos-notes).
 
 ## What every root needs
 
-Learned from the first boots; the builders do all of it.
+The builders in [`rootfs/`](../rootfs/) do all of it.
 
 - **Kernel modules** of the boot image's kernel in `/lib/modules/<release>` (NixOS: a derivation wrapping them,
   `packaging/nix/prebuilt-kernel.nix`). No distribution kernel, bootloader or initramfs is used.
@@ -48,7 +43,21 @@ Learned from the first boots; the builders do all of it.
 
 ## Known gaps
 
-- Wi-Fi used to stop receiving under sustained heavy traffic (the ath12k RX buffers leave circulation and are never
-  replaced); fixed by `kernel/patches/0113` (30–45 min soaks clean where the unpatched kernel stalls in 7 min).
 - No SELinux in the kernel (Fedora runs with the config set to permissive).
 - Fedora: x86 binaries go through FEX only if `qemu-user-static-x86` is not installed (its binfmt entry wins).
+
+## SteamOS notes
+
+<details>
+<summary>How the SteamOS root is put together</summary>
+
+- The image is the SM8750 build of SteamOS ARM for handhelds, with Valve's Steam Frame userspace and the native
+  arm64 Steam client (Valve ships a native arm64 Steam client for Linux since May 2026).
+- Its root and home are copied into one partition; the device's own kernel boots it.
+- Gaming Mode turns the picture with gamescope's rotation shader, which does not turn touch: the builder adds a
+  libinput calibration matrix for the touchscreen and pen.
+- The power button suspends once `steamos-powerbuttond` runs. The Steam Frame unit only starts next to SteamVR, so
+  the builder replaces it.
+- Its own disk plumbing is masked (see [What every root needs](#what-every-root-needs)).
+
+</details>

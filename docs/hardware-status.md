@@ -23,6 +23,16 @@ Status: ✅ works · 🟡 partial or conditional · ❌ does not work · ❓ not
 A feature that needs a human to judge (display, sound, LEDs, vibration) is never marked ✅ without an observation.
 Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 
+<details>
+<summary>How a check is done</summary>
+
+Each ✅ comes from reproducing the feature on the device the same way every time: a scripted run that measures something
+(frame counters and CRCs for display modes, bit-exact comparison against a software decoder for video, battery current and
+temperatures for charging and thermal, repeated suspend cycles counted as N/M, traffic soaks for Wi-Fi), or a person watching or listening while a
+script drives the feature. A kernel change resets confidence: after a large rebase the whole table is re-checked.
+
+</details>
+
 ## Display, graphics, video
 
 | Feature | Status | Evidence | Notes |
@@ -30,7 +40,7 @@ Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 | Internal panel (CSOT, Novatek NT36536 TDDI, dual DSI) | ✅ | measured + observed | used daily |
 | DSC 1.2, 10 bpc | ✅ | measured | |
 | 120 Hz | ✅ | measured + observed | default mode |
-| Idle refresh 60 / 30 Hz | ✅ | measured + observed | done in the kernel: the mode stays 120 Hz and only the vertical porch is stretched when idle, so the desktop sees no mode change. No flicker; restored to 120 Hz before suspend and display off |
+| Idle refresh 60 / 30 Hz | ✅ | measured + observed | done in the kernel: the mode stays 120 Hz and only the vertical porch is stretched, so the desktop sees no mode change. No flicker; back to 120 Hz before suspend and display off |
 | 90 Hz | ✅ | measured + observed | vendor timing; screen and touch fine, no underruns |
 | 164 Hz (instead of 165) | ✅ | measured + observed | 120 Hz horizontal timing; screen and touch fine, no underruns. SteamOS picks it by default; long sessions not yet watched |
 | 165 Hz (vendor timing) | ❌ | measured + observed | horizontal blanking too short → display underruns every frame. Not exposed by default |
@@ -52,8 +62,8 @@ Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 |---|:-:|---|---|
 | Touchscreen | ✅ | measured + observed | occasional firmware-reset message after resume. SteamOS Gaming Mode rotates only the picture, so the builder adds a touch calibration matrix |
 | Pen (AES) | ❓ | probe only | no pen available for testing |
-| Speakers (2 × Awinic aw882xx) | ✅ | measured + observed | left/right heard clean on the current kernel; both amplifiers start on every distribution listed in distros.md; protection is a PipeWire filter, not Android's DSP protection |
-| Microphones | ✅ | measured | on the current kernel the internal microphone records speaker playback (noise floor −62 dBFS, playback peaks −26 dBFS) |
+| Speakers (2 × Awinic aw882xx) | ✅ | measured + observed | left/right heard clean; both amplifiers start on every distribution in [distros.md](distros.md); speaker protection is a PipeWire filter, not Android's DSP protection |
+| Microphones | ✅ | measured | the internal microphone records speaker playback (noise floor −62 dBFS, playback peaks −26 dBFS) |
 | USB-C analog audio (headset adapter) | — | probe only | no audio route yet |
 | Rear camera (Samsung S5KJNS) | ✅ | measured + observed | 1080p via libcamera; auto-exposure is imprecise |
 | Front camera (GalaxyCore GC08A8) | ✅ | measured + observed | |
@@ -64,7 +74,7 @@ Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 | RGB ring light | ✅ | observed | |
 | Haptics (2 motors) | ✅ | observed | |
 | Volume and power keys | ✅ | observed | power key suspends and resumes (seen in SteamOS) |
-| Emergency key (volume up + down, 10 s → back to Android) | ✅ | measured + observed | held by hand on the current kernel: Android restore starts exactly 10 s after the keys are detected and Android boots (1/1); switching back to Linux from Android works |
+| Emergency key (volume up + down, 10 s → back to Android) | ✅ | measured + observed | Android restore starts 10 s after the keys are detected and Android boots (1/1); switching back to Linux from Android works |
 
 ## Wireless, sensors, power
 
@@ -77,14 +87,14 @@ Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 | Accelerometer / auto-rotate | ✅ | measured + observed | via the sensor hub (SSC) |
 | Ambient light / auto-brightness | ✅ | measured + observed | |
 | Proximity | ✅ | measured | |
-| Compass | 🟡 | measured + observed | relative rotation is right (about 90° per quarter turn); absolute heading is about 30° off compared with a phone. Android's own map apps are 90–180° off on this device too, so the sensor is not calibrated even on the stock OS — not a Linux regression. GNOME's sensor proxy only lets authorised clients read it |
+| Compass | 🟡 | measured + observed | relative rotation is right (about 90° per quarter turn); absolute heading is about 30° off compared with a phone. Android's map apps are 90–180° off on this device too, so the sensor is uncalibrated on the stock OS as well. GNOME's sensor proxy only lets authorised clients read it |
 | Gyroscope, SAR | — | untested | behind the sensor hub, not wired to iio-sensor-proxy |
 | Hall sensor (cover) | ❓ | measured | needs the original folio case |
 | GNSS / GPS | ❌ | measured | the modem, location service and a location session run, but no satellites are ever seen; Android on the same device gets no GPS fix either — most likely no antenna (Lenovo's spec sheet lists GPS) |
 | Modem (MPSS) | 🟡 | measured | boots and stays up when rmtfs and tqftpserv start before it; if its initialisation stalls, the SoC firmware resets the whole tablet and Linux cannot contain it. Kept off (rmtfs and tqftpserv masked): no cellular, no usable GNSS |
 | Thermal throttling | ✅ | measured | CPU (95 °C) and GPU (105 °C) chip limits, plus board-temperature steps from 43 °C following Android's policy; checked under a 10-minute full load |
 | Battery readings | ✅ | measured | while bypass charging, `status` still reads "Charging" (display only) |
-| USB PD charging, PPS | ✅ | measured | about 40 W into the battery on PPS with a 65 W charger (about 9.25 V in), same as before on the current kernel. The USB-C controller reports the negotiated voltage and current as 0 |
+| USB PD charging, PPS | ✅ | measured | about 40 W into the battery on PPS with a 65 W charger (about 9.25 V in). The USB-C controller reports the negotiated voltage and current as 0 |
 | Charge limit, bypass charging | ✅ | measured + observed | bypass cuts the battery current (9 A → 185 mA) and it comes back when turned off; the kernel `status` stays "Charging", so the helper derives its State from the current ("Bypass" at ≤ 300 mA; logic tested, not yet re-checked on the charger) |
 | Suspend (s2idle) and resume | 🟡 | measured | works; a rare crash without an error message (also seen outside suspend, when idle or under load) is still under investigation |
 | Deep sleep (CX / DDR power collapse) | ✅ | measured | |
@@ -97,7 +107,7 @@ Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 | USB host (SuperSpeed+, hubs) | ✅ | measured | the second port is USB 2.0 only |
 | USB low-speed devices | ❌ | measured | enumeration fails |
 | USB gadget (network, serial) | ✅ | measured | |
-| DisplayPort alt mode | ✅ | measured + observed | 2 lanes HBR2, up to 3840×2160 at 30 Hz. On the current kernel: TV via a USB-C to HDMI adapter as an extended desktop at 4K 30, no flicker on either screen while the internal panel idles down to 30 Hz, unplug/replug 3/3 restored. The adapter's own low-speed USB device fails to enumerate (harmless) |
+| DisplayPort alt mode | ✅ | measured + observed | 2 lanes HBR2, up to 3840×2160 at 30 Hz. Checked with a TV through a USB-C to HDMI adapter: extended desktop at 4K 30, no flicker on either screen while the internal panel idles down to 30 Hz, unplug/replug 3/3. The adapter's own low-speed USB device fails to enumerate (harmless) |
 | DisplayPort MST (daisy chain / "extend" on MST hubs) | ❌ | measured | waiting for upstream MST support |
 | UFS storage | ✅ | measured | |
 | microSD | ✅ | measured | UHS-I SDR104; also used for the multiboot roots |
@@ -111,7 +121,7 @@ Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 
 ## Known issues
 
-- **Rare crash without an error message**, around idle states (in and outside suspend); a flight recorder is in the test kernels to catch the next one.
+- **Rare crash without an error message**, around idle states (in and outside suspend); under investigation.
 - **165 Hz / 144 Hz**: the vendor timings underrun the display controller. 164 Hz (120 Hz horizontal timing) is offered instead; 144 Hz needs a different timing.
 - **No DisplayPort MST** yet: monitors that need MST for "extend" only mirror.
 - **GNSS**: no satellites on Linux, and no GPS fix on Android either — treated as not usable on this device.
@@ -119,7 +129,7 @@ Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 - **Bypass charging** works; the kernel battery `status` still reads "Charging" while it is on (the helper shows "Bypass" from the current instead).
 - **Modem**: a stalled modem start resets the whole SoC, so rmtfs and tqftpserv stay masked on every root (see [distros.md](distros.md)).
 - **Low-speed USB devices** (some keyboards, adapters) fail to enumerate.
-- **SteamOS's systemd 257.7** can hang a shutdown when the USB serial console is connected to a PC that is not reading it (the tty reset waits for output to drain, the watchdog then resets the tablet); the SteamOS builder turns off the tty reset on that console. Fixed in systemd 257.8 and later; the other distributions are not affected.
+- **SteamOS (systemd 257.7)** can hang a shutdown when the USB serial console is connected to a PC that is not reading it (the tty reset waits for output to drain, then the watchdog resets the tablet). The SteamOS builder turns that tty reset off; fixed in systemd 257.8 and later; other distributions are not affected.
 - Do not force higher display bandwidth votes: it resets the SoC.
 - Do not stop the audio DSP at runtime: it takes the SoC down.
 
@@ -143,6 +153,9 @@ In rough order of value. Rows above marked user-reported, ❓ or 🟡, and rows 
 
 ## Spec sheet vs status
 
+<details>
+<summary>Lenovo / Qualcomm specifications compared with the status here</summary>
+
 Sources: Lenovo PSREF "Legion Tab (8.8", 5)" and datasheet, Qualcomm Snapdragon 8 Elite Gen 5 product brief.
 
 | Area | Lenovo / Qualcomm | Status here |
@@ -160,9 +173,4 @@ Sources: Lenovo PSREF "Legion Tab (8.8", 5)" and datasheet, Qualcomm Snapdragon 
 | Storage | UFS 4.1, microSD up to 2 TB | ✅ |
 | Wi-Fi / Bluetooth | Wi-Fi 7, Bluetooth 6.0 | Wi-Fi ✅ (2.4 / 5 GHz; 6 GHz untested), BT ✅ (HFP and LE Audio untested) |
 
-## How a check is done
-
-Each ✅ comes from reproducing the feature on the device the same way every time: a scripted run that measures something
-(frame counters and CRCs for display modes, bit-exact comparison against a software decoder for video, battery current and
-temperatures for charging and thermal, repeated suspend cycles counted as N/M, traffic soaks for Wi-Fi), or a person watching or listening while a
-script drives the feature. A kernel change resets confidence: after a large rebase the whole table is re-checked.
+</details>
