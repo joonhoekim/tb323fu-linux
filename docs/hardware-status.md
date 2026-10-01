@@ -68,7 +68,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Rear camera (Samsung S5KJNS) | ✅ | measured + observed | 1080p via libcamera; auto-exposure is imprecise |
 | Front camera (GalaxyCore GC08A8) | ✅ | measured + observed | |
 | Rear camera focus (VCM) | 🟡 | measured | manual focus works; no autofocus in libcamera |
-| Camera streaming with the screen off | ✅ | user-reported | |
+| Camera streaming with the screen off | ❌ | measured | starting a capture while the display is off hangs the system (2 of 2); with the display on it works. Under investigation |
 | Torch | ✅ | observed | also from the helper's quick settings |
 | Flash strobe | ❓ | probe only | |
 | RGB ring light | ✅ | observed | |
@@ -80,7 +80,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 
 | Feature | Status | Evidence | Notes |
 |---|:-:|---|---|
-| Wi-Fi (WCN7860, ath12k) | ✅ | measured | used daily; a receive stall under sustained heavy traffic is fixed by this project's ath12k patch (30-minute 2.4 and 5 GHz soaks clean); 6 GHz / 320 MHz / MLO not checked |
+| Wi-Fi (WCN7860, ath12k) | ✅ | measured | used daily; a receive stall under sustained heavy traffic is fixed by this project's ath12k patch (30-minute 2.4 and 5 GHz soaks clean); the PCIe link trains at x2 but runs at x1; 6 GHz / 320 MHz / MLO not checked |
 | Bluetooth LE input devices | ✅ | observed | |
 | Bluetooth audio (A2DP) | ✅ | observed | the first syllable of a stream can be clipped |
 | Bluetooth HFP | ❓ | untested | |
@@ -96,7 +96,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Battery readings | ✅ | measured | while bypass charging, `status` still reads "Charging" (display only) |
 | USB PD charging, PPS | ✅ | measured | about 40 W into the battery on PPS with a 65 W charger (about 9.25 V in). The USB-C controller reports the negotiated voltage and current as 0 |
 | Charge limit, bypass charging | ✅ | measured + observed | bypass cuts the battery current (9 A → 185 mA) and it comes back when turned off; the kernel `status` stays "Charging", so the helper derives its State from the current ("Bypass" at ≤ 300 mA; logic tested, not yet re-checked on the charger) |
-| Suspend (s2idle) and resume | 🟡 | measured | works; a rare crash without an error message (also seen outside suspend, when idle or under load) is still under investigation |
+| Suspend (s2idle) and resume | 🟡 | measured | works (9 of 9 RTC cycles: Wi-Fi, sensors, sound, USB and video decode back each time); a rare crash without an error message (also seen outside suspend, when idle or under load) is still under investigation |
 | Deep sleep (CX / DDR power collapse) | ✅ | measured | |
 | Wake sources | ✅ | measured | power key, RTC; USB wake off by default |
 
@@ -121,6 +121,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 
 ## Known issues
 
+- **Camera with the display off**: starting a capture while the display is off stalls a bandwidth request to the power controller and the system hangs (a watchdog reboots it). Keep the display on while starting the camera.
 - **Rare crash without an error message**, around idle states (in and outside suspend); under investigation.
 - **165 Hz / 144 Hz**: the vendor timings underrun the display controller. 164 Hz (120 Hz horizontal timing) is offered instead; 144 Hz needs a different timing.
 - **No DisplayPort MST** yet: monitors that need MST for "extend" only mirror.
@@ -139,9 +140,6 @@ In rough order of value. Rows above marked user-reported, ❓ or 🟡, and rows 
 
 | What | How it will be settled | Needs a person |
 |---|---|---|
-| Camera with the screen off | stream both cameras with the display off, count frames and errors | no (scripted) |
-| Suspend on the current kernel | 20 RTC suspend cycles, sensors and video decode checked after each resume | no (scripted) |
-| Wi-Fi 2.4 GHz soak on the current kernel, PCIe link width | 30-minute traffic soak, link status on each distribution | no (scripted) |
 | 164 Hz in long sessions, SteamOS orientation and UI size, touch on Fedora and NixOS | 10+ minutes in Gaming Mode with underrun counters; first taps on each desktop | eyes, hands |
 | Bluetooth HFP | headset call profile, microphone loopback | ears, voice |
 | AV1 in applications | newer GStreamer / FFmpeg on Arch, Fedora or NixOS, compared bit-exact with a software decoder | no (scripted) |
