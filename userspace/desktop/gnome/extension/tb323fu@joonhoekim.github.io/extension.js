@@ -195,7 +195,8 @@ class TabletToggle extends QuickMenuToggle {
 
         // battery (charge and state are in the menu header)
         this._batSection = new PopupMenu.PopupMenuSection();
-        this._batSection.addMenuItem(new PopupMenu.PopupSeparatorMenuItem('Charge Limit'));
+        this._limitLabel = new PopupMenu.PopupSeparatorMenuItem('Charge Limit');
+        this._batSection.addMenuItem(this._limitLabel);
         this._limitItems = {};
         for (const p of [60, 80, 100]) {
             const it = stayItem(`${p}%`, this._limitItems, p,
@@ -290,11 +291,15 @@ class TabletToggle extends QuickMenuToggle {
             const plugged = bat.ChargerContract && !['none', 'unknown'].includes(bat.ChargerContract);
             const state = bat.State === 'bypass' && bat.Bypass ? 'Bypass' : STATE_LABELS[bat.State] ?? 'Unknown';
             const level = Math.min(100, Math.max(0, Math.round(bat.Capacity / 10) * 10));
-            const charging = bat.State === 'charging' ? '-charging' : '';
+            // Adwaita has no battery-level-100-charging icon, only -charged
+            const charging = bat.State === 'charging' ? (level === 100 ? '-charged' : '-charging') : '';
             this.menu.setHeader(`battery-level-${level}${charging}-symbolic`, 'Tablet',
                 `${bat.Capacity}% · ${state}${plugged ? ` · ${bat.ChargerContract}` : ''}`);
             for (const [p, it] of Object.entries(this._limitItems))
                 it.setOrnament(Number(p) === bat.ChargeLimit && !bat.Bypass ? PopupMenu.Ornament.CHECK : PopupMenu.Ornament.NONE);
+            // a limit set in the app (75 %) checks no preset: show it in the label
+            const preset = bat.ChargeLimit in this._limitItems;
+            this._limitLabel.label.text = preset || bat.Bypass ? 'Charge Limit' : `Charge Limit · ${bat.ChargeLimit}%`;
             this._bypass.setToggleState(!!bat.Bypass);
         } else {
             this.menu.setHeader('computer-symbolic', 'Tablet', present ? null : 'Helper not running');
