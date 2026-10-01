@@ -85,7 +85,7 @@ Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 | Thermal throttling | ✅ | measured | CPU (95 °C) and GPU (105 °C) chip limits, plus board-temperature steps from 43 °C following Android's policy; checked under a 10-minute full load |
 | Battery readings | ✅ | measured | while bypass charging, `status` still reads "Charging" (display only) |
 | USB PD charging, PPS | ✅ | measured | about 40 W into the battery on PPS with a 65 W charger (about 9.25 V in), same as before on the current kernel. The USB-C controller reports the negotiated voltage and current as 0 |
-| Charge limit, bypass charging | ✅ | measured + observed | bypass cuts the battery current (9 A → 185 mA) and it comes back when turned off; the state shown stays "Charging" during bypass |
+| Charge limit, bypass charging | ✅ | measured + observed | bypass cuts the battery current (9 A → 185 mA) and it comes back when turned off; the kernel `status` stays "Charging", so the helper derives its State from the current ("Bypass" at ≤ 300 mA; logic tested, not yet re-checked on the charger) |
 | Suspend (s2idle) and resume | 🟡 | measured | works; a rare crash without an error message (also seen outside suspend, when idle or under load) is still under investigation |
 | Deep sleep (CX / DDR power collapse) | ✅ | measured | |
 | Wake sources | ✅ | measured | power key, RTC; USB wake off by default |
@@ -116,7 +116,7 @@ Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 - **No DisplayPort MST** yet: monitors that need MST for "extend" only mirror.
 - **GNSS**: no satellites on Linux, and no GPS fix on Android either — treated as not usable on this device.
 - **Compass**: only relative rotation can be trusted; the absolute heading is off on Android as well.
-- **Bypass charging** works, but the battery state still reads "Charging" while it is on.
+- **Bypass charging** works; the kernel battery `status` still reads "Charging" while it is on (the helper shows "Bypass" from the current instead).
 - **Modem**: a stalled modem start resets the whole SoC, so rmtfs and tqftpserv stay masked on every root (see [distros.md](distros.md)).
 - **Low-speed USB devices** (some keyboards, adapters) fail to enumerate.
 - **SteamOS's systemd 257.7** can hang a shutdown when the USB serial console is connected to a PC that is not reading it (the tty reset waits for output to drain, the watchdog then resets the tablet); the SteamOS builder turns off the tty reset on that console. Fixed in systemd 257.8 and later; the other distributions are not affected.
