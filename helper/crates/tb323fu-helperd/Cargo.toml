@@ -10,3 +10,4 @@ license.workspace = true
 tb323fu-helper-core = { path = "../tb323fu-helper-core" }
 zbus.workspace = true
 async-io = "2"
+blocking = "1"

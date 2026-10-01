@@ -677,6 +677,21 @@ impl Boot {
     fn cache(&self) -> std::sync::MutexGuard<'_, BootCache> {
         self.1.lock().unwrap_or_else(|e| e.into_inner())
     }
+    /// The roots, rescanned when the partition list changed. Scanning mounts
+    /// SD roots, so it runs on a blocking thread: the daemon's single executor
+    /// keeps answering the other objects meanwhile.
+    async fn cached_roots(&self) -> Vec<boot::Root> {
+        let names: Vec<String> = boot::partitions().into_iter().map(|p| p.0).collect();
+        let cached = self.cache().roots.clone();
+        match cached {
+            Some(r) if r.iter().map(|x| &x.name).eq(names.iter()) => r,
+            _ => {
+                let r = blocking::unblock(boot::roots).await;
+                self.cache().roots = Some(r.clone());
+                r
+            }
+        }
+    }
     fn refresh_selection(&self) {
         let mut c = self.cache();
         c.next = Some(boot::next());
@@ -697,23 +712,15 @@ impl Snapshot for Boot {
 impl Boot {
     /// (partition name, os-release PRETTY_NAME, present, init kind: systemd / nixos / none)
     #[zbus(property)]
-    fn roots(&self) -> Vec<(String, String, bool, String)> {
-        let mut c = self.cache();
-        let names: Vec<String> = boot::partitions().into_iter().map(|p| p.0).collect();
-        let stale = c.roots.as_ref().is_none_or(|r| r.iter().map(|x| &x.name).ne(names.iter()));
-        if stale {
-            c.roots = Some(boot::roots());
-        }
-        c.roots.clone().unwrap_or_default().into_iter().map(|r| (r.name, r.label, r.present, r.init)).collect()
+    async fn roots(&self) -> Vec<(String, String, bool, String)> {
+        self.cached_roots().await.into_iter().map(|r| (r.name, r.label, r.present, r.init)).collect()
     }
     /// Root -> what it lacks for the running kernel (modules, extra/ amplifier
     /// driver, key firmware); roots without problems are left out. A separate
     /// property so the Roots signature stays the same.
     #[zbus(property)]
-    fn root_health(&self) -> HashMap<String, Vec<String>> {
-        let _ = self.roots(); // fills or refreshes the cache
-        self.cache().roots.clone().unwrap_or_default().into_iter().filter(|r| !r.problems.is_empty())
-            .map(|r| (r.name, r.problems)).collect()
+    async fn root_health(&self) -> HashMap<String, Vec<String>> {
+        self.cached_roots().await.into_iter().filter(|r| !r.problems.is_empty()).map(|r| (r.name, r.problems)).collect()
     }
     #[zbus(property)]
     fn default(&self) -> String {
@@ -768,12 +775,16 @@ impl Boot {
     }
     /// Re-read the partitions, their os-release and the selection files.
     async fn rescan(&self, #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        // off the executor (mounts), like cached_roots()
+        let (roots, current, next, default) =
+            blocking::unblock(|| (boot::roots(), boot::current_root(), boot::next(), boot::default_root())).await;
         {
             let mut c = self.cache();
-            c.roots = Some(boot::roots());
-            c.current = Some(boot::current_root());
+            c.roots = Some(roots);
+            c.current = Some(current);
+            c.next = Some(next);
+            c.default = Some(default);
         }
-        self.refresh_selection();
         invalidate(&em, Self::IFACE, Self::PROPS).await;
         Ok(())
     }

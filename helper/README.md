@@ -47,7 +47,7 @@ Settings are stored in `/etc/tb323fu/helper.toml` (see `data/helper.toml.example
 A GTK4/libadwaita front-end in `crates/tb323fu-settings/` — a separate Cargo workspace, so the daemon and CLI above
 build without GTK development libraries. It reads everything from `tb323fu-helperd` (property poll every 2 s) and
 changes settings through its methods; polkit decides what needs authentication, not the app. Pages: Battery, Display
-(idle refresh), Performance (GPU), Torch & LED ring, USB, Emergency key, Android, Diagnostics, About. Pages whose
+(refresh rate), Performance (GPU, temperatures), Torch & LED ring, USB, Emergency key, Systems, Android, Diagnostics, About. Pages whose
 object the daemon does not export are hidden; without the daemon the app shows a status page.
 
 ```sh

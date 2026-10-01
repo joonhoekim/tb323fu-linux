@@ -674,6 +674,7 @@ name = "tb323fu-helperd"
 version = "0.1.0"
 dependencies = [
  "async-io",
+ "blocking",
  "tb323fu-helper-core",
  "zbus",
 ]

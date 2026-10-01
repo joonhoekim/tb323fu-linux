@@ -35,6 +35,8 @@ const GPU_PROFILE_LABELS: [&str; 3] = ["Power Saver", "Balanced", "Performance"]
 /// Every object the helper can export (for "N of M available").
 const KNOWN_FEATURES: usize = 11;
 const DEBOUNCE: Duration = Duration::from_millis(400);
+/// The objects refresh() polls (the root object is polled first).
+const OBJECTS: [&str; 11] = ["Battery", "Refresh", "Gpu", "Torch", "LedRing", "Usb", "EmergencyKey", "Android", "Diagnostics", "Boot", "Thermal"];
 
 const CSS: &str = "
 .tag { font-size: smaller; font-weight: bold; padding: 2px 8px; border-radius: 999px;
@@ -251,6 +253,33 @@ fn degrees(v: Option<f64>) -> String {
     }
 }
 
+/// A root problem in a few words for the row subtitle: the part in
+/// parentheses when there is one ("missing modules for 7.3.0-... (no sound
+/// or Wi-Fi)" -> "No sound or Wi-Fi"); the full text is in the tooltip.
+fn short_problem(p: &str) -> String {
+    match (p.rfind('('), p.ends_with(')')) {
+        (Some(i), true) => capitalize(&p[i + 1..p.len() - 1]),
+        _ => capitalize(p),
+    }
+}
+
+/// One poll of the daemon: the root object's properties and each object's.
+struct Fetched {
+    root: Option<Props>,
+    props: HashMap<&'static str, Option<Props>>,
+}
+
+/// GetAll for the root object and every object not in `skip` (blocking).
+fn fetch(c: &Client, skip: &[&'static str]) -> Fetched {
+    let root = c.get_all("");
+    let props = if root.is_some() {
+        OBJECTS.iter().filter(|o| !skip.contains(o)).map(|o| (*o, c.get_all(o))).collect()
+    } else {
+        HashMap::new()
+    };
+    Fetched { root, props }
+}
+
 /// The release from /proc/version ("Linux version 7.3.0-y705 (...)").
 fn kernel_release(full: &str) -> String {
     full.split_whitespace().nth(2).unwrap_or(full).to_string()
@@ -298,6 +327,9 @@ struct BootState {
 struct Ui {
     client: RefCell<Client>,
     updating: Cell<bool>,
+    /// a poll is running on a worker thread / another one was asked for
+    polling: Cell<bool>,
+    poll_again: Cell<bool>,
     /// calls in flight (and open confirmation dialogs / pending debounces) per
     /// object: refresh() leaves that object's widgets alone meanwhile
     pending: RefCell<HashMap<&'static str, u32>>,
@@ -325,6 +357,7 @@ struct Ui {
     bat_design: gtk::Label,
     bat_charger: gtk::Label,
     // Refresh
+    ref_group: adw::PreferencesGroup,
     ref_policy: adw::ComboRow,
     ref_rate: adw::SpinRow,
     ref_timing: adw::ComboRow,
@@ -334,6 +367,7 @@ struct Ui {
     ref_min: gtk::Label,
     ref_input: gtk::Label,
     // Gpu
+    gpu_groups: [adw::PreferencesGroup; 2],
     gpu_profile: adw::ComboRow,
     gpu_follow: adw::SwitchRow,
     gpu_limits: Vec<(&'static str, adw::ExpanderRow, adw::SpinRow, adw::SpinRow)>,
@@ -423,9 +457,11 @@ impl Ui {
 
         // Display
         let (p_ref, b) = page_box();
-        let g = group(&b, "Idle Refresh", "Slows to 60, then 30 Hz while the screen is still.");
-        group_help(&g, "The panel stays in its 120 Hz mode. When nothing changes on screen the kernel lowers the rate, and any update or touch brings 120 Hz back at once.");
-        let ref_policy = combo(&g, "Refresh Rate", &REFRESH_POLICY_LABELS);
+        // the description follows the mode (sync_refresh_rows)
+        let g = group(&b, "Refresh Rate", "");
+        group_help(&g, "Adaptive: the panel stays in its 120 Hz mode. When nothing changes on screen the kernel lowers the rate, and any update or touch brings 120 Hz back at once.");
+        let ref_group = g.clone();
+        let ref_policy = combo(&g, "Mode", &REFRESH_POLICY_LABELS);
         let ref_rate = spin(&g, "Fixed Rate (Hz)", "", 30.0, 120.0, 30.0);
         let mut timing_labels: Vec<&str> = TIMINGS.iter().map(|t| t.1).collect();
         timing_labels.push("Custom");
@@ -456,9 +492,11 @@ impl Ui {
         // Performance
         let (p_gpu, b) = page_box();
         let g = group(&b, "GPU", "");
+        let gpu_group = g.clone();
         let gpu_profile = combo(&g, "GPU Profile", &GPU_PROFILE_LABELS);
         let gpu_follow = switch(&g, "Follow Power Mode", "");
         let g = group(&b, "Frequency Limits", "");
+        let gpu_groups = [gpu_group, g.clone()];
         group_help(&g, "Lowest and highest GPU clock for each profile. Changes take effect when you press Apply.");
         let mut gpu_limits = Vec::new();
         let mut gpu_buttons = Vec::new();
@@ -505,9 +543,9 @@ impl Ui {
 
         // USB
         let (p_usb, b) = page_box();
-        let g = group(&b, "", "");
+        let g = group(&b, "Wake", "");
         let usb_wake = switch(&g, "Wake from USB Devices", "Keyboard or mouse on USB-C wakes it");
-        let g = group(&b, "Developer Mode", "Network link and root console over the USB cable.");
+        let g = group(&b, "Development", "Network link and root console over the USB cable.");
         group_help(&g, "Only turn this on for development: anyone with a cable gets a root console. Turning it on asks for authentication.");
         let usb_dev = switch(&g, "USB Developer Mode", "");
 
@@ -650,6 +688,8 @@ impl Ui {
         let ui = Rc::new(Ui {
             client: RefCell::new(Client::connect()),
             updating: Cell::new(false),
+            polling: Cell::new(false),
+            poll_again: Cell::new(false),
             pending: RefCell::new(HashMap::new()),
             timers: RefCell::new(HashMap::new()),
             window,
@@ -672,6 +712,7 @@ impl Ui {
             bat_cycles,
             bat_design,
             bat_charger,
+            ref_group,
             ref_policy,
             ref_rate,
             ref_timing,
@@ -680,6 +721,7 @@ impl Ui {
             ref_s30,
             ref_min,
             ref_input,
+            gpu_groups,
             gpu_profile,
             gpu_follow,
             gpu_limits,
@@ -872,7 +914,7 @@ impl Ui {
         let ui = self.clone();
         retry.connect_clicked(move |_| {
             *ui.client.borrow_mut() = Client::connect();
-            ui.refresh();
+            ui.refresh_now();
             if ui.daemon_up.get() != Some(true) {
                 ui.toast("Still not running");
             }
@@ -1077,14 +1119,47 @@ impl Ui {
         d.present(Some(&self.window));
     }
 
-    /// Poll the daemon and update every visible widget without triggering
-    /// the change handlers. Objects with a call in flight are skipped.
-    fn refresh(self: &Rc<Self>) {
+    fn poll_client(&self) -> (Client, Vec<&'static str>) {
         if !self.client.borrow().connected() {
             *self.client.borrow_mut() = Client::connect();
         }
-        let c = self.client.borrow().clone();
-        let root = c.get_all("");
+        let skip = OBJECTS.iter().copied().filter(|o| self.busy(o)).collect();
+        (self.client.borrow().clone(), skip)
+    }
+
+    /// Poll the daemon on a worker thread, then update the widgets. The GTK
+    /// thread never waits for the daemon (a Boot rescan can take seconds);
+    /// asks while a poll runs fold into one more poll after it.
+    fn refresh(self: &Rc<Self>) {
+        if self.polling.replace(true) {
+            self.poll_again.set(true);
+            return;
+        }
+        let (c, skip) = self.poll_client();
+        let ui = self.clone();
+        glib::spawn_future_local(async move {
+            let f = gio::spawn_blocking(move || fetch(&c, &skip)).await;
+            ui.polling.set(false);
+            if let Ok(f) = f {
+                ui.apply(f);
+            }
+            if ui.poll_again.replace(false) {
+                ui.refresh();
+            }
+        });
+    }
+
+    /// Poll on the GTK thread (start-up and Try Again, where the answer is
+    /// needed at once and nothing slow is running).
+    fn refresh_now(self: &Rc<Self>) {
+        let (c, skip) = self.poll_client();
+        self.apply(fetch(&c, &skip));
+    }
+
+    /// Update every widget from a poll without triggering the change
+    /// handlers. Objects with a call in flight are left alone.
+    fn apply(self: &Rc<Self>, f: Fetched) {
+        let Fetched { root, props } = f;
         let up = root.is_some();
         if self.daemon_up.get() != Some(up) {
             self.daemon_up.set(Some(up));
@@ -1094,9 +1169,6 @@ impl Ui {
             return;
         }
         self.updating.set(true);
-        let get = |o: &'static str| if self.busy(o) { None } else { c.get_all(o) };
-        let objs: [&'static str; 11] = ["Battery", "Refresh", "Gpu", "Torch", "LedRing", "Usb", "EmergencyKey", "Android", "Diagnostics", "Boot", "Thermal"];
-        let props: HashMap<&str, Option<Props>> = objs.iter().map(|o| (*o, get(*o))).collect();
         let features = root.as_ref().map(|r| dbus::strs(r, "Features")).unwrap_or_default();
         // presence from the Features list, so a busy object keeps its page
         let present = |o: &str| o.is_empty() || features.iter().any(|f| f == o);
@@ -1111,12 +1183,16 @@ impl Ui {
                 self.sidebar.select_row(Some(&p.row));
             }
         }
-        let p = |o: &str| props.get(o).and_then(|x| x.as_ref());
+        // an object that became busy while the poll ran keeps its widgets
+        let p = |o: &str| if self.busy(o) { None } else { props.get(o).and_then(|x| x.as_ref()) };
         if let Some(b) = p("Battery") {
             self.update_battery(b);
         }
         if let Some(r) = p("Refresh") {
             self.update_refresh(r);
+        }
+        for g in &self.gpu_groups {
+            g.set_visible(present("Gpu"));
         }
         if let Some(g) = p("Gpu") {
             self.update_gpu(g);
@@ -1222,8 +1298,16 @@ impl Ui {
             if !installed {
                 row.set_subtitle("No system installed");
                 row.add_css_class("dim-label");
-            } else if let Some(first) = problems.first() {
-                row.set_subtitle(&capitalize(first));
+            } else if !problems.is_empty() {
+                // the partition name stays first: two roots can share a label
+                let mut short: Vec<String> = Vec::new();
+                for p in &problems {
+                    let s = short_problem(p);
+                    if !short.contains(&s) {
+                        short.push(s);
+                    }
+                }
+                row.set_subtitle(&format!("{name} · {}", short.join(", ")));
                 let warn = gtk::Image::from_icon_name("dialog-warning-symbolic");
                 warn.add_css_class("warning");
                 row.add_prefix(&warn);
@@ -1272,6 +1356,13 @@ impl Ui {
                     mb.update_property(&[gtk::accessible::Property::Label(&format!("Actions for {title}"))]);
                     row.insert_action_group("row", Some(&actions));
                     row.add_suffix(&mb);
+                    // a tap anywhere on a system that is not running opens
+                    // its menu (touch); the running row only has the button
+                    if !running {
+                        row.set_activatable(true);
+                        let mb2 = mb.clone();
+                        row.connect_activated(move |_| mb2.popup());
+                    }
                 }
             }
             self.boot_group.add(&row);
@@ -1316,14 +1407,17 @@ impl Ui {
             "not-charging" => "Not Charging",
             _ => "Unknown",
         };
+        let ma = dbus::i(p, "CurrentMa");
+        // plugged in but drawing more than the charger gives: say so, so
+        // State and Current never disagree
+        let st = if state == "charging" && ma.is_some_and(|c| c < 0) { "Plugged In, Draining" } else { st };
         set_text(&self.bat_state, st);
         set_text(&self.bat_cap, &dbus::u(p, "Capacity").map(|c| format!("{c}%")).unwrap_or_else(|| "Unknown".into()));
-        let ma = dbus::i(p, "CurrentMa");
         let mv = dbus::u(p, "VoltageMv");
         set_text(&self.bat_cur, &match ma {
             Some(0) => "0 mA".into(),
             Some(c) => {
-                let dir = if c > 0 { "charging" } else { "discharging" };
+                let dir = if c > 0 { "into battery" } else { "from battery" };
                 let a = c.unsigned_abs();
                 if a >= 1000 { format!("{:.1} A {dir}", a as f64 / 1000.0) } else { format!("{a} mA {dir}") }
             }
@@ -1361,6 +1455,14 @@ impl Ui {
     /// Show only the rows that apply to the current policy and timing.
     fn sync_refresh_rows(&self) {
         let pol = self.ref_policy.selected();
+        let desc = match pol {
+            1 => "Slows to 60, then 30 Hz while the screen is still.".to_string(),
+            2 => format!("Always {} Hz.", self.ref_rate.value().round()),
+            _ => String::new(), // "Always 120 Hz" is the mode's own name
+        };
+        if self.ref_group.description().as_deref().unwrap_or("") != desc {
+            self.ref_group.set_description(if desc.is_empty() { None } else { Some(&desc) });
+        }
         self.ref_rate.set_visible(pol == 2);
         self.ref_timing.set_visible(pol == 1);
         let custom = pol == 1 && self.ref_timing.selected() as usize == TIMINGS.len();
@@ -1561,7 +1663,7 @@ fn main() -> glib::ExitCode {
         let u = ui.clone();
         sc.connect_activate(move |_, _| u.shortcuts());
         app.add_action(&sc);
-        ui.refresh();
+        ui.refresh_now();
         let ui2 = ui.clone();
         glib::timeout_add_seconds_local(2, move || {
             ui2.refresh();
