@@ -12,13 +12,16 @@ The kernel does not depend on a distribution. These are the systems that have be
 | Arch Linux ARM | `tb323fu-arch` | `rootfs/arch` | 7.5 s | autologin, touch, Wi-Fi, speakers, sensors (4), helper |
 | Fedora 44 Workstation + FEX | `tb323fu-fedora` | `rootfs/fedora` | 7.5 s² | GNOME 50 autologin, Wi-Fi, speakers, sensors (4), firewalld³, FEX x86-64, Steam client starts⁴ |
 | NixOS 26.11 (unstable) | `tb323fu-nixos` | `rootfs/nixos` + `flake.nix` | 11.2 s | stage 2 straight from our initramfs, GNOME autologin, Wi-Fi, speakers, sensors, helper |
+| SteamOS (arm64, community handheld port⁵) | `tb323fu-spare` | `rootfs/steamos` | 14.1 s | Gaming Mode: gamescope + Steam sign-in screen rendered (gamescope screenshot), Wi-Fi, speakers (protection filter), helper; Desktop Mode (KDE) starts and switches back |
 
 ¹ `systemd-analyze` "Startup finished" (kernel + userspace), with automatic login.
 ² graphical.target; "Startup finished" is 15 s while first-boot timer jobs (plocate, fstrim) still run. iSCSI and plymouth are masked (see the builder).
 ³ Needs the netfilter set in [kernel/config/baldur-netfilter.fragment](../kernel/config/) (in the kernel since t26).
 ⁴ Steam's own client, run with `FEXBash -c "~/steam-launcher/steam -no-cef-sandbox"`; games not tried yet.
-Valve builds SteamOS for arm64 (Steam Frame) but publishes no general arm64 installer; an unofficial community port
-repackages it for Snapdragon handhelds (8 Gen 2, 8 Elite) -- not tried here. Valve also ships a native arm64 Steam client for Linux since May 2026 (not tried here yet).
+⁵ [SteamOS ARM for handhelds](https://github.com/hashtagbasit/SteamOS-ARM-Handhelds) v1.3-odin3-beta1 (SM8750 image, Valve's Steam Frame
+userspace and native arm64 Steam client; unofficial, not affiliated with Valve): its root and home are copied into one partition, the device's own
+kernel boots it. The panel itself (orientation, touch in Gaming Mode) still needs a person to look. Valve also ships a native arm64
+Steam client for Linux since May 2026.
 
 ## What every root needs
 
@@ -38,6 +41,8 @@ Learned from the first boots; the builders do all of it.
 - **Sensors:** `hexagonrpcd` with a `fastrpc` system user and its udev rule, and an `iio-sensor-proxy` built with
   the SSC backend (libssc) — Fedora's has none, so the builder copies one.
 - **Platform files and helper** (`userspace/platform`, `helper/`, or the packages in `packaging/`).
+- **A distribution's own disk plumbing masked** when it comes from an image: SteamOS's `systemd-repart` (its `repart.d` wants to add
+  a home partition to the root disk), partition-set and offload mounts, its A/B boot registration.
 
 ## Known gaps
 

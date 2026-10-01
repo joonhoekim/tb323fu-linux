@@ -42,6 +42,7 @@
 #   ORIENTATION=right               gamescope --force-orientation for the portrait panel
 #                                   (left|right|normal|upsidedown); Desktop Mode (KWin)
 #                                   guesses Rotated270 itself
+#   TIMEZONE=                       e.g. Asia/Seoul (the image says America/Los_Angeles)
 #   DEV_ACCESS=0                    1 = developer access: usb0 gadget network
 #                                   (192.168.7.2/24), root autologin on ttyGS0,
 #                                   sshd root login allowed
@@ -71,6 +72,7 @@ HELPER_FROM=${HELPER_FROM:-}
 CONFIG_FROM=${CONFIG_FROM:-/etc/tb323fu}
 NM_CONNECTIONS_FROM=${NM_CONNECTIONS_FROM:-}
 ORIENTATION=${ORIENTATION:-right}
+TIMEZONE=${TIMEZONE:-}
 DEV_ACCESS=${DEV_ACCESS:-0}
 DEV_SSH_KEYS=${DEV_SSH_KEYS:-}
 BALDUR_DEV_PASSWORD=${BALDUR_DEV_PASSWORD:-}
@@ -188,7 +190,16 @@ masked="odin3d.service sm8750-audio-setup.service deckard-audio-setup.service de
 	etc.mount home.mount efi.mount esp.mount steamos-offload.target
 	mkinitcpio-generate-shutdown-ramfs.service holo-post-update-shutdown.service
 	rmtfs.service tqftpserv.service ModemManager.service droid-juicer.service qbootctl.service
-	bootmac-bluetooth.service"
+	bootmac-bluetooth.service systemd-repart.service"
+# systemd-repart: the image's repart.d adds a home partition to the root disk
+# (first test boot: it found no free space on the card and refused -- never let
+# it try). The offload bind mounts (/root, /var/log, /var/tmp, ... from
+# /home/.steamos/offload) come in through RequiresMountsFor= even with their
+# target masked: /root then hid root's .ssh. Root is writable here; mask them.
+for u in "$T"/usr/lib/systemd/system/steamos-offload.target.wants/*.mount \
+	"$T"/etc/systemd/system/steamos-offload.target.wants/*.mount; do
+	[ -e "$u" ] || [ -L "$u" ] && masked="$masked $(basename "$u")"
+done
 for u in $masked; do
 	# a unit file the port wrote into /etc (sm8750-audio-setup) cannot be
 	# masked in place: remove it and the links to it first
@@ -235,6 +246,17 @@ cat > "$T/etc/fstab" <<EOF
 # (kernel + initramfs) is the device's own, nothing of the SteamOS image's BOOT
 PARTLABEL=$ROOT_PARTLABEL	/	ext4	defaults,noatime	0	1
 EOF
+# the port masks the user steamos-manager (its 7.2 kernel had no tracefs); this
+# kernel has tracefs, and without the manager steamosctl -- Steam's "Switch to
+# Desktop" and back -- fails (tested: both ways work with it running)
+[ "$(readlink "$T/etc/systemd/user/steamos-manager.service")" = /dev/null ] &&
+	rm -f "$T/etc/systemd/user/steamos-manager.service"
+[ -n "$TIMEZONE" ] && ln -sf "../usr/share/zoneinfo/$TIMEZONE" "$T/etc/localtime"
+# the port means `steamos` to have passwordless sudo (Steam's brightness slider
+# runs `sudo tee .../brightness`), but its 99-steamos-nopasswd is read before
+# the image's `wheel` file, and the last match wins: a password was required
+printf 'steamos ALL=(ALL) NOPASSWD: ALL\n' > "$T/etc/sudoers.d/zz-tb323fu-steamos"
+chmod 440 "$T/etc/sudoers.d/zz-tb323fu-steamos"
 mkdir -p "$T/etc/NetworkManager/conf.d"
 printf '[keyfile]\nunmanaged-devices=interface-name:usb0\n' > "$T/etc/NetworkManager/conf.d/10-tb323fu-usb0.conf"
 if [ -n "$NM_CONNECTIONS_FROM" ] && ls "$NM_CONNECTIONS_FROM"/*.nmconnection >/dev/null 2>&1; then
