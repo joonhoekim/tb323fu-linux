@@ -154,7 +154,7 @@ Sources: Lenovo PSREF "Legion Tab (8.8", 5)" and datasheet, Qualcomm Snapdragon 
 | GPU | GLES 3.2, Vulkan 1.3, OpenCL 3.0 | GL ✅, Vulkan ✅, OpenCL untested |
 | Audio | 2 speakers, 2 microphones | ✅ |
 | Cameras | 50 MP rear with AF and flash, 8 MP front | ✅ at 1080p; AF manual only; full resolution untested |
-| Sensors | accelerometer + gyro, hall, proximity + light, compass, GPS | accelerometer, light, proximity, compass ✅; gyro not wired; GPS ❌ |
+| Sensors | accelerometer + gyro, hall, proximity + light, compass, GPS | accelerometer, light, proximity ✅; compass 🟡 (relative only); gyro not wired; GPS ❌ |
 | Charging | 68 W PD 3.0 / PPS, bypass charging | about 40 W on PPS ✅, bypass ✅ |
 | USB | USB-C 10 Gbps + DP, second port USB 2.0 | ✅ |
 | Storage | UFS 4.1, microSD up to 2 TB | ✅ |
