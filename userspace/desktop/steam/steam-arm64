@@ -1,0 +1,76 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# steam-arm64 -- install and run Valve's native arm64 Steam client (public beta)
+# on any arm64 distribution, as the desktop user (no root, nothing packaged).
+#
+#   steam-arm64 install     download the client and its runtime into $STEAM
+#   steam-arm64 [ARGS...]   run it (installs first when missing)
+#   steam-arm64 big         run it in Big Picture (gamepad UI)
+#
+# Everything comes from Valve's servers: the client from the public beta manifest
+# steam_client_publicbeta_linuxarm64 (the bins_linuxarm64 zip), the Steam Linux
+# Runtime 3 "steamrt3c" arm64 image from repo.steampowered.com. The procedure
+# follows ROCKNIX's "Install Steam" script. x86 games still need an emulator:
+# Steam runs them through FEX when a FEX RootFS and its thunks are installed
+# (Fedora: fex-emu, fex-emu-rootfs-fedora). Valve marks the arm64 client as beta.
+#
+# Environment: STEAM (default ~/.local/share/Steam).
+set -eu
+STEAM=${STEAM:-$HOME/.local/share/Steam}
+DOT=$HOME/.steam
+CLIENT=$STEAM/steamrtarm64
+MANIFEST=https://client-update.fastly.steamstatic.com/steam_client_publicbeta_linuxarm64
+CDN=https://client-update.steamstatic.com
+RT_BASE=https://repo.steampowered.com/steamrt3c/images
+
+say() { echo "steam-arm64: $*"; }
+die() { echo "steam-arm64: $*" >&2; exit 1; }
+need() { command -v "$1" >/dev/null || die "needs $1"; }
+
+install_runtime() {
+	[ -d "$STEAM/steam-runtime-steamrt-arm64" ] && return 0
+	need curl; need tar
+	v=$(curl -fsSL "$RT_BASE/latest-public-stable.txt" | tr -d '[:space:]')
+	[ -n "$v" ] || die "no runtime version"
+	say "runtime steamrt3c $v"
+	curl -fL --retry 5 -C - -o "$STEAM/rt.tar.xz" "$RT_BASE/$v/steam-runtime-steamrt-arm64.tar.xz"
+	tar -xf "$STEAM/rt.tar.xz" -C "$STEAM"
+	rm -f "$STEAM/rt.tar.xz"
+	# the client looks for these two next to itself (as ROCKNIX links them)
+	mkdir -p "$STEAM/lib/aarch64-linux-gnu"
+	for l in libibus-1.0.so.5 libva.so.2; do
+		t=$(ls "$STEAM"/steam-runtime-steamrt-arm64/steamrt3c_platform_*/files/lib/aarch64-linux-gnu/"$l".* 2>/dev/null | tail -n1)
+		[ -n "$t" ] && ln -sf "$t" "$STEAM/lib/aarch64-linux-gnu/$l"
+	done
+}
+
+install_client() {
+	[ -x "$CLIENT/steam" ] && return 0
+	need curl; need unzip; need strings
+	f=$(curl -fsSL "$MANIFEST" | strings | grep -oE 'bins_linuxarm64_linuxarm64\.zip\.[0-9a-f]+' | head -n1)
+	[ -n "$f" ] || die "client not found in the manifest"
+	say "client $f"
+	curl -fL --retry 5 -C - -o "$STEAM/client.zip" "$CDN/$f"
+	unzip -oq "$STEAM/client.zip" -d "$STEAM"
+	rm -f "$STEAM/client.zip"
+	chmod +x "$CLIENT/steam"
+	mkdir -p "$STEAM/package" "$DOT" "$STEAM/compatibilitytools.d"
+	echo publicbeta > "$STEAM/package/beta"
+	ln -sfn "$STEAM" "$DOT/steam"
+	ln -sfn "$STEAM/linuxarm64" "$DOT/sdkarm64"
+}
+
+install() {
+	mkdir -p "$STEAM"
+	install_runtime
+	install_client
+	say "installed in $STEAM"
+}
+
+case ${1:-} in
+install) install ;;
+big) shift; [ -x "$CLIENT/steam" ] || install
+	LD_LIBRARY_PATH=$STEAM/lib/aarch64-linux-gnu exec "$CLIENT/steam" -gamepadui "$@" ;;
+*) [ -x "$CLIENT/steam" ] || install
+	LD_LIBRARY_PATH=$STEAM/lib/aarch64-linux-gnu exec "$CLIENT/steam" "$@" ;;
+esac
