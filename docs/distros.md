@@ -17,8 +17,8 @@ The kernel does not depend on a distribution. These are the systems that have be
 ² graphical.target; "Startup finished" is 15 s while first-boot timer jobs (plocate, fstrim) still run. iSCSI and plymouth are masked (see the builder).
 ³ Needs the netfilter set in [kernel/config/baldur-netfilter.fragment](../kernel/config/) (in the kernel since t26).
 ⁴ Steam's own client, run with `FEXBash -c "~/steam-launcher/steam -no-cef-sandbox"`; games not tried yet.
-Valve's SteamOS does exist for arm64 (the Steam Frame's build, and a community port to Snapdragon handhelds); a TB323FU
-SteamOS root is being tried. Valve also ships a native arm64 Steam client for Linux since May 2026 (not tried here yet).
+Valve builds SteamOS for arm64 (Steam Frame) but publishes no general arm64 installer; an unofficial community port
+repackages it for Snapdragon handhelds (8 Gen 2, 8 Elite) -- not tried here. Valve also ships a native arm64 Steam client for Linux since May 2026 (not tried here yet).
 
 ## What every root needs
 
