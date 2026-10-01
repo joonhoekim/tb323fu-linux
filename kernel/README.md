@@ -25,11 +25,22 @@ git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0113, in 
 |---|---|
 | `baldur.fragment` | the board fragment, merged after `arch/arm64/configs/kaanapali-oneplus-infiniti_defconfig` (the OnePlus 15 fragment, added by patch 0011) |
 | `baldur-display.fragment`, `baldur-kexec.fragment` | variants for the display bring-up and kexec images |
-| `baldur-netfilter.fragment` | netfilter for distro firewalls and containers (iptables-nft's `nft_compat`, xt matches, REJECT/rpfilter, ipset), merged last. The first part is `=m` only and can be added to an existing build without a new Image; the second part (`NFT_FIB_IPV6`/`NFT_FIB_INET` for firewalld's IPv6 rpfilter, `NF_CT_NETLINK`, conntrack mark, redirect, the nft bridge and netdev families) changes vmlinux and the core netfilter modules, so it needs a new Image and the whole matching modules set. Still off: legacy iptables tables, conntrack zones/labels, ARP tables |
-| `t21-reference.config` | the full `.config` of the kernel that is tested on the device (see below), for comparison |
+| `baldur-netfilter.fragment` | netfilter for distribution firewalls and containers (iptables-nft, firewalld, ipset), merged last; see below |
+| `t21-reference.config` | the full `.config` of the kernel on the development tablet ([see below](#the-kernel-on-the-development-tablet)), for comparison |
 
 The same fragments are also added to the tree by patch 0055 (`arch/arm64/configs/`). The copies here have
 `CONFIG_INITRAMFS_SOURCE` blanked — set it to your own initramfs (built with [`initramfs/build.sh`](initramfs/)); the version inside patch 0055 still names the path of the original build machine.
+
+<details>
+<summary>What <code>baldur-netfilter.fragment</code> enables</summary>
+
+iptables-nft's `nft_compat`, xt matches, REJECT/rpfilter and ipset. The first part is `=m` only and can be added to an
+existing build without a new Image. The second part (`NFT_FIB_IPV6`/`NFT_FIB_INET` for firewalld's IPv6 rpfilter,
+`NF_CT_NETLINK`, conntrack mark, redirect, the nft bridge and netdev families) changes vmlinux and the core netfilter
+modules, so it needs a new Image and the whole matching modules set. Still off: legacy iptables tables, conntrack
+zones/labels, ARP tables.
+
+</details>
 
 `kaanapali-oneplus-infiniti_defconfig` is itself a fragment on top of the arm64 `defconfig`, so the order is:
 
@@ -53,13 +64,16 @@ The bootloader on this tablet cannot be made to pass our device tree or command 
 
 - **Built-in DTB** (patch 0021, `CONFIG_ARM64_BUILTIN_FDT=y`, `CONFIG_ARM64_BUILTIN_FDT_NAME="qcom/kaanapali-lenovo-baldur-display.dtb"`):
   the kernel ignores the DTB the bootloader hands over and uses the one linked into the Image.
-- **Fixed command line** (`CONFIG_CMDLINE_FORCE=y`): the command line in the boot image header is ignored. The tested kernel uses
+- **Fixed command line** (`CONFIG_CMDLINE_FORCE=y`): the command line in the boot image header is ignored. The tested kernel uses:
 
   ```
   icc-rpmh.qos_disable=1 icc_rpmh.qos_disable=1 fw_devlink.sync_state=timeout fbcon=font:TER16x32 panic=10 oops=panic
   console=tty1 keep_bootcon qcom_scm.download_mode=full baldur.end=hold consoleblank=120 no_console_suspend
   mem_sleep_default=s2idle baldur.diag=0
   ```
+
+  <details>
+  <summary>Why each option is there</summary>
 
   | Option | Why |
   |---|---|
@@ -74,9 +88,11 @@ The bootloader on this tablet cannot be made to pass our device tree or command 
   | `no_console_suspend` | keep the console alive across suspend (debugging) |
   | `mem_sleep_default=s2idle` | the only system sleep state this platform supports |
 
-## The tested kernel (t21)
+  </details>
 
-The kernel running on the development tablet is this series (0001-0112) **plus test-only changes that are not part of the series**:
+## The kernel on the development tablet
+
+The kernel running on the development tablet (config: `config/t21-reference.config`) is this series (0001-0112) **plus test-only changes that are not part of the series**:
 
 - a knob exposing experimental panel modes (vendor 144/165 Hz and a 143 Hz variant; only 90 and 164 Hz are in the series, 0109),
 - an idle-state flight recorder for crash analysis, and a knob that refuses the CPU cluster idle state,

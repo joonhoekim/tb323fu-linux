@@ -71,9 +71,14 @@ Fedora; an absolute symlink is resolved inside the root) or NixOS's `/nix/var/ni
 Every root needs its own `/lib/modules/$(uname -r)`: the kernel is shared by all of them (NixOS: the
 modules are part of the system, see [`rootfs/nixos`](../../rootfs/nixos/configuration.nix)).
 
+<details>
+<summary>How the switch differs for NixOS</summary>
+
 For `/sbin/init`, `/proc`, `/sys` and `/dev` are moved into the new root. For NixOS they are unmounted
 instead: NixOS stage 2 (started without a NixOS stage 1) mounts `/proc`, `/sys`, `/dev`, `/dev/shm`,
 `/dev/pts`, `/run` and `/run/keys` itself, but only when it finds `/proc` unmounted.
+
+</details>
 
 The helper sets these files for you: `tb323fu-ctl boot list|next NAME|default NAME|reboot NAME`, or the
 "Systems" page of Tablet Settings (see [../../docs/helper.md](../../docs/helper.md)).
@@ -83,6 +88,11 @@ If no root is usable, `init` also stays in the initramfs.
 
 ### Command-line knobs
 
+The normal command line uses `baldur.end=hold`: summary, then root selection. The other knobs are for bring-up.
+
+<details>
+<summary>All knobs</summary>
+
 | Knob | Effect |
 |---|---|
 | `baldur.end=hold` | normal boot: summary, then root selection (the tested command line) |
@@ -91,3 +101,5 @@ If no root is usable, `init` also stays in the initramfs.
 | `baldur.wait=N` | countdown length for the panic/reboot endings (default 120 s) |
 | `baldur.ui=splash` | quiet panel: summary lines go to the log at KERN_INFO, the screen is not cleared (bootloader picture stays) |
 | `baldur.diag=0` | obsolete, ignored (the SD-card diagnostics it skipped are gone) |
+
+</details>

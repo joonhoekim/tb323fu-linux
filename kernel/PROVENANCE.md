@@ -12,7 +12,7 @@ column names the source; see that tree's history for the individual authors.
 | upstream base | torvalds/linux `v7.3-rc4` = `93f51579e7df248780214094418f205253383cc5` |
 | qcom kaanapali GPU DT | qcom `arm64-for-7.4` (patches 0001-0006) |
 | linux-next picks | `next-20260925` (patches 0012-0018) |
-| community tree | [kaanapali-mainline/linux](https://github.com/kaanapali-mainline/linux) `testing` at `37a76066` (patches 0007-0011, carried; the full classification of its 92 commits was done in the development notes) |
+| community tree | [kaanapali-mainline/linux](https://github.com/kaanapali-mainline/linux) `testing` at `37a76066` (patches 0007-0011) |
 | community tree | [infiniti-mainline/linux](https://github.com/infiniti-mainline/linux) `oneplus-15` / `master` (patches 0024, 0029, 0030, 0070-0077, 0084-0094, 0096, 0099-0102) |
 | touch driver | [map220v/sm8850-mainline](https://github.com/map220v/sm8850-mainline) `iceland-7.2` (0025) |
 
