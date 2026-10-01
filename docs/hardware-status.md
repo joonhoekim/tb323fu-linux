@@ -1,8 +1,9 @@
 # Hardware status
 
 Lenovo Legion Tab Gen 5 / Legion Y700 5th Gen (TB323FU), mainline Linux 7.3-rc4 plus this project's patch series.
-Tested with Debian 13 and GNOME 48 on the device; the kernel itself does not depend on either.
-Last updated 2026-09-30.
+Tested mostly with Debian 13 and GNOME 48 on the device, and booted with five other distributions ([distros.md](distros.md));
+the kernel itself does not depend on any of them.
+Last updated 2026-10-01.
 
 ## How to read this page
 
@@ -31,45 +32,45 @@ Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 | 120 Hz | ✅ | measured + observed | default mode |
 | Idle refresh 60 / 30 Hz | ✅ | measured + observed | done in the kernel: the mode stays 120 Hz and only the vertical porch is stretched when idle, so the desktop sees no mode change. No flicker; restored to 120 Hz before suspend and display off |
 | 90 Hz | ✅ | measured + observed | vendor timing; screen and touch fine, no underruns |
-| 164 Hz (instead of 165) | ✅ | measured + observed | 120 Hz horizontal timing; screen and touch fine, no underruns |
+| 164 Hz (instead of 165) | ✅ | measured + observed | 120 Hz horizontal timing; screen and touch fine, no underruns. SteamOS picks it by default; long sessions not yet watched |
 | 165 Hz (vendor timing) | ❌ | measured + observed | horizontal blanking too short → display underruns every frame. Not exposed by default |
 | 144 Hz | ❌ | measured + observed | vendor timing underruns; a variant with the 120 Hz horizontal timing breaks touch. Not exposed by default |
 | Backlight | ✅ | measured + observed | |
 | Display off / on (with and without an external display) | ✅ | measured | |
 | GPU OpenGL 4.6 / GLES 3.2 (Adreno 840, freedreno) | ✅ | measured + observed | up to 1200 MHz |
 | GPU idle power collapse (IFPC) | ✅ | measured | |
-| Vulkan (turnip) | ✅ | measured | Vulkan 1.4; simple rendering only so far |
+| Vulkan (turnip) | ✅ | measured | Vulkan 1.4; SteamOS's gamescope runs on it; heavy workloads not tried yet |
 | Video decode H.264 / HEVC / VP9 / AV1 (iris) | ✅ | measured | output bit-exact against software decoders, 1080p and 4K |
 | Video decode 10-bit (HEVC Main10, VP9 profile 2, AV1 Main 10-bit) | ✅ | measured | bit-exact, 1080p and 4K; needs this project's iris line-buffer fix |
 | Video encode H.264 / HEVC (8-bit) | ✅ | measured | NV12 input |
-| AV1 in applications | — | untested | the driver works, but GStreamer 1.26 and FFmpeg 7.1 have no stateful V4L2 AV1 decoder yet |
+| AV1 in applications | — | untested | the driver works, but Debian's GStreamer 1.26 and FFmpeg 7.1 have no stateful V4L2 AV1 decoder; newer distributions not tried yet |
 | Browser hardware video decode | — | untested | Firefox does not use V4L2 stateful decoders |
 
 ## Input, audio, camera, indicators
 
 | Feature | Status | Evidence | Notes |
 |---|:-:|---|---|
-| Touchscreen | ✅ | measured + observed | occasional firmware-reset message after resume |
+| Touchscreen | ✅ | measured + observed | occasional firmware-reset message after resume. SteamOS Gaming Mode rotates only the picture, so the builder adds a touch calibration matrix |
 | Pen (AES) | ❓ | probe only | no pen available for testing |
-| Speakers (2 × Awinic aw882xx) | ✅ | measured + observed | protection is a PipeWire filter, not Android's DSP protection |
+| Speakers (2 × Awinic aw882xx) | ✅ | measured + observed | both amplifiers start on every distribution listed in distros.md; protection is a PipeWire filter, not Android's DSP protection |
 | Microphones | ✅ | measured + observed | |
 | USB-C analog audio (headset adapter) | — | probe only | no audio route yet |
 | Rear camera (Samsung S5KJNS) | ✅ | measured + observed | 1080p via libcamera; auto-exposure is imprecise |
 | Front camera (GalaxyCore GC08A8) | ✅ | measured + observed | |
 | Rear camera focus (VCM) | 🟡 | measured | manual focus works; no autofocus in libcamera |
 | Camera streaming with the screen off | ✅ | user-reported | |
-| Torch | ✅ | observed | |
+| Torch | ✅ | observed | also from the helper's quick settings |
 | Flash strobe | ❓ | probe only | |
 | RGB ring light | ✅ | observed | |
 | Haptics (2 motors) | ✅ | observed | |
-| Volume and power keys | ✅ | observed | |
+| Volume and power keys | ✅ | observed | power key suspends and resumes (seen in SteamOS) |
 | Emergency key (volume up + down, 10 s → back to Android) | ✅ | user-reported | each key's events observed |
 
 ## Wireless, sensors, power
 
 | Feature | Status | Evidence | Notes |
 |---|:-:|---|---|
-| Wi-Fi (WCN7860, ath12k) | ✅ | measured | used daily; 6 GHz / 320 MHz / MLO not checked |
+| Wi-Fi (WCN7860, ath12k) | ✅ | measured | used daily; a receive stall under sustained heavy traffic is fixed by this project's ath12k patch (30-minute 2.4 and 5 GHz soaks clean); 6 GHz / 320 MHz / MLO not checked |
 | Bluetooth LE input devices | ✅ | observed | |
 | Bluetooth audio (A2DP) | ✅ | observed | the first syllable of a stream can be clipped |
 | Bluetooth HFP | ❓ | untested | |
@@ -80,11 +81,12 @@ Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 | Gyroscope, SAR | — | untested | behind the sensor hub, not wired to iio-sensor-proxy |
 | Hall sensor (cover) | ❓ | measured | needs the original folio case |
 | GNSS / GPS | ❌ | measured | the modem, location service and a location session run, but no satellites are ever seen; Android on the same device gets no GPS fix either — most likely no antenna (Lenovo's spec sheet lists GPS) |
+| Modem (MPSS) | 🟡 | measured | boots and stays up when rmtfs and tqftpserv start before it; if its initialisation stalls, the SoC firmware resets the whole tablet and Linux cannot contain it. Kept off (rmtfs and tqftpserv masked): no cellular, no usable GNSS |
 | Thermal throttling | ✅ | measured | CPU (95 °C) and GPU (105 °C) chip limits, plus board-temperature steps from 43 °C following Android's policy; checked under a 10-minute full load |
 | Battery readings | ✅ | measured | |
 | USB PD charging, PPS | ✅ | measured | about 41 W measured on PPS |
-| Charge limit | ✅ | measured + observed | |
-| Suspend (s2idle) and resume | 🟡 | measured | works; a rare crash without an error message is still under investigation |
+| Charge limit, bypass charging | ✅ | measured + observed | |
+| Suspend (s2idle) and resume | 🟡 | measured | works; a rare crash without an error message (also seen outside suspend, when idle or under load) is still under investigation |
 | Deep sleep (CX / DDR power collapse) | ✅ | measured | |
 | Wake sources | ✅ | measured | power key, RTC; USB wake off by default |
 
@@ -98,27 +100,49 @@ Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 | DisplayPort alt mode | ✅ | measured + observed | 2 lanes HBR2, up to 3840×2160 at 30 Hz |
 | DisplayPort MST (daisy chain / "extend" on MST hubs) | ❌ | measured | waiting for upstream MST support |
 | UFS storage | ✅ | measured | |
-| microSD | ✅ | measured | UHS-I SDR104 |
+| microSD | ✅ | measured | UHS-I SDR104; also used for the multiboot roots |
+| Multiboot (systems on microSD partitions) | ✅ | measured + observed | six systems boot with this kernel, picked by the initramfs (falls back to the internal root); see [distros.md](distros.md) |
+| Firewall (nftables, iptables-nft, firewalld) | ✅ | measured | firewalld including IPv6 reverse-path filtering, NixOS's default firewall; legacy iptables tables are not built |
 | Audio DSP (ADSP) | ✅ | measured | |
 | Compute DSP / NPU | ❓ | probe only | |
 | CPU frequency scaling | ✅ | probe only | maximum frequencies not compared with Android |
 | Switching between Android and Linux | ✅ | measured + observed | about 40 s |
-| Boot time | ✅ | measured | about 6 s from kernel start to the login screen |
+| Boot time | ✅ | measured | about 6 s from kernel start to the desktop (Debian, automatic login); 7–15 s on the other distributions |
 
 ## Known issues
 
-- **Rare crash without an error message**, mostly around idle states; a flight recorder is in the test kernels to catch the next one.
+- **Rare crash without an error message**, around idle states (in and outside suspend); a flight recorder is in the test kernels to catch the next one.
 - **165 Hz / 144 Hz**: the vendor timings underrun the display controller. 164 Hz (120 Hz horizontal timing) is offered instead; 144 Hz needs a different timing.
 - **No DisplayPort MST** yet: monitors that need MST for "extend" only mirror.
 - **GNSS**: no satellites on Linux, and no GPS fix on Android either — treated as not usable on this device.
+- **Modem**: a stalled modem start resets the whole SoC, so rmtfs and tqftpserv stay masked on every root (see [distros.md](distros.md)).
 - **Low-speed USB devices** (some keyboards, adapters) fail to enumerate.
+- **SteamOS's systemd 257.7** can hang a shutdown when the USB serial console is connected to a PC that is not reading it (the tty reset waits for output to drain, the watchdog then resets the tablet); the SteamOS builder turns off the tty reset on that console. Fixed in systemd 257.8 and later; the other distributions are not affected.
 - Do not force higher display bandwidth votes: it resets the SoC.
 - Do not stop the audio DSP at runtime: it takes the SoC down.
 
-## Not yet tested
+## Still to test
 
-- From the spec sheet: touch sampling rate (up to 480 Hz), HBM (800 nit) and HDR, full-resolution (50 MP) rear capture, Wi-Fi 6 GHz / 320 MHz / MLO, battery design capacity, OpenCL, heavy Vulkan workloads, 8K and film-grain video.
-- Needs hardware not at hand: pen, Bluetooth HFP / LE Audio, USB audio adapters, the original folio case, the 68 W charger.
+In rough order of value. Rows above marked user-reported, ❓ or 🟡, and rows last checked before a relevant kernel change, are here.
+
+| What | How it will be settled | Needs a person |
+|---|---|---|
+| Emergency key | hold volume up + down for 10 s with key events logged, confirm Android boots, switch back | hands |
+| Camera with the screen off | stream both cameras with the display off, count frames and errors | no (scripted) |
+| Compass | log readings while turning the tablet to the four directions, compare with a phone | hands |
+| Speakers and microphones on the current kernel | left/right listening test; record speaker playback with the microphones and measure the level | ears (speakers) |
+| Suspend on the current kernel | 20 RTC suspend cycles, sensors and video decode checked after each resume | no (scripted) |
+| Wi-Fi 2.4 GHz soak on the current kernel, PCIe link width | 30-minute traffic soak, link status on each distribution | no (scripted) |
+| DisplayPort on the current kernel | plug, picture at 4K 30, unplug/replug three times, internal panel idle refresh while connected | hands, eyes |
+| 164 Hz in long sessions, SteamOS orientation and UI size, touch on Fedora and NixOS | 10+ minutes in Gaming Mode with underrun counters; first taps on each desktop | eyes, hands |
+| Bluetooth HFP | headset call profile, microphone loopback | ears, voice |
+| AV1 in applications | newer GStreamer / FFmpeg on Arch, Fedora or NixOS, compared bit-exact with a software decoder | no (scripted) |
+| Charging on the current kernel | PPS contract and current, bypass state shown correctly | hands (charger) |
+| 144 Hz | another vertical-porch variant, underruns and touch | eyes, hands |
+| From the spec sheet | battery design capacity, OpenCL, heavy Vulkan, full-resolution (50 MP) rear capture, touch report rate (up to 480 Hz), HBM (800 nit) and HDR, 8K and film-grain video | mostly no; touch rate needs a finger |
+| Flash strobe | trigger the strobe control and watch | eyes |
+| Board thermal above 45 °C | 20–30 minutes of CPU + GPU load, steps and frequencies logged, desktop smoothness watched | eyes (optional) |
+| Needs hardware not at hand | pen, Bluetooth LE Audio, USB audio adapters, the original folio case, the 68 W charger, a 6 GHz / 320 MHz / MLO access point | hands |
 
 ## Spec sheet vs status
 
@@ -137,11 +161,11 @@ Sources: Lenovo PSREF "Legion Tab (8.8", 5)" and datasheet, Qualcomm Snapdragon 
 | Charging | 68 W PD 3.0 / PPS, bypass charging | about 41 W on PPS ✅, bypass ✅ |
 | USB | USB-C 10 Gbps + DP, second port USB 2.0 | ✅ |
 | Storage | UFS 4.1, microSD up to 2 TB | ✅ |
-| Wi-Fi / Bluetooth | Wi-Fi 7, Bluetooth 6.0 | Wi-Fi ✅ (6 GHz untested), BT ✅ (LE Audio untested) |
+| Wi-Fi / Bluetooth | Wi-Fi 7, Bluetooth 6.0 | Wi-Fi ✅ (2.4 / 5 GHz; 6 GHz untested), BT ✅ (HFP and LE Audio untested) |
 
 ## How a check is done
 
 Each ✅ comes from reproducing the feature on the device the same way every time: a scripted run that measures something
 (frame counters and CRCs for display modes, bit-exact comparison against a software decoder for video, battery current and
-temperatures for charging and thermal, repeated suspend cycles counted as N/M), or a person watching or listening while a
+temperatures for charging and thermal, repeated suspend cycles counted as N/M, traffic soaks for Wi-Fi), or a person watching or listening while a
 script drives the feature. A kernel change resets confidence: after a large rebase the whole table is re-checked.
