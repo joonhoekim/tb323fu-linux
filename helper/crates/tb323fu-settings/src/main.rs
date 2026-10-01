@@ -144,8 +144,17 @@ fn info_long(g: &adw::PreferencesGroup, title: &str, toasts: &adw::ToastOverlay)
     LongInfo { row, full }
 }
 
+/// Touch first: the number changes with the -/+ buttons only. An editable
+/// entry took the focus on a tap (in Gaming Mode on SteamOS the on-screen
+/// keyboard opened and focus could not leave the field).
+fn touch_spin(r: &adw::SpinRow) {
+    r.set_editable(false);
+    r.set_focus_on_click(false);
+}
+
 fn spin(g: &adw::PreferencesGroup, title: &str, subtitle: &str, lo: f64, hi: f64, step: f64) -> adw::SpinRow {
     let r = adw::SpinRow::with_range(lo, hi, step);
+    touch_spin(&r);
     r.set_title(title);
     if !subtitle.is_empty() {
         r.set_subtitle(subtitle);
@@ -506,6 +515,8 @@ impl Ui {
             lo.set_title("Minimum (MHz)");
             let hi = adw::SpinRow::with_range(100.0, 2000.0, 1.0);
             hi.set_title("Maximum (MHz)");
+            touch_spin(&lo);
+            touch_spin(&hi);
             exp.add_row(&lo);
             exp.add_row(&hi);
             let apply = adw::ActionRow::builder().title("Apply Limits").build();
