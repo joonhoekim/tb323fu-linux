@@ -294,6 +294,29 @@ if [ -n "$cal" ]; then
 ATTRS{name}=="NVTCapacitiveTouchScreen|NVTCapacitivePen", ENV{LIBINPUT_CALIBRATION_MATRIX}="$cal"
 EOF
 fi
+# Power button: logind ignores it (HandlePowerKey=ignore) and leaves it to
+# steamos-powerbuttond, which sends Steam steam://shortpowerpress (Steam then
+# suspends). The Steam Frame's unit only runs next to SteamVR
+# (Requisite=steamvr.service + an ExecCondition on the VR device model), so it
+# never started here and the button did nothing. A drop-in cannot clear a
+# Requisite=: replace the unit, start it with Gaming Mode.
+cat > "$T/etc/systemd/user/steamos-powerbuttond.service" <<'EOF'
+# TB323FU: replaces /usr/lib/systemd/user/steamos-powerbuttond.service (Steam Frame: SteamVR only).
+[Unit]
+Description=Power Button daemon for SteamOS
+PartOf=gamescope-session.target
+After=gamescope-session.service
+
+[Service]
+ExecStart=/usr/lib/hwsupport/steamos-powerbuttond
+Restart=on-failure
+Slice=session.slice
+
+[Install]
+WantedBy=gamescope-session.target
+EOF
+mkdir -p "$T/etc/systemd/user/gamescope-session.target.wants"
+ln -sf ../steamos-powerbuttond.service "$T/etc/systemd/user/gamescope-session.target.wants/steamos-powerbuttond.service"
 
 # 10. developer access over the USB cable (the initramfs creates the gadget)
 if [ "$DEV_ACCESS" = 1 ]; then

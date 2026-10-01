@@ -21,7 +21,8 @@ The kernel does not depend on a distribution. These are the systems that have be
 ⁵ [SteamOS ARM for handhelds](https://github.com/hashtagbasit/SteamOS-ARM-Handhelds) v1.3-odin3-beta1 (SM8750 image, Valve's Steam Frame
 userspace and native arm64 Steam client; unofficial, not affiliated with Valve): its root and home are copied into one partition, the device's own
 kernel boots it. Gaming Mode turns the picture with gamescope's rotation shader, which does not turn touch: the builder adds a
-libinput calibration matrix for the touchscreen and pen. Valve also ships a native arm64
+libinput calibration matrix for the touchscreen and pen. The power button suspends once `steamos-powerbuttond` runs (the Steam Frame unit
+only starts next to SteamVR; the builder replaces it). Valve also ships a native arm64
 Steam client for Linux since May 2026.
 
 ## What every root needs
