@@ -476,6 +476,72 @@ fn journal_of_boot(boot: &str) -> Option<String> {
     (out.status.success() && !text.trim().is_empty()).then_some(text)
 }
 
+// ---------------------------------------------------------------- thermal (read-only)
+
+/// Board sensors shown by name (thermal zone type without "-thermal"): the
+/// skin/quiet NTCs, battery, USB connector, panel, Wi-Fi, memory, cameras.
+/// The SoC's many tsens zones are folded into CPU and GPU maxima instead.
+pub const THERMAL_ZONES: [&str; 14] = ["skin", "quiet", "batt", "batt2", "usb", "usb2-conn", "lcm", "wlan", "ddr", "ufs", "xo",
+    "rear-cam", "fcam", "wls"];
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Thermal {
+    /// skin (else quiet) NTC, °C; NaN when neither exists
+    pub surface: f64,
+    /// hottest CPU tsens zone (cpu-*, cpullc-*), °C; NaN when none
+    pub cpu_max: f64,
+    /// hottest GPU tsens zone (gpuss-*), °C; NaN when none
+    pub gpu_max: f64,
+    /// a CPU or GPU cooling device is above state 0
+    pub throttling: bool,
+    /// the whitelisted zones that exist, °C
+    pub zones: BTreeMap<String, f64>,
+}
+
+fn is_cpu_zone(t: &str) -> bool {
+    t.starts_with("cpu-") || t.starts_with("cpullc-")
+}
+
+/// Read the thermal zones once (only reads: no trip or policy is touched).
+/// None when the kernel exposes none of the known zones.
+pub fn thermal() -> Option<Thermal> {
+    let base = sys::path("/sys/class/thermal");
+    let (mut cpu, mut gpu) = (f64::NAN, f64::NAN);
+    let mut zones = BTreeMap::new();
+    let mut throttling = false;
+    for e in sys::list_dir(&base) {
+        let d = base.join(&e);
+        if e.starts_with("thermal_zone") {
+            let Some(ty) = sys::read_opt(&d.join("type")) else { continue };
+            let t = ty.strip_suffix("-thermal").unwrap_or(&ty).to_string();
+            let wanted = THERMAL_ZONES.contains(&t.as_str());
+            let (c, g) = (is_cpu_zone(&t), t.starts_with("gpuss-"));
+            if !(wanted || c || g) {
+                continue;
+            }
+            let Some(milli) = sys::read_i64(&d.join("temp")) else { continue };
+            let deg = milli as f64 / 1000.0;
+            if c {
+                cpu = if cpu.is_nan() { deg } else { cpu.max(deg) };
+            } else if g {
+                gpu = if gpu.is_nan() { deg } else { gpu.max(deg) };
+            } else {
+                zones.insert(t, deg);
+            }
+        } else if e.starts_with("cooling_device") {
+            let ty = sys::read_opt(&d.join("type")).unwrap_or_default();
+            if (ty.starts_with("cpufreq-") || ty.starts_with("devfreq-")) && sys::read_i64(&d.join("cur_state")).unwrap_or(0) > 0 {
+                throttling = true;
+            }
+        }
+    }
+    if zones.is_empty() && cpu.is_nan() && gpu.is_nan() {
+        return None;
+    }
+    let surface = zones.get("skin").or_else(|| zones.get("quiet")).copied().unwrap_or(f64::NAN);
+    Some(Thermal { surface, cpu_max: cpu, gpu_max: gpu, throttling, zones })
+}
+
 // ---------------------------------------------------------------- versions / firmware
 
 pub fn kernel_version() -> String {
@@ -557,6 +623,41 @@ mod tests {
         assert_eq!(ledring_color(&info("Charging", 80, 0, 80), 15), Some([0, 255, 0]));
         assert_eq!(ledring_color(&info("Discharging", 10, -300, 80), 15), Some([255, 0, 0]));
         assert_eq!(ledring_color(&info("Discharging", 50, -300, 80), 15), None);
+    }
+    #[test]
+    fn thermal_zones() {
+        let _g = crate::sys::TEST_ENV.lock().unwrap_or_else(|e| e.into_inner());
+        let r = std::env::temp_dir().join(format!("tb323fu-thermal-{}", std::process::id()));
+        let zone = |n: u32, ty: &str, t: i64| {
+            let d = r.join(format!("sys/class/thermal/thermal_zone{n}"));
+            std::fs::create_dir_all(&d).unwrap();
+            std::fs::write(d.join("type"), format!("{ty}\n")).unwrap();
+            std::fs::write(d.join("temp"), format!("{t}\n")).unwrap();
+        };
+        zone(0, "qcom-battmgr-bat", 28700); // not listed
+        zone(1, "cpu-0-0-0-thermal", 35200);
+        zone(2, "cpullc-1-0-thermal", 41000);
+        zone(3, "gpuss-3-thermal", 39500);
+        zone(4, "skin-thermal", 32371);
+        zone(5, "batt-thermal", 29464);
+        let c = r.join("sys/class/thermal/cooling_device2");
+        std::fs::create_dir_all(&c).unwrap();
+        std::fs::write(c.join("type"), "devfreq-3d00000.gpu\n").unwrap();
+        std::fs::write(c.join("cur_state"), "0\n").unwrap();
+        std::env::set_var("TB323FU_SYSFS_ROOT", &r);
+        let t = thermal().expect("zones present");
+        assert_eq!(t.cpu_max, 41.0);
+        assert_eq!(t.gpu_max, 39.5);
+        assert!((t.surface - 32.371).abs() < 1e-9);
+        assert!(!t.throttling);
+        assert_eq!(t.zones.keys().collect::<Vec<_>>(), ["batt", "skin"]);
+        std::fs::write(c.join("cur_state"), "3\n").unwrap();
+        assert!(thermal().unwrap().throttling);
+        let _ = std::fs::remove_dir_all(&r);
+        std::fs::create_dir_all(&r).unwrap();
+        assert!(thermal().is_none());
+        std::env::remove_var("TB323FU_SYSFS_ROOT");
+        let _ = std::fs::remove_dir_all(&r);
     }
     #[test]
     fn policy_names() {

@@ -7,7 +7,7 @@ use zbus::zvariant::{OwnedValue, Value};
 
 const BUS: &str = "io.github.joonhoekim.tb323fu.Helper";
 const ROOT: &str = "/io/github/joonhoekim/tb323fu/Helper";
-const OBJECTS: [&str; 10] = ["Battery", "Android", "Torch", "LedRing", "Refresh", "Gpu", "Usb", "EmergencyKey", "Diagnostics", "Boot"];
+const OBJECTS: [&str; 11] = ["Battery", "Android", "Torch", "LedRing", "Refresh", "Gpu", "Usb", "EmergencyKey", "Diagnostics", "Boot", "Thermal"];
 
 const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
 
@@ -25,7 +25,9 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
   emergency-key [on|off|hold SECONDS]
   diagnostics [export]
   boot [list|next NAME|clear|default NAME|reboot NAME|rescan]
-                                 installed systems (multiboot): one-shot next boot, default, restart into
+                                 installed systems (multiboot): one-shot next boot, default, restart into;
+                                 list also names what a system lacks for this kernel (modules, firmware)
+  thermal                        temperatures (surface, CPU, GPU, board sensors) and throttling
   versions                       helper, kernel, series, firmware state
   reload                         re-read /etc/tb323fu/helper.toml (admin)";
 
@@ -172,9 +174,41 @@ impl Ctl {
                 if name == next { mark.push('n'); }
                 let label = f(1);
                 println!("{:<3} {:<18} {:<8} {}", mark, name, f(3), if label.is_empty() { "(empty)".into() } else { label });
+                if let Some(serde_json::Value::Array(ps)) = p.get("RootHealth").and_then(|h| h.get(&name)) {
+                    for x in ps.iter().filter_map(|v| v.as_str()) {
+                        println!("{:<3} {:<18} ! {x}", "", "");
+                    }
+                }
             }
         }
         println!("* running  d default ({def})  n next boot ({})", if next.is_empty() { "none" } else { next.as_str() });
+        0
+    }
+}
+
+impl Ctl {
+    /// Temperatures as a short table (or the raw properties with --json).
+    fn thermal(&self) -> i32 {
+        if self.json {
+            return self.show(&["Thermal"]);
+        }
+        let Some(p) = self.props("Thermal") else {
+            eprintln!("tb323fu-ctl: no Thermal object (helper not running, or no thermal zones)");
+            return 1;
+        };
+        let deg = |v: Option<&serde_json::Value>| match v.and_then(|v| v.as_f64()) {
+            Some(t) => format!("{t:.1} °C"),
+            None => "unknown".into(),
+        };
+        println!("surface     {}", deg(p.get("Surface")));
+        println!("cpu (max)   {}", deg(p.get("CpuMax")));
+        println!("gpu (max)   {}", deg(p.get("GpuMax")));
+        println!("throttling  {}", if p.get("Throttling").and_then(|v| v.as_bool()).unwrap_or(false) { "yes" } else { "no" });
+        if let Some(serde_json::Value::Object(z)) = p.get("Zones") {
+            for (k, v) in z {
+                println!("  {k:<10}{}", deg(Some(v)));
+            }
+        }
         0
     }
 }
@@ -339,6 +373,7 @@ fn run(args: &[String]) -> i32 {
             Some("rescan") => c.call("Boot", "Rescan", &()),
             _ => usage(),
         },
+        "thermal" => c.thermal(),
         "reload" => c.call("", "Reload", &()),
         _ => usage(),
     }

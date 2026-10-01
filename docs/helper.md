@@ -74,10 +74,11 @@ Standard `org.freedesktop.DBus.Properties` for properties (with `PropertiesChang
 | `/…/Usb` · `…Usb` | `WakeEnabled` (b: USB host/port wakeup from suspend), `DevMode` (b: USB gadget network + serial console for developers) | `SetWake(b)`, `SetDevMode(b)` | — | `…usb-wake` — allow; `…dev-mode` — `auth_admin_keep` |
 | `/…/EmergencyKey` · `…EmergencyKey` | `Enabled` (b), `HoldSeconds` (u) — writes `/etc/tb323fu/emergency-key.conf` (`ENABLED`, `HOLD_SECONDS`, 3..30 s) that the layer-1 service reads; the service itself stays in layer 1 | `SetEnabled(b)`, `SetHoldSeconds(u)` | — | `…emergency-key` — allow for enabling/changing time, `auth_admin_keep` for disabling |
 | `/…/Diagnostics` · `…Diagnostics` | `CrashRecords` (u: pstore archive entries), `LastBootClean` (b: no panic record archived this boot and the previous boot's journal ends with a clean shutdown — a dump-mode crash leaves no pstore record) | `Export() → s` (path of a tarball with pstore, previous-boot journal tail, dmesg head, versions; user names/addresses/serials stripped) | — | `…diagnostics` — allow |
-| `/…/Boot` · `…Boot` | `Roots` (a(ssbs): GPT partition name, os-release PRETTY_NAME, present, init kind `systemd`/`nixos`/`none`), `Default` (s), `Next` (s, one-shot), `Current` (s: the partition `/` came from) | `SetNext(s)`, `ClearNext()`, `SetDefault(s)`, `RebootInto(s)`, `Rescan()` | — | `…boot-next` — allow; `…reboot-into` — allow; `…boot-default` — `auth_admin_keep` |
+| `/…/Boot` · `…Boot` | `Roots` (a(ssbs): GPT partition name, os-release PRETTY_NAME, present, init kind `systemd`/`nixos`/`none`), `Default` (s), `Next` (s, one-shot), `Current` (s: the partition `/` came from), `RootHealth` (a{sas}: root → problems for the running kernel — no `lib/modules/$(uname -r)/modules.dep`, no `extra/` (aw882xx amplifier driver), no audio DSP or Wi-Fi firmware; roots without problems and NixOS roots are left out) | `SetNext(s)`, `ClearNext()`, `SetDefault(s)`, `RebootInto(s)`, `Rescan()` | — | `…boot-next` — allow; `…reboot-into` — allow; `…boot-default` — `auth_admin_keep` |
+| `/…/Thermal` · `…Thermal` (read-only) | `Surface` (d, °C: skin NTC, else quiet), `CpuMax` (d: hottest `cpu-*`/`cpullc-*` tsens zone), `GpuMax` (d: hottest `gpuss-*`), `Throttling` (b: a `cpufreq-*`/`devfreq-*` cooling device above state 0), `Zones` (a{sd}: board sensors by zone type without `-thermal`: skin, quiet, batt, batt2, usb, usb2-conn, lcm, wlan, ddr, ufs, xo, rear-cam, fcam, wls); NaN = absent | — | — | none (no methods; trips and policies are never written) |
 | `/…` · `…Helper` | `Version` (s), `Features` (as), `Kernel` (s), `SeriesTag` (s: patch-series identity if the kernel exposes it, else unknown), `Firmware` (a{ss}: file → sha256 match state vs the manifest) | `Reload()` | — | `…admin` — `auth_admin` |
 
-Implementation notes (phase 1): property getters read the device live; a 5 s poller runs the LED-ring charge indicator and the GPU profile follow, re-asserts the USB wakeup setting, and emits `PropertiesChanged` (changed properties invalidated) when values change underneath; `Battery.Changed()` fires on state-like battery changes (not on every current sample).
+Implementation notes (phase 1): property getters read the device live; a 5 s poller runs the LED-ring charge indicator and the GPU profile follow, re-asserts the USB wakeup setting, and emits `PropertiesChanged` (changed properties invalidated) when values change underneath; `Battery.Changed()` fires on state-like battery changes (not on every current sample), `Thermal` on a change of a whole degree.
 
 Capability detection: each object is only exported when its sysfs interface exists (for example no `Refresh` object on a kernel without the idle-refresh patch).
 Inactive/remote sessions get `no` for everything except reading properties.
@@ -98,6 +99,9 @@ and `tb323fu-*` (for example `tb323fu-ubuntu`, `tb323fu-arch`, `tb323fu-nixos` o
 The helper's `Boot` object lists the roots (reading each one's `os-release`, mounted read-only without journal replay, cached) and writes
 the selection; when it runs from another root it mounts the UFS root under `/run/tb323fu/ufs` for that. CLI: `tb323fu-ctl boot`
 (`list`, `next NAME`, `clear`, `default NAME`, `reboot NAME`, `rescan`); the settings app has a "Systems" page.
+While reading each root the helper also checks it against the running kernel (`RootHealth`): the modules directory with
+`modules.dep`, its `extra/` (the out-of-tree aw882xx amplifier driver), and the audio DSP and Wi-Fi firmware (also `.zst`/`.xz`).
+`tb323fu-ctl boot list` prints the problems under the root, and the app warns on the row and in the restart dialog.
 
 ## Persistence
 

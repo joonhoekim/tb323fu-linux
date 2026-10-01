@@ -35,6 +35,8 @@ tb323fu-ctl gpu profile power-saver | follow on | limits balanced 160 1200
 tb323fu-ctl usb wake on
 tb323fu-ctl android --yes            # restart into Android now
 tb323fu-ctl diagnostics export       # sanitized tarball under /var/lib/tb323fu/diagnostics
+tb323fu-ctl boot list                # installed systems, and what each lacks for this kernel
+tb323fu-ctl thermal                  # surface, CPU, GPU and board temperatures, throttling (read-only)
 tb323fu-ctl --json status
 ```
 

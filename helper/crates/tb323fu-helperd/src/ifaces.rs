@@ -29,6 +29,7 @@ pub const P_USB: &str = "/io/github/joonhoekim/tb323fu/Helper/Usb";
 pub const P_EMERGENCY: &str = "/io/github/joonhoekim/tb323fu/Helper/EmergencyKey";
 pub const P_DIAG: &str = "/io/github/joonhoekim/tb323fu/Helper/Diagnostics";
 pub const P_BOOT: &str = "/io/github/joonhoekim/tb323fu/Helper/Boot";
+pub const P_THERMAL: &str = "/io/github/joonhoekim/tb323fu/Helper/Thermal";
 
 fn failed(e: String) -> fdo::Error {
     fdo::Error::Failed(e)
@@ -685,7 +686,7 @@ impl Boot {
 
 impl Snapshot for Boot {
     const IFACE: &'static str = "io.github.joonhoekim.tb323fu.Helper.Boot";
-    const PROPS: &'static [&'static str] = &["Roots", "Default", "Next", "Current"];
+    const PROPS: &'static [&'static str] = &["Roots", "Default", "Next", "Current", "RootHealth"];
     fn snapshot(&self) -> String {
         let c = self.cache();
         format!("{:?} {:?} {:?}", boot::partitions(), c.next, c.default)
@@ -704,6 +705,15 @@ impl Boot {
             c.roots = Some(boot::roots());
         }
         c.roots.clone().unwrap_or_default().into_iter().map(|r| (r.name, r.label, r.present, r.init)).collect()
+    }
+    /// Root -> what it lacks for the running kernel (modules, extra/ amplifier
+    /// driver, key firmware); roots without problems are left out. A separate
+    /// property so the Roots signature stays the same.
+    #[zbus(property)]
+    fn root_health(&self) -> HashMap<String, Vec<String>> {
+        let _ = self.roots(); // fills or refreshes the cache
+        self.cache().roots.clone().unwrap_or_default().into_iter().filter(|r| !r.problems.is_empty())
+            .map(|r| (r.name, r.problems)).collect()
     }
     #[zbus(property)]
     fn default(&self) -> String {
@@ -766,5 +776,53 @@ impl Boot {
         self.refresh_selection();
         invalidate(&em, Self::IFACE, Self::PROPS).await;
         Ok(())
+    }
+}
+
+// ------------------------------------------------------------------ Thermal
+
+/// Read-only temperatures: no polkit, no writes, trips never touched.
+pub struct Thermal;
+
+fn or_nan(t: &Option<f::Thermal>, g: impl Fn(&f::Thermal) -> f64) -> f64 {
+    t.as_ref().map(g).unwrap_or(f64::NAN)
+}
+
+impl Snapshot for Thermal {
+    const IFACE: &'static str = "io.github.joonhoekim.tb323fu.Helper.Thermal";
+    const PROPS: &'static [&'static str] = &["Surface", "CpuMax", "GpuMax", "Throttling", "Zones"];
+    fn snapshot(&self) -> String {
+        // whole degrees: a signal per degree of change, not per sample
+        let t = f::thermal();
+        let r = |v: f64| if v.is_nan() { i64::MIN } else { v.round() as i64 };
+        format!("{:?}", t.map(|t| (r(t.surface), r(t.cpu_max), r(t.gpu_max), t.throttling,
+            t.zones.values().map(|v| r(*v)).collect::<Vec<_>>())))
+    }
+}
+
+#[interface(name = "io.github.joonhoekim.tb323fu.Helper.Thermal")]
+impl Thermal {
+    /// Skin (else quiet) sensor, °C; NaN when absent.
+    #[zbus(property)]
+    fn surface(&self) -> f64 {
+        or_nan(&f::thermal(), |t| t.surface)
+    }
+    #[zbus(property)]
+    fn cpu_max(&self) -> f64 {
+        or_nan(&f::thermal(), |t| t.cpu_max)
+    }
+    #[zbus(property)]
+    fn gpu_max(&self) -> f64 {
+        or_nan(&f::thermal(), |t| t.gpu_max)
+    }
+    /// A CPU or GPU cooling device is above state 0.
+    #[zbus(property)]
+    fn throttling(&self) -> bool {
+        f::thermal().is_some_and(|t| t.throttling)
+    }
+    /// Board sensors by name (zone type without "-thermal"), °C.
+    #[zbus(property)]
+    fn zones(&self) -> HashMap<String, f64> {
+        f::thermal().map(|t| t.zones.into_iter().collect()).unwrap_or_default()
     }
 }

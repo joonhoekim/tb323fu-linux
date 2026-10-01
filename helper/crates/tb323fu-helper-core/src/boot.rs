@@ -39,6 +39,8 @@ pub struct Root {
     pub present: bool,
     /// "systemd" (/sbin/init), "nixos" (system profile) or "none"
     pub init: String,
+    /// what this root lacks to run the shared kernel well (see `health`)
+    pub problems: Vec<String>,
 }
 
 pub fn is_candidate(n: &str) -> bool {
@@ -254,6 +256,44 @@ fn in_root(dir: &Path, rel: &str) -> PathBuf {
     dir.join(cur.join("/"))
 }
 
+/// The running kernel's release (`uname -r`).
+pub fn kernel_release() -> String {
+    sys::read_opt(&sys::path("/proc/sys/kernel/osrelease")).unwrap_or_default()
+}
+
+/// A firmware file, also compressed (Fedora and Arch ship .zst / .xz).
+fn has_firmware(dir: &Path, rel: &str) -> bool {
+    ["", ".zst", ".xz"].iter().any(|ext| fs::symlink_metadata(in_root(dir, &format!("{rel}{ext}"))).is_ok())
+}
+
+/// Firmware the root needs: (path under lib/firmware, what breaks without it).
+const KEY_FIRMWARE: [(&str, &str); 2] = [
+    ("qcom/kaanapali/lenovo/baldur/adsp.mbn", "audio DSP firmware missing (no sound)"),
+    ("ath12k/WCN7860/hw2.0/amss.bin", "Wi-Fi firmware missing"),
+];
+
+/// What a root with /sbin/init lacks for the shared kernel `release`: its
+/// modules (modules.dep), the out-of-tree amplifier driver (extra/), key
+/// firmware. NixOS roots carry modules and firmware in the store: not checked.
+pub fn health(dir: &Path, init: &str, release: &str) -> Vec<String> {
+    let mut p = Vec::new();
+    if init != "systemd" || release.is_empty() {
+        return p;
+    }
+    let m = format!("lib/modules/{release}");
+    if !in_root(dir, &format!("{m}/modules.dep")).exists() {
+        p.push(format!("missing modules for {release} (no sound or Wi-Fi)"));
+    } else if !in_root(dir, &format!("{m}/extra")).is_dir() {
+        p.push(format!("missing extra/ modules for {release} (no speakers)"));
+    }
+    for (fw, what) in KEY_FIRMWARE {
+        if !has_firmware(dir, &format!("lib/firmware/{fw}")) {
+            p.push(what.to_string());
+        }
+    }
+    p
+}
+
 fn inspect(dir: &Path) -> (String, String) {
     let label = fs::read_to_string(in_root(dir, "etc/os-release"))
         .or_else(|_| fs::read_to_string(in_root(dir, "usr/lib/os-release")))
@@ -277,23 +317,29 @@ fn inspect(dir: &Path) -> (String, String) {
 /// read-only (no journal replay) for a moment; the daemon caches the result.
 pub fn roots() -> Vec<Root> {
     let cur = current_root();
+    let rel = kernel_release();
+    let look = |dir: &Path| {
+        let (label, init) = inspect(dir);
+        let problems = health(dir, &init, &rel);
+        (label, init, problems)
+    };
     partitions()
         .into_iter()
         .map(|(name, dev)| {
-            let (label, init) = if testing() {
-                inspect(&sys::path(&format!("/roots/{name}")))
+            let (label, init, problems) = if testing() {
+                look(&sys::path(&format!("/roots/{name}")))
             } else if name == cur {
-                inspect(Path::new("/"))
+                look(Path::new("/"))
             } else if let Some((at, _)) = mounted_at(&dev) {
-                inspect(&at)
+                look(&at)
             } else if mount(&dev, PROBE_MNT, false).is_ok() {
-                let r = inspect(Path::new(PROBE_MNT));
+                let r = look(Path::new(PROBE_MNT));
                 umount(PROBE_MNT);
                 r
             } else {
-                (String::new(), "none".to_string())
+                (String::new(), "none".to_string(), Vec::new())
             };
-            Root { name, label, present: true, init }
+            Root { name, label, present: true, init, problems }
         })
         .collect()
 }
@@ -301,8 +347,7 @@ pub fn roots() -> Vec<Root> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-    static LOCK: Mutex<()> = Mutex::new(());
+    use crate::sys::TEST_ENV as LOCK;
 
     fn fake() -> tempdir::Dir {
         tempdir::Dir::new()
@@ -358,6 +403,9 @@ mod tests {
         assert_eq!(deb.init, "systemd");
         assert_eq!(rs.iter().find(|x| x.name == "tb323fu-nixos").unwrap().init, "nixos");
         assert_eq!(rs.iter().find(|x| x.name == "tb323fu-ubuntu").unwrap().init, "none");
+        // health: no /proc/sys/kernel/osrelease in the fake tree -> not checked
+        assert!(deb.problems.is_empty());
+        assert!(rs.iter().all(|x| x.problems.is_empty()));
 
         assert_eq!(next(), "");
         assert_eq!(default_root(), "baldur-root");
@@ -373,5 +421,28 @@ mod tests {
         set_default("baldur-root").unwrap();
         assert!(!r.join("etc/tb323fu/boot-default").exists());
         std::env::remove_var("TB323FU_SYSFS_ROOT");
+    }
+
+    #[test]
+    fn root_health() {
+        let t = fake();
+        let d = &t.0;
+        let rel = "7.3.0-test";
+        assert!(health(d, "nixos", rel).is_empty(), "NixOS roots are not checked");
+        let p = health(d, "systemd", rel);
+        assert_eq!(p.len(), 3, "{p:?}");
+        assert!(p[0].starts_with("missing modules for 7.3.0-test"));
+        fs::create_dir_all(d.join("usr/lib/modules").join(rel)).unwrap();
+        std::os::unix::fs::symlink("usr/lib", d.join("lib")).unwrap(); // merged /usr
+        fs::write(d.join("usr/lib/modules").join(rel).join("modules.dep"), "").unwrap();
+        let p = health(d, "systemd", rel);
+        assert!(p[0].starts_with("missing extra/"), "{p:?}");
+        fs::create_dir_all(d.join("usr/lib/modules").join(rel).join("extra")).unwrap();
+        for (fw, _) in KEY_FIRMWARE {
+            let f = d.join("usr/lib/firmware").join(format!("{fw}.zst"));
+            fs::create_dir_all(f.parent().unwrap()).unwrap();
+            fs::write(f, "").unwrap();
+        }
+        assert!(health(d, "systemd", rel).is_empty());
     }
 }

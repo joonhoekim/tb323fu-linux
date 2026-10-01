@@ -61,6 +61,10 @@ pub fn list_dir(p: &Path) -> Vec<String> {
     v
 }
 
+/// Tests that set `TB323FU_SYSFS_ROOT` hold this (the variable is process-wide).
+#[cfg(test)]
+pub static TEST_ENV: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[cfg(test)]
 mod tests {
     use super::*;
