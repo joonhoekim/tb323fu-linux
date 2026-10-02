@@ -5,7 +5,7 @@
 # Only the differences that matter for OUR board are here; everything else the
 # OnePlus 15 fragment sets already matches what this board needs
 # (PSTORE_RAM, FB_CORE, FRAMEBUFFER_CONSOLE, ARM64_4K_PAGES, EFI off, UFS,
-# SDHCI, ath12k, pmic-glink).
+# SDHCI, pmic-glink).
 
 # The firmware leaves its watchdog running. Nothing feeds it until this driver
 # probes, and as a module it probes far too late -- the OnePlus fragment has it
@@ -96,6 +96,11 @@ CONFIG_DEFAULT_HOSTNAME="baldur"
 # the WCN7860 firmware; without these the self-managed phy stays on world 00
 CONFIG_CFG80211_CERTIFICATION_ONUS=y
 CONFIG_ATH_REG_DYNAMIC_USER_REG_HINTS=y
+# Wi-Fi as a module (the OnePlus fragment builds it in). Built in, ath12k probes
+# from the initramfs; a release initramfs carries no firmware, the probe fails
+# for good and nothing retries it. As a module, udev loads it from the root,
+# where the firmware is. cfg80211, mac80211, MHI and QRTR stay built in.
+CONFIG_ATH12K=m
 # The CPU bandwidth monitors (qcom,kaanapali-cpu-bwmon, sdm845 flow)
 # scale DDR with CPU traffic; built in, since no modules reach the rootfs.
 # Without a driver they also held two interconnects' sync_state (fw_devlink).

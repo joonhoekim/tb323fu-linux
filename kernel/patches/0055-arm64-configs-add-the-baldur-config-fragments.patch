@@ -1,4 +1,4 @@
-From c14f71d992304e3b8a656a96d40a23a006245534 Mon Sep 17 00:00:00 2001
+From 238c47ce9ec0fe9b4d6b101ce746b75a6c16803c Mon Sep 17 00:00:00 2001
 From: joonhoekim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:33:48 +0000
 Subject: [PATCH 55/56] arm64: configs: add the baldur config fragments
@@ -6,8 +6,8 @@ Subject: [PATCH 55/56] arm64: configs: add the baldur config fragments
 ---
  arch/arm64/configs/baldur-display.fragment |  12 ++
  arch/arm64/configs/baldur-kexec.fragment   |  21 ++++
- arch/arm64/configs/baldur.fragment         | 128 +++++++++++++++++++++
- 3 files changed, 161 insertions(+)
+ arch/arm64/configs/baldur.fragment         | 133 +++++++++++++++++++++
+ 3 files changed, 166 insertions(+)
  create mode 100644 arch/arm64/configs/baldur-display.fragment
  create mode 100644 arch/arm64/configs/baldur-kexec.fragment
  create mode 100644 arch/arm64/configs/baldur.fragment
@@ -59,10 +59,10 @@ index 000000000..e8093e543
 +CONFIG_CMDLINE="icc-rpmh.qos_disable=1 icc_rpmh.qos_disable=1 clk_ignore_unused pd_ignore_unused initcall_blacklist=clk_disable_unused,genpd_power_off_unused,regulator_init_complete,of_platform_sync_state_init fw_devlink=off initcall_debug loglevel=8 fbcon=font:TER16x32 panic=10 oops=panic console=tty1 keep_bootcon qcom_scm.download_mode=off baldur.end=reboot irqchip.gicv3_nolpi=1 reboot=warm baldur.wait=20"
 diff --git a/arch/arm64/configs/baldur.fragment b/arch/arm64/configs/baldur.fragment
 new file mode 100644
-index 000000000..e52bb79b7
+index 000000000..958e0631a
 --- /dev/null
 +++ b/arch/arm64/configs/baldur.fragment
-@@ -0,0 +1,128 @@
+@@ -0,0 +1,133 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +# Config fragment for TB323FU ("baldur"), merged on top of
 +# arch/arm64/configs/kaanapali-oneplus-infiniti_defconfig.
@@ -70,7 +70,7 @@ index 000000000..e52bb79b7
 +# Only the differences that matter for OUR board are here; everything else the
 +# OnePlus 15 fragment sets already matches what this board needs
 +# (PSTORE_RAM, FB_CORE, FRAMEBUFFER_CONSOLE, ARM64_4K_PAGES, EFI off, UFS,
-+# SDHCI, ath12k, pmic-glink).
++# SDHCI, pmic-glink).
 +
 +# The firmware leaves its watchdog running. Nothing feeds it until this driver
 +# probes, and as a module it probes far too late -- the OnePlus fragment has it
@@ -160,6 +160,11 @@ index 000000000..e52bb79b7
 +# the WCN7860 firmware; without these the self-managed phy stays on world 00
 +CONFIG_CFG80211_CERTIFICATION_ONUS=y
 +CONFIG_ATH_REG_DYNAMIC_USER_REG_HINTS=y
++# Wi-Fi as a module (the OnePlus fragment builds it in). Built in, ath12k probes
++# from the initramfs; a release initramfs carries no firmware, the probe fails
++# for good and nothing retries it. As a module, udev loads it from the root,
++# where the firmware is. cfg80211, mac80211, MHI and QRTR stay built in.
++CONFIG_ATH12K=m
 +# The CPU bandwidth monitors (qcom,kaanapali-cpu-bwmon, sdm845 flow)
 +# scale DDR with CPU traffic; built in, since no modules reach the rootfs.
 +# Without a driver they also held two interconnects' sync_state (fw_devlink).
