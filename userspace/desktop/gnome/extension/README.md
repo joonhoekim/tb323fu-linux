@@ -4,10 +4,12 @@ A "Tablet" tile in GNOME's quick settings (GNOME 48/49). It is only a front-end 
 (`helper/`, design in `docs/helper.md`): every action is a call on the system D-Bus (`io.github.joonhoekim.tb323fu.Helper`),
 and permissions are decided by the helper's polkit policy. Without the helper the tile shows "helper not running".
 
+**The tile:** pressing it opens Tablet Settings (and closes the panel); the arrow opens the menu below. The subtitle shows
+the charge and the live refresh rate (`80% · 60 Hz`). The tile has no on/off state of its own.
+
 | In the menu | Helper object |
 |---|---|
-| tile on/off = adaptive refresh (lower the rate when idle); subtitle = current Hz | `Refresh.SetPolicy` |
-| battery %, state (charging / bypass / …), charger contract; charge limit 60 / 80 / 100 %; bypass charging | `Battery` |
+| header: battery %, state (charging / bypass / …), charger contract; charge limit 60 / 80 / 100 %; bypass charging | `Battery` |
 | refresh policy (adaptive / fixed / always 120 Hz) | `Refresh.SetPolicy` |
 | torch on/off and level | `Torch` |
 | Tablet Settings… — opens the settings app (`io.github.joonhoekim.tb323fu.Settings.desktop`) | — |
@@ -33,5 +35,3 @@ System-wide: copy the directory to `/usr/share/gnome-shell/extensions/` instead.
 ## License
 
 GPL-2.0-or-later (GNOME Shell extensions run inside and import GNOME Shell, which is GPL); the rest of the repository is MIT.
-
-Tile behaviour: pressing the tile opens Tablet Settings (and closes the panel); the arrow opens the detailed menu. The tile is highlighted while adaptive refresh is on.
