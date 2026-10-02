@@ -4,7 +4,7 @@
 # built in, CONFIG_INITRAMFS_SOURCE) from this directory, a kernel build and a
 # few third-party files that are not stored in this repository.
 #
-#   kernel/initramfs/build.sh -k KBUILD_OUT -b BUSYBOX -f FIRMWARE_ROOT [options] OUT.cpio.gz
+#   kernel/initramfs/build.sh -k KBUILD_OUT -b BUSYBOX [-f FIRMWARE_ROOT] [options] OUT.cpio.gz
 #
 #   -k  kernel build directory (make O=...): the modules below and
 #       usr/gen_init_cpio come from it (build the modules first: make modules)
@@ -15,11 +15,16 @@
 #       firmware/extract-on-device.sh (FIRMWARE_ROOT/lib/firmware/...). The
 #       Adreno, touch, Bluetooth and Wi-Fi firmware must be in the initramfs:
 #       those drivers are built in and probe before any root is mounted.
+#       Without -f the image carries no vendor firmware at all (only
+#       regulatory.db) -- the release images are built that way, since the
+#       firmware may not be redistributed; see README.md for what that costs.
 #   -r  directory holding regulatory.db + regulatory.db.p7s (wireless-regdb;
 #       default /lib/firmware of the build machine)
 #   -a  file with the sha256 of YOUR Android boot image in boot_b (enables the
 #       volume up+down emergency way back to Android; see android/README.md).
-#       Without it the chord does nothing in the initramfs (the rootfs's own
+#       Without it init reads the hash from the root partition
+#       (/etc/tb323fu/android-boot.sha256 on baldur-root, else baldur-root-sd);
+#       with neither, the chord does nothing in the initramfs (the rootfs's own
 #       tb323fu-emergency-key service still works).
 #   -F  console font, PSF (default: console-setup's Lat15-Terminus28x14,
 #       /usr/share/consolefonts/Lat15-Terminus28x14.psf.gz, unpacked)
@@ -36,9 +41,9 @@ kout= busybox= fwroot= regdb=/lib/firmware android= font= cc= list=
 while getopts k:b:f:r:a:F:c:l: o; do case $o in
 	k) kout=$OPTARG ;; b) busybox=$OPTARG ;; f) fwroot=$OPTARG ;; r) regdb=$OPTARG ;;
 	a) android=$OPTARG ;; F) font=$OPTARG ;; c) cc=$OPTARG ;; l) list=$OPTARG ;;
-	*) sed -n '4,31p' "$0"; exit 2 ;; esac; done
+	*) sed -n '4,36p' "$0"; exit 2 ;; esac; done
 shift $((OPTIND - 1)); out=${1:?output .cpio.gz}
-[ -n "$kout" ] && [ -n "$busybox" ] && [ -n "$fwroot" ] || { sed -n '4,31p' "$0"; exit 2; }
+[ -n "$kout" ] && [ -n "$busybox" ] || { sed -n '4,36p' "$0"; exit 2; }
 if [ -z "$cc" ]; then
 	if [ "$(uname -m)" = aarch64 ]; then cc=cc; else cc=aarch64-linux-gnu-gcc; fi
 fi
@@ -72,12 +77,16 @@ fw=( qcom/gen80200_sqe.fw qcom/gen80200_gmu.bin qcom/gen80200_aqe.fw
      ath12k/WCN7860/hw2.0/amss.bin ath12k/WCN7860/hw2.0/m3.bin
      ath12k/WCN7860/hw2.0/aux_ucode.bin ath12k/WCN7860/hw2.0/board.bin
      ath12k/WCN7860/hw2.0/regdb.bin ath12k/WCN7860/hw2.0/qdss.cfg )
-for f in "${fw[@]}"; do
-	[ -f "$fwroot/lib/firmware/$f" ] || { echo "missing firmware $f under $fwroot/lib/firmware" >&2; exit 1; }
-	mkdir -p "$st/fw/$(dirname "$f")"; cp "$fwroot/lib/firmware/$f" "$st/fw/$f"
-done
-# optional: the BT .tlv some firmware versions ask for
-[ -f "$fwroot/lib/firmware/qca/brhbtfw20.tlv" ] && cp "$fwroot/lib/firmware/qca/brhbtfw20.tlv" "$st/fw/qca/"
+if [ -n "$fwroot" ]; then
+	for f in "${fw[@]}"; do
+		[ -f "$fwroot/lib/firmware/$f" ] || { echo "missing firmware $f under $fwroot/lib/firmware" >&2; exit 1; }
+		mkdir -p "$st/fw/$(dirname "$f")"; cp "$fwroot/lib/firmware/$f" "$st/fw/$f"
+	done
+	# optional: the BT .tlv some firmware versions ask for
+	[ -f "$fwroot/lib/firmware/qca/brhbtfw20.tlv" ] && cp "$fwroot/lib/firmware/qca/brhbtfw20.tlv" "$st/fw/qca/"
+else
+	echo "no -f: no vendor firmware in this initramfs (regulatory.db only)" >&2
+fi
 cp "$regdb/regulatory.db" "$regdb/regulatory.db.p7s" "$st/fw/"
 [ -n "$android" ] && cut -c1-64 "$android" > "$st/android-boot.sha256"
 

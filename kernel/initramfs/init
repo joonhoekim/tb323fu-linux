@@ -11,7 +11,8 @@
 #   - a way in from a PC first: USB serial shell (ttyGS0) and USB network
 #     (usb0 192.168.7.2, telnet), so a boot that goes wrong stays reachable
 #   - the emergency way back to Android (volume up + down held 10 s), when the
-#     image carries /etc/android-boot.sha256
+#     image carries /etc/android-boot.sha256 or, failing that, the default
+#     root has /etc/tb323fu/android-boot.sha256 (release images carry no hash)
 #   - loads the few modules that must not be built in (remoteproc PAS for the
 #     charger/Type-C firmware, the touch driver)
 #   - prints a one-screen summary of the boot on the panel and in the kernel log
@@ -79,12 +80,26 @@ usb_gadget
 ifconfig usb0 192.168.7.2 netmask 255.255.255.0 up 2>/dev/null && telnetd -l /bin/sh 2>/dev/null
 
 # Emergency way back to Android without a PC: hold volume UP and volume DOWN
-# together for 10 s. The expected hash of the Android image in boot_b is baked
-# into the image (/etc/android-boot.sha256, optional); back-to-android still
-# refuses to write unless boot_b matches it. keyhold polls both keys' state.
+# together for 10 s. The expected hash of the Android image in boot_b comes from
+# the image (/etc/android-boot.sha256, built with build.sh -a) or, when the image
+# has none (release images: the hash differs per firmware version and region),
+# from the root partition: the root selection below copies baldur-root's (else
+# baldur-root-sd's) /etc/tb323fu/android-boot.sha256 to /tmp. Either way
+# back-to-android still refuses to write unless boot_b matches it, so a wrong or
+# stale hash only means "no restore", never a bad write. keyhold polls both keys.
+hash_ok() { case $1 in *[!0-9a-f]*) return 1 ;; esac; [ ${#1} -eq 64 ]; }
 keys_back_to_android() {
-	want=$(cat /etc/android-boot.sha256 2>/dev/null)
-	[ ${#want} -eq 64 ] || return
+	want=$(head -c 64 /etc/android-boot.sha256 2>/dev/null)
+	if ! hash_ok "$want"; then
+		# wait for the root selection to look (it runs after the summary)
+		waitfor 600 '[ -e /tmp/android-hash-done ]'
+		want=$(head -c 64 /tmp/android-boot.sha256 2>/dev/null)
+		if ! hash_ok "$want"; then
+			say " emergency key off: no Android image hash (not in this image, no /etc/tb323fu/android-boot.sha256 on the root)"
+			return
+		fi
+		say " emergency key: Android image hash from the root ($(echo $want | cut -c1-12)...)"
+	fi
 	while :; do
 		keyhold 10 pmic_resin:114 gpio-keys:115 2>/dev/null | while read -r s; do
 			case $s in
@@ -282,8 +297,14 @@ if [ "$end" = "hold" ]; then
 		[ -e $u ] && grep -E '^PARTNAME=(baldur-root|baldur-root-sd|tb323fu-.+)$' $u | cut -d= -f2
 		done; }
 	next= ; def= ; menu=
+	# the emergency key's Android hash, for images built without one (see
+	# above): read here, while a root is mounted read-only anyway
+	roothash() { [ -s /tmp/android-boot.sha256 ] && return
+		for f in /sel/etc/tb323fu/android-boot.sha256 /sel/etc/android-boot.sha256; do
+			[ -s $f ] && { head -c 64 $f > /tmp/android-boot.sha256; return; }; done; }
 	ufs=$(partdev baldur-root)
 	if [ -n "$ufs" ] && mkdir -p /sel && mount -t ext4 -o ro $ufs /sel 2>/dev/null; then
+		roothash
 		[ -s /sel/etc/tb323fu/boot-next ] && next=$(head -n1 /sel/etc/tb323fu/boot-next | tr -d ' \r\t')
 		[ -s /sel/etc/tb323fu/boot-default ] && def=$(head -n1 /sel/etc/tb323fu/boot-default | tr -d ' \r\t')
 		[ -e /sel/etc/tb323fu/boot-menu ] && menu=1
@@ -293,7 +314,10 @@ if [ "$end" = "hold" ]; then
 			mount -o remount,rw /sel && rm -f /sel/etc/tb323fu/boot-next && sync
 		fi
 		umount /sel
+	elif sd=$(partdev baldur-root-sd) && mkdir -p /sel && mount -t ext4 -o ro $sd /sel 2>/dev/null; then
+		roothash; umount /sel
 	fi
+	touch /tmp/android-hash-done
 	if [ -n "$menu" ]; then
 		list=$(roots | sort -u); n=$(echo "$list" | wc -l); i=1
 		cur=${next:-${def:-baldur-root}}

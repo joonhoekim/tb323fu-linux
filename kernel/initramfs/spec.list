@@ -10,7 +10,8 @@
 # /bin/gpu-probe          ours: kernel/initramfs/gpu-probe.c (GPL-2.0), optional,
 #                         static; one line about the Adreno in the summary
 # /etc/android-boot.sha256  per device, optional: hash of YOUR Android boot
-#                         image (never commit it)
+#                         image (never commit it). Without it init reads the
+#                         root's /etc/tb323fu/android-boot.sha256
 # /dev/console            char 5:1 -- without it init has no stdin/stdout
 # /font.psf               third-party: console-setup Lat15-Terminus28x14
 #                         (readable on 1904x3040; the kernel's fonts are small)
@@ -25,8 +26,9 @@
 #   nt36536_ts            touch; downloads its firmware to the IC's SRAM
 #
 # /lib/firmware/...       vendor firmware, from YOUR device (firmware/), never
-#                         committed. Needed here because these drivers are
-#                         built in and probe before a root is mounted:
+#                         committed; only with build.sh -f (release images
+#                         have none). Wanted here because these drivers
+#                         probe before a root is mounted:
 #   qcom/gen80200_{sqe.fw,gmu.bin,aqe.fw}, qcom/kaanapali/Lenovo/baldur/gen80200_zap.mbn
 #                         Adreno 840 (the fbdev console opens the DRM device)
 #   novatek/novatek_ts_fw.bin            touch

@@ -29,9 +29,10 @@ Nothing third-party is stored here:
 
 - **busybox**: a static aarch64 build, e.g. Debian's `busybox-static` (`/bin/busybox`). The tested one is BusyBox 1.36.1.
 - **console font**: console-setup's `Lat15-Terminus28x14.psf.gz`.
-- **firmware**: extracted from your own tablet with [`../../firmware/extract-on-device.sh`](../../firmware/); the
-  Adreno, touch, Bluetooth and Wi-Fi drivers are built in and probe before a root is mounted, so their firmware
-  has to be in the initramfs as well as in the root filesystem.
+- **firmware** (`-f`, optional): extracted from your own tablet with [`../../firmware/extract-on-device.sh`](../../firmware/);
+  the Adreno, touch, Bluetooth and Wi-Fi drivers probe before a root is mounted, so with `-f` their firmware is
+  in the initramfs as well as in the root filesystem. Without `-f` the image carries no vendor firmware (release
+  images are built that way).
 - **regulatory.db**: from wireless-regdb.
 
 ## What `init` does
@@ -39,8 +40,11 @@ Nothing third-party is stored here:
 1. **USB way in**, first: a configfs gadget with a serial shell on `ttyGS0` and a network interface
    (`usb0`, the tablet is `192.168.7.2`, telnet). A boot that goes wrong later stays reachable from a PC.
 2. **Emergency way back to Android**: volume up + down held for 10 s runs `back-to-android`, which copies the
-   Android boot image from `boot_b` back into `boot_a` and reboots — only if the image carries
-   `/etc/android-boot.sha256` (`build.sh -a`) and `boot_b` matches it.
+   Android boot image from `boot_b` back into `boot_a` and reboots — only if `boot_b` matches the expected hash.
+   The hash comes from the image (`/etc/android-boot.sha256`, `build.sh -a`) or, for images built without one
+   (release images), from the root: `init` copies `/etc/tb323fu/android-boot.sha256` of `baldur-root` (else
+   `baldur-root-sd`) while it reads the boot selection. With neither, the chord does nothing in the initramfs
+   and the panel says so.
 3. **Modules**: the remoteproc PAS driver (it attaches to the charger/Type-C firmware the bootloader already
    runs) and the touch driver are loaded after the USB shell is up, so a bad attach still leaves a way in.
 4. **Boot summary** on the panel and in the kernel log (so it also lands in ramoops): kernel, command line,
