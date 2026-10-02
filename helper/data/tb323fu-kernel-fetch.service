@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: MIT
 # Started by tb323fu-helperd (Kernel.Check / Kernel.Download), never by itself:
 # downloads the files the daemon listed in /run/tb323fu/kernel-fetch.list into
-# /var/cache/tb323fu-kernel. The daemon has no network access of its own and
-# verifies everything this leaves there (signatures, hashes) before using it.
+# /var/cache/tb323fu-kernel (GitHub Releases through the REST API). The daemon
+# has no network access of its own and checks everything this leaves there
+# (SHA256SUMS, sizes, the kernel banner) before using it.
 [Unit]
 Description=Download a TB323FU kernel release for tb323fu-helperd
 Documentation=https://github.com/joonhoekim/tb323fu-linux/blob/main/docs/helper.md
@@ -16,6 +17,9 @@ TimeoutStartSec=35min
 DynamicUser=yes
 CacheDirectory=tb323fu-kernel
 CacheDirectoryMode=0700
+# optional: a GitHub token for a private repository or a higher rate limit
+# (/etc/credstore/tb323fu-github-token; systemd 254+, older ones ignore this line)
+ImportCredential=tb323fu-github-token
 UMask=0077
 # nothing else: no devices, no kernel knobs, no capabilities, IP only
 ProtectSystem=strict

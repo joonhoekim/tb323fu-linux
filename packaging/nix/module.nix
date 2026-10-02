@@ -153,7 +153,7 @@ in {
       services.dbus.packages = [ helper ];
       security.polkit.enable = true;
       # kernel updates: the daemon starts this download unit (DynamicUser, network)
-      systemd.services.tb323fu-kernel-fetch.path = [ pkgs.curl pkgs.coreutils ];
+      systemd.services.tb323fu-kernel-fetch.path = [ pkgs.curl pkgs.coreutils pkgs.gnused ];
       systemd.services.tb323fu-helperd = {
         wantedBy = [ "multi-user.target" ];
         path = toolPath ++ [ platform ];

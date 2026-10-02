@@ -58,6 +58,24 @@ impl Client {
     }
 }
 
+/// What Kernel.InspectLocal found in a kernel file: release, banner, format,
+/// shared modules inside, warnings.
+pub type LocalKernel = (String, String, String, bool, Vec<String>);
+
+impl Client {
+    /// Kernel.InspectLocal on a file opened by the app (the daemon reads only
+    /// what this user can read).
+    pub fn inspect_local(&self, f: &std::fs::File) -> Result<LocalKernel, String> {
+        let c = self.conn.as_ref().ok_or_else(|| NOT_RUNNING.to_string())?;
+        match c.call_method(Some(BUS), path("Kernel").as_str(), Some(iface("Kernel").as_str()), "InspectLocal", &(zbus::zvariant::Fd::from(f),)) {
+            Ok(reply) => reply.body().deserialize().map_err(|e| e.to_string()),
+            Err(zbus::Error::MethodError(name, msg, _)) => Err(human_error(name.as_str(), msg.as_deref())),
+            Err(zbus::Error::InputOutput(_)) => Err(NOT_RUNNING.to_string()),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+}
+
 const NOT_RUNNING: &str = "The helper service is not running";
 
 /// D-Bus error name + message -> text for a toast.
@@ -107,6 +125,7 @@ pub fn setting_name(method: &str) -> &'static str {
         "Check" => "Kernel check",
         "Download" => "Kernel download",
         "Install" => "Kernel install",
+        "InstallLocal" | "InspectLocal" => "Kernel from file",
         "Keep" => "Keep kernel",
         "Rollback" => "Previous kernel",
         "Dismiss" => "Kernel notice",

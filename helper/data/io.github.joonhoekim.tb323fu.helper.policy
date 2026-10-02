@@ -112,7 +112,7 @@
   </action>
 
   <!-- kernel updates (docs/helper.md "Kernel updates"): looking and downloading
-       are harmless (signed, verified, nothing installed); writing boot_a and
+       are harmless (checked, nothing installed); writing boot_a and
        changing the channel ask for authentication -->
   <action id="io.github.joonhoekim.tb323fu.helper.kernel-check">
     <description>Look for a new kernel release</description>
@@ -130,6 +130,15 @@
     <description>Install a new kernel</description>
     <message>Authentication is required to install a new kernel</message>
     <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+
+  <!-- a kernel from a file nobody published: always the administrator's password, never
+       remembered (auth_admin, not _keep) -- the file decides what runs as the kernel, and
+       nothing but the person installing it vouches for it -->
+  <action id="io.github.joonhoekim.tb323fu.helper.kernel-install-local">
+    <description>Install a kernel from a file</description>
+    <message>Authentication is required to install a kernel from a file</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin</allow_active></defaults>
   </action>
 
   <action id="io.github.joonhoekim.tb323fu.helper.kernel-rollback">

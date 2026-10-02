@@ -34,9 +34,14 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
   kernel install TAG [--reboot]  repack it into your stock boot image and write boot_a (admin);
                                  it is tried on the next start and confirmed after 90 s (stable)
   kernel update [--reboot]       check, download and install the newest release
-  kernel keep                    keep the running trial kernel (testing channel)
+  kernel inspect PATH            look at a kernel file (Image, Image.gz or boot image): release, modules, warnings
+  kernel install-local PATH [--trial|--keep] [--name NAME] [--reboot] [--yes]
+                                 install a kernel from a file the same safe way (admin password each time):
+                                 --trial (default) kept only with `kernel keep`; --keep kept by itself
+                                 once a system has run 90 s; otherwise back after its third start
+  kernel keep                    keep the running trial kernel (testing channel, local files)
   kernel rollback [--reboot]     write the last good kernel (linux-good.img) back (admin)
-  kernel channel stable|testing  release channel (admin)
+  kernel channel stable|testing  release channel (admin; the source is kernel.source in helper.toml)
   kernel auto-check on|off       daily check for a new kernel (admin)
   kernel helper-notify on|off    show when a newer helper is published (admin)
   kernel dismiss                 hide the notice after an automatic rollback
@@ -276,14 +281,16 @@ impl Ctl {
         let n = |k: &str| p.get(k).and_then(|v| v.as_u64()).unwrap_or(0);
         println!("running    {}{}", s("Running"), if b("SharedModules") { " (modules from the boot image)" } else { "" });
         println!("state      {}", s("State"));
-        println!("channel    {} (daily check {}, last check {}{})", s("Channel"), if b("AutoCheck") { "on" } else { "off" },
-            utc(n("LastCheck")), if b("IndexExpired") { ", index EXPIRED" } else { "" });
-        println!("good       {}", if s("Good").is_empty() { "(none saved yet)".into() } else { s("Good") });
+        println!("channel    {} from {} (daily check {}, last check {})", s("Channel"), s("Source"), if b("AutoCheck") { "on" } else { "off" },
+            utc(n("LastCheck")));
+        let label = |k: &str| if s(k).is_empty() { String::new() } else { format!(" \"{}\"", s(k)) };
+        println!("good       {}{}", if s("Good").is_empty() { "(none saved yet)".into() } else { s("Good") }, label("GoodLabel"));
         if !s("Trial").is_empty() {
-            println!("trial      {} ({} channel, start {} of {})", s("Trial"), s("TrialChannel"), n("Tries"), n("MaxTries"));
+            let from = if s("TrialChannel") == "local" { "a local file".to_string() } else { format!("{} channel", s("TrialChannel")) };
+            println!("trial      {}{} ({from}, start {} of {})", s("Trial"), label("TrialLabel"), n("Tries"), n("MaxTries"));
             if b("KeepPending") {
                 let left = n("MaxTries").saturating_sub(n("Tries"));
-                println!("           testing channel: `tb323fu-ctl kernel keep` keeps it; without that, {} comes back after {left} more start{}",
+                println!("           kept only with `tb323fu-ctl kernel keep`; without that, {} comes back after {left} more start{}",
                     s("Good"), if left == 1 { "" } else { "s" });
             }
         }
@@ -310,7 +317,101 @@ impl Ctl {
         0
     }
 
-    fn kernel(&self, rest: &[&str], reboot: bool) -> i32 {
+    /// Kernel.InspectLocal on a file opened here (the daemon reads only what
+    /// this user can read); prints what it found.
+    fn inspect(&self, p: &str) -> Result<bool, i32> {
+        let f = std::fs::File::open(p).map_err(|e| {
+            eprintln!("tb323fu-ctl: {p}: {e}");
+            1
+        })?;
+        let fd = zbus::zvariant::Fd::from(&f);
+        let r = self.conn.call_method(Some(BUS), path("Kernel").as_str(), Some(iface("Kernel").as_str()), "InspectLocal", &(fd,));
+        let (release, banner, format, shared, warnings): (String, String, String, bool, Vec<String>) = match r {
+            Ok(reply) => reply.body().deserialize().map_err(|e| {
+                eprintln!("tb323fu-ctl: kernel inspect: {e}");
+                1
+            })?,
+            Err(zbus::Error::MethodError(_, msg, _)) => {
+                eprintln!("tb323fu-ctl: {p}: {}", msg.unwrap_or_default());
+                return Err(1);
+            }
+            Err(e) => {
+                eprintln!("tb323fu-ctl: kernel inspect: {e}");
+                return Err(1);
+            }
+        };
+        if self.json {
+            println!("{}", serde_json::json!({"Release": release, "Banner": banner, "Format": format, "SharedModules": shared, "Warnings": warnings}));
+        } else {
+            println!("file       {p} ({format})");
+            println!("release    {release}");
+            println!("build      {banner}");
+            println!("modules    {}", if shared { "shared modules image inside (every system gets them)" } else { "NONE inside" });
+            for w in &warnings {
+                println!("warning    {w}");
+            }
+        }
+        Ok(!warnings.is_empty())
+    }
+
+    /// kernel install-local PATH [--trial|--keep] [--name NAME] [--reboot] [--yes]
+    fn install_local(&self, args: &[String], reboot: bool) -> i32 {
+        let mut it = args.iter().skip_while(|a| a.as_str() != "install-local").skip(1);
+        let (mut path, mut name, mut keep, mut trial, mut yes) = (None, String::new(), false, false, false);
+        while let Some(a) = it.next() {
+            match a.as_str() {
+                "--keep" => keep = true,
+                "--trial" => trial = true,
+                "--yes" => yes = true,
+                "--reboot" | "--json" | "--session" => {}
+                "--name" => name = it.next().cloned().unwrap_or_default(),
+                s if s.starts_with("--name=") => name = s["--name=".len()..].to_string(),
+                s if s.starts_with("--") => return usage(),
+                s if path.is_none() => path = Some(s.to_string()),
+                _ => return usage(),
+            }
+        }
+        let Some(path) = path else { return usage() };
+        if keep && trial {
+            eprintln!("tb323fu-ctl: --keep or --trial, not both");
+            return 2;
+        }
+        if let Err(c) = self.inspect(&path) {
+            return c;
+        }
+        println!("keep       {}", if keep { "by itself, once a system has run 90 s with it" } else { "only with `tb323fu-ctl kernel keep` (otherwise back after its third start)" });
+        if !yes {
+            use std::io::{BufRead, IsTerminal, Write};
+            if !std::io::stdin().is_terminal() {
+                eprintln!("tb323fu-ctl: not asking without a terminal; add --yes to install");
+                return 2;
+            }
+            print!("Install this kernel into boot_a? [y/N] ");
+            let _ = std::io::stdout().flush();
+            let mut l = String::new();
+            let _ = std::io::stdin().lock().read_line(&mut l);
+            if !matches!(l.trim(), "y" | "Y" | "yes") {
+                println!("not installed");
+                return 1;
+            }
+        }
+        let f = match std::fs::File::open(&path) {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("tb323fu-ctl: {path}: {e}");
+                return 1;
+            }
+        };
+        match self.kcall("InstallLocal", &(zbus::zvariant::Fd::from(&f), name.as_str(), keep, reboot)) {
+            Ok(m) => {
+                println!("{m}");
+                0
+            }
+            Err(c) => c,
+        }
+    }
+
+    fn kernel(&self, rest: &[&str], args: &[String], reboot: bool) -> i32 {
         let say = |r: Result<String, i32>| match r {
             Ok(m) => {
                 println!("{m}");
@@ -353,6 +454,14 @@ impl Ctl {
                 }
                 say(self.kcall("Install", &(tag.as_str(), reboot)))
             }
+            Some("inspect") => match rest.get(1) {
+                Some(p) => match self.inspect(p) {
+                    Ok(_) => 0,
+                    Err(c) => c,
+                },
+                None => usage(),
+            },
+            Some("install-local") => self.install_local(args, reboot),
             Some("keep") => say(self.kcall("Keep", &())),
             Some("rollback") => say(self.kcall("Rollback", &(reboot,))),
             Some("dismiss") => say(self.kcall("Dismiss", &())),
@@ -534,7 +643,7 @@ fn run(args: &[String]) -> i32 {
             _ => usage(),
         },
         "thermal" => c.thermal(),
-        "kernel" => c.kernel(rest, args.iter().any(|x| x == "--reboot")),
+        "kernel" => c.kernel(rest, args, args.iter().any(|x| x == "--reboot")),
         "reload" => c.call("", "Reload", &()),
         _ => usage(),
     }

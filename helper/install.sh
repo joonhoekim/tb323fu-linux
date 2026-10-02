@@ -24,14 +24,15 @@ else
 fi
 DBUSSVC=${DBUSSVC:-/usr/share/dbus-1/system-services}
 POLKIT=${POLKIT:-/usr/share/polkit-1/actions}
-# public keys of the kernel release channel (also compiled into the daemon)
+# optional minisign keys for kernel.require_signature (none shipped; the old
+# project key of the signed-index channel is removed on install)
 KEYDIR=${KEYDIR:-$PREFIX/share/tb323fu/keys}
 here=$(cd "$(dirname "$0")" && pwd)
 B=$here/target/release
 
 files() {
 	echo "$LIBEXECDIR/tb323fu-helperd $BINDIR/tb323fu-ctl $UNITDIR/tb323fu-helperd.service"
-	echo "$LIBEXECDIR/tb323fu-kernel-fetch $UNITDIR/tb323fu-kernel-fetch.service $KEYDIR/kernel-A5D2DA7287637413.pub"
+	echo "$LIBEXECDIR/tb323fu-kernel-fetch $UNITDIR/tb323fu-kernel-fetch.service"
 	echo "$DBUSCONF/io.github.joonhoekim.tb323fu.Helper.conf $DBUSSVC/io.github.joonhoekim.tb323fu.Helper.service"
 	echo "$POLKIT/io.github.joonhoekim.tb323fu.helper.policy"
 }
@@ -39,6 +40,7 @@ files() {
 if [ "${1:-}" = --uninstall ]; then
 	[ -z "$DESTDIR" ] && systemctl disable --now tb323fu-helperd.service 2>/dev/null || true
 	for f in $(files); do rm -f "$DESTDIR$f"; done
+	rm -f "$DESTDIR$KEYDIR/kernel-A5D2DA7287637413.pub"
 	[ -z "$DESTDIR" ] && systemctl daemon-reload || true
 	echo "removed (settings kept in /etc/tb323fu)"
 	exit 0
@@ -54,7 +56,8 @@ install -Dm755 "$here/data/tb323fu-kernel-fetch" "$DESTDIR$LIBEXECDIR/tb323fu-ke
 sed "s|@LIBEXECDIR@|$LIBEXECDIR|" "$here/data/tb323fu-kernel-fetch.service" > "$here/data/.unit"
 install -Dm644 "$here/data/.unit" "$DESTDIR$UNITDIR/tb323fu-kernel-fetch.service"
 rm -f "$here/data/.unit"
-for k in "$here"/data/keys/kernel-*.pub; do install -Dm644 "$k" "$DESTDIR$KEYDIR/$(basename "$k")"; done
+# the signed-index channel (before GitHub Releases) trusted this key; nothing does now
+rm -f "$DESTDIR$KEYDIR/kernel-A5D2DA7287637413.pub"
 install -Dm644 "$here/data/io.github.joonhoekim.tb323fu.Helper.conf" "$DESTDIR$DBUSCONF/io.github.joonhoekim.tb323fu.Helper.conf"
 install -Dm644 "$here/data/io.github.joonhoekim.tb323fu.Helper.service" "$DESTDIR$DBUSSVC/io.github.joonhoekim.tb323fu.Helper.service"
 install -Dm644 "$here/data/io.github.joonhoekim.tb323fu.helper.policy" "$DESTDIR$POLKIT/io.github.joonhoekim.tb323fu.helper.policy"

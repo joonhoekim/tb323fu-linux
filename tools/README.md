@@ -13,7 +13,7 @@ USB network gadget in which the tablet is **192.168.7.2** and the PC is 192.168.
 |---|---|
 | `build-boot.sh` | build the kernel (`dtbs`, then `Image`) and pack it into a boot image, optionally regenerating the initramfs first |
 | `boot-repack-kernel.py` | put a new kernel into a stock Android boot image (header v4), keeping the stock boot signature, vbmeta blob and AVB footer layout |
-| `kernel-channel.py` | build and sign a kernel release channel for the helper's updates (manifest per release, index per channel; minisign) — also a local test channel served from a PC |
+| `kernel-release.py` | the asset set of a kernel release on GitHub Releases as the helper expects it (`Image-tb323fu-tNN`, `.gz`, `SHA256SUMS`, optional minisign), a check of it, and a local stand-in of the GitHub API for tests ([docs/custom-kernel.md](../docs/custom-kernel.md)) |
 | `flash-boot.sh` | write a boot image to `boot_a` from the running Linux over SSH, verify by read-back, reboot |
 | `cycle.sh` | the same through Android: back to Android, write `boot_a` with root over adb, reboot, wait for Linux |
 

@@ -41,6 +41,7 @@ tb323fu-ctl thermal                  # surface, CPU, GPU and board temperatures,
 tb323fu-ctl kernel                   # kernel updates: running, trial, last good, available release
 tb323fu-ctl kernel update --reboot   # check, download, install (admin) and restart; or check / download TAG / install TAG
 tb323fu-ctl kernel keep              # keep a testing-channel kernel; rollback [--reboot] writes the last good one back
+tb323fu-ctl kernel install-local ~/Image.gz --name "my build"   # a kernel you built: same trial and rollback (admin, every time)
 tb323fu-ctl --json status
 ```
 
@@ -67,7 +68,8 @@ The daemon runs as root; polkit decides per call. Everyday controls are allowed 
 session without a password (charge limit, bypass, Android switch, flashlight, LED ring, refresh, GPU,
 USB wakeup, emergency-key settings, diagnostics). Authentication is asked for developer USB access,
 disabling the emergency key, `android require-auth`, `reload`, and for kernel updates: installing, going back,
-and changing the channel or the daily check (looking for, downloading and keeping a kernel need none).
+and changing the channel or the daily check (looking for, downloading and keeping a kernel need none); installing a
+kernel from a file asks for the administrator's password every time (`auth_admin`, see docs/helper.md).
 Switching to Android can be made to ask for authentication with `tb323fu-ctl android require-auth on`. Actions are in
 `data/io.github.joonhoekim.tb323fu.helper.policy`.
 
@@ -76,7 +78,7 @@ Switching to Android can be made to ask for authentication with `tb323fu-ctl and
 ```sh
 cargo test --release
 dbus-run-session -- sh tests/fake-sysfs-test.sh target/release   # daemon on a private bus against a fake device tree
-dbus-run-session -- sh tests/kernel-update-test.sh target/release  # kernel updates end to end (minisign, python3, curl)
+dbus-run-session -- sh tests/kernel-update-test.sh target/release  # kernel updates end to end (python3, curl, minisign)
 ```
 
 `TB323FU_SYSFS_ROOT` points every device path at a fake tree, `TB323FU_CONFIG` the settings file, and

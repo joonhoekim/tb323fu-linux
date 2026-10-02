@@ -82,21 +82,39 @@ pub struct Gpu {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct Kernel {
-    /// "stable" or "testing"
+    /// "stable" (the newest release) or "testing" (the newest release or
+    /// pre-release)
     pub channel: String,
-    /// the signed index (https, http or file URL); a PC-served one for tests
-    pub index_url: String,
-    /// check the index once a day (never downloads by itself)
+    /// where releases come from: "github:OWNER/REPO" (GitHub Releases)
+    pub source: String,
+    /// the GitHub REST API base; another URL (http, file) only for tests
+    pub api_url: String,
+    /// look once a day (never downloads by itself)
     pub auto_check: bool,
-    /// show when a newer helper is published (the index's helper.latest)
+    /// show when a newer helper is published (a `helper-vX.Y.Z` release)
     pub helper_notify: bool,
+    /// also require a minisign signature over SHA256SUMS (SHA256SUMS.minisig)
+    /// from one of `public_keys` or /etc/tb323fu/keys/kernel-*.pub; off by
+    /// default: SHA256SUMS alone only catches transfer errors
+    pub require_signature: bool,
+    /// minisign public keys (the base64 line of a .pub file)
+    pub public_keys: Vec<String>,
 }
 
-pub const DEFAULT_INDEX_URL: &str = "https://joonhoekim.github.io/tb323fu-linux/kernel/index.json";
+pub const DEFAULT_SOURCE: &str = "github:joonhoekim/tb323fu-linux";
+pub const DEFAULT_API_URL: &str = "https://api.github.com";
 
 impl Default for Kernel {
     fn default() -> Self {
-        Kernel { channel: "stable".into(), index_url: DEFAULT_INDEX_URL.into(), auto_check: true, helper_notify: true }
+        Kernel {
+            channel: "stable".into(),
+            source: DEFAULT_SOURCE.into(),
+            api_url: DEFAULT_API_URL.into(),
+            auto_check: true,
+            helper_notify: true,
+            require_signature: false,
+            public_keys: Vec::new(),
+        }
     }
 }
 
@@ -227,10 +245,15 @@ mod tests {
         let mut c = Config::default();
         c.battery.charge_limit = 70;
         c.refresh.ms60 = Some(2000);
+        c.kernel.public_keys = vec!["RWQx".into()];
         c.save(&p).unwrap();
         let (d, migrated) = Config::load(&p);
         assert!(!migrated);
         assert_eq!(c, d);
+        // a file from the signed-index helper (index_url) still loads
+        fs::write(&p, "[kernel]\nchannel = \"testing\"\nindex_url = \"https://x/index.json\"\n").unwrap();
+        let (d, _) = Config::load(&p);
+        assert_eq!((d.kernel.channel.as_str(), d.kernel.source.as_str()), ("testing", DEFAULT_SOURCE));
         let _ = fs::remove_dir_all(dir);
     }
     #[test]

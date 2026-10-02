@@ -127,6 +127,82 @@ pub fn banner(raw: &[u8], release: &str) -> Option<String> {
     found.iter().find(|s| numbered(s)).or(found.last()).cloned()
 }
 
+/// The release and banner of a kernel whose release is not known yet (a file
+/// someone picked): the first "Linux version <release> (" whose banner has a
+/// build number, else the first well-formed one.
+pub fn find_banner(raw: &[u8]) -> Option<(String, String)> {
+    let needle = b"Linux version ";
+    let mut first = None;
+    let mut from = 0;
+    while let Some(i) = find(&raw[from..], needle) {
+        let at = from + i;
+        from = at + 1;
+        let rest = &raw[at + needle.len()..];
+        let Some(sp) = rest.iter().take(128).position(|&b| b == b' ') else { continue };
+        let rel = &rest[..sp];
+        if rel.is_empty() || !rest[sp..].starts_with(b" (") || !rel.iter().all(|b| b.is_ascii_graphic()) {
+            continue;
+        }
+        let Ok(rel) = String::from_utf8(rel.to_vec()) else { continue };
+        if let Some(b) = banner(raw, &rel) {
+            if b.split(" #").skip(1).any(|t| t.starts_with(|c: char| c.is_ascii_digit())) {
+                return Some((rel, b));
+            }
+            first.get_or_insert((rel, b));
+        }
+    }
+    first
+}
+
+/// Whether the kernel's built-in initramfs carries the shared modules image
+/// of `release` (`/lib/modules/<release>.sqfs`, kernel/initramfs/build.sh -m).
+/// Looks for that cpio file name in the Image itself (an uncompressed
+/// initramfs) and in every gzip stream inside it (the initramfs is gzip; the
+/// others are small, e.g. the IKCONFIG copy). `None`: no initramfs found at all.
+pub fn has_modules_image(raw: &[u8], release: &str) -> Option<bool> {
+    let name = format!("lib/modules/{release}.sqfs\0");
+    let name = name.as_bytes();
+    if find(raw, name).is_some() {
+        return Some(true);
+    }
+    let mut saw_cpio = find(raw, b"070701").is_some();
+    let mut from = 0;
+    let mut tried = 0;
+    while let Some(i) = find(&raw[from..], &[0x1f, 0x8b, 0x08]) {
+        let at = from + i;
+        from = at + 1;
+        tried += 1;
+        if tried > 256 {
+            break;
+        }
+        let mut dec = flate2::read::GzDecoder::new(&raw[at..]);
+        let mut buf = vec![0u8; 1 << 16];
+        let mut tail: Vec<u8> = Vec::new();
+        let mut total: u64 = 0;
+        loop {
+            let n = match dec.read(&mut buf) {
+                Ok(0) | Err(_) => break,
+                Ok(n) => n,
+            };
+            total += n as u64;
+            let mut win = std::mem::take(&mut tail);
+            win.extend_from_slice(&buf[..n]);
+            if total <= (1 << 16) as u64 && win.starts_with(b"070701") {
+                saw_cpio = true;
+            }
+            if find(&win, name).is_some() {
+                return Some(true);
+            }
+            let keep = name.len().min(win.len());
+            tail = win[win.len() - keep..].to_vec();
+            if total > MAX_KERNEL {
+                break;
+            }
+        }
+    }
+    if saw_cpio { Some(false) } else { None }
+}
+
 /// Whether the raw kernel carries exactly this banner (a line of /proc/version).
 pub fn has_banner(raw: &[u8], proc_version: &str) -> bool {
     let v = proc_version.trim_end();
@@ -338,6 +414,60 @@ pub mod tests {
         let b = banner(&raw, &rel).expect("banner() finds the release");
         assert!(b.contains(" #") && !b.contains(" # "), "the numbered banner, not the placeholder");
         eprintln!("banner: {b}");
+    }
+
+    /// A fake Image with a gzip'd newc cpio built in (`files`: names), as
+    /// CONFIG_INITRAMFS_SOURCE puts it.
+    pub fn fake_kernel_with_initramfs(n: usize, banner: &str, files: &[&str]) -> Vec<u8> {
+        use std::io::Write;
+        let mut cpio = Vec::new();
+        for f in files.iter().chain(["TRAILER!!!"].iter()) {
+            let name = format!("{f}\0");
+            cpio.extend_from_slice(format!("070701{:08X}{:0>80}{:08X}{:08X}", 1, 0, name.len(), 0).as_bytes());
+            cpio.extend_from_slice(name.as_bytes());
+            while cpio.len() % 4 != 0 {
+                cpio.push(0);
+            }
+        }
+        let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        gz.write_all(&cpio).unwrap();
+        gz.write_all(&vec![0u8; 300_000]).unwrap();
+        let gz = gz.finish().unwrap();
+        let mut k = fake_kernel(n, banner);
+        let at = 8192;
+        k[at..at + gz.len()].copy_from_slice(&gz);
+        k
+    }
+
+    #[test]
+    fn banner_and_modules_image_of_an_unknown_file() {
+        let v = "Linux version 7.3.0-rc4-tb323fu-t30-jh (u@h) (clang 19) #8 SMP PREEMPT Fri Oct  3";
+        let k = fake_kernel_with_initramfs(200_000, v, &["init", "lib/modules/7.3.0-rc4-tb323fu-t30-jh", "lib/modules/7.3.0-rc4-tb323fu-t30-jh.sqfs"]);
+        let (rel, b) = find_banner(&k).unwrap();
+        assert_eq!((rel.as_str(), b.as_str()), ("7.3.0-rc4-tb323fu-t30-jh", v), "the numbered banner, not the placeholder");
+        assert_eq!(has_modules_image(&k, &rel), Some(true));
+        assert_eq!(has_modules_image(&k, "7.3.0-other"), Some(false));
+        let own = fake_kernel_with_initramfs(200_000, v, &["init", "lib/modules/qcom_q6v5_pas.ko"]);
+        assert_eq!(has_modules_image(&own, &rel), Some(false), "an initramfs without the modules image");
+        assert_eq!(has_modules_image(&fake_kernel(200_000, v), &rel), None, "no initramfs at all");
+        assert!(find_banner(&fake_kernel(5000, "no banner here")).is_none());
+    }
+
+    /// A real kernel (TB323FU_REAL_KERNEL, an Image or Image.gz): its banner
+    /// is found without knowing the release, and the shared modules image is
+    /// found in its initramfs exactly when TB323FU_REAL_SHARED=1.
+    /// `cargo test -- --ignored real_kernel_inspect`
+    #[test]
+    #[ignore]
+    fn real_kernel_inspect() {
+        let k = std::fs::read(std::env::var("TB323FU_REAL_KERNEL").expect("TB323FU_REAL_KERNEL not set")).unwrap();
+        let raw = kernel_raw(&k).unwrap();
+        let t = std::time::Instant::now();
+        let (rel, b) = find_banner(&raw).expect("no banner");
+        let m = has_modules_image(&raw, &rel);
+        eprintln!("release {rel}\nbanner  {b}\nmodules {m:?} ({} ms)", t.elapsed().as_millis());
+        assert!(b.contains(" #") && !b.contains(" # "), "the numbered banner");
+        assert_eq!(m, Some(std::env::var("TB323FU_REAL_SHARED").as_deref() == Ok("1")));
     }
 
     #[test]

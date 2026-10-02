@@ -3,11 +3,21 @@
 # tb323fu-kernel-fetch -- download what tb323fu-helperd asks for into the
 # cache directory. Runs as tb323fu-kernel-fetch.service: a dynamic user, the
 # network, and the cache directory as the only writable place. Nothing it
-# writes is trusted: the daemon checks the signatures and hashes of every file
-# after this exits (docs/helper.md, "Kernel updates").
+# writes is trusted: the daemon checks every file after this exits
+# (docs/helper.md, "Kernel updates").
 #
 #   tb323fu-kernel-fetch [LIST]       LIST (default /run/tb323fu/kernel-fetch.list):
-#                                     one "NAME MAXBYTES URL" per line
+#                                     one "NAME MAXBYTES URL [MODE]" per line
+# MODE: api   -- the GitHub REST API (JSON; the answer is cached with its ETag, and a
+#                "not modified" answer reuses the cached copy: it does not count
+#                against the API's rate limit)
+#       asset -- a release file through the API (Accept: application/octet-stream;
+#                GitHub redirects to its download host)
+#       empty -- a plain download
+# A GitHub token is optional (private repositories, a higher rate limit): the
+# systemd credential tb323fu-github-token (a file /etc/credstore/tb323fu-github-token,
+# read-only access to the repository is enough). It is sent only to
+# https://api.github.com/, never to a redirect target.
 # Output: $CACHE_DIRECTORY/NAME for each line, fetch.log with one line per file.
 set -u
 list=${1:-/run/tb323fu/kernel-fetch.list}
@@ -16,22 +26,63 @@ log=$out/fetch.log
 : > "$log" || { echo "cannot write $log" >&2; exit 1; }
 command -v curl > /dev/null 2>&1 || { echo "curl is not installed" | tee -a "$log" >&2; exit 1; }
 [ -r "$list" ] || { echo "no download list $list" | tee -a "$log" >&2; exit 1; }
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/tb323fu-fetch.XXXXXX") || exit 1
+trap 'rm -rf "$tmp"' EXIT
+auth=
+tok=${CREDENTIALS_DIRECTORY:-/nonexistent}/tb323fu-github-token
+if [ -r "$tok" ]; then
+	t=$(head -n1 "$tok" | tr -d ' \r\n')
+	[ -n "$t" ] && (umask 077; printf 'Authorization: Bearer %s\n' "$t" > "$tmp/auth") && auth=$tmp/auth
+fi
+when() { date -u -d "@$1" '+%Y-%m-%d %H:%M UTC' 2> /dev/null || echo "unix time $1"; }
+hval() { tr -d '\r' < "$1" | sed -n "s/^$2: *//Ip" | tail -n1; }
 rc=0
-while read -r name max url; do
+while read -r name max url mode; do
 	[ -n "$name" ] || continue
 	case $name in .*|*[!A-Za-z0-9._-]*) echo "refusing the file name $name" >> "$log"; rc=1; continue ;; esac
 	case $max in ''|*[!0-9]*) echo "bad size for $name" >> "$log"; rc=1; continue ;; esac
 	case $url in https://*|http://*|file:///*) ;; *) echo "refusing the URL $url" >> "$log"; rc=1; continue ;; esac
 	rm -f "$out/$name" "$out/$name.part"
-	if curl -fsSL --proto '=https,http,file' --proto-redir '=https,http' --max-filesize "$max" \
-		--connect-timeout 20 --max-time 1800 --retry 2 -o "$out/$name.part" "$url" 2>> "$log"; then
-		size=$(wc -c < "$out/$name.part")
-		if [ "$size" -gt "$max" ]; then
-			rm -f "$out/$name.part"; echo "$name is larger than $max bytes" >> "$log"; rc=1; continue
+	set --
+	case ${mode:-} in
+	api) set -- -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28'
+		[ -s "$out/$name.etag" ] && [ -s "$out/$name.cached" ] && set -- "$@" -H "If-None-Match: $(head -n1 "$out/$name.etag")" ;;
+	asset) set -- -H 'Accept: application/octet-stream' ;;
+	esac
+	case ${mode:-}:$url in api:https://api.github.com/*|asset:https://api.github.com/*) [ -n "$auth" ] && set -- "$@" -H "@$auth" ;; esac
+	code=$(curl -sS -L --proto '=https,http,file' --proto-redir '=https,http' --max-filesize "$max" \
+		--connect-timeout 20 --max-time 1800 --retry 2 -A tb323fu-helper -D "$tmp/hdr" -w '%{http_code}' \
+		-o "$out/$name.part" "$@" "$url" 2>> "$log")
+	ok=$?
+	if [ $ok -ne 0 ]; then
+		rm -f "$out/$name.part"; echo "could not download $name from $url" >> "$log"; rc=1; continue
+	fi
+	case $code in
+	200|000|0) ;;
+	304) rm -f "$out/$name.part"
+		cp "$out/$name.cached" "$out/$name" && echo "ok $name not modified" >> "$log" || { echo "$name: no cached copy" >> "$log"; rc=1; }
+		continue ;;
+	403|429)
+		rm -f "$out/$name.part"
+		if [ "$(hval "$tmp/hdr" x-ratelimit-remaining)" = 0 ]; then
+			echo "GitHub API rate limit reached (60 requests an hour without a token); try again after $(when "$(hval "$tmp/hdr" x-ratelimit-reset)")" >> "$log"
+		else
+			echo "$name: refused by the server (HTTP $code)" >> "$log"
 		fi
-		mv "$out/$name.part" "$out/$name" && echo "ok $name $size" >> "$log"
-	else
-		rm -f "$out/$name.part"; echo "could not download $name from $url" >> "$log"; rc=1
+		rc=1; continue ;;
+	404) rm -f "$out/$name.part"
+		echo "$name: not found (HTTP 404) at $url -- a private repository needs a token (docs/helper.md)" >> "$log"; rc=1; continue ;;
+	*) rm -f "$out/$name.part"; echo "$name: HTTP $code from $url" >> "$log"; rc=1; continue ;;
+	esac
+	size=$(wc -c < "$out/$name.part")
+	if [ "$size" -gt "$max" ]; then
+		rm -f "$out/$name.part"; echo "$name is larger than $max bytes" >> "$log"; rc=1; continue
+	fi
+	mv "$out/$name.part" "$out/$name" && echo "ok $name $size" >> "$log"
+	if [ "${mode:-}" = api ]; then
+		et=$(hval "$tmp/hdr" etag)
+		if [ -n "$et" ]; then cp "$out/$name" "$out/$name.cached" && printf '%s\n' "$et" > "$out/$name.etag"
+		else rm -f "$out/$name.cached" "$out/$name.etag"; fi
 	fi
 done < "$list"
 exit $rc

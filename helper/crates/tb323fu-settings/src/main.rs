@@ -458,6 +458,7 @@ struct KernelUi {
     next: RefCell<(&'static str, String)>,
     /// a long call is running (the poll keeps showing State and Progress)
     busy: Cell<bool>,
+    local: gtk::Button,
     sys_group: adw::PreferencesGroup,
     sys_row: adw::ActionRow,
 }
@@ -660,9 +661,10 @@ impl Ui {
         let g = group(&b, "Firmware", "Files from your tablet, checked against the manifest.");
         let ab_fw = adw::ExpanderRow::builder().title("Firmware Files").build();
         g.add(&ab_fw);
-        let kn_group = group(&b, "Kernel Updates", "Signed releases from the project, packed into your own boot image.");
+        let kn_group = group(&b, "Kernel Updates", "Releases of the project on GitHub, packed into your own boot image.");
         group_help(&kn_group, "A new kernel is tried on the next start. Once a system has run with it for 90 seconds it is kept \
-            (testing channel: when you press Keep). If it does not get that far twice, the previous kernel comes back by itself.");
+            (testing channel and kernels from a file: when you press Keep). If it does not get that far twice, the previous \
+            kernel comes back by itself. A kernel from a file takes the same way, but nothing checks who built it.");
         let kn_modules = info(&kn_group, "Kernel Modules");
         let kn_state = info(&kn_group, "Status");
         let kn_avail = adw::ActionRow::builder().title("New Kernel").build();
@@ -681,6 +683,7 @@ impl Ui {
         let kn_channel = combo(&kn_group, "Channel", &CHANNEL_LABELS);
         kn_channel.set_subtitle("Testing: every build that passed the device checks");
         let kn_auto = switch(&kn_group, "Check Daily", "Never downloads by itself");
+        let (_, kn_local_btn) = button(&kn_group, "Install Kernel from File", "An Image, Image.gz or boot image you built", "Choose…");
         let (kn_back, kn_back_btn) = button(&kn_group, "Previous Kernel", "", "Go Back…");
         kn_back_btn.add_css_class("destructive-action");
         kn_back.set_visible(false);
@@ -869,6 +872,7 @@ impl Ui {
                 banner_kind: RefCell::new(""),
                 next: RefCell::new(("", String::new())),
                 busy: Cell::new(false),
+                local: kn_local_btn,
                 sys_group: kn_sys_group,
                 sys_row: kn_sys_row,
             },
@@ -1536,7 +1540,7 @@ impl Ui {
     }
 
     fn kernel_sensitive(&self, on: bool) {
-        for b in [&self.kn.action, &self.kn.check_btn] {
+        for b in [&self.kn.action, &self.kn.check_btn, &self.kn.local] {
             b.set_sensitive(on);
         }
         self.kn.banner.set_sensitive(on);
@@ -1596,6 +1600,8 @@ impl Ui {
             }
         });
         let ui = self.clone();
+        self.kn.local.connect_clicked(move |_| ui.choose_kernel_file());
+        let ui = self.clone();
         back_btn.connect_clicked(move |_| {
             let d = adw::AlertDialog::new(Some("Go Back to the Previous Kernel?"),
                 Some("The last kernel that was kept goes back into the boot slot; the new one is recorded as failed. It is used from the next start."));
@@ -1634,7 +1640,120 @@ impl Ui {
         d.present(Some(&self.window));
     }
 
-    /// The release notes (Markdown from the signed manifest), as text.
+    /// "Install Kernel from File…": pick a file, let the daemon look at it,
+    /// show what it found, then install it (the administrator's password).
+    fn choose_kernel_file(self: &Rc<Self>) {
+        let filter = gtk::FileFilter::new();
+        filter.set_name(Some("Kernels and boot images"));
+        for p in ["Image*", "*.gz", "*.img", "vmlinuz*"] {
+            filter.add_pattern(p);
+        }
+        let all = gtk::FileFilter::new();
+        all.set_name(Some("All files"));
+        all.add_pattern("*");
+        let filters = gio::ListStore::new::<gtk::FileFilter>();
+        filters.append(&filter);
+        filters.append(&all);
+        let d = gtk::FileDialog::builder().title("Choose a Kernel").modal(true).filters(&filters).build();
+        let ui = self.clone();
+        d.open(Some(&self.window), gio::Cancellable::NONE, move |res| {
+            let Ok(file) = res else { return };
+            match file.path() {
+                Some(p) => ui.inspect_kernel_file(p),
+                None => ui.toast("Choose a file on this tablet"),
+            }
+        });
+    }
+
+    fn inspect_kernel_file(self: &Rc<Self>, path: std::path::PathBuf) {
+        let client = self.client.borrow().clone();
+        let ui = self.clone();
+        glib::spawn_future_local(async move {
+            let p = path.clone();
+            let res = gio::spawn_blocking(move || {
+                let f = std::fs::File::open(&p).map_err(|e| format!("{}: {e}", p.display()))?;
+                client.inspect_local(&f)
+            })
+            .await
+            .unwrap_or_else(|_| Err("Something went wrong".into()));
+            match res {
+                Ok(info) => ui.confirm_local(path, info),
+                Err(e) => ui.toast(&format!("Kernel from file: {e}")),
+            }
+        });
+    }
+
+    fn confirm_local(self: &Rc<Self>, path: std::path::PathBuf, info: dbus::LocalKernel) {
+        let (release, banner, format, shared, warnings) = info;
+        let name = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+        let body = gtk::Box::new(gtk::Orientation::Vertical, 8);
+        let line = |t: &str, dim: bool| {
+            let l = gtk::Label::new(Some(t));
+            l.set_wrap(true);
+            l.set_wrap_mode(gtk::pango::WrapMode::WordChar);
+            l.set_xalign(0.0);
+            l.set_selectable(true);
+            if dim {
+                l.add_css_class("dim-label");
+            }
+            body.append(&l);
+        };
+        line(&format!("{name} ({format})"), true);
+        line(&banner, true);
+        line(if shared { "Carries its modules: every system gets them." } else { "Carries no modules." }, false);
+        for w in &warnings {
+            line(&format!("⚠ {w}"), false);
+        }
+        line("Not from the project's releases: nothing checks who built it. It is tried like an update — if it does not bring a \
+            system up twice, the previous kernel comes back. A kernel that stops before its own start-up screen needs fastboot or EDL.", true);
+        let auto = gtk::CheckButton::with_label("Keep it by itself once a system has run 90 seconds");
+        body.append(&auto);
+        let sw = gtk::ScrolledWindow::builder().hscrollbar_policy(gtk::PolicyType::Never).max_content_height(420)
+            .propagate_natural_height(true).child(&body).build();
+        let d = adw::AlertDialog::new(Some(&format!("Install Kernel {release}?")), None);
+        d.set_extra_child(Some(&sw));
+        d.add_response("cancel", "Cancel");
+        d.add_response("install", "Install");
+        d.add_response("reboot", "Install and Restart");
+        d.set_response_appearance("reboot", adw::ResponseAppearance::Destructive);
+        d.set_default_response(Some("cancel"));
+        d.set_close_response("cancel");
+        let ui = self.clone();
+        d.connect_response(None, move |_, r| {
+            if r == "install" || r == "reboot" {
+                ui.install_local(path.clone(), auto.is_active(), r == "reboot");
+            }
+        });
+        d.present(Some(&self.window));
+    }
+
+    fn install_local(self: &Rc<Self>, path: std::path::PathBuf, auto_confirm: bool, reboot: bool) {
+        if self.kn.busy.replace(true) {
+            return;
+        }
+        self.kernel_sensitive(false);
+        let client = self.client.borrow().clone();
+        let ui = self.clone();
+        glib::spawn_future_local(async move {
+            let res = gio::spawn_blocking(move || {
+                let f = std::fs::File::open(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+                let name = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+                client.call("Kernel", "InstallLocal", &(zbus::zvariant::Fd::from(&f), name.as_str(), auto_confirm, reboot))
+            })
+            .await
+            .unwrap_or_else(|_| Err("Something went wrong".into()));
+            ui.kn.busy.set(false);
+            ui.kernel_sensitive(true);
+            match &res {
+                Ok(Some(m)) if !m.is_empty() => ui.toast(m),
+                Err(e) => ui.toast(&format!("Kernel from file: {e}")),
+                _ => {}
+            }
+            ui.refresh();
+        });
+    }
+
+    /// The release notes (Markdown, the release body on GitHub), as text.
     fn show_notes(self: &Rc<Self>, tag: &str) {
         let t = tag.to_string();
         self.call_then("Kernel", "Notes", (t.clone(),), move |ui, res| {

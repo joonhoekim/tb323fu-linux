@@ -38,8 +38,13 @@ wake = false             # USB host wakeup from suspend (off by default on this 
 # dev_mode = true        # USB gadget network + serial console; omit to keep the boot state
 
 [kernel]                 # kernel updates (docs/helper.md "Kernel updates")
-channel = "stable"       # "stable" or "testing" (testing: every build that passed the device checks;
-                         # a testing kernel is kept only when you press Keep)
-index_url = "https://joonhoekim.github.io/tb323fu-linux/kernel/index.json"   # the signed index
+channel = "stable"       # "stable": the newest release; "testing": the newest release or pre-release
+                         # (a testing kernel is kept only when you press Keep)
+source = "github:joonhoekim/tb323fu-linux"   # GitHub Releases of this repository (a fork works the same way)
+api_url = "https://api.github.com"            # the GitHub REST API; another URL only for tests
 auto_check = true        # look once a day (never downloads by itself)
-helper_notify = true     # say when a newer helper is published
+helper_notify = true     # say when a newer helper is published (a helper-vX.Y.Z release)
+require_signature = false   # also require SHA256SUMS.minisig, signed by one of public_keys
+public_keys = []            # minisign public keys (the base64 line), or /etc/tb323fu/keys/kernel-*.pub
+# A GitHub token (private repository, higher rate limit) goes into /etc/credstore/tb323fu-github-token,
+# not here: only the download unit reads it.
