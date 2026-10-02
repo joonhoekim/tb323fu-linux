@@ -1,4 +1,5 @@
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Joonhoe Kim
 [workspace]
 resolver = "2"
 members = ["crates/tb323fu-helper-core", "crates/tb323fu-helperd", "crates/tb323fu-ctl"]
@@ -8,7 +9,7 @@ exclude = ["crates/tb323fu-settings"]
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-license = "MIT"
+license = "GPL-3.0-or-later"
 repository = "https://github.com/joonhoekim/tb323fu-linux"
 
 [workspace.dependencies]

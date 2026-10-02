@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- SPDX-License-Identifier: MIT -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Joonhoe Kim -->
 <component type="desktop-application">
   <id>io.github.joonhoekim.tb323fu.Settings</id>
   <metadata_license>MIT</metadata_license>
-  <project_license>MIT</project_license>
+  <project_license>GPL-3.0-or-later</project_license>
   <name>Tablet Settings</name>
   <summary>Device settings for the Lenovo Legion Tab Gen 5 (TB323FU) on Linux</summary>
   <description>

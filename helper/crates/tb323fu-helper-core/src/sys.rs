@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Joonhoe Kim
 //! Filesystem access with an optional root prefix: every absolute device path
 //! (sysfs, /etc files the device ships, pstore archive) is resolved under
 //! `TB323FU_SYSFS_ROOT` when that variable is set, so tests run against a fake

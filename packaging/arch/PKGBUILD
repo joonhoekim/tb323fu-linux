@@ -53,20 +53,22 @@ package_tb323fu-platform() {
 
 package_tb323fu-helper() {
 	pkgdesc="TB323FU device helper daemon (D-Bus + polkit) and CLI"
+	license=(GPL-3.0-or-later)
 	depends=(dbus polkit systemd curl)
 	optdepends=('tb323fu-platform: platform files')
 	install=tb323fu-helper.install
 	cd "$pkgbase/helper"
 	DESTDIR="$pkgdir" PREFIX=/usr LIBEXECDIR=/usr/lib/tb323fu sh install.sh
-	install -Dm644 ../LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+	install -Dm644 ../NOTICE "$pkgdir/usr/share/licenses/$pkgname/NOTICE"
 }
 
 package_tb323fu-settings() {
 	pkgdesc="Settings app for the TB323FU helper (GTK4/libadwaita)"
+	license=(GPL-3.0-or-later)
 	depends=(gtk4 libadwaita tb323fu-helper)
 	cd "$pkgbase/helper/crates/tb323fu-settings"
 	DESTDIR="$pkgdir" PREFIX=/usr sh install.sh
-	install -Dm644 ../../../LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+	install -Dm644 ../../../NOTICE "$pkgdir/usr/share/licenses/$pkgname/NOTICE"
 }
 
 package_tb323fu-helper-gnome() {

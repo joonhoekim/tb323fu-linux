@@ -1,5 +1,6 @@
 #!/bin/sh
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Joonhoe Kim
 # fake-sysfs-test.sh -- run tb323fu-helperd against a fake device tree on a
 # private D-Bus session (no polkit) and drive it with tb323fu-ctl.
 #   dbus-run-session -- sh tests/fake-sysfs-test.sh [BINDIR]    # default target/release

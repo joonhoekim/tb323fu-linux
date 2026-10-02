@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Joonhoe Kim
 //! tb323fu-helperd: system D-Bus service (`io.github.joonhoekim.tb323fu.Helper`)
 //! for the device-specific features of the Lenovo TB323FU. See docs/helper.md.
 //!

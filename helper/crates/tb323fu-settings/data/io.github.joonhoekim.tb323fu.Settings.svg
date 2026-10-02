@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- SPDX-License-Identifier: MIT -->
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Copyright (C) 2026 Joonhoe Kim -->
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <rect x="30" y="8" width="68" height="112" rx="10" fill="#2e3440"/>
   <rect x="36" y="16" width="56" height="92" rx="4" fill="#5e81ac"/>

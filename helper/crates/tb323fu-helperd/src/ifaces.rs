@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Joonhoe Kim
 //! The D-Bus objects of `io.github.joonhoekim.tb323fu.Helper` (see
 //! docs/helper.md for the contract). Property getters read the device live;
 //! setters check polkit, write the device, persist the setting and emit

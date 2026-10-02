@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Joonhoe Kim
 //! Device model of the Lenovo Legion Tab Gen 5 / Y700 5th Gen (TB323FU) for
 //! `tb323fu-helperd`: where each feature lives in sysfs, how to read and write
 //! it safely, and the persistent configuration. No D-Bus here, so everything

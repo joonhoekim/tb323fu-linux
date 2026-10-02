@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Joonhoe Kim
 //! The device features: sysfs locations (as on the TB323FU mainline kernel)
 //! and safe read/write helpers. Errors are plain strings for the D-Bus layer.
 

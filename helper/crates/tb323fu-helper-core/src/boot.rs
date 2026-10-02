@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Joonhoe Kim
 //! Multiboot: the root filesystems the initramfs can boot and the one-shot /
 //! persistent selection it reads (userspace/platform and the kernel initramfs,
 //! docs/helper.md "Boot").

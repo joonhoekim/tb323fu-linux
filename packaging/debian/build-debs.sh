@@ -25,6 +25,28 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$OUT"
 
+# copyright NAME LICENSE -- /usr/share/doc/NAME/copyright (machine-readable, DEP-5);
+# GPL texts point at /usr/share/common-licenses, MIT is spelled out
+copyright() {
+	d=$work/$1/usr/share/doc/$1
+	mkdir -p "$d"
+	{
+		echo "Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/"
+		echo "Upstream-Name: tb323fu-linux"
+		echo "Source: $HOME_URL"
+		echo
+		echo "Files: *"
+		echo "Copyright: 2026 Joonhoe Kim"
+		echo "License: $2"
+		case $2 in
+		MIT) sed '1,4d; s/^$/./; s/^/ /' "$root/LICENSE" ;;
+		GPL-3.0-or-later) echo " On Debian systems the full text is in /usr/share/common-licenses/GPL-3." ;;
+		GPL-2.0-or-later) echo " On Debian systems the full text is in /usr/share/common-licenses/GPL-2." ;;
+		esac
+		echo "Comment: a file's own SPDX header takes precedence; see NOTICE in the source."
+	} > "$d/copyright"
+}
+
 # control NAME ARCH DEPENDS RECOMMENDS DESCRIPTION-LINE [LONG]
 control() {
 	d=$work/$1/DEBIAN
@@ -61,6 +83,7 @@ build() {
 
 # ---- tb323fu-platform
 DESTDIR=$work/tb323fu-platform PREFIX=/usr SYSCONFDIR=/etc VERSION=$VERSION sh "$root/userspace/platform/install.sh" > /dev/null
+copyright tb323fu-platform MIT
 control tb323fu-platform "$ARCH" "systemd, udev, bluez, swh-plugins, wireless-regdb" \
 	"pipewire, wireplumber, alsa-ucm-conf, iio-sensor-proxy, hexagonrpcd, qrtr-tools, rmtfs, tqftpserv, tb323fu-helper" \
 	"Lenovo Legion Tab Gen 5 (TB323FU) platform files" \
@@ -86,6 +109,7 @@ build tb323fu-platform "$ARCH"
 
 # ---- tb323fu-helper
 DESTDIR=$work/tb323fu-helper PREFIX=/usr LIBEXECDIR=/usr/libexec/tb323fu sh "$root/helper/install.sh" > /dev/null
+copyright tb323fu-helper GPL-3.0-or-later
 control tb323fu-helper "$ARCH" "dbus, polkitd | policykit-1, systemd, curl" "tb323fu-platform" \
 	"TB323FU device helper (charge limit, refresh, torch, LED ring, GPU, ...)" \
 	"tb323fu-helperd owns the device knobs behind one system D-Bus service
@@ -102,6 +126,7 @@ build tb323fu-helper "$ARCH"
 
 # ---- tb323fu-settings
 (cd "$root/helper/crates/tb323fu-settings" && DESTDIR=$work/tb323fu-settings PREFIX=/usr sh ./install.sh > /dev/null)
+copyright tb323fu-settings GPL-3.0-or-later
 control tb323fu-settings "$ARCH" "libgtk-4-1 (>= 4.12), libadwaita-1-0 (>= 1.5), tb323fu-helper" "" \
 	"Settings app for the TB323FU helper (GTK4/libadwaita)"
 build tb323fu-settings "$ARCH"
@@ -111,6 +136,7 @@ uuid=tb323fu@joonhoekim.github.io
 mkdir -p "$work/tb323fu-helper-gnome/usr/share/gnome-shell/extensions/$uuid"
 cp "$root/userspace/desktop/gnome/extension/$uuid/"* "$work/tb323fu-helper-gnome/usr/share/gnome-shell/extensions/$uuid/"
 chmod 644 "$work/tb323fu-helper-gnome/usr/share/gnome-shell/extensions/$uuid/"*
+copyright tb323fu-helper-gnome GPL-2.0-or-later
 control tb323fu-helper-gnome all "gnome-shell (>= 48), tb323fu-helper" "tb323fu-settings" \
 	"GNOME quick settings for the TB323FU helper" \
 	"Enable it per user with: gnome-extensions enable $uuid"

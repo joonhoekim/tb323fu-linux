@@ -15,7 +15,7 @@ rustPlatform.buildRustPackage {
   '';
   meta = with lib; {
     description = "Settings app for the TB323FU helper (GTK4/libadwaita)";
-    license = licenses.mit;
+    license = licenses.gpl3Plus;
     platforms = platforms.linux;
     mainProgram = "tb323fu-settings";
   };

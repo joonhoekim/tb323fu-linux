@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Joonhoe Kim
 //! Diagnostics bundle: versions, the pstore archive (text records), the
 //! previous boot's journal tail and this boot's kernel log head, with MAC
 //! addresses, IPv4 addresses, the device serial, the hostname and local user

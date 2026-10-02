@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Joonhoe Kim
 //! polkit authorization of the D-Bus caller (CheckAuthorization with the
 //! caller's unique bus name as subject, interaction allowed).
 
