@@ -52,6 +52,16 @@ make ARCH=arm64 LLVM=1 O=out olddefconfig
 make ARCH=arm64 LLVM=1 O=out -j"$(nproc)" Image dtbs modules
 ```
 
+## Out-of-tree module
+
+The speakers need the Awinic aw882xx amplifier driver, which is not in upstream Linux. Its GPL-2.0 source is in
+[`out-of-tree/aw882xx/`](out-of-tree/aw882xx/); build it against the same kernel build and install it in `extra/`:
+
+```sh
+make -C linux-tb323fu O=out ARCH=arm64 LLVM=1 M=$PWD/kernel/out-of-tree/aw882xx CONFIG_SND_SOC_AW882XX=m modules
+# -> snd-soc-aw882xx.ko into /lib/modules/<release>/extra/, then depmod
+```
+
 ## Device tree
 
 `dts/` has the board files as they are after the whole series is applied (they are added by patches 0054, 0064, 0078, 0095 and 0108):
@@ -100,7 +110,7 @@ The kernel running on the development tablet (config: `config/reference.config`)
 - a q6apm change that polls for the audio framework instead of a fixed 5 s wait (an upstream candidate, not yet in the series).
 
 Default knobs in the series: the idle refresh rate policy is automatic (`msm.idle_refresh_policy=2`, patch 0110).
-All of it is built from one tree (no out-of-tree rebuilds of in-tree drivers any more); the only out-of-tree module is the aw882xx speaker amplifier driver, installed in `/lib/modules/<version>/extra/`.
+All of it is built from one tree (no out-of-tree rebuilds of in-tree drivers any more); the only out-of-tree module is the aw882xx speaker amplifier driver, installed in `/lib/modules/<version>/extra/` (source and build: [out-of-tree/aw882xx](out-of-tree/aw882xx/)).
 
 ## Licensing
 

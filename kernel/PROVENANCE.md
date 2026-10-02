@@ -138,3 +138,14 @@ column names the source; see that tree's history for the individual authors.
 | `0113` | wifi: ath12k: keep the RX refill ring from running dry | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `0250a3b8b9b44fb9` |
 | `0114` | net: qrtr: ns: retry announcements the new node is not ready for yet | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `6826715ed1ed1eb2` |
 | `0116` | media: qcom: camss: hold the bandwidth vote while TITAN_TOP is powered | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission (0115 is a debugging aid kept out of the series) | `3e5a2e77a2018c0d` |
+
+## Out-of-tree
+
+Sources built as external modules (not part of the patch series).
+
+| Directory | What | Origin | License |
+|---|---|---|---|
+| [`out-of-tree/aw882xx/`](out-of-tree/aw882xx/) | Awinic smart amplifier driver `snd-soc-aw882xx` (speakers, chip ID `0x2308`), vendor driver `v1.15.0` with 7.x API fixes marked `y705` | AWINIC Technology Co., Ltd.; copy from [rockchip-linux/kernel](https://github.com/rockchip-linux/kernel) `develop-6.1` `sound/soc/codecs/aw882xx/` at `1feee0d9c0b20750eef52b06b9211a4a3a353895` | `GPL-2.0` (original headers kept) |
+
+The amplifier's run-time parameter file `aw882xx_acf.bin` is vendor data and is not included (see
+[`firmware/`](../firmware/)).

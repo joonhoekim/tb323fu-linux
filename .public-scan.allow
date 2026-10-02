@@ -21,3 +21,5 @@
 # the initramfs USB gadget: fixed locally administered NCM MACs and a made-up serial (same on every install)
 ^mac\|(\./)?kernel/initramfs/init:[0-9]+:.*02:ba:1d:00:00:0[12]
 ^serial\|(\./)?kernel/initramfs/init:[0-9]+:.*"baldur-0001"
+# vendor driver source keeps its original author lines (GPL copyright headers)
+^email\|(\./)?kernel/out-of-tree/aw882xx/[^|]*:[0-9]+:.*Author:
