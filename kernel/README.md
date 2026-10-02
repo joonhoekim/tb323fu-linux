@@ -24,7 +24,8 @@ git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0116, in 
 | File | What |
 |---|---|
 | `baldur.fragment` | the board fragment, merged after `arch/arm64/configs/kaanapali-oneplus-infiniti_defconfig` (the OnePlus 15 fragment, added by patch 0011) |
-| `baldur-display.fragment`, `baldur-kexec.fragment` | variants for the display bring-up and kexec images |
+| `baldur-display.fragment` | **required**, merged after `baldur.fragment`: panel driver and backlight built in, the display device tree (`kaanapali-lenovo-baldur-display.dtb`) as the built-in DTB, the touch module — without it the kernel has no panel |
+| `baldur-kexec.fragment` | variant for kexec images started from Android (bring-up only) |
 | `baldur-netfilter.fragment` | netfilter for distribution firewalls and containers (iptables-nft, firewalld, ipset), merged last; see below |
 | `reference.config` | the full `.config` of the kernel on the development tablet ([see below](#the-kernel-on-the-development-tablet)), for comparison |
 
@@ -46,8 +47,10 @@ zones/labels, ARP tables.
 
 ```sh
 make ARCH=arm64 LLVM=1 O=out defconfig
+C=/path/to/tb323fu-linux/kernel/config
 scripts/kconfig/merge_config.sh -m -O out out/.config \
-    arch/arm64/configs/kaanapali-oneplus-infiniti_defconfig arch/arm64/configs/baldur.fragment \n    /path/to/tb323fu-linux/kernel/config/baldur-netfilter.fragment
+    arch/arm64/configs/kaanapali-oneplus-infiniti_defconfig \
+    $C/baldur.fragment $C/baldur-display.fragment $C/baldur-netfilter.fragment
 make ARCH=arm64 LLVM=1 O=out olddefconfig
 make ARCH=arm64 LLVM=1 O=out -j"$(nproc)" Image dtbs modules
 ```

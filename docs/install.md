@@ -129,7 +129,7 @@ git am ../tb323fu-linux/kernel/patches/*.patch
 make ARCH=arm64 LLVM=1 O=out defconfig
 scripts/kconfig/merge_config.sh -m -O out out/.config \
     arch/arm64/configs/kaanapali-oneplus-infiniti_defconfig ../tb323fu-linux/kernel/config/baldur.fragment \
-    ../tb323fu-linux/kernel/config/baldur-netfilter.fragment
+    ../tb323fu-linux/kernel/config/baldur-display.fragment ../tb323fu-linux/kernel/config/baldur-netfilter.fragment
 make ARCH=arm64 LLVM=1 O=out olddefconfig
 make ARCH=arm64 LLVM=1 O=out -j"$(nproc)" dtbs modules
 make ARCH=arm64 LLVM=1 O=out INSTALL_MOD_PATH="$PWD/mods" modules_install   # → mods/lib/modules/<release>
