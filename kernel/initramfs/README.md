@@ -62,11 +62,12 @@ Measured on the tablet on 2026-10-02 with a firmware-free initramfs (same kernel
 | GPU (Adreno) | `gen80200_sqe.fw` not found | **recovers by itself**: the driver loads its firmware on the first open, from the root (GNOME starts on the GPU) |
 | Bluetooth | `qca/brhbtfw20.mbn` not found | **recovers by itself**: setup runs again when userspace powers the controller |
 | Touch | firmware download fails, the driver does not retry | `init` no longer loads it without firmware; the root's udev loads it and it downloads the root's firmware |
-| Wi-Fi (ath12k, built in) | probe fails (`amss.bin` not found, -110) | **does not recover by itself**: no interface until the device is bound again (`echo 0000:01:00.0 > /sys/bus/pci/drivers/ath12k_wifi7_pci/bind` brings it up and it connects) |
+| Wi-Fi (ath12k) | built in (development kernel): probe fails (`amss.bin` not found, -110); as a module (release kernels): not loaded here | built in: **does not recover by itself** (a manual bind of `0000:01:00.0` to `ath12k_wifi7_pci` brings it up). **As a module** (`CONFIG_ATH12K=m`, in `kernel/config/baldur.fragment` since 2026-10-02): udev loads it from the root with the root's firmware and it connects by itself (checked on the release build rc1) |
 | Audio, DSPs | not started here anyway | the root starts the DSPs (firmware from the root) |
 
-So a release image needs a way to bind Wi-Fi again after the root is mounted — see the open question Q1 in
-[`docs/notes/kernel-updates-design.md`](../../docs/notes/kernel-updates-design.md).
+That is why the public configuration builds ath12k as a module (open question Q1 in
+[`docs/notes/kernel-updates-design.md`](../../docs/notes/kernel-updates-design.md)). A release build from the public
+series (rc1, 2026-10-02) came up with Wi-Fi, GPU, Bluetooth, touch, sound and the emergency key's hash from the root.
 
 ### Root partitions and multiboot
 

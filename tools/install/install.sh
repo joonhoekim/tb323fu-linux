@@ -12,10 +12,11 @@
 #   check      host tools, the tablet in rooted Android, your backups
 #   firmware   extract the firmware from Android (firmware/extract-on-device.sh)
 #   wayback    Android boot image into boot_b, "Switch to Linux" module (android/install-module.sh)
-#   bootimg    how to build the Linux boot image (prints the commands; needs a kernel tree)
+#   bootimg    the Linux kernel: a release Image (checked against SHA256SUMS) or how to build one
 #   sdcard     partition a microSD card in a card reader (Linux host)  -- WIPES THE CARD
 #   rootfs     build a root filesystem into a partition (rootfs/<distro>/build-rootfs.sh; arm64 Linux host)
-#   boot       write boot_a through Android (stage + Switch to Linux, or tools/cycle.sh)
+#   boot       repack the kernel into YOUR stock boot image (tools/boot-repack-kernel.py),
+#              then write boot_a through Android (stage + Switch to Linux, or tools/cycle.sh)
 #   firstboot  wait for Linux and run the first-boot checks (needs DEV_ACCESS=1 in the root)
 #   ufs        Linux root on the internal storage -- only prints the manual steps
 #
@@ -23,8 +24,13 @@
 #   WORK=./tb323fu-install      working directory (firmware, config, images)
 #   DISTRO=ubuntu               rootfs builder: ubuntu, arch, fedora, nixos, steamos
 #   DUMP_DIR=                   your LTBox partition dump (checked in "check")
-#   LINUX_BOOT_IMG=$WORK/linux-boot.img   the boot image from "bootimg"
-#   MODULES_FROM=               lib/modules/<release> of that kernel (for "rootfs")
+#   KERNEL_IMAGE=               a release kernel (Image-tb323fu-<tag>, or an Image.gz);
+#                               default: the one Image-tb323fu-* in $WORK. "boot" packs it
+#                               into $WORK/stock-boot.img (your own, from "wayback")
+#   LINUX_BOOT_IMG=$WORK/linux-boot.img   the boot image "boot" writes (made from
+#                               KERNEL_IMAGE, or built yourself as in docs/install.md 3b)
+#   MODULES_FROM=               lib/modules/<release> of that kernel (for "rootfs"); for a
+#                               release, "bootimg" unpacks the modules tarball to $WORK/mods
 #   SD_DEV=                     the card in a reader, e.g. /dev/sdX (for "sdcard")
 #   SD_LAYOUT="baldur-root:64G" partitions to create, NAME:SIZE ...; the last may be NAME:0 (rest)
 #   ROOT_PART=                  partition the root goes into, default /dev/disk/by-partlabel/$ROOT_PARTLABEL
@@ -45,7 +51,7 @@ steps=()
 for a in "$@"; do
 	case $a in
 	--dry-run|-n) DRY=1 ;;
-	-h|--help) sed -n '3,38p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+	-h|--help) sed -n '3,44p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 	check|firmware|wayback|bootimg|sdcard|rootfs|boot|firstboot|ufs) steps+=("$a") ;;
 	*) echo "unknown argument: $a (see --help)" >&2; exit 2 ;;
 	esac
@@ -198,11 +204,37 @@ step_wayback() {
 	say "stock boot image -> $WORK/stock-boot.img (tools/build-boot.sh -s)"
 }
 
+release_image() {
+	if [ -n "${KERNEL_IMAGE:-}" ]; then echo "$KERNEL_IMAGE"; return; fi
+	local f n=0 one=
+	for f in "$WORK"/Image-tb323fu-*; do [ -f "$f" ] && { one=$f; n=$((n + 1)); }; done
+	[ $n = 1 ] && echo "$one"
+	[ $n -le 1 ] || warn "several Image-tb323fu-* in $WORK; set KERNEL_IMAGE"
+}
+
 step_bootimg() {
-	head_ "bootimg: build the Linux boot image (on a Linux PC; not automated here)"
+	head_ "bootimg: the Linux kernel -- a release, or your own build"
+	local img dir sums tag tarball
+	img=$(release_image)
+	if [ -n "$img" ]; then
+		dir=$(dirname "$img"); sums="$dir/SHA256SUMS"; tag=${img##*/Image-tb323fu-}; tag=${tag%.gz}
+		say "release kernel: $img"
+		if [ -f "$sums" ]; then
+			sh_ "cd '$dir' && $(have sha256sum && echo sha256sum || echo 'shasum -a 256') -c SHA256SUMS" ||
+				{ warn "checksums do not match -- download again"; return 1; }
+		else warn "no SHA256SUMS next to it; cannot check the download"; fi
+		tarball="$dir/modules-tb323fu-$tag.tar.gz"
+		if [ -f "$tarball" ]; then
+			run mkdir -p "$WORK/mods" && run tar -C "$WORK/mods" -xzf "$tarball" &&
+				say "modules -> $WORK/mods/lib/modules/ (MODULES_FROM for the rootfs step: $(ls "$WORK/mods/lib/modules" 2>/dev/null | head -1))"
+		else warn "no $tarball -- every root needs the modules of this kernel"; fi
+		say "The boot step packs this kernel into your stock boot image."
+		return 0
+	fi
 	cat <<EOF
-No release images exist yet. Build kernel, modules, initramfs and boot image as in
-docs/install.md, step 3 -- in short (KERNEL = your kernel tree with kernel/patches applied):
+No release kernel found (put Image-tb323fu-<tag>, its modules tarball and SHA256SUMS
+into $WORK, or set KERNEL_IMAGE). Or build kernel, modules, initramfs and boot image as in
+docs/install.md, step 3b -- in short (KERNEL = your kernel tree with kernel/patches applied):
 
   make ARCH=arm64 LLVM=1 O=out -j\$(nproc) dtbs modules
   make ARCH=arm64 LLVM=1 O=out INSTALL_MOD_PATH=\$PWD/mods modules_install
@@ -287,6 +319,20 @@ step_boot() {
 	hash=$(android_hash) || true
 	[ -z "$hash" ] && [ $DRY = 1 ] && hash="<sha256 of boot_b>"
 	[ -n "$hash" ] || { warn "no $WORK/config/android-boot.sha256 -- run the wayback step first"; return 1; }
+	# A release ships only the kernel: the boot image is made here from YOUR stock
+	# boot image (its header, signature and vbmeta blobs are Lenovo's and must match
+	# your firmware -- docs/install.md "Why there is no ready-made boot.img").
+	local kimg stock="$WORK/stock-boot.img"
+	kimg=$(release_image)
+	if [ -n "$kimg" ]; then
+		[ $DRY = 1 ] || [ -s "$stock" ] || { warn "no $stock -- run the wayback step first"; return 1; }
+		if [ $DRY = 0 ] && [ "$(sha "$stock")" != "$hash" ]; then
+			warn "$stock is not the image in boot_b ($hash) -- use your own stock boot image"; return 1
+		fi
+		have python3 || [ $DRY = 1 ] || { warn "needs python3"; return 1; }
+		say "packing $kimg into your stock boot image -> $LINUX_BOOT_IMG"
+		run python3 "$repo/tools/boot-repack-kernel.py" "$stock" "$kimg" "$LINUX_BOOT_IMG" || return 1
+	fi
 	[ $DRY = 1 ] || [ -s "$LINUX_BOOT_IMG" ] || { warn "no boot image $LINUX_BOOT_IMG (bootimg step)"; return 1; }
 	say "a) stage it for the 'Switch to Linux' module (writes only /data/adb), then press its Action button yourself"
 	say "b) tools/cycle.sh writes boot_a over adb, checks the hash and reboots"

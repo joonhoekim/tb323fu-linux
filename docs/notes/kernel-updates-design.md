@@ -159,7 +159,7 @@ One GitHub Release per kernel build, tag `kernel-tNN`:
 
 | Asset | What |
 |---|---|
-| `tb323fu-boot-tNN.img.zst` | the 96 MiB boot image (kernel + DT + initramfs + modules image), zstd (padding compresses away) |
+| `Image-tb323fu-tNN` (+ its modules) | the kernel `Image` (DT, command line, initramfs and — with this design — the modules image built in), **not a boot image**: a `boot.img` built here would carry the builder's stock header and Lenovo's GKI signature/vbmeta blobs, which are not ours to redistribute and must match the user's firmware. The helper packs the kernel into the user's own stock image — the copy in `boot_b` — with `tools/boot-repack-kernel.py` (decided 2026-10-02) |
 | `tb323fu-kernel-tNN.json` | manifest: `release` (`uname -r`), `build` (the `/proc/version` line), `serial` (monotonic integer), `channel`, `sha256` of the uncompressed image and of the compressed file, `size` (= `boot_a`), `min_platform` (layer-1 package version the kernel needs, e.g. new UCM or udev rules), `min_helper`, source tag and commit, links to the GPL sources (kernel tree, aw882xx, busybox) |
 | `tb323fu-kernel-tNN.json.minisig` | signature over the manifest |
 | release notes (the release body) | what changed, which firmware files it expects (by name, from the manifest in `firmware/`), known problems |
@@ -372,8 +372,19 @@ Not testable safely: a kernel that dies before `/init` (documented manual recove
   manual bind after boot brings it up). So the answer is per driver, not "everything as modules": either
   `CONFIG_ATH12K=m` in release kernels (untested; udev loads it after `switch_root`) or a late bind of the
   Wi-Fi device in the platform files (the manual bind is verified). Panel and boot summary are unaffected.
+  **Decided and verified 2026-10-02:** `CONFIG_ATH12K=m` in `kernel/config/baldur.fragment` (and patch 0055's
+  copy). On a release build from the public series (rc1) udev loaded `ath12k_wifi7` from the root at 4 s, the
+  interface was up and connected by itself; GPU, Bluetooth, touch (taps seen), the sound card with both amplifiers
+  and the emergency key's hash from the root all worked.
 - **Q2 — `boot_a` size**: the M0 numbers; and whether the bootloader accepts a compressed kernel (`Image.gz`
   / `Image.lz4`) in the boot image, which would free 20+ MiB.
+  **Answered 2026-10-02: gzip yes, LZ4 no.** The bootloader's LinuxLoader (decompressed from `abl_a`) has a gzip
+  decompressor ("the input data is not a gzip package", "Decompressing kernel image …") and no LZ4 code or magic.
+  A development kernel repacked as `Image.gz` (57.2 MB → 21.1 MB, `gzip -9`) booted normally, with no measurable
+  delay (reboot to SSH 20 s against 22 s raw). LZ4 was not tried on the device (no decoder; a failed boot needs
+  EDL). Headroom in the 96 MiB `boot_a`: the release kernel (30.0 MB raw, firmware-free initramfs) is 13.8 MB as
+  gzip, leaving about 86 MB; the development kernel with firmware leaves about 79 MB. `boot-repack-kernel.py`
+  accepts `Image.gz` and refuses LZ4.
 - **Q3 — watchdog after a normal boot**: does the bootloader leave the hardware watchdog armed when it starts
   `boot_a` directly (it does on the kexec path)? If not, a hang after `/init` but before the initramfs feeds
   it is only a hang, not a counted try.

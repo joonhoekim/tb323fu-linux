@@ -3,8 +3,9 @@
 How to get from a rooted TB323FU (Android with KernelSU, see [Rooting and dual boot setup](rooting.md)) to mainline
 Linux booting from its own partition, with Android kept as the way back.
 
-> **There are no release images yet.** You build the boot image (kernel + initramfs) yourself and put together a root
-> filesystem with the scripts in this repository. This guide was **reconstructed from the development records** of one
+> **No release has been published yet.** A release will be a kernel `Image` plus its modules and a repack tool — never
+> a ready-made `boot.img` ([why](#why-there-is-no-ready-made-bootimg)); until then you build the kernel yourself (step 3)
+> and put together a root filesystem with the scripts in this repository. This guide was **reconstructed from the development records** of one
 > tablet; the individual steps were done on that tablet, but the guide as a whole has **not been re-run end to end**
 > by someone following it. Read it once completely before starting.
 
@@ -44,7 +45,7 @@ initramfs picks a root filesystem **by GPT partition name** ([details](../kernel
 | 0. Rooting and backup ([rooting.md](rooting.md)) | `efisp`, `init_boot_a` | yes ([recovery](recovery.md#undoing-the-root)) | [verified] |
 | 1. Extract firmware | nothing on the tablet (a copy in `/data/local/tmp`) | — | [verified] |
 | 2. The way back: Android boot image into `boot_b` | `boot_b` | yes (`boot_b` is never booted) | [verified] |
-| 3. Build the Linux boot image | nothing (PC) | — | [from records] |
+| 3. The Linux boot image: repack a release kernel, or build one | nothing (PC) | — | repack [verified], build [from records] |
 | 4. Partition a microSD card | **the card is wiped** | the card only | [verified] (from Android) / [untested] (from a PC) |
 | 5. Root filesystem | the new partition | yes (delete it) | [verified] on the tablet, [untested] on another host |
 | 6. Write `boot_a` and boot Linux | `boot_a` | yes: back-to-android, emergency keys, EDL | [verified] |
@@ -105,7 +106,8 @@ mkdir -p tb323fu-config
 echo <sha256 of boot_b> > tb323fu-config/android-boot.sha256
 ```
 
-Also get your **stock boot image** for step 3 (it is the same image as `boot_b`):
+Also get your **stock boot image** for step 3 (it is the same image as `boot_b`). Every Linux boot image for your
+tablet is made from it, so keep it with your backup:
 
 ```sh
 adb shell su -c 'dd if=/dev/block/by-name/boot_b of=/data/local/tmp/stock-boot.img'
@@ -113,7 +115,39 @@ adb pull /data/local/tmp/stock-boot.img
 sha256sum stock-boot.img        # must equal the hash above
 ```
 
-## 3. Build the Linux boot image
+## 3. The Linux boot image
+
+A Linux boot image for this tablet is **your stock `boot.img` with only the kernel replaced**: the header, the GKI
+boot signature and the vbmeta blob with its AVB footer are copied from the stock image, and the bootloader (with the
+GBL from rooting) accepts that. The kernel carries its own device tree, command line and initramfs.
+
+### Why there is no ready-made `boot.img`
+
+A boot image built by this project would carry the builder's stock header plus Lenovo's GKI signature and vbmeta
+blobs. Those are Lenovo's and are not ours to redistribute, and they have to match the firmware version and region of
+the tablet they are written to. So a release ships the kernel `Image`, the modules and the repack tool, and you make
+the image from your own stock `boot.img` (step 2). The same applies to images you build yourself: only ever use your
+own tablet's stock image.
+
+### 3a. From a release
+
+**[untested as a whole]** (the repack tool and its output are [verified]: every kernel on the development tablet was
+packed this way). A release has `Image-tb323fu-<tag>`, `modules-tb323fu-<tag>.tar.gz`, `boot-repack-kernel.py` and
+`SHA256SUMS`:
+
+```sh
+sha256sum -c SHA256SUMS
+python3 boot-repack-kernel.py stock-boot.img Image-tb323fu-<tag> linux-boot.img
+mkdir -p mods && tar -C mods -xzf modules-tb323fu-<tag>.tar.gz      # → mods/lib/modules/<release>
+```
+
+`tools/install/install.sh boot` runs the repack for you (`KERNEL_IMAGE=…`). The tool also accepts a gzip-compressed
+kernel (`Image.gz`; the bootloader decompresses it — checked once on the development tablet); LZ4 is refused, the
+bootloader has no LZ4 decompressor. The release initramfs has **no firmware** (it cannot be redistributed): drivers that
+need firmware get it from the root filesystem once it is mounted, which is why every root needs the firmware from
+step 1 — see [kernel/initramfs/README.md](../kernel/initramfs/README.md).
+
+### 3b. Build it yourself
 
 **[from records]** The tools are the ones used for every kernel on the development tablet; the sequence below follows
 [`kernel/README.md`](../kernel/README.md), [`kernel/initramfs/README.md`](../kernel/initramfs/README.md) and
@@ -134,7 +168,8 @@ make ARCH=arm64 LLVM=1 O=out olddefconfig
 make ARCH=arm64 LLVM=1 O=out -j"$(nproc)" dtbs modules
 make ARCH=arm64 LLVM=1 O=out INSTALL_MOD_PATH="$PWD/mods" modules_install   # → mods/lib/modules/<release>
 # the speaker amplifier driver (out of tree) into mods/lib/modules/<release>/extra/
-make ARCH=arm64 LLVM=1 O=out M="$PWD/../tb323fu-linux/kernel/out-of-tree/aw882xx" CONFIG_SND_SOC_AW882XX=m \n    INSTALL_MOD_PATH="$PWD/mods" modules modules_install
+make ARCH=arm64 LLVM=1 O=out M="$PWD/../tb323fu-linux/kernel/out-of-tree/aw882xx" CONFIG_SND_SOC_AW882XX=m \
+    INSTALL_MOD_PATH="$PWD/mods" modules modules_install
 
 # initramfs (firmware from step 1, hash from step 2)
 ../tb323fu-linux/kernel/initramfs/build.sh -k out -b /path/to/busybox-static \
@@ -148,8 +183,8 @@ Notes:
 
 - Use `kernel/config/baldur.fragment` (the copy in this repository), not the one patch 0055 adds — the patch's copy
   names the original build machine's initramfs path.
-- `build-boot.sh` keeps the stock image's header, signature blob and AVB footer layout and only replaces the kernel.
-  An image packed with plain `mkbootimg` is rejected by the bootloader.
+- `build-boot.sh` keeps the stock image's header, signature blob and AVB footer layout and only replaces the kernel
+  (it calls `tools/boot-repack-kernel.py`). An image packed with plain `mkbootimg` is rejected by the bootloader.
 - **Speakers:** the aw882xx amplifier driver is an out-of-tree module
   ([`kernel/out-of-tree/aw882xx`](../kernel/out-of-tree/aw882xx/)); without it the build boots and everything else
   works, but the speakers stay silent. `modules_install` with `M=` puts it in `extra/` and runs `depmod`. **[untested]**

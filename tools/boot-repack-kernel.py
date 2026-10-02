@@ -24,8 +24,10 @@ to change one thing (the kernel) and leave the shape of the image alone.
 `--drop-boot-signature` leaves it out and sets the header's `boot_signature_size`
 to 0, if that ever needs comparing.
 
-Only header v4 images with an uncompressed arm64 Image and a ramdisk-less
-layout (this device's `boot.img`) are supported.
+Only header v4 images with a ramdisk-less layout (this device's `boot.img`)
+are supported. The kernel may be a raw arm64 `Image` or a gzip-compressed one
+(`Image.gz`): the bootloader has a gzip decompressor and no LZ4 one, so LZ4 is
+refused.
 
 usage:
   boot-repack-kernel.py STOCK_BOOT NEW_KERNEL OUT_BOOT
@@ -49,6 +51,17 @@ OFF_HEADER_VERSION = 40
 OFF_BOOT_SIG_SIZE = 1580
 
 
+def check_kernel(kernel, what):
+    """A raw arm64 Image or a gzip one; nothing else boots here."""
+    if kernel[56:60] == b"ARM\x64":
+        return "raw Image"
+    if kernel[:2] == b"\x1f\x8b":
+        return "gzip"
+    if kernel[:4] in (b"\x02\x21\x4c\x18", b"\x04\x22\x4d\x18"):
+        sys.exit(f"{what} is LZ4-compressed; this bootloader has no LZ4 decompressor")
+    sys.exit(f"{what} is neither a raw arm64 Image nor gzip-compressed")
+
+
 def pad(n):
     return (n + PAGE - 1) // PAGE * PAGE
 
@@ -70,8 +83,7 @@ class StockBoot:
         self.boot_sig_size = struct.unpack_from("<I", data, OFF_BOOT_SIG_SIZE)[0]
 
         self.kernel = data[PAGE:PAGE + self.kernel_size]
-        if self.kernel[56:60] != b"ARM\x64":
-            sys.exit("kernel is not an uncompressed arm64 Image")
+        check_kernel(self.kernel, "stock kernel")
 
         footer_at = len(data) - FOOTER_SIZE
         if data[footer_at:footer_at + 4] != b"AVBf":
@@ -159,8 +171,7 @@ def main():
         ap.error("need NEW_KERNEL and OUT_BOOT (or --self-test)")
 
     kernel = open(args.kernel, "rb").read()
-    if kernel[56:60] != b"ARM\x64":
-        sys.exit("new kernel is not an uncompressed arm64 Image")
+    print("new kernel:", check_kernel(kernel, "new kernel"))
     out = stock.repack(kernel, keep_boot_signature=not args.drop_boot_signature)
     open(args.out, "wb").write(out)
 

@@ -11,10 +11,10 @@
 | `check` | host tools, the tablet in rooted Android (model, slot `_a`, root for Shell), your EDL dump | `adb` | no |
 | `firmware` | extracts the firmware from Android and copies it to the PC | [`firmware/extract-on-device.sh`](../../firmware/) | no |
 | `wayback` | Android's boot image into `boot_b`, the "Switch to Linux" module, saves the hash and the stock boot image | [`android/install-module.sh`](../../android/) | writes `boot_b` (never booted) — asks you to type `WRITE BOOT_B` |
-| `bootimg` | prints the kernel / initramfs / boot image commands with your paths filled in | — | no |
+| `bootimg` | a release kernel (`Image-tb323fu-<tag>` in `$WORK` or `KERNEL_IMAGE`): checks `SHA256SUMS`, unpacks the modules tarball to `$WORK/mods`; without one, prints the build commands with your paths filled in | — | no |
 | `sdcard` | GPT and ext4 partitions on a microSD card in a card reader | `sgdisk`, `mkfs.ext4` | **wipes the card** — asks you to type the device name |
 | `rootfs` | builds a distribution into a partition | [`rootfs/<distro>/build-rootfs.sh`](../../rootfs/) | writes the (empty) partition — asks you to type `BUILD` |
-| `boot` | stages the boot image for the Switch to Linux module, or writes `boot_a` with `tools/cycle.sh` | `install-module.sh stage`, [`tools/cycle.sh`](../cycle.sh) | `cycle.sh` writes `boot_a` — asks you to type `FLASH BOOT_A` |
+| `boot` | with a release kernel, packs it into **your** stock boot image (`$WORK/stock-boot.img`, must match `boot_b`'s hash) — releases ship no `boot.img`, see [install.md](../../docs/install.md#why-there-is-no-ready-made-bootimg); then stages the boot image for the Switch to Linux module, or writes `boot_a` with `tools/cycle.sh` | [`tools/boot-repack-kernel.py`](../boot-repack-kernel.py), `install-module.sh stage`, [`tools/cycle.sh`](../cycle.sh) | `cycle.sh` writes `boot_a` — asks you to type `FLASH BOOT_A` |
 | `firstboot` | waits (at most 180 s) for SSH and runs the first-boot checks | `ssh` | no |
 | `ufs` | **only prints** the pointer to the manual procedure: a root on internal storage wipes Android's data | — | — |
 
@@ -41,7 +41,7 @@ Options are environment variables, listed by `install.sh --help` (`WORK`, `DISTR
 
 ## Known gaps
 
-- No release images: the boot image still has to be built by hand (`bootimg` prints the commands).
+- No release has been published yet; without a release kernel the boot image has to be built by hand (`bootimg` prints the commands).
 - The rootfs builders need an arm64 Linux host; see [docs/install.md, step 5](../../docs/install.md#5-put-a-root-filesystem-on-it).
 - The speaker amplifier driver (aw882xx) is not in the repository yet.
 - `sdcard` uses a card reader on the host; the from-Android variant in the guide is not scripted.
