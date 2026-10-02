@@ -364,6 +364,14 @@ Not testable safely: a kernel that dies before `/init` (documented manual recove
   `switch_root`, firmware from the root — but the initramfs' panel summary then has no display), or keep
   them built in and re-probe after the root is mounted. This decides what a release kernel looks like and
   is a prerequisite for publishing images at all.
+  *Measured 2026-10-02* (firmware-free initramfs, otherwise the development kernel, Debian; table in
+  [kernel/initramfs/README.md](../../kernel/initramfs/README.md#without-firmware-release-images)): the GPU and
+  Bluetooth fail in the initramfs but **recover on their own** after `switch_root` (the GPU driver loads its
+  firmware on first open, Bluetooth re-runs setup at power-on); touch is a module and is now left to the root's
+  udev when the image has no firmware; **only Wi-Fi stays down** (built-in ath12k, probe fails for good, a
+  manual bind after boot brings it up). So the answer is per driver, not "everything as modules": either
+  `CONFIG_ATH12K=m` in release kernels (untested; udev loads it after `switch_root`) or a late bind of the
+  Wi-Fi device in the platform files (the manual bind is verified). Panel and boot summary are unaffected.
 - **Q2 — `boot_a` size**: the M0 numbers; and whether the bootloader accepts a compressed kernel (`Image.gz`
   / `Image.lz4`) in the boot image, which would free 20+ MiB.
 - **Q3 — watchdog after a normal boot**: does the bootloader leave the hardware watchdog armed when it starts

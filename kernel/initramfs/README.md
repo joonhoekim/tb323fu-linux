@@ -46,10 +46,27 @@ Nothing third-party is stored here:
    `baldur-root-sd`) while it reads the boot selection. With neither, the chord does nothing in the initramfs
    and the panel says so.
 3. **Modules**: the remoteproc PAS driver (it attaches to the charger/Type-C firmware the bootloader already
-   runs) and the touch driver are loaded after the USB shell is up, so a bad attach still leaves a way in.
+   runs) and the touch driver are loaded after the USB shell is up, so a bad attach still leaves a way in. The
+   touch driver only when its firmware is in the image — otherwise the root's udev loads it.
 4. **Boot summary** on the panel and in the kernel log (so it also lands in ramoops): kernel, command line,
    CPUs, thermal, block devices, SD card, USB, battery, DRM, then the latest kernel warnings.
 5. **Root selection** (with `baldur.end=hold`, the normal command line) and `switch_root`.
+
+### Without firmware (release images)
+
+Measured on the tablet on 2026-10-02 with a firmware-free initramfs (same kernel otherwise), Debian root:
+
+| Function | In the initramfs | After `switch_root` |
+|---|---|---|
+| Panel, console, boot summary | works (the display controller needs no firmware) | works |
+| GPU (Adreno) | `gen80200_sqe.fw` not found | **recovers by itself**: the driver loads its firmware on the first open, from the root (GNOME starts on the GPU) |
+| Bluetooth | `qca/brhbtfw20.mbn` not found | **recovers by itself**: setup runs again when userspace powers the controller |
+| Touch | firmware download fails, the driver does not retry | `init` no longer loads it without firmware; the root's udev loads it and it downloads the root's firmware |
+| Wi-Fi (ath12k, built in) | probe fails (`amss.bin` not found, -110) | **does not recover by itself**: no interface until the device is bound again (`echo 0000:01:00.0 > /sys/bus/pci/drivers/ath12k_wifi7_pci/bind` brings it up and it connects) |
+| Audio, DSPs | not started here anyway | the root starts the DSPs (firmware from the root) |
+
+So a release image needs a way to bind Wi-Fi again after the root is mounted — see the open question Q1 in
+[`docs/notes/kernel-updates-design.md`](../../docs/notes/kernel-updates-design.md).
 
 ### Root partitions and multiboot
 
