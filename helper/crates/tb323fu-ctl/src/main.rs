@@ -173,7 +173,7 @@ impl Ctl {
                 if name == def { mark.push('d'); }
                 if name == next { mark.push('n'); }
                 let label = f(1);
-                println!("{:<3} {:<18} {:<8} {}", mark, name, f(3), if label.is_empty() { "(empty)".into() } else { label });
+                println!("{:<3} {:<18} {:<8} {}", mark, name, f(3), if !label.is_empty() { label } else if f(3) == "unknown" { "(not readable)".into() } else { "(empty)".into() });
                 if let Some(serde_json::Value::Array(ps)) = p.get("RootHealth").and_then(|h| h.get(&name)) {
                     for x in ps.iter().filter_map(|v| v.as_str()) {
                         println!("{:<3} {:<18} ! {x}", "", "");

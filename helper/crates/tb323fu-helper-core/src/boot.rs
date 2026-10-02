@@ -37,7 +37,8 @@ pub struct Root {
     pub label: String,
     /// the partition exists now
     pub present: bool,
-    /// "systemd" (/sbin/init), "nixos" (system profile) or "none"
+    /// "systemd" (/sbin/init), "nixos" (system profile), "none" (readable,
+    /// no system), or "unknown" (it could not be mounted read-only to look)
     pub init: String,
     /// what this root lacks to run the shared kernel well (see `health`)
     pub problems: Vec<String>,
@@ -422,7 +423,13 @@ pub fn roots() -> Vec<Root> {
             } else if let Some(r) = probe(&dev, &look) {
                 r
             } else {
-                (String::new(), "none".to_string(), Vec::new())
+                // e.g. an ext4 journal left by an unclean shutdown: a read-only
+                // mount without replay ("noload") refuses it. Not "empty".
+                (
+                    String::new(),
+                    "unknown".to_string(),
+                    vec!["could not be mounted read-only to look: unclean shutdown? Boot it once or check the filesystem (not readable)".to_string()],
+                )
             };
             Root { name, label, present: true, init, problems }
         })
