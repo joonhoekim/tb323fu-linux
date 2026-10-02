@@ -1,6 +1,7 @@
 # Tools
 
-The scripts used while porting. There is no installer yet; the manual setup is in [docs/rooting.md](../docs/rooting.md).
+The scripts used while porting. The manual setup is in [docs/rooting.md](../docs/rooting.md) and [docs/install.md](../docs/install.md);
+[`install/`](install/README.md) is a guided install script (**prototype, untested on real hardware**).
 
 Every script starts with its usage. Hosts are never hard-coded except the tablet's USB network default: the root filesystem sets up a
 USB network gadget in which the tablet is **192.168.7.2** and the PC is 192.168.7.1. Set `TB323FU_HOST` to use another address
