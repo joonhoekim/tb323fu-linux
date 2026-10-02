@@ -132,12 +132,14 @@ own tablet's stock image.
 ### 3a. From a release
 
 **[untested as a whole]** (the repack tool and its output are [verified]: every kernel on the development tablet was
-packed this way). A release has `Image-tb323fu-<tag>`, `boot-repack-kernel.py` and `SHA256SUMS` (and
-`modules-tb323fu-<tag>.tar.gz`, which you normally do not need, below):
+packed this way). Releases are GitHub Releases of this repository (tag `kernel-tNN`). A release has
+`Image-tb323fu-tNN` (and the same as `Image-tb323fu-tNN.gz`), `boot-repack-kernel.py` and `SHA256SUMS` (plus the
+kernel configuration and initramfs lists for the GPL sources, and `modules-tb323fu-tNN.tar.gz`, which you normally do
+not need, below). `SHA256SUMS` catches a damaged download; it is not a signature:
 
 ```sh
 sha256sum -c SHA256SUMS
-python3 boot-repack-kernel.py stock-boot.img Image-tb323fu-<tag> linux-boot.img
+python3 boot-repack-kernel.py stock-boot.img Image-tb323fu-tNN linux-boot.img
 ```
 
 **Modules come with the kernel.** The `Image` carries all modules of its kernel (the out-of-tree speaker amplifier
@@ -202,6 +204,9 @@ Notes:
   as written here (the development builds use the same `make … M=… CONFIG_SND_SOC_AW882XX=m` line).
 - With `-m` the boot image carries `mods/lib/modules/<release>` itself; the roots need no copy. Keep the tree only for
   a root in `own` mode. (Without `-m` you get the old layout: every root needs its own copy of exactly these modules.)
+- Once Linux runs with the helper, install later builds of your own with `tb323fu-ctl kernel install-local` instead
+  of repeating step 6: the same trial and automatic rollback as an official update — see
+  [Building and installing your own kernel](custom-kernel.md).
 
 ## 4. Partition a microSD card
 

@@ -3,6 +3,9 @@
 > **Design note, partly implemented.** Section 2 (shared modules) is implemented and verified on the device
 > (2026-10-02, see 2.6). Sections 3 and 4 (update flow, trial boot and rollback, helper notification) are
 > implemented and checked on the device with development kernels (3.7: M4 trial and rollback, M5 helper flow).
+> **Channel changed 2026-10-03 (3.8):** releases come from GitHub Releases with `SHA256SUMS`; the signed index and
+> manifests of 3.1, 3.2 and 3.7 are replaced (minisign stays as an option, off by default); kernels can also be
+> installed from a local file. Plan 2 (CI builds with artifact attestations) is 3.9.
 > `docs/notes/` is not rendered on the project site (the site picks up `docs/*.md` only).
 
 ## 1. The problem
@@ -195,6 +198,8 @@ root only — see open question Q1.
 
 ### 3.1 Release artefacts
 
+> Superseded by 3.8 (GitHub Releases; no manifest, no index). Kept as the record of the first design.
+
 One GitHub Release per kernel build, tag `kernel-tNN`:
 
 | Asset | What |
@@ -213,6 +218,9 @@ Channels: **`stable`** (default) and **`testing`** (every build that passed the 
 procedure). The channel is a helper setting (`kernel.channel` in `helper.toml`).
 
 ### 3.2 Verification: minisign
+
+> Superseded by 3.8: integrity through `SHA256SUMS` and GitHub's asset digest; minisign over `SHA256SUMS` only
+> when `require_signature` is set (no key built in). Plan 2 (3.9) replaces keys with build attestations.
 
 - **minisign** (Ed25519): one small public key, offline verification, a pure-Rust verifier
   (`minisign-verify`, no C dependencies) inside the helper. Releases are built on the maintainer's machine,
@@ -325,6 +333,9 @@ Settings app:
 
 ### 3.7 Implementation (2026-10-02)
 
+> The release files, keys, index fetch and `helper.latest` below were replaced on 2026-10-03 (3.8); the trial,
+> confirm, install and Android parts stand.
+
 Implemented as designed in 3.1–3.6, tested without the device and then on it (M4, M5 below); what
 was left open or came out differently:
 
@@ -399,11 +410,139 @@ was left open or came out differently:
   falls back to `systemctl reboot --force` now). The tablet's clock starts in 1970 until NTP: `LastCheck` and the
   index expiry use whatever the clock says (no trusted time).
 
+### 3.8 Channel: GitHub Releases (2026-10-03)
+
+**Decided (maintainer, 2026-10-03):** the channel is the project's **GitHub Releases**, read over HTTPS through the
+GitHub REST API; the signed index and manifests of 3.1–3.2 and 3.7 are gone. Reasons: one place to publish (the
+release is also where the GPL sources and notes live), no second hosting path to keep in sync, no signing key whose
+loss or leak would need a helper release (3.2, section 7), and forks work the same way. The cost: authenticity rests
+on the GitHub account that publishes, not on an offline key (below).
+
+- **Source**: `[kernel] source = "github:OWNER/REPO"` (default `github:joonhoekim/tb323fu-linux`), `api_url`
+  (default `https://api.github.com`; `http://`/`file://` only for a local test stand-in). The fetch unit reads
+  `GET /repos/OWNER/REPO/releases` (the 30 newest; `Accept: application/vnd.github+json`, API version 2022-11-28).
+- **Release = a GitHub Release** with `Image-tb323fu-tNN` (raw), optionally `Image-tb323fu-tNN.gz`, and
+  `SHA256SUMS`; the release body is the notes. `NN` from the asset name is the serial. Releases without exactly one
+  kernel serial and a `SHA256SUMS`, drafts, and assets whose URL is not under this repository's
+  `/releases/assets/` are ignored. The helper downloads the `.gz` when there is one (20 MB instead of 36 MB for rc2;
+  Q2: the bootloader decompresses gzip) and installs it as it is.
+- **Channels**: `stable` = the newest (by serial) release that is not a pre-release; `testing` = the newest of all,
+  pre-releases included (so a pre-release promoted to a release is still the newest for testing users). A
+  pre-release always waits for Keep, also when someone installs it with the channel set to stable.
+- **Integrity, not authenticity**: the kernel file must match its line in `SHA256SUMS`, the `digest` GitHub reports
+  for the asset (`sha256:…`, computed by GitHub at upload; checked when the API gives it), its size, a bootable
+  format, and carry a banner whose release ends in `-tb323fu-tNN`. `SHA256SUMS` comes over the same channel, so this
+  catches transfer errors and a mixed-up upload — **not** a changed release. Whoever can publish releases in the
+  repository decides what the helpers install.
+- **Requirements** (`min_helper`, `min_platform` of the old manifest): a line `<!-- tb323fu: min_helper=X
+  min_platform=Y -->` in the release body (invisible in the rendered notes).
+- **minisign stays as an option, off by default**: `require_signature = true` makes the helper require
+  `SHA256SUMS.minisig` from a configured key (`public_keys` in `helper.toml`, or `/etc/tb323fu/keys/kernel-*.pub`);
+  no key is built in (`kernel::KEYS` is empty), the packaged project key file is no longer installed and
+  `install.sh` removes it. The verifier and its tests stay. For whoever runs their own channel and wants a key.
+- **Rate limit and caching**: unauthenticated API calls are limited to 60 an hour per address. The daily check makes
+  one; the release list is cached with its `ETag` and asked for with `If-None-Match` — a `304 Not Modified` reuses
+  the cached copy (and does not count against the limit). An exhausted limit is reported with the reset time
+  (`x-ratelimit-reset`). Downloads go through the API asset URL (`Accept: application/octet-stream`; GitHub
+  redirects to its download host), two calls per download.
+- **Token, optional**: for a private repository (or many tablets behind one address) a token can be given as the
+  systemd credential `tb323fu-github-token` (`ImportCredential=` in the fetch unit; the file
+  `/etc/credstore/tb323fu-github-token`). Only the fetch script reads it; it sends it only to
+  `https://api.github.com/` (curl does not forward it to the redirect host). A fine-grained token with read-only
+  `contents` access to that one repository is enough.
+- **Helper notice** (section 4): a release tagged `helper-vX.Y.Z` (not a pre-release) newer than the running helper.
+- **D-Bus**: unchanged methods; new properties `Source`, `RequireSignature`, `TrialLabel`, `GoodLabel`;
+  `IndexExpired` stays and is always false; `Available` carries the release title and the release page URL.
+
+**Account hardening** (what the trust above rests on; the maintainer's checklist):
+
+- two-factor authentication on the publishing account — **on**; recovery codes stored offline, not on the PC that
+  builds;
+- tokens least-privilege and short-lived: a fine-grained token per use (`gh` on the build PC: this repository only,
+  `contents: write` for releases; no classic `repo`-scope tokens), none stored on tablets or in CI;
+- protected release tags: a tag ruleset for `kernel-*` and `helper-v*` (only the maintainer may create, nobody may
+  update or delete) — set when the repository becomes public, together with "immutable releases" if GitHub offers it
+  for the repository, so a published release's assets cannot be swapped afterwards;
+- releases are made from a clean public commit (the release script refuses a dirty tree) and say which commit.
+
+**Local kernel install** (same date, maintainer's request): `tb323fu-ctl kernel install-local PATH
+[--trial|--keep] [--name NAME]` and **Install Kernel from File…** in the app. The file (`Image`, `Image.gz`, or a
+boot image — only its kernel field is used) is opened by the caller and passed as a file descriptor
+(`InspectLocal(h)`, `InstallLocal(h, s name, b auto_confirm, b reboot)`), so the daemon (with `ProtectHome=yes`)
+reads exactly what the caller could read. `InspectLocal` shows release, banner, format, whether the initramfs carries
+`/lib/modules/<release>.sqfs` (the cpio file name searched in the Image and in each gzip stream inside it — the
+initramfs is gzip; about 60 ms on the t30 Image) and warnings (no shared modules: roots need `own` modules; the
+running build; a release without `-tNN`; a boot image). Install is the release path from the repack on: stock image
+from `boot_b` after the Android hash check, `linux-good.img`, read-back, trial, automatic rollback, the Android rule
+(trial or failed image → `linux-good.img`). `trial_channel=local`.
+
+- **Q7 for local files — decided:** a kernel from a file waits for **Keep** by default (`--trial`, `trial_keep=1`,
+  as testing): nobody but the person installing it has seen it run, and the 90 s rule would confirm a kernel that
+  boots but breaks sound or Wi-Fi. `--keep` (app: "Keep it by itself once a system has run 90 seconds") lets the
+  confirm unit keep it like a stable release — for builds the developer already ran.
+- `kernel-state` gains `trial_keep=1` (the trial waits for Keep, whatever its channel — the confirm script and the
+  initramfs check it besides `trial_channel=testing`), `trial_label`/`good_label` (the `--name`).
+- **polkit**: `kernel-install-local` is `auth_admin` — the administrator's password **every time**, never kept —
+  where a release install is `auth_admin_keep`: a release went through the project's publishing and the helper's
+  checks against its own release data; a file went through nothing but the decision of the person at the tablet,
+  and it becomes the code that runs with access to everything. `InspectLocal` only reads (`kernel-check`, allowed).
+- Not done: a size or signature policy for local files (nothing to check them against), installing older official
+  releases (downgrades; a local install of an old `Image` is the way meanwhile).
+
+**Tests** (no device): `cargo test` 29 + 2 ignored (release list parsing with drafts, mixed serials, foreign asset
+URLs, helper releases; channel pick; SHA256SUMS/digest/banner checks; optional signatures — no key, no signature,
+another key, tampered; local files raw/gzip/boot image, with and without the modules image; install/confirm with
+labels); `real_kernel_inspect` on the t30 Image (shared) and the t27 Image (no modules image);
+`tests/kernel-update-test.sh` against a `file://` stand-in made with `tools/kernel-release.py fake-api` (63 checks);
+initramfs 164/164, confirm 42/42, Android 30/30.
+
+### 3.9 Plan 2: releases built by GitHub Actions, with artifact attestations
+
+Not started; the next step for authenticity once the repository is public.
+
+**What changes.** Release kernels are built by a GitHub Actions workflow instead of the maintainer's build machine:
+a tag push (`kernel-tNN`, protected) starts a job on an x86-64 runner that cross-compiles the kernel (clang/LLVM,
+`ARCH=arm64`, the public patch series and configuration), the aw882xx module, BusyBox (pinned upstream tarball) and
+the firmware-free initramfs with `build.sh -m` (needs `mksquashfs`, `gen_init_cpio` from the kernel build), runs
+`kernel-release.py assets` and `check`, and publishes the release. The job then calls
+`actions/attest-build-provenance` on the assets: GitHub signs a SLSA provenance statement ("this file, this
+SHA-256, was built by workflow W at commit C of repository R, triggered by tag T") with a short-lived Sigstore
+certificate issued to the workflow's OIDC identity (keyless — no key is stored anywhere), recorded in Sigstore's
+public transparency log (Rekor; GitHub's own instance for private repositories).
+
+**Helper side.** Download the attestation bundle for the kernel file's digest
+(`GET /repos/OWNER/REPO/attestations/sha256:<digest>`) through the fetch unit, and verify it in the daemon: the
+Sigstore bundle's certificate chain against the Sigstore/GitHub trust root (shipped with the helper, updated with
+it), the Rekor inclusion proof and signed timestamp, then the certificate's identity — `repository` =
+`kernel.source`, workflow file = the project's release workflow, ref = `refs/tags/kernel-tNN` — and the subject
+digest = the downloaded file. A new setting `require_attestation` (`true` by default for the official source once
+releases carry attestations; `false` for forks until they set the workflow up) and `attestation_workflow`. A Rust
+implementation would use the `sigstore` crate (verification only) or a small verifier for the bundle format; the
+`gh attestation verify FILE --repo OWNER/REPO` command does the same on a PC and is what the docs tell people to run
+by hand.
+
+**Benefits.** No key management at all (nothing to lose, leak, rotate or protect with a password); every release
+says which commit and workflow built it, publicly logged, so anyone can check that a published kernel was built
+from the published sources — build provenance doubles as GPL transparency ("corresponding source" = the commit the
+attestation names); a stolen account password alone cannot produce a valid attestation for a kernel built
+elsewhere, only for one built by the workflow from a pushed commit (which is visible in the repository); forks get
+the same scheme by copying the workflow.
+
+**Costs and limits.** CI build time (a full kernel build is about 30–60 min on a 4-core hosted runner; caching the
+build directory between runs helps; public repositories get the runners free); the workflow has to reproduce the
+local build exactly (toolchain pinned by container image digest, `KBUILD_BUILD_TIMESTAMP`/`USER`/`HOST` fixed so the
+banner is reproducible); development kernels for the maintainer's tablet stay local (with dev firmware, never
+published). The trust moves from "the maintainer's account" to "the repository's workflow and its protected
+branches/tags": someone with push access can still change the workflow — branch protection and required reviews
+matter more. The verifier adds code and a trust root that needs updates (Sigstore root rotation) to the helper; an
+outdated helper then fails closed (and says so). Verification needs the attestation API (one more call, rate
+limit) — the bundle can instead be attached to the release as an asset (`*.sigstore.json`) to keep it one place.
+
 ## 4. Helper self-update
 
 The helper stays a normal package; it never replaces its own binaries on systems with a package manager.
-It **notifies**: the same signed index carries `helper.latest` (version, notes URL); `Helper.Version` older
-than that shows a row in About with the command for this system (chosen from `os-release` `ID`/`ID_LIKE`).
+It **notifies**: a GitHub Release tagged `helper-vX.Y.Z` (not a pre-release) in the kernel source's repository
+(since 3.8; first: the signed index's `helper.latest`); `Helper.Version` older than that shows a row in About with the command for this system (chosen from `os-release` `ID`/`ID_LIKE`).
 
 | System | Channel | Notes |
 |---|---|---|
@@ -431,10 +570,11 @@ use.
    the existing NixOS root to switch to the stub.
 5. **Helper**: `Kernel` object, fetch unit and timer, polkit actions, CLI, app pages; `RootHealth` checks
    `SharedModules` for the current root and `own` mode for others instead of `modules.dep`/`extra/`.
-6. **Release procedure**: signing key, index on the site, release-notes template, the testing channel on the
-   maintainer's tablet before `stable`. The repository has to be public for unauthenticated downloads;
-   until then the helper's index URL is configurable (`kernel.index_url` in `helper.toml`) so a PC-served
-   index can be used for testing.
+6. **Release procedure** (3.8): `release-public.sh` builds the asset set (`Image-tb323fu-tNN`, `.gz`,
+   `SHA256SUMS`, notes from the template), `gh release create kernel-tNN … --prerelease` publishes it for the testing
+   channel (checked on the maintainer's tablet), then the pre-release is turned into a release for `stable`. The
+   repository has to be public for downloads without a token; until then a token credential or a local stand-in
+   (`kernel-release.py fake-api`, `kernel.api_url`) is used for testing.
 7. **Cleanup**: once no saved image (`linux-current`, `linux-good`, Android's staged copy) uses the old
    release, the helper offers to delete the roots' old `/lib/modules/<old release>` trees (it shows the size).
    The manual roll-out scripts become rollback helpers for old kernels only.
@@ -469,8 +609,10 @@ Not testable safely: a kernel that dies before `/init` (documented manual recove
   alternative (2.5) is ready to implement.
 - **Read-only modules surprise someone** (DKMS, manual `depmod`). `own`/`overlay` modes, documented.
 - **Unswappable RAM** for the image in the initramfs (≈ 10 MiB) — accepted.
-- **Signing key loss or leak.** Rotation through helper releases (3.2); a leak would need a helper release
-  that revokes the key, so the key never leaves the maintainer's offline storage.
+- **Publishing account compromise** (3.8): whoever controls the account or a token with release rights can publish a
+  kernel that helpers install (stable after their 90 s, or with Keep). Mitigations: the account rules in 3.8, the
+  trial and rollback (a kernel that does not boot goes back by itself — a malicious one that boots does not), and
+  plan 2 (3.9). (Before 3.8: signing key loss or leak, rotation through helper releases.)
 
 ## 8. Open questions
 
