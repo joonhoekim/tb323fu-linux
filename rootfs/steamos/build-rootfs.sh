@@ -329,7 +329,7 @@ if [ "$DEV_ACCESS" = 1 ]; then
 	# SteamOS ships systemd 257.7: when a unit with TTYReset=yes stops, PID 1 itself asks the terminal
 	# for its size (ANSI DSR) after tcsetattr(TCSADRAIN), which waits until the output drains. If the PC
 	# is not reading the gadget's serial port nothing drains, PID 1 stops feeding the watchdog, and the
-	# reboot ends in a pretimeout panic (y705 plan 9-104, 2026-10-01). systemd 257.8 uses TCSANOW.
+	# reboot ends in a pretimeout panic. systemd 257.8 uses TCSANOW.
 	printf '[Service]\nTTYReset=no\n' > "$T/etc/systemd/system/serial-getty@ttyGS0.service.d/tty-no-reset.conf"
 	echo "PermitRootLogin yes" > "$T/etc/ssh/sshd_config.d/10-tb323fu-dev.conf"
 	if [ -n "$DEV_SSH_KEYS" ] && [ -f "$DEV_SSH_KEYS" ]; then
