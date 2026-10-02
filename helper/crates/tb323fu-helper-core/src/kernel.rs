@@ -672,6 +672,7 @@ pub fn install(dev: &Device, android_hash: &str, run: &Running, state: &Path, m:
     st.trial_sha256 = img_sha;
     st.trial_version = version;
     st.trial_serial = m.serial;
+    // the channel installed from: the daemon puts its configured channel into m.channel
     st.trial_channel = if m.channel.is_empty() { "stable".into() } else { m.channel.clone() };
     st.tries = 0;
     if st.max == 0 {
@@ -714,6 +715,7 @@ pub fn confirm(dev: &Device, run: &Running, state: &Path) -> Res<String> {
     if st.failed == st.trial {
         st.failed.clear();
         st.failed_sha256.clear();
+        st.other.retain(|(k, _)| k != "failed_seen");
     }
     let rel = st.trial.clone();
     st.clear_trial();

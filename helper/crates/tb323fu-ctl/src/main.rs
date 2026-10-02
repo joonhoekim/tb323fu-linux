@@ -282,8 +282,9 @@ impl Ctl {
         if !s("Trial").is_empty() {
             println!("trial      {} ({} channel, start {} of {})", s("Trial"), s("TrialChannel"), n("Tries"), n("MaxTries"));
             if b("KeepPending") {
-                println!("           testing channel: `tb323fu-ctl kernel keep` keeps it; otherwise it goes back to {} after {} more failed starts",
-                    s("Good"), n("MaxTries").saturating_sub(n("Tries")));
+                let left = n("MaxTries").saturating_sub(n("Tries"));
+                println!("           testing channel: `tb323fu-ctl kernel keep` keeps it; without that, {} comes back after {left} more start{}",
+                    s("Good"), if left == 1 { "" } else { "s" });
             }
         }
         if !s("LastFailed").is_empty() {

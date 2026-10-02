@@ -97,7 +97,7 @@ if [ -n "$running_trial" ]; then
 	failed=$(get failed)
 	setkv good "$trial"; setkv good_sha256 "$ha"; setkv good_version "$tver"; setkv good_serial "$(get trial_serial)"
 	for k in trial trial_sha256 trial_version trial_serial trial_channel tries; do setkv $k ""; done
-	[ "$failed" = "$trial" ] && { setkv failed ""; setkv failed_sha256 ""; }
+	[ "$failed" = "$trial" ] && { setkv failed ""; setkv failed_sha256 ""; setkv failed_seen ""; }
 	say "confirmed $trial: boot_a saved as linux-good.img"
 else
 	gver=$(get good_version); good=$(get good)

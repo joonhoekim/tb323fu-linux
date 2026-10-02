@@ -91,7 +91,7 @@ minisign -G -W -p "$R/test.pub" -s "$R/test.key" > /dev/null 2>&1 || { echo "min
 cp "$R/test.pub" "$R/etc/tb323fu/keys/kernel-test.pub"
 printf '## t28\n- the speaker fix\n' > "$R/notes.md"
 K="python3 $repo/tools/kernel-channel.py"
-$K add "$CH" "$R/Image-tb323fu-t28.gz" --tag kernel-t28 --channel testing --notes "$R/notes.md" > /dev/null &&
+$K add "$CH" "$R/Image-tb323fu-t28.gz" --tag kernel-t28 --channel stable --notes "$R/notes.md" > /dev/null &&
 	$K index "$CH" --set testing=kernel-t28 --set stable=kernel-t28 --helper-latest 9.9.0 > /dev/null &&
 	$K sign "$CH" --key "$R/test.key" > /dev/null && $K verify "$CH" --pub "$R/test.pub" > /dev/null &&
 	ok "channel built and signed (kernel-channel.py)" || bad "kernel-channel.py"
@@ -128,7 +128,7 @@ cp "$R/hash" "$R/etc/tb323fu/android-boot.sha256"
 $C kernel install kernel-t28 | grep -q "t28 installed in boot_a" && ok "install" || { bad "install"; tail "$R/daemon.log"; }
 cmp -s "$R/dev/sda5" "$R/boot-t28.img" && ok "  boot_a = boot-repack-kernel.py's image, byte for byte" || bad "  boot_a differs from the Python repack"
 cmp -s "$R/var/lib/tb323fu/linux-good.img" "$R/boot-t27.img" && ok "  linux-good.img = the t27 image" || bad "  linux-good.img"
-[ "$(kget trial)" = 7.3.0-rc4-tb323fu-t28 ] && [ "$(kget trial_version)" = "$V28" ] && [ "$(kget trial_channel)" = testing ] && [ "$(kget good)" = 7.3.0-rc4-tb323fu-t27 ] && ok "  kernel-state: trial t28 (testing), good t27" || bad "  kernel-state: $(cat "$R/var/lib/tb323fu/kernel-state")"
+[ "$(kget trial)" = 7.3.0-rc4-tb323fu-t28 ] && [ "$(kget trial_version)" = "$V28" ] && [ "$(kget trial_channel)" = testing ] && [ "$(kget good)" = 7.3.0-rc4-tb323fu-t27 ] && ok "  kernel-state: trial t28 (testing: the configured channel, not the manifest's), good t27" || bad "  kernel-state: $(cat "$R/var/lib/tb323fu/kernel-state")"
 $C --json kernel | grep -q '"State": "pending-reboot"' && ok "  state pending-reboot" || bad "  pending-reboot"
 stop
 

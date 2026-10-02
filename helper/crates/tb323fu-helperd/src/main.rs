@@ -238,7 +238,10 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
         b = b.serve_at(kernel::P_KERNEL, kernel::Kernel(kern.clone()))?;
         // kernel-state may sit on another root: read it off the executor
         let k2 = kern.clone();
-        std::thread::spawn(move || k2.reload_state());
+        std::thread::spawn(move || {
+            k2.reload_state();
+            k2.clean_staged();
+        });
     }
     if has_thermal {
         b = b.serve_at(P_THERMAL, Thermal)?;

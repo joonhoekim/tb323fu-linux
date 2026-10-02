@@ -88,4 +88,8 @@ echo "boot_a sha256 $ha"
 
 echo "boot_a is Android again; rebooting"
 sync
-reboot -f
+# busybox's reboot in the initramfs; systemd's in a root. Run by the helper
+# (a sandboxed service: ProtectSystem=strict) systemd's "reboot -f" cannot
+# write /run and gives up without rebooting (seen 2026-10-02) -- then ask the
+# service manager, and as the last resort the kernel.
+reboot -f || systemctl reboot --force || { sleep 2; echo b > /proc/sysrq-trigger; }

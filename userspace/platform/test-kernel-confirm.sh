@@ -46,12 +46,12 @@ echo "== $SH"
 setup "$V28"; bootimg "$T/dev/sda5" "$V28"; a=$(sha "$T/dev/sda5")
 printf old > "$S/linux-good.img"
 state good=7.3.0-rc4-tb323fu-t27 good_sha256=x "good_version=$V27" good_serial=27 trial=7.3.0-rc4-tb323fu-t28 \
-	"trial_sha256=$a" "trial_version=$V28" trial_serial=28 trial_channel=stable tries=1 max=2 failed=7.3.0-rc4-tb323fu-t28
+	"trial_sha256=$a" "trial_version=$V28" trial_serial=28 trial_channel=stable tries=1 max=2 failed=7.3.0-rc4-tb323fu-t28 failed_seen=7.3.0-rc4-tb323fu-t28
 run
 [ "$(kget good)" = 7.3.0-rc4-tb323fu-t28 ] && [ "$(kget good_sha256)" = "$a" ] && [ "$(kget good_serial)" = 28 ] && [ "$(kget good_version)" = "$V28" ] &&
 	ok "stable trial running: confirmed" || { bad "stable trial: $(cat "$S/kernel-state")"; cat "$T/out"; }
 [ -z "$(kget trial)$(kget tries)$(kget trial_sha256)$(kget trial_channel)" ] && ok "  trial cleared" || bad "  trial left: $(cat "$S/kernel-state")"
-[ -z "$(kget failed)" ] && ok "  failed= for the same release cleared" || bad "  failed kept"
+[ -z "$(kget failed)$(kget failed_seen)" ] && ok "  failed= (and failed_seen=) for the same release cleared" || bad "  failed kept"
 [ "$(sha "$S/linux-good.img")" = "$a" ] && [ "$(cat "$S/linux-good.img.sha256")" = "$a" ] && ok "  linux-good.img = boot_a" || bad "  linux-good.img"
 [ "$(kget max)" = 2 ] && ok "  max kept" || bad "  max lost"
 rm -rf "$T"

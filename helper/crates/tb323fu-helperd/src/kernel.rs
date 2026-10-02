@@ -369,7 +369,10 @@ impl Inner {
 
     /// Install a downloaded release into boot_a as a trial. Blocking.
     pub fn install(&self, tag: &str) -> Result<String, String> {
-        let m = self.manifest(tag)?;
+        let mut m = self.manifest(tag)?;
+        // Q7 follows the channel it was installed from (a release moves from
+        // testing to stable without a new manifest), not the manifest's own
+        m.channel = self.sh.cfg().kernel.channel;
         k::requirements(&m, env!("CARGO_PKG_VERSION"), k::platform_version().as_deref())?;
         if m.serial <= self.running_serial() {
             return Err(format!("{tag} is not newer than the running kernel"));
@@ -412,7 +415,7 @@ impl Inner {
     }
 
     /// Remove staged downloads that are not newer than the running kernel.
-    fn clean_staged(&self) {
+    pub fn clean_staged(&self) {
         let serial = self.running_serial();
         let dir = stage().join("staged");
         for t in sys::list_dir(&dir) {
@@ -681,7 +684,10 @@ impl Kernel {
     /// Re-read kernel-state (tb323fu-kernel-confirm calls this after confirming).
     async fn refresh(&self, #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
         let inner = self.0.clone();
-        blocking::unblock(move || inner.reload_state()).await;
+        blocking::unblock(move || {
+            inner.reload_state();
+            inner.clean_staged();
+        }).await;
         invalidate(&em, Self::IFACE, Self::PROPS).await;
         Ok(())
     }
