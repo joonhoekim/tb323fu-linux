@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur") cameras (y705-mainline-plan.md 9-60), on the kaanapali
+ * TB323FU ("baldur") cameras, on the kaanapali
  * CAMSS/CCI/CSIPHY series (0026-0028). From the vendor DT (qcom,cam-sensor,
  * cci, csiphy nodes) and the CamX sensor modules in /vendor/lib64/camera
  * (slave address and chip ID from their slave-info block):

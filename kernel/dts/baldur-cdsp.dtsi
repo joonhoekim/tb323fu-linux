@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur") compute DSP (y705-mainline-plan.md 9-51).
+ * TB323FU ("baldur") compute DSP.
  *
  * Android's cdsp.mdt / cdsp_dtb.mdt (modem partition image/), squashed to
  * .mbn with tools/pil-squash.py, in the rootfs next to the ADSP's under

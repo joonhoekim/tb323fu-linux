@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur"): volume keys (y705-mainline-plan.md 9-24).
+ * TB323FU ("baldur"): volume keys.
  *
  * The same wiring as kaanapali-mtp.dts, and what the vendor DT says:
  * volume up on tlmm gpio101 (active low, pulled up), volume down on the

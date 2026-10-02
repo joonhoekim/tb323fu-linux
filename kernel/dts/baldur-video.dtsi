@@ -3,7 +3,7 @@
  * Lenovo Legion Tab Y700 5th Gen (TB323FU, "baldur"): iris video codec (VPU 4.0)
  * with the OEM-signed firmware from the Android vendor partition
  * (vendor/firmware/vpu40_2v.mbn), kept with the ADSP/CDSP images.
- * y705-mainline-plan.md 9-101; the node comes from infiniti-mainline 032-040.
+ * The node comes from infiniti-mainline 032-040.
  */
 
 &iris {

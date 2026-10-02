@@ -13,7 +13,7 @@
 #   redistributors keep Android's tables; nothing reserves those across kexec
 #   (Linux only does that through EFI), and a new kernel that "reuses" them
 #   writes the default LPI config (0xc2 bytes) over whatever is there now. In
-#   QEMU that was its own kernel text (y705-mainline-plan.md 9-13)
+#   QEMU that was its own kernel text
 # - reboot=warm: ask PSCI for SYSTEM_RESET2 warm. Tried against ramoops' bit
 #   flips, which turned out to be the device's own (9-15); harmless, kept
 # - baldur.wait=20: a short countdown for the kexec loop

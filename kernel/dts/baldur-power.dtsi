@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur"): battery and Type-C over pmic-glink (y705-mainline-plan.md 9-21).
+ * TB323FU ("baldur"): battery and Type-C over pmic-glink.
  *
  * On kaanapali the charger firmware runs on SoCCP, which XBL has already
  * started; Android shows it "attached". The PAS driver attaches to it (the

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
  * TB323FU ("baldur") RGB ring under the rear camera -- the "gaming
- * lighting" (y705-mainline-plan.md 9-62): an Awinic AW22127 LED matrix
+ * lighting": an Awinic AW22127 LED matrix
  * driver at i2c5 0x6a (vendor "awinic,aw22xxx_led"), held in reset by
  * PMH0110_D gpio11 (vendor pinctrl: output high = running, power-source 1).
  * The chip's MCU program is in its own flash; leds-aw22127 (0034) sends it

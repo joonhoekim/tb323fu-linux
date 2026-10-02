@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur"): DisplayPort alt-mode on the bottom USB-C port
- * (y705-mainline-plan.md 9-65).
+ * TB323FU ("baldur"): DisplayPort alt-mode on the bottom USB-C port.
  *
  * kaanapali.dtsi has the combo PHY (DP half included via the sm8750 fallback)
  * and DPU INTF_0 = DP controller 0, but no DP controller node. This one is

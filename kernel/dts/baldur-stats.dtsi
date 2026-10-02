@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
  * RPMh sleep statistics (AOSS/CX/DDR sleep counts, subsystem stats) for
- * qcom_stats (y705-mainline-plan.md 9-63): the vendor DT has this SRAM as
+ * qcom_stats: the vendor DT has this SRAM as
  * "qcom,rpmh-stats-v4" at 0xc3f0000; kaanapali.dtsi does not describe it.
  */
 

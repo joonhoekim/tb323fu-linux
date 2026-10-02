@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur"): touch, the NT36523 TDDI's touch half on SPI19
- * (y705-mainline-plan.md 9-26).
+ * TB323FU ("baldur"): touch, the NT36523 TDDI's touch half on SPI19.
  *
  * Vendor node: spi@1a80000 novatek@0, "novatek,NVT-ts-spi", 19.2 MHz,
  * INT tlmm gpio158, reset tlmm gpio66 (the driver pulses it), pen.

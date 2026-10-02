@@ -3,8 +3,8 @@
 # arch/arm64/configs/kaanapali-oneplus-infiniti_defconfig.
 #
 # Only the differences that matter for OUR board are here; everything else the
-# OnePlus 15 fragment sets already matches what y705-mainline-plan.md ch.8 asks
-# for (PSTORE_RAM, FB_CORE, FRAMEBUFFER_CONSOLE, ARM64_4K_PAGES, EFI off, UFS,
+# OnePlus 15 fragment sets already matches what this board needs
+# (PSTORE_RAM, FB_CORE, FRAMEBUFFER_CONSOLE, ARM64_4K_PAGES, EFI off, UFS,
 # SDHCI, ath12k, pmic-glink).
 
 # The firmware leaves its watchdog running. Nothing feeds it until this driver

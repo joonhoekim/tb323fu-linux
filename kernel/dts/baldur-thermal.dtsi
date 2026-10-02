@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur"): CPU thermal zones that throttle (y705-mainline-plan.md 9-20).
+ * TB323FU ("baldur"): CPU thermal zones that throttle.
  *
  * kaanapali.dtsi gives every CPU sensor only a "hot" (120 C) and a "critical"
  * (125 C) trip and no cooling map, leaving everything below shutdown to the

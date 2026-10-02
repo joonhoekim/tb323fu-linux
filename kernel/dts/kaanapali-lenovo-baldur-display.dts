@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur"), stage 5: the board tree plus the panel
- * (y705-mainline-plan.md 9-18). Kept as its own top-level tree so the stage-4
+ * TB323FU ("baldur"), stage 5: the board tree plus the panel.
+ * Kept as its own top-level tree so the stage-4
  * image, which reads its log off the bootloader's splash buffer, stays as it
  * is: bringing MDSS up gives that buffer away.
  */

@@ -289,7 +289,7 @@ fn fetch(c: &Client, skip: &[&'static str]) -> Fetched {
     Fetched { root, props }
 }
 
-/// The release from /proc/version ("Linux version 7.3.0-y705 (...)").
+/// The release from /proc/version ("Linux version 7.3.0 (...)" -> "7.3.0").
 fn kernel_release(full: &str) -> String {
     full.split_whitespace().nth(2).unwrap_or(full).to_string()
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
  * TB323FU ("baldur"), for a kernel started by kexec from Android
- * (y705-mainline-plan.md 9-13) instead of by the bootloader.
+ * instead of by the bootloader.
  *
  * The difference is what Android leaves behind. /memory still comes from the
  * bootloader's tree and already excludes every fixed firmware carve-out (9-12),

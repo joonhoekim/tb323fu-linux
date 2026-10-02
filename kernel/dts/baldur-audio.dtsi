@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur") audio, step by step (y705-mainline-plan.md 9-47 to 9-50).
+ * TB323FU ("baldur") audio.
  *
  * From the vendor tree: two Awinic smart amplifiers, "awinic,aw882xx_smartpa"
  * at 0x34 (sound-channel 0, reset TLMM 114) and 0x37 (channel 1, reset

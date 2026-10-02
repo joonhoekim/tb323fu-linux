@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur") camera flash/torch LED and the two haptic motors
- * (y705-mainline-plan.md 9-54). Both have mainline drivers; DT only.
+ * TB323FU ("baldur") camera flash/torch LED and the two haptic motors.
+ * Both have mainline drivers; DT only.
  *
  * Flash: the pmh0101 flash block @0xee00 (torch 500 mA, flash 2 A); one LED.
  *

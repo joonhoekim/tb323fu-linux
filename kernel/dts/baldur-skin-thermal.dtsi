@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
  * TB323FU ("baldur"): board-temperature (skin) throttling after Android's
- * thermal-engine (y705 plan 9-104, study/research/2026-09-30-thermal-cooling.md).
+ * thermal-engine.
  *
  * baldur-thermal.dtsi only protects the silicon (95 C junction, passive, per
  * CPU zone); kaanapali.dtsi does 105 C for the GPU. Android throttles long

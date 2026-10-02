@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur") PMIC ADC: board thermistors and PMIC die temperatures
- * (y705-mainline-plan.md 9-59). The ADC is PMK8850's PMIC5 Gen4 VADC at
+ * TB323FU ("baldur") PMIC ADC: board thermistors and PMIC die temperatures.
+ * The ADC is PMK8850's PMIC5 Gen4 VADC at
  * 0x9000 (pmk8850.dtsi, upstream series 0025); it reads channels of every
  * PMIC on the bus. Channel numbers are the vendor DT's (vadc@9000) as they
  * are: bits 14:13 bus, 12:8 SID, 7:0 channel -- 0x27xx is PMIH0108 (bus 1,

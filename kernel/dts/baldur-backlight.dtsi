@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur"): panel backlight (y705-mainline-plan.md 9-25).
+ * TB323FU ("baldur"): panel backlight.
  *
  * The CSOT panel's backlight is an external boost/LED driver on QUP I2C12
  * at 0x76 (vendor "i2c-bl", bl_ctrl_external); the vendor display driver
