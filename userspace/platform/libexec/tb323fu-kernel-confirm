@@ -16,9 +16,11 @@
 # it to linux-good.img (tmp file, hash check, rename) and record it as good.
 #
 # Stable channel: a system that came up and stayed up for 90 s confirms its
-# kernel, whichever root it is. Testing channel (trial_channel=testing): only
-# Keep in the settings app or `tb323fu-ctl kernel keep` confirms; this script
-# leaves it alone. A running kernel that is not recorded at all (written to
+# kernel, whichever root it is. A trial that waits for Keep (trial_keep=1: the
+# testing channel, pre-releases and kernels installed from a file, unless
+# installed with --keep; older records: trial_channel=testing): only Keep in
+# the settings app or `tb323fu-ctl kernel keep` confirms; this script leaves
+# it alone. A running kernel that is not recorded at all (written to
 # boot_a by hand) becomes the good one the same way, so a later trial always
 # has a kernel to go back to.
 #
@@ -87,8 +89,8 @@ boot_a_runs() {
 }
 
 if [ -n "$running_trial" ]; then
-	if [ "$(get trial_channel)" = testing ]; then
-		say "$trial is a testing-channel kernel: kept only with Keep (tb323fu-ctl kernel keep)"
+	if [ "$(get trial_keep)" = 1 ] || [ "$(get trial_channel)" = testing ]; then
+		say "$trial waits for Keep (tb323fu-ctl kernel keep); not confirming it here"
 		done_ 0
 	fi
 	ha=$(sha "$a")
@@ -96,7 +98,8 @@ if [ -n "$running_trial" ]; then
 	save_good "$ha" || done_ 1
 	failed=$(get failed)
 	setkv good "$trial"; setkv good_sha256 "$ha"; setkv good_version "$tver"; setkv good_serial "$(get trial_serial)"
-	for k in trial trial_sha256 trial_version trial_serial trial_channel tries; do setkv $k ""; done
+	setkv good_label "$(get trial_label)"
+	for k in trial trial_sha256 trial_version trial_serial trial_channel trial_keep trial_label tries; do setkv $k ""; done
 	[ "$failed" = "$trial" ] && { setkv failed ""; setkv failed_sha256 ""; setkv failed_seen ""; }
 	say "confirmed $trial: boot_a saved as linux-good.img"
 else
@@ -110,7 +113,7 @@ else
 		# was rewritten since, e.g. Android wrote linux-good back) is dropped
 		[ "$ha" = "$(get trial_sha256)" ] && { say "$trial is installed and waits for a restart"; done_ 0; }
 		say "dropping the stale trial record of $trial (boot_a holds another image)"
-		for k in trial trial_sha256 trial_version trial_serial trial_channel tries; do setkv $k ""; done
+		for k in trial trial_sha256 trial_version trial_serial trial_channel trial_keep trial_label tries; do setkv $k ""; done
 	fi
 	if [ -n "$gver" ] && [ "$gver" = "$ver" ] && [ "$(get good_sha256)" = "$ha" ] && [ -f "$S/linux-good.img" ]; then
 		done_ 0
@@ -118,7 +121,7 @@ else
 	if boot_a_runs; then
 		save_good "$ha" || done_ 1
 		serial=${rel##*-tb323fu-t}; case $serial in ''|*[!0-9]*) serial= ;; esac
-		setkv good "$rel"; setkv good_sha256 "$ha"; setkv good_version "$ver"; setkv good_serial "$serial"
+		setkv good "$rel"; setkv good_sha256 "$ha"; setkv good_version "$ver"; setkv good_serial "$serial"; setkv good_label ""
 		[ -n "$(get max)" ] || setkv max 2
 		say "recorded the running kernel $rel as good (linux-good.img)"
 	else

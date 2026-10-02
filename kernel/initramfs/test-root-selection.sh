@@ -265,9 +265,14 @@ trialsetup 1; sed -i 's/^trial_channel=.*/trial_channel=testing/' "$T/disk/sda17
 expect_log "start 2 of 2 (kept when you press Keep)" "  said so (Keep)"
 rm -rf "$T"
 
+trialsetup 0; printf '%s\n' trial_channel=local trial_keep=1 trial_label=mine >> "$T/disk/sda17/var/lib/tb323fu/kernel-state"; run "$SH"
+[ "$(kstate tries)" = 1 ] && ok "trial: a local file (trial_keep=1) counted" || bad "trial: local tries '$(kstate tries)'"
+expect_log "start 1 of 2 (kept when you press Keep)" "  said so (Keep)"
+rm -rf "$T"
+
 trialsetup 2; run "$SH"
 [ "$(cat "$T/dev/sda5")" = T27-GOOD-IMAGE ] && ok "trial: third start: linux-good.img back in boot_a" || bad "trial: boot_a = '$(cat "$T/dev/sda5")'"
-[ "$(kstate failed)" = 7.3.0-rc4-tb323fu-t28 ] && [ -z "$(kstate trial)" ] && [ -z "$(kstate tries)" ] && ok "  failed= recorded, trial cleared" || bad "  state: $(cat "$T/disk/sda17/var/lib/tb323fu/kernel-state")"
+[ "$(kstate failed)" = 7.3.0-rc4-tb323fu-t28 ] && [ -z "$(kstate trial)" ] && [ -z "$(kstate tries)" ] && [ -z "$(kstate trial_channel)" ] && ok "  failed= recorded, trial cleared" || bad "  state: $(cat "$T/disk/sda17/var/lib/tb323fu/kernel-state")"
 [ "$(kstate failed_sha256)" = "$(printf 'T28-IMAGE' | sha256sum | cut -c1-64)" ] && ok "  failed_sha256" || bad "  failed_sha256"
 [ "$(kstate good)" = 7.3.0-rc4-tb323fu-t27 ] && ok "  good kept" || bad "  good lost"
 expect_log "^REBOOT" "  restarted"

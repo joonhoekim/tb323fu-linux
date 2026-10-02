@@ -59,7 +59,18 @@ rm -rf "$T"
 setup "$V28"; bootimg "$T/dev/sda5" "$V28"; a=$(sha "$T/dev/sda5")
 state good=7.3.0-rc4-tb323fu-t27 trial=7.3.0-rc4-tb323fu-t28 "trial_sha256=$a" "trial_version=$V28" trial_channel=testing tries=1
 run; [ "$(kget trial)" = 7.3.0-rc4-tb323fu-t28 ] && [ ! -e "$S/linux-good.img" ] && ok "testing trial: left for Keep" || bad "testing trial confirmed"
-said "kept only with Keep"
+said "waits for Keep"
+rm -rf "$T"
+
+setup "$V28"; bootimg "$T/dev/sda5" "$V28"; a=$(sha "$T/dev/sda5")
+state good=7.3.0-rc4-tb323fu-t27 trial=7.3.0-rc4-tb323fu-t28 "trial_sha256=$a" "trial_version=$V28" trial_channel=local trial_keep=1 trial_label=mine tries=1
+run; [ "$(kget trial)" = 7.3.0-rc4-tb323fu-t28 ] && [ ! -e "$S/linux-good.img" ] && ok "local trial with trial_keep=1: left for Keep" || bad "trial_keep=1 confirmed"
+rm -rf "$T"
+
+setup "$V28"; bootimg "$T/dev/sda5" "$V28"; a=$(sha "$T/dev/sda5")
+state good=7.3.0-rc4-tb323fu-t27 good_label=old trial=7.3.0-rc4-tb323fu-t28 "trial_sha256=$a" "trial_version=$V28" trial_channel=local "trial_label=my build" tries=1
+run; [ "$(kget good)" = 7.3.0-rc4-tb323fu-t28 ] && [ "$(kget good_label)" = "my build" ] && [ -z "$(kget trial_label)$(kget trial_keep)$(kget trial_channel)" ] &&
+	ok "local trial installed with --keep: confirmed, its label kept as good_label" || { bad "local --keep: $(cat "$S/kernel-state")"; cat "$T/out"; }
 rm -rf "$T"
 
 setup "$V28"; bootimg "$T/dev/sda5" "$V28"

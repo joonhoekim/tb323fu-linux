@@ -370,11 +370,11 @@ if [ "$end" = "hold" ]; then
 			[ -s $f ] && { head -c 64 $f > /tmp/android-boot.sha256; return; }; done; }
 	# Kernel updates (docs/helper.md "Kernel updates"): a kernel the helper
 	# installed runs on trial until a system confirms it (90 s after it came
-	# up, or Keep for the testing channel). Its starts are counted here in
-	# /var/lib/tb323fu/kernel-state on the state root. The start after max
-	# (default 2) counted starts that were never confirmed puts linux-good.img
-	# (the last confirmed image) back into boot_a, checked against its record,
-	# and restarts.
+	# up, or Keep for the testing channel and kernels from a file). Its starts
+	# are counted here in /var/lib/tb323fu/kernel-state on the state root.
+	# The start after max (default 2) counted starts that were never confirmed
+	# puts linux-good.img (the last confirmed image) back into boot_a, checked
+	# against its record, and restarts.
 	# Called with the state root on /sel.
 	kpart() { d=$(partdev $1) && echo "${TB323FU_DEVDIR:-/dev}/${d#/dev/}"; }
 	ktrial() {
@@ -393,7 +393,7 @@ if [ "$end" = "hold" ]; then
 		kn=$(( $(kget tries | tr -cd 0-9) + 1 )); kmax=$(kget max | tr -cd 0-9); kmax=${kmax:-2}
 		if [ $kn -le $kmax ]; then
 			kset tries $kn; sync
-			if [ "$(kget trial_channel)" = testing ]; then say " kernel $kt on trial: start $kn of $kmax (kept when you press Keep)"
+			if [ "$(kget trial_keep)" = 1 ] || [ "$(kget trial_channel)" = testing ]; then say " kernel $kt on trial: start $kn of $kmax (kept when you press Keep)"
 			else say " kernel $kt on trial: start $kn of $kmax (kept once a system runs 90 s)"; fi
 			return 0
 		fi
@@ -412,7 +412,7 @@ if [ "$end" = "hold" ]; then
 			kstuck=1; return 0
 		fi
 		kset failed "$kt"; kset failed_sha256 "$(kget trial_sha256)"
-		for k in trial trial_sha256 trial_version trial_serial trial_channel tries; do kset $k ""; done
+		for k in trial trial_sha256 trial_version trial_serial trial_channel trial_keep trial_label tries; do kset $k ""; done
 		sync; umount /sel
 		say "   boot_a holds ${kgood:-the last good kernel} again; restarting"
 		reboot -f; kstuck=1
