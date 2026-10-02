@@ -37,22 +37,45 @@ echo "boot_b sha256 $hb"
 
 # Keep the Linux image we are leaving, so Android's "Switch to Linux"
 # (KernelSU module switch-to-linux) boots the same one back without staging:
-# /var/lib/tb323fu/linux-current.img + .sha256 on the Linux root,
-# which Android mounts read-only. Only on the running Linux root (not from the
-# initramfs); a failure here only warns -- going back to Android must not
-# depend on it.
+# /var/lib/tb323fu/linux-current.img + .sha256 on the Linux state root, which
+# Android mounts read-only. The state root is the one the initramfs reads the
+# boot selection from: the first present of baldur-root, baldur-root-sd, then
+# the tb323fu-* partitions in sorted order. From another root it is mounted
+# for the copy. Only from a running Linux root (not from the initramfs); a
+# failure here only warns -- going back to Android must not depend on it.
+# >>> state root (android/test-state-root.sh runs this part offline)
+state_root() { for u in /sys/class/block/*/uevent; do sed -n 's/^PARTNAME=//p' "$u"; done |
+	grep -E '^(baldur-root|baldur-root-sd|tb323fu-.+)$' | LC_ALL=C sort -u | head -n1; }
+# the partition / is mounted from
+cur_root() { mm=$(awk '$5 == "/" { m = $3 } END { print m }' /proc/self/mountinfo)
+	sed -n 's/^PARTNAME=//p' "/sys/dev/block/$mm/uevent" 2>/dev/null; }
+# <<< state root
 save_current() {
-	[ -f /etc/os-release ] && [ -w /var/lib ] || return 0
+	[ -f /etc/os-release ] || return 0
 	ha=$(sha256sum "$a" | cut -d' ' -f1)
 	[ "$ha" = "$want" ] && return 0	# boot_a already holds Android
-	s=/var/lib/tb323fu
-	mkdir -p $s && dd if="$a" of=$s/linux-current.img.tmp bs=1M 2>/dev/null &&
+	st=$(state_root); m=
+	if [ -z "$st" ] || [ "$st" = "$(cur_root)" ]; then
+		[ -w /var/lib ] || return 0
+		s=/var/lib/tb323fu
+	else
+		m=/run/tb323fu/b2a-state
+		d=$(find_part "$st" | head -n1)
+		mkdir -p $m && mount -t ext4 "$d" $m 2>/dev/null ||
+			{ echo "warning: could not mount the state root $st ($d) to save the Linux image (going on)"; return 0; }
+		s=$m/var/lib/tb323fu
+	fi
+	if mkdir -p $s && dd if="$a" of=$s/linux-current.img.tmp bs=1M 2>/dev/null &&
 		[ "$(sha256sum $s/linux-current.img.tmp | cut -d' ' -f1)" = "$ha" ] &&
 		mv $s/linux-current.img.tmp $s/linux-current.img &&
-		echo "$ha" > $s/linux-current.img.sha256 && sync &&
-		echo "saved the running Linux image ($(echo $ha | cut -c1-16)) to $s" && return 0
-	rm -f $s/linux-current.img.tmp
-	echo "warning: could not save the Linux image to $s (going on)"
+		echo "$ha" > $s/linux-current.img.sha256 && sync; then
+		echo "saved the running Linux image ($(echo $ha | cut -c1-16)) to $s${st:+ on $st}"
+	else
+		rm -f $s/linux-current.img.tmp
+		echo "warning: could not save the Linux image to $s (going on)"
+	fi
+	[ -n "$m" ] && umount $m
+	return 0
 }
 save_current
 

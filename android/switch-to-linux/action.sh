@@ -6,9 +6,9 @@
 #
 # Which image:
 #   1. the Linux that was running last: back-to-android saves boot_a to
-#      /var/lib/tb323fu/linux-current.img (+ .sha256) on the Linux root
-#      (GPT name baldur-root), mounted here read-only (ro,noload -- no
-#      journal replay, nothing written);
+#      /var/lib/tb323fu/linux-current.img (+ .sha256) on the Linux state
+#      root (below; baldur-root when there is one), mounted here read-only
+#      (ro,noload -- no journal replay, nothing written);
 #   2. otherwise the staged fallback (android/install-module.sh stage IMG):
 #      /data/adb/tb323fu/linux.img (+ .sha256).
 # The way back is back-to-android in Linux (volume up+down held 10 s, or the
@@ -30,13 +30,28 @@ M=$D/root
 cleanup() { umount "$M" 2>/dev/null; }
 trap cleanup EXIT
 img= want= src=
-root=/dev/block/by-name/baldur-root
-if [ -b "$root" ]; then
+# >>> state root (android/test-state-root.sh runs this part offline)
+# The Linux state root, as the initramfs picks it: the first present of
+# baldur-root, baldur-root-sd, then the tb323fu-* partitions in sorted order
+# (byte order is that order). Names from by-name (the UFS partitions) and from
+# sysfs (also the microSD card's, which by-name does not list).
+roots() { { ls /dev/block/by-name/ 2>/dev/null
+	for u in /sys/class/block/*/uevent; do sed -n 's/^PARTNAME=//p' "$u" 2>/dev/null; done
+	} | grep -E '^(baldur-root|baldur-root-sd|tb323fu-.+)$' | LC_ALL=C sort -u; }
+partdev() { [ -b "/dev/block/by-name/$1" ] && { echo "/dev/block/by-name/$1"; return 0; }
+	for u in /sys/class/block/*/uevent; do
+		grep -qx "PARTNAME=$1" "$u" 2>/dev/null || continue
+		d=/dev/block/$(sed -n 's/^DEVNAME=//p' "$u")
+		[ -b "$d" ] && { echo "$d"; return 0; }
+	done; return 1; }
+state=$(roots | head -n1)
+# <<< state root
+if [ -n "$state" ] && root=$(partdev "$state"); then
 	mkdir -p "$M" && mount -t ext4 -o ro,noload "$root" "$M" 2>/dev/null &&
 		[ -f "$M/var/lib/tb323fu/linux-current.img" ] && {
 		img=$M/var/lib/tb323fu/linux-current.img
 		want=$(cut -c1-64 "$img.sha256" 2>/dev/null)
-		src="last running Linux (root partition baldur-root)"
+		src="last running Linux (root partition $state)"
 	}
 fi
 if [ ${#want} -ne 64 ]; then
@@ -54,7 +69,7 @@ size=$(blockdev --getsize64 "$a")
 
 echo "- checking the image"
 if [ "$(h "$img")" != "$want" ]; then
-	# a half-written save on baldur-root: fall back to the staged one
+	# a half-written save on the state root: fall back to the staged one
 	[ "$img" = "$D/linux.img" ] && fail "image hash mismatch"
 	echo "- $src does not match its hash; using the staged image"
 	cleanup; img=$D/linux.img; want=$(cut -c1-64 "$img.sha256" 2>/dev/null)

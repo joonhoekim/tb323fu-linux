@@ -22,7 +22,10 @@ without a PC.
 | from a PC | `tools/cycle.sh` (through Android and adb) or `tools/flash-boot.sh` (from the running Linux over SSH) | PC |
 
 Which image the Action button writes: the Linux image that ran last (saved by `back-to-android` to `/var/lib/tb323fu/linux-current.img` on
-the Linux root partition, GPT name `baldur-root`, mounted read-only from Android), else a staged fallback in `/data/adb/tb323fu/linux.img`.
+the Linux state root, mounted read-only from Android), else a staged fallback in `/data/adb/tb323fu/linux.img`. The state root is the
+first present of `baldur-root`, `baldur-root-sd`, then the `tb323fu-*` partitions in sorted order — the root the initramfs reads the boot
+selection from ([kernel/initramfs](../kernel/initramfs/README.md#root-partitions-and-multiboot)); `back-to-android` mounts it when
+running from another root. `test-state-root.sh` checks both scripts' choice offline.
 If the written `boot_a` does not verify, it copies Android back from `boot_b` before giving up.
 
 If both directions fail, the tablet can still be recovered with Qualcomm EDL and a full backup — make one before trying any of this
