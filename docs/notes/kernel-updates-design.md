@@ -2,7 +2,7 @@
 
 > **Design note, partly implemented.** Section 2 (shared modules) is implemented and verified on the device
 > (2026-10-02, see 2.6). Sections 3 and 4 (update flow, trial boot and rollback, helper notification) are
-> implemented and tested without the device (3.7); the device checks M4/M5 are open.
+> implemented and checked on the device with development kernels (3.7: M4 trial and rollback, M5 helper flow).
 > `docs/notes/` is not rendered on the project site (the site picks up `docs/*.md` only).
 
 ## 1. The problem
@@ -325,7 +325,7 @@ Settings app:
 
 ### 3.7 Implementation (2026-10-02)
 
-Implemented as designed in 3.1–3.6 and tested without the device (the device steps M4/M5 are still open); what
+Implemented as designed in 3.1–3.6, tested without the device and then on it (M4, M5 below); what
 was left open or came out differently:
 
 - **Release files** ([`tools/kernel-channel.py`](../../tools/kernel-channel.py) `add`/`index`/`sign`/`verify`): a
@@ -387,6 +387,17 @@ was left open or came out differently:
   read-back mismatch restoring `linux-good.img`), `helper/tests/kernel-update-test.sh` (daemon + CLI end to end
   against a `file://` channel signed with a throw-away key), `kernel/initramfs/test-root-selection.sh` (trial
   cases), `userspace/platform/test-kernel-confirm.sh`, `android/test-state-root.sh`.
+- **Device checks (2026-10-02, development kernels t29/t30 = t28 + this initramfs, local channel over HTTP on the
+  tablet, signed with the test key):** M4 — stable channel, confirm unit masked: starts 1 and 2 counted, the third
+  start wrote `linux-good.img` (t28) back and restarted, `failed=t29`, State `rolled-back`. M5 — `tb323fu-ctl kernel
+  update --reboot`: check and download through `tb323fu-kernel-fetch.service`, the installed `boot_a` equal to
+  `boot-repack-kernel.py`'s image of the tablet's own `boot_b` byte for byte, confirmed 96 s after boot
+  (`graphical.target` at 6 s); testing channel: installed from the settings app by a person, the confirm unit left
+  t30 alone, Keep pressed in the app. Android round trip with the new KernelSU module and with the helper's Android
+  switch. Found there: the trial must follow the channel installed from, not the manifest's (fixed);
+  `back-to-android` run by the helper did not reboot (systemd's `reboot -f` cannot write `/run` in the sandbox;
+  falls back to `systemctl reboot --force` now). The tablet's clock starts in 1970 until NTP: `LastCheck` and the
+  index expiry use whatever the clock says (no trusted time).
 
 ## 4. Helper self-update
 
