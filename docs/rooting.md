@@ -173,8 +173,8 @@ of them tried here except the first:
 
 | Option | Notes | Status |
 |---|---|---|
-| Software Fix on any Windows PC | download only, then copy the whole unpacked package to your Mac/Linux machine. Software Fix can also find the package from the tablet's serial number (S/N) instead of a connected tablet; connecting the tablet is still preferable, because Software Fix then checks the exact device and firmware itself | **verified** (download on the development PC; S/N lookup checked by the author) |
-| Software Fix in a Windows virtual machine | VirtualBox, VMware, UTM (Apple silicon: Windows 11 on Arm), QEMU/KVM. For the download no USB passthrough should be needed if you enter the serial number (S/N); passing the tablet through over USB lets Software Fix verify it. Do not flash from a VM | not tested |
+| Software Fix on any Windows PC | download only, then copy the whole unpacked package to your Mac/Linux machine. Software Fix can also find the package from the tablet's S/N instead of a connected tablet; connecting the tablet is still preferable, because Software Fix then checks the exact device and firmware itself | **verified** (download on the development PC; S/N lookup checked by the author) |
+| Software Fix in a Windows virtual machine | VirtualBox, VMware, UTM (Apple silicon: Windows 11 on Arm), QEMU/KVM. For the download no USB passthrough should be needed if you enter the tablet's S/N; passing the tablet through over USB lets Software Fix verify it. Do not flash from a VM | not tested |
 | [LenovoMotoFirmwareDownloader](https://github.com/enigma550/LenovoMotoFirmwareDownloader) | unofficial, cross-platform, queries the same Lenovo backend by model; needs your Lenovo account login. Tablet support (TB323FU) is not stated by the project | not tested — third-party code handling your credentials |
 | Firmware mirror sites | no way to check integrity | not recommended |
 
@@ -186,7 +186,7 @@ flashes from.
 
 ### Get the firmware package
 
-In Software Fix, select the tablet — preferably by connecting it over USB (Software Fix then identifies the exact device and firmware); entering its serial number (S/N) also works — and let it **download** the firmware.
+In Software Fix, select the tablet — preferably by connecting it over USB (Software Fix then identifies the exact device and firmware); entering its S/N also works — and let it **download** the firmware.
 **Do not press Rescue / Flash** — that installs the firmware and wipes the tablet. Close Software Fix completely
 afterwards (including the tray icon); while it runs it holds the USB connection and LTBox cannot reach the device.
 
