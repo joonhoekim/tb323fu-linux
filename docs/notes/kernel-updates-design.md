@@ -1,7 +1,8 @@
 # Kernel updates through the helper — design
 
 > **Design note, partly implemented.** Section 2 (shared modules) is implemented and verified on the device
-> (2026-10-02, see 2.6); sections 3–5 (helper update flow, trial boot, self-update) are being implemented.
+> (2026-10-02, see 2.6). Sections 3 and 4 (update flow, trial boot and rollback, helper notification) are
+> implemented and tested without the device (3.7); the device checks M4/M5 are open.
 > `docs/notes/` is not rendered on the project site (the site picks up `docs/*.md` only).
 
 ## 1. The problem
@@ -322,6 +323,71 @@ Settings app:
 - The GNOME tile stays as is; a desktop notification (from the app's background check, or the CLI) is
   enough for "update available".
 
+### 3.7 Implementation (2026-10-02)
+
+Implemented as designed in 3.1–3.6 and tested without the device (the device steps M4/M5 are still open); what
+was left open or came out differently:
+
+- **Release files** ([`tools/kernel-channel.py`](../../tools/kernel-channel.py) `add`/`index`/`sign`/`verify`): a
+  channel directory with `index.json` and per release `<tag>/tb323fu-<tag>.json` + the kernel file; every `.json`
+  has a `.minisig`. Index: `format`, `generated`, `expires`, `channels` (`<name>` → `tag`, `serial`, `manifest`
+  URL, relative to the index), `helper` (`latest`, `notes`). Manifest: `format`, `tag`, `release`, `build` (the
+  banner), `serial`, `channel`, `kernel` (`file`, optional `url`, `sha256`, `size`), `image_sha256` (uncompressed),
+  `min_helper`, `min_platform`, `notes` (Markdown, inside the signed manifest — the daemon has no network for a
+  separate notes file), `notes_url`, `source_tag`, `source_commit`, `gpl_sources`. The tool reads release and
+  banner from the Image itself. **An Image carries the banner twice**: a placeholder from `init/version.o` with an
+  empty build number (`# SMP PREEMPT `) and the real one (`#7 SMP PREEMPT <date>`); the first match was the
+  placeholder, which would never equal `/proc/version` (found by the real-image test below) — both the tool and
+  the helper take the one with a build number.
+- **Keys**: project key id `A5D2DA7287637413` compiled into the daemon (`kernel::KEYS`) and installed as
+  `/usr/share/tb323fu/keys/kernel-A5D2DA7287637413.pub`; `/etc/tb323fu/keys/kernel-*.pub` adds keys (a local test
+  channel uses a separate test key). The secret keys are not in any repository. Verifier: `minisign-verify` 0.2.
+- **Fetch**: the daemon writes `NAME MAXBYTES URL` lines to `/run/tb323fu/kernel-fetch.list` and runs `systemctl
+  start tb323fu-kernel-fetch.service`; the unit runs `tb323fu-kernel-fetch` (curl; https, http, file) as a dynamic
+  user into `/var/cache/tb323fu-kernel`. The daemon re-reads everything with size limits and verifies it, and keeps
+  verified files in `/var/lib/tb323fu/kernel/` (`index.json`, `manifests/`, `staged/<tag>/`) on the running root.
+  The **daily check runs in the daemon** (once a day, five minutes after boot at the earliest, `kernel.auto_check`)
+  instead of a separate timer; it checks only, so there is no metered-connection test (a download is always asked
+  for). Download progress comes from the size of the partial file.
+- **Install**: the repack is a Rust port of `boot-repack-kernel.py` (`bootimg.rs`); on the development tablet's real
+  stock image with the rc2 Image, raw and gzip, it gives the Python tool's image byte for byte
+  (`cargo test -- --ignored real_images`). The running kernel is "in boot_a" when the kernel in `boot_a` carries the
+  exact `/proc/version` line; then `boot_a` becomes `linux-good.img` (unless it already is). Otherwise (a pending
+  install, a hand-written `boot_a`) a verified `linux-good.img` is required. Refused: a running kernel that is still
+  on trial, a release not newer by serial (downgrades are not offered at all yet), `min_helper` (and `min_platform`
+  when the platform files record their version in `share/tb323fu/platform-version`).
+- **`kernel-state` keys** beyond 3.5: `good_sha256`, `good_version`, `good_serial`, `trial_sha256` (the full boot
+  image written), `trial_version` (the banner = `/proc/version` of the trial kernel: matches builds with the same
+  release string too), `trial_serial`, `trial_channel`, `failed_sha256`, `failed_seen` (the notice was dismissed).
+  Writers: the daemon (tmp + rename), the initramfs and the confirm script (`grep -v` + append, `mv`).
+- **Initramfs**: in the state-root block of the root selection (`ktrial`); counted only when the trial matches
+  `/proc/version`; volume-up held: not counted; the third start writes `linux-good.img` back (only if it matches
+  `good_sha256`), reads back, records `failed=`/`failed_sha256=`, clears the trial and restarts; a read-back mismatch
+  stays in the initramfs. No `linux-good.img`: the trial kernel boots on (and says so).
+- **Confirm** (`tb323fu-kernel-confirm.service`, platform files): a service ordered after `graphical.target` and
+  `multi-user.target`, wanted by `multi-user.target`, that sleeps 90 s and confirms — a timer would need to be
+  ordered after `graphical.target`, which cycles with `timers.target` unless default dependencies are dropped. The
+  script also records a running kernel that is not in `kernel-state` at all (written by hand) as good once boot_a
+  carries its banner, and drops a stale trial record whose image is no longer in `boot_a` (e.g. Android wrote
+  `linux-good.img` back). It tells the daemon (`Kernel.Refresh()`, optional).
+- **Android**: the KernelSU action compares the saved image's hash with `trial_sha256` and `failed_sha256`.
+- **D-Bus** beyond 3.6: methods `Keep()` (Q7), `Dismiss()` (hides the rollback notice; the record stays),
+  `Refresh()`, `SetAutoCheck(b)`, `SetHelperNotify(b)`; properties `TrialChannel`, `Tries`, `MaxTries`,
+  `KeepPending`, `AutoCheck`, `HelperLatest`, `HelperUpdateCommand`, `Message`; polkit `kernel-keep` (allowed). The
+  long methods return their message when done (no client timeout in zbus) besides `Finished`. CLI as in 3.6 plus
+  `update`, `keep`, `dismiss`, `auto-check`, `helper-notify`.
+- **RootHealth**: with shared modules the modules checks apply only to `own`-mode roots (with a tree: "own modules
+  (not updated with the kernel)").
+- **Helper self-update** (section 4): notification only, from the signed index's `helper.latest` (not the GitHub
+  Releases API: the index is already fetched and signed); the command comes from `os-release` (apt, pacman, dnf,
+  the NixOS flake; SteamOS: not available yet). Opt-out `kernel.helper_notify`.
+- **Not done**: "install older" (admin downgrade), a desktop notification for "update available", the apt/pacman
+  repositories and COPR of section 4, `tb323fu-ctl self-update`.
+- **Tests** (no device): `cargo test` (library: signatures, expiry, tampering, install/confirm/rollback on files, a
+  read-back mismatch restoring `linux-good.img`), `helper/tests/kernel-update-test.sh` (daemon + CLI end to end
+  against a `file://` channel signed with a throw-away key), `kernel/initramfs/test-root-selection.sh` (trial
+  cases), `userspace/platform/test-kernel-confirm.sh`, `android/test-state-root.sh`.
+
 ## 4. Helper self-update
 
 The helper stays a normal package; it never replaces its own binaries on systems with a package manager.
@@ -430,6 +496,8 @@ Not testable safely: a kernel that dies before `/init` (documented manual recove
 - **Q4 — the bootloader's A/B retry bits** (`tries_remaining`/`successful` in the GPT attributes of `boot_a`):
   could they give an automatic fallback for kernels that die before `/init`? Slot `_b` is not a working
   Android slot here, so this needs study before anyone touches it.
+  **Decided (2026-10-02): not used.** The fallback is the initramfs' trial counter; a kernel that dies before
+  `/init` needs fastboot or EDL (3.5).
 - **Q5 — `overlay` mode**: worth building now, or wait until someone needs DKMS?
 - **Q6 — where `kernel-state` and the saved images live on SD-only setups** (no `baldur-root`): **decided
   (2026-10-02): on the state root** — the first present of `baldur-root`, `baldur-root-sd`, then the
@@ -438,3 +506,6 @@ Not testable safely: a kernel that dies before `/init` (documented manual recove
   follow it (read "the UFS root" in this note as "the state root", mounted under `/run/tb323fu/state`).
 - **Q7 — confirmation criterion**: 90 s after `graphical.target` on any root — or only on the default root, or
   with a user-visible "keep this kernel" prompt for the testing channel?
+  **Decided (2026-10-02):** stable channel — confirmed once a system on **any** root reached its target
+  (`graphical.target`, else `multi-user.target`) and stayed up 90 s more; testing channel — only when the user
+  presses **Keep** (settings app, `tb323fu-ctl kernel keep`); without it the kernel goes back after its third start.
