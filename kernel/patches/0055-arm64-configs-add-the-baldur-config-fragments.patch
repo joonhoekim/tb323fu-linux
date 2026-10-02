@@ -1,4 +1,4 @@
-From 269098381feb161c5fb19fb539d2510e4c2286b8 Mon Sep 17 00:00:00 2001
+From c14f71d992304e3b8a656a96d40a23a006245534 Mon Sep 17 00:00:00 2001
 From: joonhoekim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:33:48 +0000
 Subject: [PATCH 55/56] arm64: configs: add the baldur config fragments
@@ -6,8 +6,8 @@ Subject: [PATCH 55/56] arm64: configs: add the baldur config fragments
 ---
  arch/arm64/configs/baldur-display.fragment |  12 ++
  arch/arm64/configs/baldur-kexec.fragment   |  21 ++++
- arch/arm64/configs/baldur.fragment         | 124 +++++++++++++++++++++
- 3 files changed, 157 insertions(+)
+ arch/arm64/configs/baldur.fragment         | 128 +++++++++++++++++++++
+ 3 files changed, 161 insertions(+)
  create mode 100644 arch/arm64/configs/baldur-display.fragment
  create mode 100644 arch/arm64/configs/baldur-kexec.fragment
  create mode 100644 arch/arm64/configs/baldur.fragment
@@ -59,10 +59,10 @@ index 000000000..e8093e543
 +CONFIG_CMDLINE="icc-rpmh.qos_disable=1 icc_rpmh.qos_disable=1 clk_ignore_unused pd_ignore_unused initcall_blacklist=clk_disable_unused,genpd_power_off_unused,regulator_init_complete,of_platform_sync_state_init fw_devlink=off initcall_debug loglevel=8 fbcon=font:TER16x32 panic=10 oops=panic console=tty1 keep_bootcon qcom_scm.download_mode=off baldur.end=reboot irqchip.gicv3_nolpi=1 reboot=warm baldur.wait=20"
 diff --git a/arch/arm64/configs/baldur.fragment b/arch/arm64/configs/baldur.fragment
 new file mode 100644
-index 000000000..ee5f8b3f3
+index 000000000..e52bb79b7
 --- /dev/null
 +++ b/arch/arm64/configs/baldur.fragment
-@@ -0,0 +1,124 @@
+@@ -0,0 +1,128 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +# Config fragment for TB323FU ("baldur"), merged on top of
 +# arch/arm64/configs/kaanapali-oneplus-infiniti_defconfig.
@@ -167,6 +167,10 @@ index 000000000..ee5f8b3f3
 +# The LPASS LPI pin controller (kaanapali.dtsi: sm8750 with the sm8650
 +# fallback) -- the RX/TX SoundWire masters to the WCD9395 wait for its pins.
 +CONFIG_PINCTRL_SM8650_LPASS_LPI=m
++# ALSA sequencer (MIDI). Fedora's dist-alsa.conf loads snd-seq right after snd-pcm
++# ("install snd-pcm ... && modprobe snd-seq"); without it that modprobe fails and
++# the sound card never appears. Modules only.
++CONFIG_SND_SEQUENCER=m
 +# /sys/power/pm_test, pm_print_times, pm_debug_messages -- without these
 +# a "pm_test" write silently fails and "echo freeze > state" really suspends.
 +CONFIG_PM_DEBUG=y

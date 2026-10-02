@@ -77,7 +77,7 @@ column names the source; see that tree's history for the individual authors.
 | `0052` | drm/msm/dpu: add the SSPP rec0/rec1 blocks to the snapshot | joonhoekim | this project | local | `e5db396f09712be3` |
 | `0053` | input: nt36536: make the pen a tablet libinput accepts | joonhoekim | this project | local | `be8f34f155cef71c` |
 | `0054` | arm64: dts: qcom: add Lenovo Legion Tab Y700 gen5 (TB323FU, baldur) board DTs | joonhoekim | this project | local | `36465acde4d25341` |
-| `0055` | arm64: configs: add the baldur config fragments | joonhoekim | this project | local | `8911bffebc6ce8dc` |
+| `0055` | arm64: configs: add the baldur config fragments | joonhoekim | this project | local | `f9b72bfdb9c4acf1` |
 | `0056` | PCI: qcom: parse iommu-map with the target #iommu-cells | joonhoekim | this project | local; superseded by linux-next (`qcom_pcie_config_sid_1_9_0`) | `2b19a0f18b871aac` |
 | `0057` | drm/msm/dp: retrain the link on a quick replug while streaming | joonhoekim | this project | local | `f04dc08d8a8e1e8b` |
 | `0058` | wifi: ath12k: don't wake the device over MHI from the panic notifier | joonhoekim | this project | local | `22f3f256562a2773` |
