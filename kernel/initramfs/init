@@ -121,7 +121,10 @@ done
 # Touch: Novatek's NT36536 driver downloads the firmware into the IC's SRAM
 # when it probes. So a person at the tablet can check it without a PC, each
 # burst of touch events is reported on the panel with its size in events.
-insmod /lib/modules/nt36536_ts.ko 2>/dev/null
+# Without its firmware here (release images carry none) the probe would fail
+# for good -- the driver does not retry -- so leave the module to the root:
+# udev loads it there (modalias spi:NVT-ts-spi) and it finds the root's firmware.
+[ -f /lib/firmware/novatek/novatek_ts_fw.bin ] && insmod /lib/modules/nt36536_ts.ko 2>/dev/null
 touch_echo() {
 	for i in /sys/class/input/input*; do
 		[ "$(cat $i/name 2>/dev/null)" = NVTCapacitiveTouchScreen ] && ev=$(ls -d $i/event* 2>/dev/null | head -1)
