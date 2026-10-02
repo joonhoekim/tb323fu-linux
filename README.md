@@ -3,7 +3,8 @@
 Mainline Linux on the **Lenovo Legion Tab Gen 5 / Legion Y700 5th Gen** (model **TB323FU**, Snapdragon 8 Elite Gen 5, SM8850 "kaanapali", board "baldur").
 The same model number is used in China and elsewhere; the firmware region (PRC / ROW) differs, not the hardware.
 
-> **Status: work in progress — not ready for installation.** There are no release images yet and no install guide.
+> **Status: work in progress — not ready for everyday use.** There are no release images yet; the [install guide](docs/install.md)
+> is reconstructed from the development records and has not been followed end to end by anyone else.
 > Everything here is published so the kernel work can be reviewed and reused.
 
 ## What this is
@@ -18,7 +19,8 @@ the kernel does not assume a particular distribution or desktop.
 |---|---|
 | know what works | [Hardware status](docs/hardware-status.md) — a feature is marked as working only after it was checked on the device (measured, or seen/heard by a person); "the driver probes" does not count |
 | see which distributions boot | [Distributions](docs/distros.md) |
-| understand how the tablet was set up for dual boot | [Rooting and dual boot setup](docs/rooting.md) (backup, LTBox, KernelSU, switching) and [Recovery](docs/recovery.md) |
+| understand how the tablet was set up for dual boot | [Rooting and dual boot setup](docs/rooting.md) (host setup per OS, backup, LTBox, KernelSU, switching) and [Recovery](docs/recovery.md) |
+| install Linux after rooting | [Installing Linux](docs/install.md) (firmware, boot image, root partition, first boot, multiboot; each step marked verified / from records / untested) and the guided [install script prototype](tools/install/README.md) |
 | build or review the kernel | [kernel/](kernel/README.md), [PROVENANCE.md](kernel/PROVENANCE.md), [initramfs](kernel/initramfs/README.md) |
 | put together a root filesystem | [platform files](userspace/platform/README.md), [firmware](firmware/README.md), [`rootfs/`](rootfs/) builders |
 | use the tablet settings (charge limit, refresh rate, multiboot) | [Device helper](docs/helper.md) |
