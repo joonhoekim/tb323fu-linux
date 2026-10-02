@@ -164,12 +164,15 @@ The card gets a GPT with one ext4 partition per root. Partition **names** matter
 
 | Name | Role |
 |---|---|
-| `baldur-root` | the default root and the place for the selection files (`/etc/tb323fu/boot-*`). Normally on the internal storage (step 8); on an SD-only setup give this name to the card's main partition [untested] |
+| `baldur-root` | the default root when present. Normally on the internal storage (step 8) |
 | `baldur-root-sd` | fallback root, tried after `baldur-root` |
 | `tb323fu-<anything>` | further roots, chosen with `tb323fu-ctl boot …` or the boot menu |
 
-Roots named only `tb323fu-*` are never tried on their own: the initramfs falls back to `baldur-root` and
-`baldur-root-sd`, and it reads the selection files from `baldur-root`. So one of those two names must exist.
+No name is required: the selection files (`/etc/tb323fu/boot-*`) live on the **state root**, the first present of
+`baldur-root`, `baldur-root-sd`, then the `tb323fu-*` partitions in sorted order, and it is also the default and
+the first fallback. A card with only `tb323fu-arch` and `tb323fu-ubuntu` therefore boots `tb323fu-arch` unless
+told otherwise [untested on the device]. Once `baldur-root` exists on the internal storage, it takes over that
+role — so set the default again after step 8.
 
 ### From a Linux PC with a card reader [untested]
 
@@ -388,7 +391,7 @@ tb323fu-ctl boot reboot tb323fu-nixos    # set next and reboot
 ```
 
 or the **Systems** page of Tablet Settings, or an on-screen menu at boot (create `/etc/tb323fu/boot-menu` on
-`baldur-root`; volume up = next, 5 s idle = boot). See [helper.md](helper.md#multiboot) and
+the state root, normally `baldur-root`; volume up = next, 5 s idle = boot). See [helper.md](helper.md#multiboot) and
 [kernel/initramfs/README.md](../kernel/initramfs/README.md#root-partitions-and-multiboot).
 
 ## Undo

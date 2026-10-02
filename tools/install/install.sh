@@ -221,8 +221,8 @@ step_sdcard() {
 	need_linux || [ $DRY = 1 ] || return 0
 	have sgdisk && have mkfs.ext4 || { warn "needs sgdisk (gdisk) and mkfs.ext4 (e2fsprogs)"; [ $DRY = 1 ] || return 0; }
 	local layout=${SD_LAYOUT:-baldur-root:64G} dev=${SD_DEV:-}
-	say "Partition names matter: the initramfs boots baldur-root (default), baldur-root-sd, tb323fu-*."
-	say "On an SD-only setup the card's main partition is named baldur-root (that layout is untested)."
+	say "Partition names matter: the initramfs boots baldur-root, baldur-root-sd and tb323fu-* partitions."
+	say "The first present of those (in that order, tb323fu-* sorted) holds the boot selection and is the default."
 	lsblk -d -o NAME,SIZE,MODEL,TRAN,RM 2>/dev/null
 	[ -n "$dev" ] || dev=$(ask "card device (whole disk, e.g. /dev/sdX)" "/dev/sdX")
 	if [ $DRY = 0 ]; then

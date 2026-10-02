@@ -207,8 +207,8 @@ Done by the daemon, method `Kernel.Install(tag, reboot)`, polkit `kernel-install
    GPT name and unique; **`boot_b` matches the recorded Android hash** (the way back exists); battery ≥ 30 %
    or external power; no trial already running (3.5).
 2. **Keep the image that works**: if the running kernel is confirmed (3.5), copy `boot_a` to
-   `/var/lib/tb323fu/linux-good.img` (+ `.sha256`) on the UFS root (`baldur-root`, mounted under
-   `/run/tb323fu/ufs` when running from another root, as the `Boot` object already does), via a `.tmp` file,
+   `/var/lib/tb323fu/linux-good.img` (+ `.sha256`) on the state root (normally `baldur-root`, mounted under
+   `/run/tb323fu/state` when running from another root, as the `Boot` object already does), via a `.tmp` file,
    hash check, `rename`, `sync`.
 3. Write the trial record (3.5) on the same root, `sync`.
 4. `dd` the verified image to `boot_a` (`conv=fsync`), drop caches, read `boot_a` back and compare the
@@ -220,7 +220,7 @@ Done by the daemon, method `Kernel.Install(tag, reboot)`, polkit `kernel-install
 
 ### 3.5 Boot-success marker and automatic fallback
 
-State lives in `/var/lib/tb323fu/kernel-state` on the UFS root (the root Android can read):
+State lives in `/var/lib/tb323fu/kernel-state` on the state root (normally the UFS root; the root Android reads, Q6):
 
 ```
 good=7.3.0-rc4-tb323fu-t27      # release of linux-good.img
@@ -381,7 +381,10 @@ Not testable safely: a kernel that dies before `/init` (documented manual recove
   could they give an automatic fallback for kernels that die before `/init`? Slot `_b` is not a working
   Android slot here, so this needs study before anyone touches it.
 - **Q5 — `overlay` mode**: worth building now, or wait until someone needs DKMS?
-- **Q6 — where `kernel-state` and the saved images live on SD-only setups** (no `baldur-root`): use
-  `baldur-root-sd` the same way, or require a UFS root for updates through the helper?
+- **Q6 — where `kernel-state` and the saved images live on SD-only setups** (no `baldur-root`): **decided
+  (2026-10-02): on the state root** — the first present of `baldur-root`, `baldur-root-sd`, then the
+  `tb323fu-*` partitions in sorted order. The initramfs, the helper, `back-to-android` and the KernelSU action
+  already pick the boot selection and `linux-current.img` by that rule; `linux-good.img` and the trial record
+  follow it (read "the UFS root" in this note as "the state root", mounted under `/run/tb323fu/state`).
 - **Q7 — confirmation criterion**: 90 s after `graphical.target` on any root — or only on the default root, or
   with a user-visible "keep this kernel" prompt for the testing channel?

@@ -409,7 +409,7 @@ systems ([multiboot](../kernel/initramfs/README.md#root-partitions-and-multiboot
 
 | Direction | How | Checked |
 |---|---|---|
-| Android → Linux | KernelSU manager → module **Switch to Linux** → Action button. Writes the last Linux image that ran (saved by `back-to-android` on `baldur-root`) or the staged one to `boot_a`, verifies it, reboots | yes |
+| Android → Linux | KernelSU manager → module **Switch to Linux** → Action button. Writes the last Linux image that ran (saved by `back-to-android` on the state root, normally `baldur-root`) or the staged one to `boot_a`, verifies it, reboots | yes |
 | Linux → Android | `back-to-android <hash>` as root, or the **Android** tile / "Switch to Android" in the desktop ([helper](helper.md)) | yes |
 | Linux → Android, emergency | hold **volume up + volume down for 10 s** — works with a frozen desktop as long as the kernel runs; letting go earlier cancels | yes (Debian) |
 | from a PC, Linux running | [`tools/flash-boot.sh`](../tools/flash-boot.sh) over SSH (USB network: tablet `192.168.7.2`, PC `192.168.7.1`) | yes |
