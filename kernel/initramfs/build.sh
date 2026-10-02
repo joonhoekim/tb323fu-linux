@@ -111,7 +111,12 @@ L="$st/initramfs.list"
 } > "$L"
 
 gic="$kout/usr/gen_init_cpio"
-[ -x "$gic" ] || { echo "no $gic (build the kernel once, or cc -o it from usr/gen_init_cpio.c)" >&2; exit 1; }
+# the kernel builds it only for list/directory initramfs sources; else build it
+# here from the source tree the build directory points to
+if [ ! -x "$gic" ] && [ -f "$kout/source/usr/gen_init_cpio.c" ]; then
+	gic="$st/gen_init_cpio"; ${HOSTCC:-cc} -O2 -o "$gic" "$kout/source/usr/gen_init_cpio.c"
+fi
+[ -x "$gic" ] || { echo "no $kout/usr/gen_init_cpio (build the kernel once, or cc -o it from usr/gen_init_cpio.c)" >&2; exit 1; }
 "$gic" "$L" | gzip -9 > "$out"
 echo "initramfs: $out ($(stat -c %s "$out") bytes)"
 if [ -n "$list" ]; then
