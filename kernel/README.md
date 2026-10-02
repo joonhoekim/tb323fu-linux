@@ -14,7 +14,7 @@ A patch series on top of a fixed upstream base. There is no kernel fork: clone t
 ```sh
 git clone --depth 1 -b v7.3-rc4 https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux-tb323fu
 cd linux-tb323fu
-git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0113, in order
+git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0116, in order (no 0115)
 ```
 
 ## Configuration
@@ -92,12 +92,12 @@ The bootloader on this tablet cannot be made to pass our device tree or command 
 
 ## The kernel on the development tablet
 
-The kernel running on the development tablet (config: `config/reference.config`) is this series (0001-0113) **plus test-only changes that are not part of the series**:
+The kernel running on the development tablet (config: `config/reference.config`) is this series (0001-0116, no 0115) **plus test-only changes that are not part of the series**:
 
 - a knob exposing experimental panel modes (vendor 144/165 Hz and a 143 Hz variant; only 90 and 164 Hz are in the series, 0109),
 - an idle-state flight recorder for crash analysis, and a knob that refuses the CPU cluster idle state,
 - modem (MPSS) device tree nodes, remoteproc knobs and QRTR logging used to investigate GNSS (the tablet appears to have no usable GNSS antenna),
-- a q6apm change that polls for the audio framework instead of a fixed 5 s wait, and a QRTR name-service change that retries announcements to a node that is not ready yet (upstream candidates, not yet in the series).
+- a q6apm change that polls for the audio framework instead of a fixed 5 s wait (an upstream candidate, not yet in the series).
 
 Default knobs in the series: the idle refresh rate policy is automatic (`msm.idle_refresh_policy=2`, patch 0110).
 The iris and q6apm drivers are modules; the tested device loads rebuilt modules from `/lib/modules/<version>/updates/`.

@@ -1,0 +1,66 @@
+From: Joonhoe Kim <26rote@gmail.com>
+Subject: [PATCH] net: qrtr: ns: retry announcements the new node is not ready for yet
+
+DRAFT, not sent. Tested on the device (Lenovo Legion Tab Gen 5, Kaanapali,
+kernel t20..t24 carried it as a y705 TEST change).
+
+When a remote node says HELLO, the name service answers with a NEW_SERVER
+for every local service (announce_servers()). qrtr_node_enqueue() drops
+every packet other than HELLO with -EAGAIN until our own HELLO went out
+to that node, and our HELLO is itself retried every 100 ms while the
+transport returns -EAGAIN (glink refuses to send before the remote has
+queued intents). The announcements are not retried, so a service that
+was registered before the remote came up is never announced to it.
+
+On Kaanapali the modem's HELLO arrives before the modem accepts ours, so
+with rmtfs already running (a distro rmtfs.service with -s starts rmtfs
+first and lets it boot the modem) the modem never learns about rmtfs,
+never opens its EFS, and its own watchdog fires ~40 s later with "DOG
+detects stalled initialization". On this SoC that modem error goes to TZ
+without any smp2p fatal to Linux and resets the whole SoC.
+
+Retry each announcement for up to 10 s while it fails with -EAGAIN. The
+worker already sleeps in kernel_sendmsg(); announce_servers() runs from
+the name service's own work item.
+
+Before: rmtfs first, modem start -> "failed to announce new service",
+no rmtfs traffic, SoC reset 60 s later (GNSS t1a). After: the first
+NEW_SERVER to the modem is retried once (100 ms), rmtfs opens
+/boot/modem_fs1 and fs2, 19 services on node 0, modem up for 180 s.
+
+---
+ net/qrtr/ns.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/net/qrtr/ns.c b/net/qrtr/ns.c
+--- a/net/qrtr/ns.c
++++ b/net/qrtr/ns.c
+@@ -5,6 +5,7 @@
+  * Copyright (c) 2020, Linaro Ltd.
+  */
+
++#include <linux/delay.h>
+ #include <linux/module.h>
+ #include <linux/qrtr.h>
+ #include <linux/workqueue.h>
+@@ -226,12 +227,19 @@ static int announce_servers(struct sockaddr_qrtr *sq)
+
+ 	/* Announce the list of servers registered in this node */
+ 	xa_for_each(&node->servers, index, srv) {
++		int tries = 0;
++
++		/* -EAGAIN: our HELLO has not reached this node yet */
+ 		ret = service_announce_new(sq, srv);
++		while (ret == -EAGAIN && ++tries <= 100) {
++			msleep(100);
++			ret = service_announce_new(sq, srv);
++		}
+ 		if (ret < 0) {
+ 			if (ret == -ENODEV)
+ 				continue;
+
+-			pr_err("failed to announce new service\n");
++			pr_err("failed to announce new service: %d\n", ret);
+ 			return ret;
+ 		}
+ 	}

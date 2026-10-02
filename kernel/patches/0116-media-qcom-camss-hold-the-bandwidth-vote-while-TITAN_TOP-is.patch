@@ -1,0 +1,170 @@
+From 3c1f2bdaf1d02e3ed9ddead0be2b39ad92d71563 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Fri, 2 Oct 2026 00:03:41 +0000
+Subject: [PATCH] media: qcom: camss: hold the bandwidth vote while TITAN_TOP
+ is powered
+
+On Kaanapali (Lenovo TB323FU), starting a stream with the display off
+hangs: the AMC request that camss_runtime_resume() sends for the hf_mnoc
+path never completes, rpmh_write_batch() times out after 10 s, and the
+TCS stays busy, so the next interconnect writer (CPU bwmon) waits for it
+forever with the interconnect mutex held and the system piles up behind
+it (UFS, GPU, writeback -> hung task panic).
+
+A TCS dump at the timeout shows the BCMs of the multimedia NoC path not
+completing (MM1 0x5002c, MM0 0x50028 and SH1 0x50008 issued but not
+completed; MC0, SH0 and ACV completed). It happens on a stream start
+shortly after a stop, not on the first start after a long idle: the
+runtime suspend drops the vote while the camera block stays powered
+(TITAN_TOP is also held by the CCI and CSIPHY devices and by its own
+autosuspend), so with no other MMNOC voter (display off) the NoC goes
+idle under a powered camera block. Voting it up again then does not
+complete until TITAN_TOP collapses: with a 3 s give-up knob in rpmh-rsc
+the stuck request completed 53 s later, right after the camera clock
+controller suspended, and with the vote moved before the VFE power
+domains the request took 50-66 ms, ending when TITAN_TOP went off.
+
+Tie the vote to the TITAN_TOP domain instead of the CAMSS runtime PM
+callbacks: vote before the domain powers on and drop the vote after it
+is off, using a genpd notifier on the attached TITAN_TOP device. Then
+the multimedia NoC is never idle while the camera block is powered.
+Platforms without a separate TITAN_TOP domain keep the runtime PM votes.
+
+Tested on TB323FU with the display off (DPMS off through mutter):
+before, 6 back-to-back raw RDI streams hung on the second start; after,
+6/6 back-to-back, 4/4 with TITAN_TOP cycling in between, and the
+libcamera/PipeWire desktop check (PipeWire 1080p stream, then front and
+back 150 frames each) pass, every icc_set_bw() under 0.5 ms.
+---
+ drivers/media/platform/qcom/camss/camss.c | 74 +++++++++++++++++------
+ drivers/media/platform/qcom/camss/camss.h |  2 +
+ 2 files changed, 57 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/media/platform/qcom/camss/camss.c b/drivers/media/platform/qcom/camss/camss.c
+index e19f9b544..3c2dc1d1b 100644
+--- a/drivers/media/platform/qcom/camss/camss.c
++++ b/drivers/media/platform/qcom/camss/camss.c
+@@ -5607,6 +5607,48 @@ static const struct media_device_ops camss_media_ops = {
+ 	.link_notify = v4l2_pipeline_link_notify,
+ };
+ 
++static int camss_icc_set(struct camss *camss, bool on)
++{
++	const struct resources_icc *icc_res = camss->res->icc_res;
++	int i, ret;
++
++	for (i = 0; i < camss->res->icc_path_num; i++) {
++		ret = icc_set_bw(camss->icc_path[i],
++				 on ? icc_res[i].icc_bw_tbl.avg : 0,
++				 on ? icc_res[i].icc_bw_tbl.peak : 0);
++		if (ret)
++			return ret;
++	}
++
++	return 0;
++}
++
++/*
++ * Keep the bandwidth vote for as long as the TITAN_TOP domain is powered:
++ * vote before it powers on, drop the vote after it is off. TITAN_TOP is also
++ * powered by the CCI and CSIPHY devices, so the CAMSS runtime PM callbacks do
++ * not bracket it. On Kaanapali, letting the multimedia NoC (BCM MM0/MM1) go
++ * idle while the camera block stays powered, then voting it up again, leaves
++ * the RPMh request uncompleted until TITAN_TOP collapses — with the display
++ * off (no other MMNOC voter) the stream start then hangs in rpmh_write_batch().
++ */
++static int camss_genpd_notify(struct notifier_block *nb, unsigned long action,
++			      void *data)
++{
++	struct camss *camss = container_of(nb, struct camss, genpd_nb);
++
++	switch (action) {
++	case GENPD_NOTIFY_PRE_ON:
++		camss_icc_set(camss, true);
++		break;
++	case GENPD_NOTIFY_OFF:
++		camss_icc_set(camss, false);
++		break;
++	}
++
++	return NOTIFY_OK;
++}
++
+ static int camss_configure_pd(struct camss *camss)
+ {
+ 	const struct camss_resources *res = camss->res;
+@@ -5678,6 +5720,10 @@ static int camss_configure_pd(struct camss *camss)
+ 		goto fail_pm;
+ 	}
+ 
++	camss->genpd_nb.notifier_call = camss_genpd_notify;
++	if (!dev_pm_genpd_add_notifier(camss->genpd, &camss->genpd_nb))
++		camss->icc_on_top_gdsc = true;
++
+ 	return 0;
+ 
+ fail_pm:
+@@ -5718,6 +5764,9 @@ static void camss_genpd_cleanup(struct camss *camss)
+ 
+ 	camss_genpd_subdevice_cleanup(camss);
+ 
++	if (camss->icc_on_top_gdsc)
++		dev_pm_genpd_remove_notifier(camss->genpd);
++
+ 	if (camss->genpd_link)
+ 		device_link_del(camss->genpd_link);
+ 
+@@ -6160,34 +6209,21 @@ MODULE_DEVICE_TABLE(of, camss_dt_match);
+ static int __maybe_unused camss_runtime_suspend(struct device *dev)
+ {
+ 	struct camss *camss = dev_get_drvdata(dev);
+-	int i;
+-	int ret;
+ 
+-	for (i = 0; i < camss->res->icc_path_num; i++) {
+-		ret = icc_set_bw(camss->icc_path[i], 0, 0);
+-		if (ret)
+-			return ret;
+-	}
++	if (camss->icc_on_top_gdsc)
++		return 0;
+ 
+-	return 0;
++	return camss_icc_set(camss, false);
+ }
+ 
+ static int __maybe_unused camss_runtime_resume(struct device *dev)
+ {
+ 	struct camss *camss = dev_get_drvdata(dev);
+-	const struct resources_icc *icc_res = camss->res->icc_res;
+-	int i;
+-	int ret;
+ 
+-	for (i = 0; i < camss->res->icc_path_num; i++) {
+-		ret = icc_set_bw(camss->icc_path[i],
+-				 icc_res[i].icc_bw_tbl.avg,
+-				 icc_res[i].icc_bw_tbl.peak);
+-		if (ret)
+-			return ret;
+-	}
++	if (camss->icc_on_top_gdsc)
++		return 0;
+ 
+-	return 0;
++	return camss_icc_set(camss, true);
+ }
+ 
+ static const struct dev_pm_ops camss_pm_ops = {
+diff --git a/drivers/media/platform/qcom/camss/camss.h b/drivers/media/platform/qcom/camss/camss.h
+index fadba57c5..8ea7d9fd4 100644
+--- a/drivers/media/platform/qcom/camss/camss.h
++++ b/drivers/media/platform/qcom/camss/camss.h
+@@ -137,6 +137,8 @@ struct camss {
+ 	int genpd_num;
+ 	struct device *genpd;
+ 	struct device_link *genpd_link;
++	struct notifier_block genpd_nb;
++	bool icc_on_top_gdsc;
+ 	struct icc_path *icc_path[ICC_SM8250_COUNT];
+ 	const struct camss_resources *res;
+ 	bool legacy_phy;

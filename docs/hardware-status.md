@@ -68,7 +68,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Rear camera (Samsung S5KJNS) | ✅ | measured + observed | 1080p via libcamera; auto-exposure is imprecise |
 | Front camera (GalaxyCore GC08A8) | ✅ | measured + observed | |
 | Rear camera focus (VCM) | 🟡 | measured | manual focus works; no autofocus in libcamera |
-| Camera streaming with the screen off | ❌ | measured | starting a capture while the display is off hangs the system (2 of 2); with the display on it works. Under investigation |
+| Camera streaming with the screen off | ✅ | measured | restarting a capture with the display off used to hang the system; fixed by patch 0116 (repeated starts with the display off pass) |
 | Torch | ✅ | observed | also from the helper's quick settings |
 | Flash strobe | ❓ | probe only | |
 | RGB ring light | ✅ | observed | |
@@ -121,7 +121,6 @@ script drives the feature. A kernel change resets confidence: after a large reba
 
 ## Known issues
 
-- **Camera with the display off**: starting a capture while the display is off stalls a bandwidth request to the power controller and the system hangs (a watchdog reboots it). Keep the display on while starting the camera.
 - **Rare crash without an error message**, around idle states (in and outside suspend); under investigation.
 - **165 Hz / 144 Hz**: the vendor timings underrun the display controller. 164 Hz (120 Hz horizontal timing) is offered instead; 144 Hz needs a different timing.
 - **No DisplayPort MST** yet: monitors that need MST for "extend" only mirror.
