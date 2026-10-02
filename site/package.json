@@ -41,5 +41,6 @@
     "shiki": "^4.5.0",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.1.0"
-  }
+  },
+  "packageManager": "pnpm@12.8.1"
 }

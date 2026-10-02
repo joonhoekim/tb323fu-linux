@@ -25,22 +25,23 @@ Node.js 20.9 or newer (the workflow uses the current LTS).
 
 ```sh
 cd site
-npm ci
-npm run dev        # http://localhost:3000 — edits to the Markdown show on reload
-npm run typecheck
+corepack enable    # once: provides the pnpm version pinned in package.json
+pnpm install
+pnpm run dev        # http://localhost:3000 — edits to the Markdown show on reload
+pnpm run typecheck
 ```
 
 ## Build
 
 ```sh
-npm run build      # static site in site/out/
-npm run serve      # optional: serve out/ locally
+pnpm run build      # static site in site/out/
+pnpm run serve      # optional: serve out/ locally
 ```
 
 For a project page under `https://<user>.github.io/<repo>/` set the base path at build time:
 
 ```sh
-PAGES_BASE_PATH=/tb323fu-linux npm run build
+PAGES_BASE_PATH=/tb323fu-linux pnpm run build
 ```
 
 Other build-time variables: `REPO_URL` (default `https://github.com/joonhoekim/tb323fu-linux`) and `REPO_BRANCH`
