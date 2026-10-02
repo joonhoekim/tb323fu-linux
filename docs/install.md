@@ -70,9 +70,9 @@ its data.
 - A **microSD card**, 64 GB or more (each root takes 10–30 GB; GNOME roots are on the larger side).
 - Battery above 50 %, a USB-C data cable.
 
-## 1. Extract the firmware [verified]
+## 1. Extract the firmware
 
-No firmware is distributed by this project; it is copied from your own Android `/vendor`. Details and the manifest
+**[verified]** No firmware is distributed by this project; it is copied from your own Android `/vendor`. Details and the manifest
 are in [`firmware/README.md`](../firmware/README.md).
 
 ```sh
@@ -87,9 +87,9 @@ mkdir -p fw && tar -C fw -xf tb323fu-firmware.tar     # → fw/tb323fu-firmware/
 The extraction was checked; the `tar` + `pull` transport is [from records] (the development PC copied it differently).
 A hash mismatch is a warning (another firmware version), a missing file an error.
 
-## 2. The way back: Android's boot image in `boot_b` [verified]
+## 2. The way back: Android's boot image in `boot_b`
 
-From [rooting.md → Set up the way back](rooting.md#set-up-the-way-back):
+**[verified]** From [rooting.md → Set up the way back](rooting.md#set-up-the-way-back):
 
 ```sh
 android/install-module.sh prepare-boot-b      # copies the running Android boot image (boot_a) into boot_b; asks first
@@ -113,9 +113,9 @@ adb pull /data/local/tmp/stock-boot.img
 sha256sum stock-boot.img        # must equal the hash above
 ```
 
-## 3. Build the Linux boot image [from records]
+## 3. Build the Linux boot image
 
-The tools are the ones used for every kernel on the development tablet; the sequence below follows
+**[from records]** The tools are the ones used for every kernel on the development tablet; the sequence below follows
 [`kernel/README.md`](../kernel/README.md), [`kernel/initramfs/README.md`](../kernel/initramfs/README.md) and
 [`tools/build-boot.sh`](../tools/build-boot.sh). Needs clang/LLVM, make, python3, an aarch64 C compiler for two
 small static helpers (`aarch64-linux-gnu-gcc`), a static aarch64 busybox (e.g. Debian's `busybox-static` for arm64),
@@ -252,9 +252,9 @@ adb shell su -c 'zcat /sdcard/root.img.gz | dd of=/dev/block/mmcblk1p1 bs=419430
 
 Then grow the filesystem to the partition once Linux runs (`resize2fs /dev/mmcblk0p1`).
 
-## 6. Write `boot_a` and boot Linux [verified]
+## 6. Write `boot_a` and boot Linux
 
-Both ways go through Android and verify hashes before rebooting.
+**[verified]** Both ways go through Android and verify hashes before rebooting.
 
 **KernelSU module** (no PC needed after staging):
 
@@ -274,9 +274,9 @@ ANDROID_BOOT_SHA256=<sha256 of boot_b> tools/cycle.sh linux-boot.img
 Back to Android at any time: `back-to-android <hash>` as root in Linux, the **Android** tile / "Switch to Android" in
 the desktop, or **volume up + volume down held for 10 s** (works with a frozen desktop while the kernel runs).
 
-## 7. First boot checks [verified]
+## 7. First boot checks
 
-What a good first boot looks like:
+**[verified]** What a good first boot looks like:
 
 1. The bootloader logo, then the initramfs **boot summary** on the panel (kernel, CPUs, block devices, battery, …).
    Holding **volume up** during the summary keeps you in the initramfs, with a shell on the USB serial port.
@@ -299,7 +299,9 @@ Android must come up; return to Linux with the **Switch to Linux** module.
 
 If Linux does not come up: [Recovery → Linux does not boot](recovery.md#linux-does-not-boot).
 
-## 8. Optional: a Linux root on the internal storage [from records]
+## 8. Optional: a Linux root on the internal storage
+
+**[from records]**
 
 > **Warning: this wipes Android's data (a factory reset).** Apps, accounts and files in Android's internal storage are
 > gone. `boot_a`, `boot_b`, root in `init_boot` and the bootloader are not affected. Back up what you need from
