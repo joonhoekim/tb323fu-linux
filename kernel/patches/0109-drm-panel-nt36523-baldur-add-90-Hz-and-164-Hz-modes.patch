@@ -6,7 +6,7 @@ Subject: [PATCH 109/111] drm/panel: nt36523: baldur: add 90 Hz and 164 Hz
 
 The CSOT panel of the TB323FU has vendor timings for 120/165/144/90/60/30
 Hz (qcom,dfps-timings). 120/60/30 are in the mode table already (60/30
-differ only in the front porch and switch in place, 0051/0052).
+differ only in the front porch and switch in place, 0065/0066).
 
 Add two more, generated for the baldur panel only:
 - 90 Hz: the vendor's dtiming@5 as is.
@@ -18,13 +18,13 @@ Add two more, generated for the baldur panel only:
   clean, so blanking, not DPU bandwidth, is what breaks 165. It is named
   164 Hz so the compositor does not confuse it with the vendor mode.
 
-Tested by eye with the UFO test and touch (y705 plan 9-104, modetry.sh):
+Tested by eye with the UFO test and touch:
 90 Hz measured 90 Hz, 0 underruns, touch fine; 164 Hz measured 163 Hz,
 0 underruns, no DSI/DPU errors and no touch firmware resets over 25 s.
 Not added: the vendor 144/165 (underrun) and a 143 Hz variant with the
 120 Hz horizontal timing (clean display but the TDDI touch firmware keeps
-resetting and a noise band appears near the bottom). Those stay in
-t19-modes-test.diff behind a y705_modes knob.
+resetting and a noise band appears near the bottom). Those stay in a
+separate test patch behind a module parameter, outside this series.
 ---
  drivers/gpu/drm/panel/panel-novatek-nt36523.c | 46 +++++++++++++++++++
  1 file changed, 46 insertions(+)

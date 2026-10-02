@@ -2,7 +2,6 @@ From e779b596e803d767e0782035c8d0ca483a2cff77 Mon Sep 17 00:00:00 2001
 From: joonhoekim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 07:20:57 +0000
 Subject: [PATCH] clk: qcom: gcc-kaanapali: keep the USB GDSCs in retention
- (y705 0044)
 
 gcc_usb30_prim_gdsc and gcc_usb3_phy_gdsc are PWRSTS_OFF_ON, so genpd
 switches them fully off in the noirq phase of system suspend and the

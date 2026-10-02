@@ -8,11 +8,9 @@ dropped it ("missing tablet capabilities: btn-stylus resolution"). Declare
 BTN_STYLUS/BTN_STYLUS2 and report the two barrel buttons the driver already
 parses (point_data[77] bits 0/1), and give ABS_X/ABS_Y a resolution: the
 pen reports 10x the panel pixels, 19040 x 30400 over the 118.6 x 189.4 mm
-8.8" panel = 160 units/mm. libinput then lists it as a tablet, 119x190mm
-(y705-mainline-plan.md 9-71). Untested with a pen (no AES pen at hand), so
-axis orientation and the button bits are unverified. Applies after 0010.
-
-y705-source: 0040-input-nt36536-pen-tablet-caps.patch
+8.8" panel = 160 units/mm. libinput then lists it as a tablet, 119x190mm.
+Untested with a pen (no AES pen at hand), so
+axis orientation and the button bits are unverified. Applies after 0027.
 ---
  drivers/input/touchscreen/nt36536/nt36xxx.c | 16 ++++++++++++++++
  drivers/input/touchscreen/nt36536/nt36xxx.h |  2 ++

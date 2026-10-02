@@ -10,8 +10,8 @@ zone to the cluster cpufreq, and kaanapali.dtsi does 105 C for the GPU. The
 that throttles nothing, so a long load heated the case unchecked.
 
 Android's default thermal-engine policy (user case 0,
-/vendor/etc/thermal-engine_cpu_0.conf and _gpu_0.conf,
-logs/2026-09-27-android-thermal-policy.txt) throttles on quiet-therm
+/vendor/etc/thermal-engine_cpu_0.conf and _gpu_0.conf)
+throttles on quiet-therm
 (PMK8850 AMUX3_GPIO, our quiet-thermal zone): 43/45/47/49 C cap the big
 cluster to 2.88/1.75/1.02/0.88 GHz and the little one to 2.0/1.0/0.38/0.38
 GHz, 44/46/48/50 C cap the GPU to 902/646/500/222 MHz (Android's 539 MHz is
@@ -19,7 +19,7 @@ not a step here), each clearing 2 C lower. Add those as passive trips with
 pinned cooling states, polled every second. The 95 C junction protection
 stays. Not copied: the LCD backlight cap and the charge-current steps.
 
-Tested (y705 plan 9-104, builds thermal-t1 and the combined t19):
+Tested on the device:
 emul_temp steps 40..50..40 C give exactly the designed cooling states
 (cpu0 13/22/27, cpu6 13/20/26/27, GPU 3/6/8/14) and release with the 2 C
 hysteresis; a 600 s all-core load held the CPU zones at 93-98 C while

@@ -4,7 +4,7 @@ Date: Sat, 26 Sep 2026 01:28:21 +0000
 Subject: [PATCH 35/56] ASoC: codecs: lpass-tx-macro: board tuning of the
  decimator filter block
 
-For y705-mainline-plan.md 9-50. Each TX decimator n has a block of
+Each TX decimator n has a block of
 registers at 0x800 + 0x80 * n that the driver does not know about (outside
 its regmap). On TB323FU (kaanapali, WCD9395 analog mics over SoundWire) the
 reset values leave a flat white-noise floor at -47 dBFS under the capture,
@@ -19,8 +19,6 @@ outside the regmap, so nothing restores it after the LPASS power goes.
 
 A local property, not a proposed binding: upstream this belongs in the
 driver's per-SoC data once the registers are understood.
-
-y705-source: 0020-asoc-lpass-tx-macro-decimator-tuning.patch
 ---
  sound/soc/codecs/lpass-tx-macro.c | 25 +++++++++++++++++++++++++
  1 file changed, 25 insertions(+)

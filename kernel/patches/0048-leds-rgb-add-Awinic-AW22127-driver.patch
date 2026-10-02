@@ -3,12 +3,10 @@ From: joonhoekim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:30:49 +0000
 Subject: [PATCH 48/56] leds: rgb: add Awinic AW22127 driver
 
-The TB323FU rear-camera RGB ring (y705-mainline-plan.md 9-62). The
+The TB323FU rear-camera RGB ring. The
 AW22127 runs effects on an internal MCU (program in its own flash); this
 sends the one-colour command the vendor stack uses, through the TASK1
 mailbox, and exposes it as one multicolor LED. Off holds it in reset.
-
-y705-source: 0034-leds-rgb-aw22127.patch
 ---
  drivers/leds/rgb/Kconfig        |   8 ++
  drivers/leds/rgb/Makefile       |   1 +

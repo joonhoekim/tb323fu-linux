@@ -2,12 +2,12 @@ From 0b9faae82b88401480eac5dbfca6d013e5ddfa54 Mon Sep 17 00:00:00 2001
 From: joonhoekim <26rote@gmail.com>
 Date: Sun, 27 Sep 2026 09:20:41 +0000
 Subject: [PATCH 79/79] drm/msm/dpu: keep the full modeset when colour
- management changed (y705 0051 fixup)
+ management changed
 
 A colour-management change can need a DSPP to be (re)assigned, which only
 happens on a modeset (upstream is making dpu_crtc_check_mode_changed() set
 mode_changed for it, "fd-kms-fix-smmu" v3 7/8). The in-place VFP path of
-0065 must not clear mode_changed in that case (y705-mainline-plan.md 9-101).
+0065 must not clear mode_changed in that case.
 ---
  drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)

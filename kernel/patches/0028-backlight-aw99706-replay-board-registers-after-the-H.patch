@@ -4,14 +4,12 @@ Date: Sat, 26 Sep 2026 01:27:31 +0000
 Subject: [PATCH 28/56] backlight: aw99706: replay board registers after the
  HWEN reset
 
-For y705-mainline-plan.md 9-27. Probing drives HWEN low, which resets the
+Probing drives HWEN low, which resets the
 chip; the driver then writes only CFG0-2 and the ramp bits. On TB323FU the
 bootloader also sets 0x06/0x07/0x0c/0x0d (LED strings, boost), and without
 them the backlight stays dark although every register reads "on". An
 optional "awinic,init-regs" byte-pair list is written after the table, on
 probe and on resume.
-
-y705-source: 0009-backlight-aw99706-init-regs.patch
 ---
  drivers/video/backlight/aw99706.c | 21 +++++++++++++++++++++
  1 file changed, 21 insertions(+)

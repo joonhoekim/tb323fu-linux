@@ -5,7 +5,7 @@ Subject: [PATCH 64/64] arm64: dts: qcom: baldur: camera orientation and
  rotation
 
 From the vendor sensor-position: rear back / 270, front front / 90 (the vendor
-roll is clockwise, V4L2 rotation counter-clockwise). (y705 0050, plan 9-99)
+roll is clockwise, V4L2 rotation counter-clockwise).
 ---
  arch/arm64/boot/dts/qcom/baldur-camera.dtsi | 8 ++++++++
  1 file changed, 8 insertions(+)

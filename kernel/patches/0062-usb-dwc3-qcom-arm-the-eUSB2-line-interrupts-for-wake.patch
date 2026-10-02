@@ -2,7 +2,6 @@ From 5428a02bb3abba664b87d5600aacf6faaf163849 Mon Sep 17 00:00:00 2001
 From: joonhoekim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 09:54:56 +0000
 Subject: [PATCH] usb: dwc3: qcom: arm the eUSB2 line interrupts for wakeup
- (y705 0048)
 
 With an eUSB2 PHY the host repeater signals a HS/FS device's remote
 wakeup (and a disconnect during bus suspend) by driving eD- high, and a

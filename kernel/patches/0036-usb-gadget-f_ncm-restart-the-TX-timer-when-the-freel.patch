@@ -4,7 +4,7 @@ Date: Sat, 26 Sep 2026 01:28:21 +0000
 Subject: [PATCH 36/56] usb: gadget: f_ncm: restart the TX timer when the
  freelist is empty
 
-For y705-mainline-plan.md 9-51. The same fix as upstream's "usb: gadget:
+The same fix as upstream's "usb: gadget:
 f_ncm: restart the TX timer if the TX freelist is empty" (Cosmin Tanislav,
 2026-08, Fixes: 6d3865f9d41f) / "Restart timer when eth_start_xmit()
 fails" (Francesco Lavra, 2026-07), which this tree predates.
@@ -15,8 +15,6 @@ again until a new NTB is started: the half-filled NTB (ping replies, TCP
 ACKs) sits until more traffic fills it. On TB323FU the USB network stopped
 now and then (link UP, ARP REACHABLE, no replies) until the gadget was
 rebound. Re-arm the timer instead.
-
-y705-source: 0021-usb-gadget-f_ncm-rearm-tx-timer.patch
 ---
  drivers/usb/gadget/function/f_ncm.c | 10 +++++++++-
  1 file changed, 9 insertions(+), 1 deletion(-)

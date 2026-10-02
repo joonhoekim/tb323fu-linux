@@ -4,7 +4,7 @@ Date: Sat, 26 Sep 2026 01:27:24 +0000
 Subject: [PATCH 26/56] input: touchscreen: NT36536 host-download SPI driver
  (Novatek)
 
-For y705-mainline-plan.md 9-26. The driver itself is not carried here; take
+The driver itself is not carried here; take
 drivers/input/touchscreen/nt36536/ from map220v/sm8850-mainline, branch
 iceland-7.2 (Novatek's GPLv2 driver, already for 7.2, panel follower):
 
@@ -13,12 +13,10 @@ iceland-7.2 (Novatek's GPLv2 driver, already for 7.2, panel follower):
       -H "Accept: application/vnd.github.raw" > drivers/input/touchscreen/nt36536/$f
   done
 
-then apply the hookup below (the nt36523 line is the earlier nabu attempt,
-mainline/touch/port-nabu-nt36xxx.py, left disabled) and set
+then apply the hookup below and set
 CONFIG_TOUCHSCREEN_NT36536_SPI=m.
 
-[y705 rebase 7.3: hookup re-done by hand: community synaptics context absent in 7.3; the disabled nt36523 (nabu) source line left out]
-y705-source: 0008-input-nt36536-hookup.patch
+[rebased onto 7.3: hookup re-done by hand: community synaptics context absent in 7.3; the disabled nt36523 (nabu) source line left out]
 ---
  drivers/input/touchscreen/Kconfig  | 2 ++
  drivers/input/touchscreen/Makefile | 1 +

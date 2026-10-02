@@ -4,8 +4,8 @@ Date: Sat, 26 Sep 2026 01:33:39 +0000
 Subject: [PATCH 54/56] arm64: dts: qcom: add Lenovo Legion Tab Y700 gen5
  (TB323FU, baldur) board DTs
 
-Board devicetrees from the y705 repo (mainline/kernel/kaanapali-lenovo-baldur*.dts,
-baldur-*.dtsi) as of 2026-09-26, unchanged, plus the three Makefile lines.
+Board devicetrees (kaanapali-lenovo-baldur*.dts, baldur-*.dtsi) as of
+2026-09-26, plus the three Makefile lines.
 ---
  arch/arm64/boot/dts/qcom/Makefile             |   3 +
  arch/arm64/boot/dts/qcom/baldur-adc.dtsi      | 264 ++++++++++++

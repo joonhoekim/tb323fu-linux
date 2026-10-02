@@ -1,8 +1,7 @@
 From 269098381feb161c5fb19fb539d2510e4c2286b8 Mon Sep 17 00:00:00 2001
 From: joonhoekim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:33:48 +0000
-Subject: [PATCH 55/56] arm64: configs: add the baldur config fragments (y705
- mainline/kernel)
+Subject: [PATCH 55/56] arm64: configs: add the baldur config fragments
 
 ---
  arch/arm64/configs/baldur-display.fragment |  11 ++

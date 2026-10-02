@@ -4,7 +4,7 @@ Date: Sat, 26 Sep 2026 01:27:46 +0000
 Subject: [PATCH 33/56] power: supply: qcom_battmgr: let the host set the USB
  input current limit
 
-For y705-mainline-plan.md 9-46. The sm8350-style USB supply reports
+The sm8350-style USB supply reports
 input_current_limit but cannot set it. On a PC port (SDP) this device's
 charger firmware starts at USB 2.0's 500 mA; the vendor kernel raises it
 to 900 mA on the same port, and mainline could not, so with the screen
@@ -12,8 +12,6 @@ on the tablet drained while "Charging". The USB supply now takes writes
 of input_current_limit (BATTMGR_USB_PROPERTY_SET, USB_INPUT_CURR_LIMIT,
 in uA), acked like the other set requests. On TB323FU: input 494 -> 891
 mA, the battery charging at about 740 mA with the screen off.
-
-y705-source: 0018-power-qcom-battmgr-usb-input-current-limit.patch
 ---
  drivers/power/supply/qcom_battmgr.c | 35 +++++++++++++++++++++++++++++
  1 file changed, 35 insertions(+)

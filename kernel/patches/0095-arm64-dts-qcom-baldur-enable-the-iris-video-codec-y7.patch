@@ -2,13 +2,12 @@ From f10bed5dacefe3293b583dd24227c7cc1b899d8d Mon Sep 17 00:00:00 2001
 From: joonhoekim <26rote@gmail.com>
 Date: Sun, 27 Sep 2026 10:17:40 +0000
 Subject: [PATCH 95/95] arm64: dts: qcom: baldur: enable the iris video codec
- (y705 0054)
 
 Turn on the Kaanapali iris node with the OEM-signed VPU 4.0 firmware from
 the Android vendor partition (vendor/firmware/vpu40_2v.mbn), kept next to the
 ADSP/CDSP images. H.264 1080p30: hardware encode and decode through the V4L2
 stateful codecs (GStreamer v4l2h264enc / v4l2h264dec), 300 frames decoded
-in 0.32 s (y705-mainline-plan.md 9-101).
+in 0.32 s.
 ---
  arch/arm64/boot/dts/qcom/baldur-video.dtsi           | 12 ++++++++++++
  .../dts/qcom/kaanapali-lenovo-baldur-display.dts     |  1 +

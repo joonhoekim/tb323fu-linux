@@ -32,8 +32,6 @@ after a boot to a deliberate panic, all sixteen progress blocks and the red
 panic block hold exactly their colours, and the pixels beside them are
 untouched -- so the early-fixmap path, the ioremap_wc path and the panic path
 all work. Not yet run on the board.
-
-y705-source: 0004-arm64-boot-progress-marks.patch
 ---
  arch/arm64/Kconfig             |  30 +++++++++
  arch/arm64/kernel/Makefile     |   1 +

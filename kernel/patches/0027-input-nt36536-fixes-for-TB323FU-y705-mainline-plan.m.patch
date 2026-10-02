@@ -2,7 +2,6 @@ From 504f74d989290bcaff91f9afcdb6a6f52523dd09 Mon Sep 17 00:00:00 2001
 From: joonhoekim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:27:25 +0000
 Subject: [PATCH 27/56] input: nt36536: fixes for TB323FU
- (y705-mainline-plan.md 9-27, 9-28)
 
 On top of the NT36536 driver from map220v/sm8850-mainline (iceland-7.2),
 drivers/input/touchscreen/nt36536/; apply in that directory (patch -p0).
@@ -16,8 +15,6 @@ drivers/input/touchscreen/nt36536/; apply in that directory (patch -p0).
 - The input devices were registered with default ranges (33920x24000) and
   never told the real ones; they are set again once the firmware reports
   them (19040x30400 here).
-
-y705-source: 0010-input-nt36536-baldur-fixes.patch
 ---
  drivers/input/touchscreen/nt36536/nt36xxx.c     | 17 ++++++++++++++---
  drivers/input/touchscreen/nt36536/nt36xxx.h     |  1 +

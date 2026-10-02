@@ -25,15 +25,13 @@ mipi_dsi_dual() wrapper runs each on both links.
 NOT TESTED ON HARDWARE. The device has not been booted with a mainline kernel
 yet; this builds and is written from the vendor devicetree, no more.
 
-2026-09-24 (plan 9-18): the panel is 10 bpc -- the vendor node for the
+Update, 2026-09-24: the panel is 10 bpc -- the vendor node for the
 active panel (qcom,mdss_dsi_baldur_nt36523_csot_3k_dsc_vid) says
 qcom,mdss-dsi-bpp = 30 and DSC bits-per-component 10 -- so the link format
 is RGB101010, and it has no tx-eot-append, so NO_EOT_PACKET. The DSC config
 is copied per device: the DSI host writes pic_width and the RC fields into
 it, which on the static const descriptor only worked before rodata went
 read-only. The PPS is packed from that copy.
-
-y705-source: 0002-drm-panel-nt36523-baldur-dsc.patch
 ---
  drivers/gpu/drm/panel/panel-novatek-nt36523.c | 163 ++++++++++++++++++
  1 file changed, 163 insertions(+)

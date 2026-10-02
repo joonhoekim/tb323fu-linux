@@ -4,7 +4,7 @@ Date: Sat, 26 Sep 2026 01:28:21 +0000
 Subject: [PATCH 37/56] ASoC: codecs: wcd939x: read the ADC/DMIC switches per
  channel
 
-For y705-mainline-plan.md 9-51. The "ADCn Switch" / "DMICn Switch" style
+The "ADCn Switch" / "DMICn Switch" style
 controls (wcd939x_get/set_swr_port) keep one flag per SoundWire port, but
 several channels share a port (ADC1-4 are channels 1-4 of TX port 1). So
 turning one ADC on made all four read back as on; "alsactl store" saved
@@ -13,8 +13,6 @@ that, and "alsactl restore" then really enabled the unused ADCs' channels
 
 Read back the channel's own bit in the port's channel mask, and report a
 change only when there is one.
-
-y705-source: 0022-asoc-wcd939x-swr-switch-per-channel.patch
 ---
  sound/soc/codecs/wcd939x.c | 13 ++++++++-----
  1 file changed, 8 insertions(+), 5 deletions(-)

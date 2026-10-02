@@ -12,10 +12,9 @@ Subject: [PATCH 51/56] drm/msm/dp: add kaanapali (DP0 descriptor)
   then called msm_dp_ctrl_push_idle(), writing REG_DP_STATE_CTRL with the
   link clocks off; on TB323FU that ended in a system fatal (TZ stops the
   remote processors, 900E dump mode). Skip it when the display never got
-  powered on (y705-mainline-plan.md 9-65).
+  powered on.
 
-[y705 rebase 7.3: push_idle guard hunk dropped: 7.3 has e249a6e2a1 (drm/msm/dp: skip PUSH_IDLE when the link was never enabled); only the kaanapali DP0 descriptor and compatible remain]
-y705-source: 0038-drm-msm-dp-kaanapali.patch
+[rebased onto 7.3: push_idle guard hunk dropped: 7.3 has e249a6e2a1 (drm/msm/dp: skip PUSH_IDLE when the link was never enabled); only the kaanapali DP0 descriptor and compatible remain]
 ---
  drivers/gpu/drm/msm/dp/dp_display.c | 6 ++++++
  1 file changed, 6 insertions(+)

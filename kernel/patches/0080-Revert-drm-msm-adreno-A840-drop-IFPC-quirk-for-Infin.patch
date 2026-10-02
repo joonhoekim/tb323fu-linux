@@ -2,13 +2,13 @@ From 3462c804c7f0b422695fe243bfbac86d4901a88c Mon Sep 17 00:00:00 2001
 From: joonhoekim <26rote@gmail.com>
 Date: Sun, 27 Sep 2026 09:30:12 +0000
 Subject: [PATCH] Revert "drm/msm/adreno: A840: drop IFPC quirk for Infiniti
- bring-up" (y705 0080)
+ bring-up"
 
 This reverts commit 945ebcd1ef33 (series 0010): IFPC (inter-frame power
 collapse) works on the Lenovo TB323FU. Same loads, same session, refresh
-daemon on, IFPC off (#44) -> on (#45): auto-scrolling Firefox 1052-1079 mA ->
+daemon on, IFPC off -> on: auto-scrolling Firefox 1052-1079 mA ->
 844-850 mA (~-20 %), 720p30 video -5..-20 mA, a busy terminal -15..-65 mA;
-120/30 fps unchanged, no GMU or GPU errors (y705-mainline-plan.md 9-101).
+120/30 fps unchanged, no GMU or GPU errors.
 The infiniti-mainline tree runs the A840 with IFPC on the same 7.3 as well.
 ---
  drivers/gpu/drm/msm/adreno/a6xx_catalog.c | 5 +++--

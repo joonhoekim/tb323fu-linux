@@ -4,7 +4,7 @@ Date: Sat, 26 Sep 2026 01:27:45 +0000
 Subject: [PATCH 32/56] drm/msm/dsi: phy: prepare the iface clock only while
  runtime active
 
-For y705-mainline-plan.md 9-45. The DSI PHY put its "iface" clock (the
+The DSI PHY put its "iface" clock (the
 MDSS AHB clock, disp_cc_mdss_ahb_clk) under pm_clk, and pm_clk_add()
 prepares a clock once and keeps it prepared. A prepared clock keeps its
 provider runtime active, so the display clock controller never
@@ -12,8 +12,6 @@ suspended and kept MMCX voted at LOW_SVS with the screen off (two PHYs,
 prepare count 2). The PHY now enables and prepares the clock in its
 runtime resume and drops both in runtime suspend. On TB323FU, screen
 blanked: dispcc suspended, MMCX off; screen on as before.
-
-y705-source: 0017-drm-msm-dsi-phy-iface-clk-runtime.patch
 ---
  drivers/gpu/drm/msm/dsi/phy/dsi_phy.c | 33 ++++++++++++++++++++-------
  drivers/gpu/drm/msm/dsi/phy/dsi_phy.h |  1 +

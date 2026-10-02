@@ -26,8 +26,7 @@ the vendor's 1300.49 (qcom,mdss-dsi-panel-clockrate). Found with a review
 that pointed at the same bug fixed for the Legion Y700 Gen4 (SM8750),
 ac47870fd795 and follow-ups.
 
-[y705 rebase 7.3: debug print hunk re-placed by hand: 7.3 rounds byte_clk_rate before the DBG line]
-y705-source: 0005-drm-msm-video-dsc-10bpc-line-length.patch
+[rebased onto 7.3: debug print hunk re-placed by hand: 7.3 rounds byte_clk_rate before the DBG line]
 ---
  .../drm/msm/disp/dpu1/dpu_encoder_phys_vid.c  |  4 +--
  drivers/gpu/drm/msm/dsi/dsi_host.c            | 28 +++++++++++++------

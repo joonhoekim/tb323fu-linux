@@ -4,15 +4,13 @@ Date: Sat, 26 Sep 2026 01:30:48 +0000
 Subject: [PATCH 45/56] media: i2c: add Samsung S5KJNS and GalaxyCore GC08A8
  sensor drivers
 
-The TB323FU cameras (y705-mainline-plan.md 9-60). Both are the nearest
+The TB323FU cameras. Both are the nearest
 mainline driver (s5kjn5, gc08a3) with the register sequences the vendor
 Android camera stack writes, read back from its CCI debug log:
 - S5KJNS (rear): chip ID 0x38ee, one 2x2-binned 4080x3072 mode at 30 fps,
   4 lanes, link 672 MHz, EXCLK 19.2 MHz.
 - GC08A8 (front): chip ID 0x08a8, common init + one 3264x2448 mode,
   19.2 MHz input clock.
-
-y705-source: 0031-media-i2c-s5kjns-gc08a8.patch
 ---
  drivers/media/i2c/Kconfig  |   21 +
  drivers/media/i2c/Makefile |    2 +

@@ -2,15 +2,13 @@ From 777331dce7c93005df1d85a9b76f1abd85e0a118 Mon Sep 17 00:00:00 2001
 From: joonhoekim <26rote@gmail.com>
 Date: Sun, 27 Sep 2026 09:20:25 +0000
 Subject: [PATCH 78/79] arm64: dts: qcom: baldur: WCN7860 WAKE# is active low
- (y705 0053)
 
 PCIe WAKE# is an open-drain, active-low signal: the endpoint pulls it low
 to request a wake and it idles high. Describing it as GPIO_ACTIVE_HIGH makes
 drivers/pci/of.c arm a level wake IRQ that fires while the line idles high
--- the tablet woke about 2.5 s into every s2idle (pm_wakeup_irq = msmgpio 104,
-y705-mainline-plan.md 9-86), so the root port wakeup had to be disabled
-from userspace (9-92). The same fix is under review for the Kaanapali MTP
-board (9-101).
+-- the tablet woke about 2.5 s into every s2idle (pm_wakeup_irq = msmgpio 104),
+so the root port wakeup had to be disabled from userspace. The same fix is
+under review for the Kaanapali MTP board.
 ---
  arch/arm64/boot/dts/qcom/baldur-wifi.dtsi | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)

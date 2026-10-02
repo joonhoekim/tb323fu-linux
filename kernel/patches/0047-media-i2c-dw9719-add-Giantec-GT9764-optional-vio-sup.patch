@@ -4,14 +4,12 @@ Date: Sat, 26 Sep 2026 01:30:48 +0000
 Subject: [PATCH 47/56] media: i2c: dw9719: add Giantec GT9764, optional vio
  supply
 
-The TB323FU rear lens VCM (y705-mainline-plan.md 9-61) is a Giantec GT9764
+The TB323FU rear lens VCM is a Giantec GT9764
 with the DW9719 register map. The vendor stack writes CONTROL 0x02, MODE
 0x40 (SAC 4), VCM_FREQ 0x7c and 16-bit positions to register 3; it has no
 INFO register we can rely on, so skip detection like the DW9800K. Its bus
 pull-ups sit on the sensor I/O rail: take an optional vio supply and keep it
 on while the VCM is.
-
-y705-source: 0033-media-i2c-dw9719-gt9764.patch
 ---
  drivers/media/i2c/dw9719.c | 39 ++++++++++++++++++++++++++++++++++++--
  1 file changed, 37 insertions(+), 2 deletions(-)

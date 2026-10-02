@@ -7,10 +7,7 @@ Subject: [PATCH 44/56] pinctrl: qcom: kaanapali: add the I2C strong pull-up
 Kaanapali's TLMM has the I2C pull bit (13) that SM8550/SM8650 describe as
 .i2c_pull_bit: with it, "bias-pull-up = <2200>" selects the strong pull-up.
 Android sets it on the camera CCI pins (cfg 0x2007); without it the camera
-buses only have the weak pull-up and the CCI times out on every transfer
-(y705-mainline-plan.md 9-60).
-
-y705-source: 0030-pinctrl-kaanapali-i2c-pull-bit.patch
+buses only have the weak pull-up and the CCI times out on every transfer.
 ---
  drivers/pinctrl/qcom/pinctrl-kaanapali.c | 1 +
  1 file changed, 1 insertion(+)

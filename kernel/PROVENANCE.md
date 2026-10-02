@@ -41,54 +41,54 @@ column names the source; see that tree's history for the individual authors.
 | `0016` | phy: core: Add devm_phy_get_by_of_node() | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `644f6ad80e7c4e50` |
 | `0017` | phy: core: Add missing kerneldoc colon in two locations | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `5cfc4b0ebbd9695b` |
 | `0018` | dt-bindings: phy: qcom: Add CSI2 C-PHY/DPHY schema | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `88335aa812c5c110` |
-| `0019` | arm64: dts: qcom: kaanapali: add the second DSI controller and PHY | joonhoekim | this project | local | `0e0257ecfc17d2b2` |
-| `0020` | drm/panel: nt36523: add DSC, and the Lenovo TB323FU CSOT panel | joonhoekim | this project | local | `9e032179c68c97da` |
-| `0021` | arm64: carry a devicetree inside the kernel image | joonhoekim | this project | local (built-in DTB; bootloader workaround) | `86368c4d49c32ff4` |
-| `0022` | arm64: paint boot progress marks into the bootloader's framebuffer | joonhoekim | this project | local (debug: boot progress marks) | `835b18addc777b85` |
-| `0023` | drm/msm: video-mode DSC at 10 bpc -- make DSI and the DPU INTF agree on the line | joonhoekim | this project | local | `25e21c5aacaabedb` |
+| `0019` | arm64: dts: qcom: kaanapali: add the second DSI controller and PHY | joonhoekim | this project | local | `e14bf5ad358920d6` |
+| `0020` | drm/panel: nt36523: add DSC, and the Lenovo TB323FU CSOT panel | joonhoekim | this project | local | `2148317b62e444e4` |
+| `0021` | arm64: carry a devicetree inside the kernel image | joonhoekim | this project | local (built-in DTB; bootloader workaround) | `57ed051b50008aab` |
+| `0022` | arm64: paint boot progress marks into the bootloader's framebuffer | joonhoekim | this project | local (debug: boot progress marks) | `f34bd0d5e38e6f7a` |
+| `0023` | drm/msm: video-mode DSC at 10 bpc -- make DSI and the DPU INTF agree on the line | joonhoekim | this project | local | `e898d60978c91560` |
 | `0024` | wifi: ath12k + PCI/pwrctrl: WCN7860 ("peach", 17cb:110e) | joonhoekim | [infiniti-mainline](https://github.com/infiniti-mainline/linux) `oneplus-15`, several authors, imported squashed (From: is the importer) | community, not upstream | `1412ff954c31d01e` |
 | `0025` | Input: touchscreen: import NT36536 host-download SPI driver (Novatek) | joonhoekim | [map220v/sm8850-mainline](https://github.com/map220v/sm8850-mainline) `iceland-7.2` (Novatek vendor driver, verbatim) | out of tree, not upstreamable | `82b01bcce08b5a8d` |
-| `0026` | input: touchscreen: NT36536 host-download SPI driver (Novatek) | joonhoekim | this project | local | `f82d278351321f12` |
-| `0027` | input: nt36536: fixes for TB323FU (y705-mainline-plan.md 9-27, 9-28) | joonhoekim | this project | local | `a571a9fb49b267d5` |
-| `0028` | backlight: aw99706: replay board registers after the HWEN reset | joonhoekim | this project | local | `3775c2851b5dfa8b` |
+| `0026` | input: touchscreen: NT36536 host-download SPI driver (Novatek) | joonhoekim | this project | local | `f282333bdf1ec787` |
+| `0027` | input: nt36536: fixes for TB323FU | joonhoekim | this project | local | `8295fb8a601f0828` |
+| `0028` | backlight: aw99706: replay board registers after the HWEN reset | joonhoekim | this project | local | `669cd8efd24602c5` |
 | `0029` | iommu: arm-smmu-qcom: kaanapali MDSS identity domain | EYC | community / infiniti-mainline (EYC) | community, not upstream | `98325a0a17611918` |
 | `0030` | Bluetooth: qca: WCN7860 (BRAHMA) on the WCN7850 flow | joonhoekim | infiniti-mainline `fecd7925d` (EYC; From: is the importer) | community, not upstream | `f14da6306a25551d` |
-| `0031` | arm64: dts: qcom: kaanapali: CPU6-7 in a PSCI cluster domain of their own | joonhoekim | this project | local | `a1931f6821e96cbe` |
-| `0032` | drm/msm/dsi: phy: prepare the iface clock only while runtime active | joonhoekim | this project | local | `8745d6508e84045c` |
-| `0033` | power: supply: qcom_battmgr: let the host set the USB input current limit | joonhoekim | this project | local | `862af7b91be29771` |
-| `0034` | ASoC: qcom: sc8280xp: optional S32_LE on MI2S backends | joonhoekim | this project | local | `6e1d08e2565be329` |
-| `0035` | ASoC: codecs: lpass-tx-macro: board tuning of the decimator filter block | joonhoekim | this project | local | `3b9d8798267578f7` |
-| `0036` | usb: gadget: f_ncm: restart the TX timer when the freelist is empty | joonhoekim | this project | local | `0617f0c53da4dcb8` |
-| `0037` | ASoC: codecs: wcd939x: read the ADC/DMIC switches per channel | joonhoekim | this project | local | `d071182c45dd5f3a` |
-| `0038` | Input: aw86927 - accept the AW86937 | joonhoekim | this project | local | `09ed9c3b8d8772c8` |
+| `0031` | arm64: dts: qcom: kaanapali: CPU6-7 in a PSCI cluster domain of their own | joonhoekim | this project | local | `842ef62d7a54d5e3` |
+| `0032` | drm/msm/dsi: phy: prepare the iface clock only while runtime active | joonhoekim | this project | local | `431db9c93144e5da` |
+| `0033` | power: supply: qcom_battmgr: let the host set the USB input current limit | joonhoekim | this project | local | `603833e12474aa61` |
+| `0034` | ASoC: qcom: sc8280xp: optional S32_LE on MI2S backends | joonhoekim | this project | local | `ce8b6c3a99752681` |
+| `0035` | ASoC: codecs: lpass-tx-macro: board tuning of the decimator filter block | joonhoekim | this project | local | `68be27c31735db78` |
+| `0036` | usb: gadget: f_ncm: restart the TX timer when the freelist is empty | joonhoekim | this project | local | `4384718b5e07ffdd` |
+| `0037` | ASoC: codecs: wcd939x: read the ADC/DMIC switches per channel | joonhoekim | this project | local | `bd8da5b429e03dd4` |
+| `0038` | Input: aw86927 - accept the AW86937 | joonhoekim | this project | local | `739a07ea6f1ceb4b` |
 | `0039` | y705 0025-pmic5-gen4-adc: mailing-list series (squashed) | joonhoekim | mailing list: PMIC5 Gen4 ADC series (Jishnu Prakash), squashed | pending upstream | `334c82260a9ba2b2` |
 | `0040` | y705 0027-media-qcom-camss-kaanapali-v16: mailing-list series (squashed) | joonhoekim | mailing list: CAMSS kaanapali v16 (Hangxiang Ma), squashed | pending upstream | `efb27f723d4158bc` |
 | `0041` | y705 0028-media-i2c-s5kjn5-v4: mailing-list series (squashed) | joonhoekim | mailing list: S5KJN5 sensor v4 (Wenmeng Liu), squashed | pending upstream | `f63d8a5a32647955` |
 | `0042` | media: qcom: camss: Add support for PHY API devices | Bryan O'Donoghue | mailing list: camss PHY API series 4/5 (Bryan O'Donoghue) | pending upstream | `b10dc4cce7742860` |
 | `0043` | media: qcom: camss: Use data-lanes starting at 1 for new CSIPHY mode | Bryan O'Donoghue | mailing list: camss PHY API series 5/5 (Bryan O'Donoghue) | pending upstream | `36389bd9fd734fa3` |
-| `0044` | pinctrl: qcom: kaanapali: add the I2C strong pull-up bit | joonhoekim | this project | local | `167056b94c92cc33` |
-| `0045` | media: i2c: add Samsung S5KJNS and GalaxyCore GC08A8 sensor drivers | joonhoekim | this project | local | `b80d9950a5008849` |
-| `0046` | clk: qcom: gdsc: keep the clock controller active while a GDSC is on | joonhoekim | this project | local | `cd1a0421542d34b9` |
-| `0047` | media: i2c: dw9719: add Giantec GT9764, optional vio supply | joonhoekim | this project | local | `fb434838c377c614` |
-| `0048` | leds: rgb: add Awinic AW22127 driver | joonhoekim | this project | local | `61caa5d6d7dcb083` |
-| `0049` | PCI: qcom: don't advertise a hot-plug slot on the Root Port | joonhoekim | this project | local | `27005b0184777fc3` |
-| `0050` | drm/msm/dsi: phy: runtime suspend the PHY over system sleep | joonhoekim | this project | local | `57a30beaa65c52b7` |
-| `0051` | drm/msm/dp: add kaanapali (DP0 descriptor) | joonhoekim | this project | local | `bae5d3bbb069f3ac` |
-| `0052` | drm/msm/dpu: add the SSPP rec0/rec1 blocks to the snapshot | joonhoekim | this project | local | `a8f52fe395fba5c1` |
-| `0053` | input: nt36536: make the pen a tablet libinput accepts | joonhoekim | this project | local | `f4703f6905169ca5` |
-| `0054` | arm64: dts: qcom: add Lenovo Legion Tab Y700 gen5 (TB323FU, baldur) board DTs | joonhoekim | this project | local | `9247be805bbdc9f1` |
-| `0055` | arm64: configs: add the baldur config fragments (y705 mainline/kernel) | joonhoekim | this project | local | `07c38f610992f2c0` |
-| `0056` | PCI: qcom: parse iommu-map with the target #iommu-cells (y705 0041) | joonhoekim | this project | local; superseded by linux-next (`qcom_pcie_config_sid_1_9_0`) | `98e27357a1b066ca` |
-| `0057` | drm/msm/dp: retrain the link on a quick replug while streaming (y705 0042) | joonhoekim | this project | local | `f508d95246d9f750` |
-| `0058` | wifi: ath12k: don't wake the device over MHI from the panic notifier (y705 0043) | joonhoekim | this project | local | `b4c7cf5c3af95df7` |
-| `0059` | clk: qcom: gcc-kaanapali: keep the USB GDSCs in retention (y705 0044) | joonhoekim | this project | local | `21297da8b406b40d` |
-| `0060` | soc: qcom: pmic_glink_altmode: handle notifications on the freezable workqueue (y705 0045) | joonhoekim | this project | local; superseded upstream (`7d0767c5cd87`, freezable workqueue) | `fe479f7206778a8b` |
-| `0061` | usb: typec: ucsi: run connector change handling on the freezable workqueue (y705 0046) | joonhoekim | this project | local | `87f68909e7dc7ebd` |
-| `0062` | usb: dwc3: qcom: arm the eUSB2 line interrupts for wakeup (y705 0048) | joonhoekim | this project | local | `8fe0f725cbc0faac` |
-| `0063` | media: i2c: s5kjns: the colour filter order is GRBG, not GBRG | joonhoekim | this project | local | `9478195eba96551c` |
-| `0064` | arm64: dts: qcom: baldur: camera orientation and rotation | joonhoekim | this project | local | `52ab71b74ba880c1` |
-| `0065` | drm/msm/dpu+dsi: change the vertical front porch in place (y705 0051) | joonhoekim | this project | local | `36e758e3ac884b44` |
-| `0066` | drm/panel: nt36523: baldur CSOT 60 and 30 Hz modes (y705 0052) | joonhoekim | this project | local | `74ff9392396e2a2a` |
+| `0044` | pinctrl: qcom: kaanapali: add the I2C strong pull-up bit | joonhoekim | this project | local | `df563b612fd3824d` |
+| `0045` | media: i2c: add Samsung S5KJNS and GalaxyCore GC08A8 sensor drivers | joonhoekim | this project | local | `81b1eb36b303f423` |
+| `0046` | clk: qcom: gdsc: keep the clock controller active while a GDSC is on | joonhoekim | this project | local | `cd639993d9e0cd03` |
+| `0047` | media: i2c: dw9719: add Giantec GT9764, optional vio supply | joonhoekim | this project | local | `f18c081a941a47d0` |
+| `0048` | leds: rgb: add Awinic AW22127 driver | joonhoekim | this project | local | `324050349617a56f` |
+| `0049` | PCI: qcom: don't advertise a hot-plug slot on the Root Port | joonhoekim | this project | local | `52b07f4d961447bc` |
+| `0050` | drm/msm/dsi: phy: runtime suspend the PHY over system sleep | joonhoekim | this project | local | `c590cf05bcfac08e` |
+| `0051` | drm/msm/dp: add kaanapali (DP0 descriptor) | joonhoekim | this project | local | `d330b85b114b644b` |
+| `0052` | drm/msm/dpu: add the SSPP rec0/rec1 blocks to the snapshot | joonhoekim | this project | local | `e5db396f09712be3` |
+| `0053` | input: nt36536: make the pen a tablet libinput accepts | joonhoekim | this project | local | `24e2c48c7e6ae849` |
+| `0054` | arm64: dts: qcom: add Lenovo Legion Tab Y700 gen5 (TB323FU, baldur) board DTs | joonhoekim | this project | local | `dae52c0808c1cb6e` |
+| `0055` | arm64: configs: add the baldur config fragments | joonhoekim | this project | local | `42ce2077045f79e8` |
+| `0056` | PCI: qcom: parse iommu-map with the target #iommu-cells | joonhoekim | this project | local; superseded by linux-next (`qcom_pcie_config_sid_1_9_0`) | `2b19a0f18b871aac` |
+| `0057` | drm/msm/dp: retrain the link on a quick replug while streaming | joonhoekim | this project | local | `f04dc08d8a8e1e8b` |
+| `0058` | wifi: ath12k: don't wake the device over MHI from the panic notifier | joonhoekim | this project | local | `22f3f256562a2773` |
+| `0059` | clk: qcom: gcc-kaanapali: keep the USB GDSCs in retention | joonhoekim | this project | local | `6abbc1ff47ae183d` |
+| `0060` | soc: qcom: pmic_glink_altmode: handle notifications on the freezable workqueue | joonhoekim | this project | local; superseded upstream (`7d0767c5cd87`, freezable workqueue) | `20799fff702f8818` |
+| `0061` | usb: typec: ucsi: run connector change handling on the freezable workqueue | joonhoekim | this project | local | `1f05de01804165ce` |
+| `0062` | usb: dwc3: qcom: arm the eUSB2 line interrupts for wakeup | joonhoekim | this project | local | `ea790dd74b398ce2` |
+| `0063` | media: i2c: s5kjns: the colour filter order is GRBG, not GBRG | joonhoekim | this project | local | `b13f5eb90421ba9a` |
+| `0064` | arm64: dts: qcom: baldur: camera orientation and rotation | joonhoekim | this project | local | `313a1503a767ac8e` |
+| `0065` | drm/msm/dpu+dsi: change the vertical front porch in place | joonhoekim | this project | local | `a1c29b798ec98c94` |
+| `0066` | drm/panel: nt36523: baldur CSOT 60 and 30 Hz modes | joonhoekim | this project | local | `0afb341652fd7829` |
 | `0067` | remoteproc: qcom: q6v5_pas: Don't enable handover IRQ on attach | Shawn Guo | upstream fix `34b8b2d78b62` | upstream | `f2fb167212f57bb6` |
 | `0068` | remoteproc: qcom_q6v5_pas: Fix error masking in qcom_pas_stop() | Vignesh Viswanathan | upstream fix `9db31edf92dd` | upstream | `83e78cd75d11594a` |
 | `0069` | thermal: gov_step_wise: Fix stale mitigation vote with non-zero lower bounds | Manaf Meethalavalappu Pallikunhi | upstream fix `ec0d89150a93` | upstream | `34d6b208c1d26fd2` |
@@ -100,9 +100,9 @@ column names the source; see that tree's history for the individual authors.
 | `0075` | soc: qcom: apr: Register the GPR callback before probing | Victor Fuentes | infiniti-mainline (Victor Fuentes) | community, not upstream | `c76df9a3bf98568f` |
 | `0076` | ASoC: qcom: q6apm: Send commands from the APM's GPR service | Victor Fuentes | infiniti-mainline (Victor Fuentes) | community, not upstream | `7789da4acf28039c` |
 | `0077` | arm64: dts: qcom: kaanapali: Advertise a 1024-byte GPR intent | Victor Fuentes | infiniti-mainline (Victor Fuentes) | community, not upstream | `73b9f0bdde0cfe68` |
-| `0078` | arm64: dts: qcom: baldur: WCN7860 WAKE# is active low (y705 0053) | joonhoekim | this project | local | `43399c31eba0721e` |
-| `0079` | drm/msm/dpu: keep the full modeset when colour management changed (y705 0051 fixup) | joonhoekim | this project | local | `07b1c970eaa518ad` |
-| `0080` | Revert "drm/msm/adreno: A840: drop IFPC quirk for Infiniti bring-up" (y705 0080) | joonhoekim | this project | local | `bf34522b7d02d857` |
+| `0078` | arm64: dts: qcom: baldur: WCN7860 WAKE# is active low | joonhoekim | this project | local | `77a06e1ba1e86c47` |
+| `0079` | drm/msm/dpu: keep the full modeset when colour management changed | joonhoekim | this project | local | `a063357f486852b7` |
+| `0080` | Revert "drm/msm/adreno: A840: drop IFPC quirk for Infiniti bring-up" | joonhoekim | this project | local | `684183ea86fec4c1` |
 | `0081` | dt-bindings: display: msm: Add INT2 GDSC to Kaanapali DPU | Yongxing Mou | mailing list: Kaanapali DPU INT2 GDSC v2 (Yongxing Mou) | pending upstream | `05bc7c71eddb1d7a` |
 | `0082` | drm/msm/dpu: Attach INT2 power domain alongside MMCX on Kaanapali | Yongxing Mou | mailing list: Kaanapali DPU INT2 GDSC v2 (Yongxing Mou) | pending upstream | `31729280365dc880` |
 | `0083` | arm64: dts: qcom: Add INT2 GDSC to Kaanapali DPU | Yongxing Mou | mailing list: Kaanapali DPU INT2 GDSC v2 (Yongxing Mou) | pending upstream | `45cfa63c72e2fe66` |
@@ -117,10 +117,10 @@ column names the source; see that tree's history for the individual authors.
 | `0092` | media: iris: fix VPU4x encoder line buffer size for rotation | Wangao Wang | infiniti-mainline (iris kaanapali; authors as in From:) | community / pending upstream | `6c1fe0df9e2b58f9` |
 | `0093` | media: iris: Only allow hierarchical B-frames on kaanapali | Victor Fuentes | infiniti-mainline (iris kaanapali; authors as in From:) | community / pending upstream | `952692bbb64f8691` |
 | `0094` | media: iris: Don't report the picture state on decoder input buffers | Victor Fuentes | infiniti-mainline (iris kaanapali; authors as in From:) | community / pending upstream | `9b5d6b188c52580b` |
-| `0095` | arm64: dts: qcom: baldur: enable the iris video codec (y705 0054) | joonhoekim | this project | local | `b468f29fef780b89` |
+| `0095` | arm64: dts: qcom: baldur: enable the iris video codec | joonhoekim | this project | local | `03dc1f0d5f5164a0` |
 | `0096` | phy: qcom: qmp-combo: Add Kaanapali USB3+DP PHY | Victor Fuentes | infiniti-mainline (Victor Fuentes) | community, not upstream | `1e0e578ff21fb961` |
-| `0097` | drm/msm/dpu: stop all video interfaces before cleaning up a split encoder | joonhoekim | this project | sent upstream 2026-09-29, under review | `709ac802705c96bf` |
-| `0098` | drm/msm/dp: hold one runtime PM reference per plugged state | joonhoekim | this project | sent upstream 2026-09-29, under review | `acb641feb39fe870` |
+| `0097` | drm/msm/dpu: stop all video interfaces before cleaning up a split encoder | joonhoekim | this project | sent upstream 2026-09-29, under review | `9fdec9fce3a03776` |
+| `0098` | drm/msm/dp: hold one runtime PM reference per plugged state | joonhoekim | this project | sent upstream 2026-09-29, under review | `814b709cea246edc` |
 | `0099` | phy: qcom: qmp-combo: Drop the stale err_disable_pipe_clk teardown | Victor Fuentes | infiniti-mainline (Victor Fuentes) | community, not upstream | `4cc9500eb779c89d` |
 | `0100` | phy: qcom: qmp-combo: Keep the DP lanes of a USB-capable DP sink | Victor Fuentes | infiniti-mainline (Victor Fuentes) | community, not upstream | `6f508562ddb6e8ec` |
 | `0101` | drm/msm/dp: check the PHY power-on and DPCD link status returns | Victor Fuentes | infiniti-mainline (Victor Fuentes) | community, not upstream | `4711f13cff69ad11` |
@@ -130,11 +130,11 @@ column names the source; see that tree's history for the individual authors.
 | `0105` | drm/msm/dpu: compute the CRTC bandwidth from the state being checked | joonhoekim | this project | sent upstream 2026-09-29, under review | `8eb9e32dfaa88e5d` |
 | `0106` | cpuidle: psci-domain: baldur: use the system domain state only in system suspend | Joonhoe Kim | this project | local workaround (cpuidle system domain state only in suspend) | `09a5acaa07543da4` |
 | `0107` | power: supply: qcom_battmgr: fix the battery current sign on Kaanapali | Joonhoe Kim | this project | local | `13bf1790ca49e953` |
-| `0108` | arm64: dts: qcom: baldur: throttle on the board temperature like Android | Joonhoe Kim | this project | local (board DT) | `14085b89a9b601e6` |
-| `0109` | drm/panel: nt36523: baldur: add 90 Hz and 164 Hz modes | joonhoekim | this project | local (panel modes) | `ffb468930d448bff` |
+| `0108` | arm64: dts: qcom: baldur: throttle on the board temperature like Android | Joonhoe Kim | this project | local (board DT) | `aed12239484fc00f` |
+| `0109` | drm/panel: nt36523: baldur: add 90 Hz and 164 Hz modes | joonhoekim | this project | local (panel modes) | `4e8bbc495e67cf24` |
 | `0110` | drm/msm/dpu: baldur: lower the refresh rate in the kernel when idle | joonhoekim | this project | local, not intended for upstream | `0f1118cc66ceb91c` |
 | `0111` | media: iris: vpu4x: size the decoder OPB line buffer for 10-bit output | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `60f0f363b5542ed9` |
 | `0112` | media: iris: don't wait for the threaded IRQ handler under core->lock | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `e7c29a4c0e69ba15` |
 | `0113` | wifi: ath12k: keep the RX refill ring from running dry | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `0250a3b8b9b44fb9` |
-| `0114` | net: qrtr: ns: retry announcements the new node is not ready for yet | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `0b668d7d959b10c7` |
+| `0114` | net: qrtr: ns: retry announcements the new node is not ready for yet | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `6826715ed1ed1eb2` |
 | `0116` | media: qcom: camss: hold the bandwidth vote while TITAN_TOP is powered | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission (0115 is a debugging aid kept out of the series) | `3e5a2e77a2018c0d` |

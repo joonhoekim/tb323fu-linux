@@ -2,7 +2,6 @@ From 18c7e50be4d3d18e85cbc72a8ac61ddea8877aed Mon Sep 17 00:00:00 2001
 From: joonhoekim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 03:59:23 +0000
 Subject: [PATCH 56/56] PCI: qcom: parse iommu-map with the target #iommu-cells
- (y705 0041)
 
 ---
  drivers/pci/controller/dwc/pcie-qcom.c | 46 +++++++++++++++-----------

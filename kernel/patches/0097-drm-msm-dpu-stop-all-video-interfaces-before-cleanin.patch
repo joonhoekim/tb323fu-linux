@@ -32,7 +32,7 @@ Seen on the Lenovo Legion Tab Y700 gen 5 (TB323FU, SM8850, NT36523
 bonded DSI video mode): idle blank with a TV attached, then any wake
 short of a system resume left the internal panel black. DPMS off/on
 through mutter: 3/3 black before, 6/6 correct after, TV output
-unaffected (y705-mainline-plan.md 9-101).
+unaffected.
 
 Assisted-by: LLM [Claude Code]
 ---

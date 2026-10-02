@@ -10,13 +10,12 @@ so the port stays in D0 over s2idle, pci_host_common_d3cold_possible()
 fails and dw_pcie_suspend_noirq() keeps the link up with the WCN7860 in
 D3hot. The link is then intermittently gone at resume: "Unable to change
 power state from D3hot to D0, device inaccessible", then a synchronous
-external abort in pci_generic_config_read() -> panic -> 900E dump mode
-(y705-mainline-plan.md 9-63). With the bits cleared the port reaches
+external abort in pci_generic_config_read() -> panic -> 900E dump mode.
+With the bits cleared the port reaches
 D3hot, the host takes the D3cold path (PME_Turn_Off, pwrctrl power off,
 retrain on resume) and 5/5 s2idle cycles resume with Wi-Fi back.
 
-[y705 rebase 7.3: ported by hand: 7.3 renamed qcom_pcie_set_slot_nccs() to qcom_pcie_set_slot_cap() and clears ABP there; HPC|HPS are now cleared in the same write. The 7.3 link-down recovery (qcom_pcie_reset_root_port via pci_host_handle_link_down) does not use the slot hot-plug bits and re-runs this through host_init]
-y705-source: 0035-pci-qcom-no-hotplug-slot.patch
+[rebased onto 7.3: ported by hand: 7.3 renamed qcom_pcie_set_slot_nccs() to qcom_pcie_set_slot_cap() and clears ABP there; HPC|HPS are now cleared in the same write. The 7.3 link-down recovery (qcom_pcie_reset_root_port via pci_host_handle_link_down) does not use the slot hot-plug bits and re-runs this through host_init]
 ---
  drivers/pci/controller/dwc/pcie-qcom.c | 11 +++++++++++
  1 file changed, 11 insertions(+)

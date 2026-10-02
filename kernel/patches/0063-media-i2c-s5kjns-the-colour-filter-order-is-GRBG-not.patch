@@ -7,7 +7,6 @@ Subject: [PATCH 63/64] media: i2c: s5kjns: the colour filter order is GRBG,
 The sensor test pattern (colour bars) decodes to the standard white, yellow,
 cyan, green, magenta, red, blue, black only as GRBG; as GBRG yellow/cyan and
 red/blue swap, which is the yellow-green cast the software ISP produced.
-(y705 0049, plan 9-99)
 ---
  drivers/media/i2c/s5kjns.c | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)

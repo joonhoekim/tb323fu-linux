@@ -4,7 +4,7 @@ Date: Sat, 26 Sep 2026 01:27:45 +0000
 Subject: [PATCH 31/56] arm64: dts: qcom: kaanapali: CPU6-7 in a PSCI cluster
  domain of their own
 
-For y705-mainline-plan.md 9-42. kaanapali has two CPU clusters, CPU0-5
+kaanapali has two CPU clusters, CPU0-5
 and CPU6-7 (the vendor tree: cluster-pd0 and cluster-pd1, each with the
 cl5 "ret-pll-off" state 0x1000054, both under cluster-pd2 with ss3
 0x200c354). kaanapali.dtsi put all eight CPUs under one cluster domain.
@@ -14,8 +14,6 @@ million rejected entries against about a thousand used (each denial is
 a failed CPU_SUSPEND, counted by pm_genpd_inc_rejected), and the
 cluster and system domains were idle 41% and 33% of an idle screen-off
 minute. With the split: 98%, 97% (CPU6-7) and 95%, 115 rejections.
-
-y705-source: 0016-arm64-dts-kaanapali-second-psci-cluster.patch
 ---
  arch/arm64/boot/dts/qcom/kaanapali.dtsi | 16 ++++++++++++++--
  1 file changed, 14 insertions(+), 2 deletions(-)

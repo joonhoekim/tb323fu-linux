@@ -9,9 +9,7 @@ e.g. camcc: MMCX + MXC) needs those rails at the required-opps level to
 switch on, but the controller only holds that vote while it is runtime
 active. Powering the GDSC before any of its clocks is prepared left MXC
 at level 0 and the GDSC stuck off (camss: "cam_cc_titan_top_gdsc status
-stuck at off", y705-mainline-plan.md 9-60).
-
-y705-source: 0032-clk-qcom-gdsc-hold-cc-runtime-pm.patch
+stuck at off").
 ---
  drivers/clk/qcom/gdsc.c | 53 +++++++++++++++++++++++++++++++++++++----
  drivers/clk/qcom/gdsc.h |  3 +++

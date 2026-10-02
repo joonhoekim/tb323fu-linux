@@ -1,8 +1,8 @@
 From: Joonhoe Kim <26rote@gmail.com>
 Subject: [PATCH] net: qrtr: ns: retry announcements the new node is not ready for yet
 
-DRAFT, not sent. Tested on the device (Lenovo Legion Tab Gen 5, Kaanapali,
-kernel t20..t24 carried it as a y705 TEST change).
+DRAFT, not sent. Tested on the device (Lenovo Legion Tab Gen 5, Kaanapali;
+several test kernels carried it before this patch).
 
 When a remote node says HELLO, the name service answers with a NEW_SERVER
 for every local service (announce_servers()). qrtr_node_enqueue() drops
@@ -24,7 +24,7 @@ worker already sleeps in kernel_sendmsg(); announce_servers() runs from
 the name service's own work item.
 
 Before: rmtfs first, modem start -> "failed to announce new service",
-no rmtfs traffic, SoC reset 60 s later (GNSS t1a). After: the first
+no rmtfs traffic, SoC reset 60 s later. After: the first
 NEW_SERVER to the modem is retried once (100 ms), rmtfs opens
 /boot/modem_fs1 and fs2, 19 services on node 0, modem up for 180 s.
 
