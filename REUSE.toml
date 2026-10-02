@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: MIT
+# Licensing of files that cannot carry an SPDX header (https://reuse.software/spec/).
+# A file's own SPDX line, where it has one, still wins. Everything not matched here
+# and without a header is MIT (LICENSE). See NOTICE for the component map.
+version = 1
+
+# Documentation prose. Code snippets and commands in it are also available under MIT.
+[[annotations]]
+path = ["**/*.md", "NOTICE"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 Joonhoe Kim and contributors"
+SPDX-License-Identifier = "CC-BY-SA-4.0"
+
+# Screenshots (third-party logos, wallpapers and UIs in them belong to their owners; see NOTICE).
+[[annotations]]
+path = "site/public/screenshots/**"
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 Joonhoe Kim"
+SPDX-License-Identifier = "CC-BY-SA-4.0"
+
+# Helper data without room for a header (lock files, public keys).
+[[annotations]]
+path = ["helper/Cargo.lock", "helper/crates/tb323fu-settings/Cargo.lock", "helper/data/keys/**", "helper/.gitignore"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 Joonhoe Kim"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Vendor driver build files (no header in the original).
+[[annotations]]
+path = ["kernel/out-of-tree/aw882xx/Kconfig", "kernel/out-of-tree/aw882xx/Makefile"]
+precedence = "closest"
+SPDX-FileCopyrightText = "AWINIC Technology Co., Ltd."
+SPDX-License-Identifier = "GPL-2.0-only"

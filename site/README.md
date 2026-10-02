@@ -1,7 +1,7 @@
 # Project website
 
 The website for this repository: a [Next.js](https://nextjs.org/) (App Router, TypeScript) site exported as static files
-for GitHub Pages. MIT-licensed like the rest of the repository.
+for GitHub Pages. The site code is MIT-licensed; the page text and screenshots are CC BY-SA 4.0 (see `NOTICE`).
 
 **The Markdown in the repository is the only source.** Pages are rendered at build time; nothing is copied into `site/`:
 

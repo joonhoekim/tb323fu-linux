@@ -1,0 +1,81 @@
+tb323fu-linux
+Copyright (C) 2026 Joonhoe Kim and contributors
+https://github.com/joonhoekim/tb323fu-linux
+
+Mainline Linux for the Lenovo Legion Tab Gen 5 / Legion Y700 5th Gen (TB323FU).
+An independent community project, not affiliated with, endorsed by or sponsored
+by Lenovo, Qualcomm or Valve. Their names are used only to identify the device
+and the software it works with; see TRADEMARKS.md.
+
+
+Licenses
+--------
+
+Each file's SPDX-License-Identifier line takes precedence. Files without one
+are covered by REUSE.toml or, failing that, by the MIT license in LICENSE.
+The full texts of all licenses used are in LICENSES/.
+
+  Component                                         License
+  ------------------------------------------------  ----------------------------
+  helper/ (daemon, CLI, helper core, settings app,  GPL-3.0-or-later
+    their D-Bus, polkit and systemd files)
+  kernel/patches/, kernel/config/                   GPL-2.0-only (as the kernel;
+                                                    imported patches keep the
+                                                    licenses of their files)
+  kernel/dts/ (board device trees, written by this  BSD-3-Clause (as upstream
+    project) and the same files in patches 0054,     qcom device trees)
+    0064, 0078, 0095, 0108
+  kernel/out-of-tree/aw882xx/                       GPL-2.0 (AWINIC, vendor
+                                                    headers kept)
+  kernel/initramfs/gpu-probe.c                      GPL-2.0
+  userspace/desktop/gnome/extension/                GPL-2.0-or-later (as GNOME
+                                                    Shell)
+  userspace/platform/ ALSA UCM2 files               BSD-3-Clause (as
+                                                    alsa-ucm-conf)
+  userspace/platform/ libcamera tuning files        CC0-1.0 (as libcamera)
+  userspace/platform/udev-override/                 LGPL-2.1-or-later (from
+    90-feedbackd.rules                              feedbackd)
+  everything else: platform files, rootfs builders, MIT
+    tools, android/, packaging/, firmware scripts,
+    initramfs init, site code, steam-arm64
+  documentation prose (*.md, docs/) and             CC-BY-SA-4.0; code snippets
+    screenshots (site/public/screenshots/)          and commands in the
+                                                    documentation are also
+                                                    available under MIT
+
+"GPL-2.0" in the vendor driver's headers is the deprecated SPDX name of
+GPL-2.0-only; its file headers also offer "any later version" (see
+kernel/out-of-tree/aw882xx/README.md).
+
+Copyright in the project-written files, including the board device trees
+(kernel/dts/baldur-*.dtsi, kernel/dts/kaanapali-lenovo-baldur*.dts), is held
+by Joonhoe Kim unless a file names other holders. This notice is the copyright
+notice that the BSD-3-Clause and MIT licenses require to be retained.
+
+
+Third-party code
+----------------
+
+- Kernel patches imported from upstream, linux-next, the qcom tree and the
+  community trees keep their original authors, copyright lines and
+  Signed-off-by trailers; kernel/PROVENANCE.md lists the origin of each.
+- kernel/out-of-tree/aw882xx/: AWINIC Technology Co., Ltd., copied from
+  rockchip-linux/kernel (develop-6.1).
+- userspace/platform/udev-override/90-feedbackd.rules: adapted from feedbackd
+  (LGPL-2.1-or-later).
+- userspace/desktop/steam/steam-arm64: an independent reimplementation; the
+  procedure follows ROCKNIX's "Install Steam" script (no code copied).
+  https://github.com/ROCKNIX/distribution/blob/next/projects/ROCKNIX/packages/virtual/emulators/sources/Install%20Steam.sh
+
+
+Not included
+------------
+
+- Firmware. No Lenovo or Qualcomm firmware is stored in this repository or in
+  its releases; it is extracted from the user's own device (firmware/).
+- Valve's Steam client and runtime, the SteamOS-ARM image and distribution
+  base images are downloaded on the user's machine by the builders and are
+  not redistributed here.
+- The screenshots show third-party logos, wallpapers and user interfaces
+  (GNOME, Fedora, Ubuntu, Arch Linux, NixOS, Steam). Those elements belong to
+  their owners and are not covered by this project's licenses.
