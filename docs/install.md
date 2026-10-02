@@ -133,6 +133,8 @@ scripts/kconfig/merge_config.sh -m -O out out/.config \
 make ARCH=arm64 LLVM=1 O=out olddefconfig
 make ARCH=arm64 LLVM=1 O=out -j"$(nproc)" dtbs modules
 make ARCH=arm64 LLVM=1 O=out INSTALL_MOD_PATH="$PWD/mods" modules_install   # → mods/lib/modules/<release>
+# the speaker amplifier driver (out of tree) into mods/lib/modules/<release>/extra/
+make ARCH=arm64 LLVM=1 O=out M="$PWD/../tb323fu-linux/kernel/out-of-tree/aw882xx" CONFIG_SND_SOC_AW882XX=m \n    INSTALL_MOD_PATH="$PWD/mods" modules modules_install
 
 # initramfs (firmware from step 1, hash from step 2)
 ../tb323fu-linux/kernel/initramfs/build.sh -k out -b /path/to/busybox-static \
@@ -148,8 +150,10 @@ Notes:
   names the original build machine's initramfs path.
 - `build-boot.sh` keeps the stock image's header, signature blob and AVB footer layout and only replaces the kernel.
   An image packed with plain `mkbootimg` is rejected by the bootloader.
-- **Speakers:** the aw882xx amplifier driver is an out-of-tree module that is not in this repository yet. Without it
-  the build boots and everything else works, but the speakers stay silent.
+- **Speakers:** the aw882xx amplifier driver is an out-of-tree module
+  ([`kernel/out-of-tree/aw882xx`](../kernel/out-of-tree/aw882xx/)); without it the build boots and everything else
+  works, but the speakers stay silent. `modules_install` with `M=` puts it in `extra/` and runs `depmod`. **[untested]**
+  as written here (the development builds use the same `make … M=… CONFIG_SND_SOC_AW882XX=m` line).
 - Keep `mods/lib/modules/<release>`: every root filesystem needs exactly these modules.
 
 ## 4. Partition a microSD card
