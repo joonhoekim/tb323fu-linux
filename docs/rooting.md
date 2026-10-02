@@ -424,7 +424,7 @@ The full install procedure — firmware, building the boot image, a root partiti
 to the internal storage — is in **[Installing Linux](install.md)**. The points below are a summary.
 
 - Root filesystems: [docs/distros.md](distros.md) lists the systems built with [`rootfs/`](../rootfs/) and booted
-  on the device, and what every root needs (kernel modules, firmware, masked services).
+  on the device, and what every root needs (firmware, masked services; the kernel modules come with the boot image).
 - What works: [docs/hardware-status.md](hardware-status.md).
 - The initramfs brings up a USB serial shell and USB network (`192.168.7.2`) before anything else, shows a boot
   summary on the panel, then switches to the selected root. Holding **volume up** during the summary stays in the
