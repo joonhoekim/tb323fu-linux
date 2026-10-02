@@ -103,6 +103,10 @@ CONFIG_QCOM_ICC_BWMON=y
 # 9-50: the LPASS LPI pin controller (kaanapali.dtsi: sm8750 with the sm8650
 # fallback) -- the RX/TX SoundWire masters to the WCD9395 wait for its pins.
 CONFIG_PINCTRL_SM8650_LPASS_LPI=m
+# ALSA sequencer (MIDI). Fedora's dist-alsa.conf loads snd-seq right after snd-pcm
+# ("install snd-pcm ... && modprobe snd-seq"); without it that modprobe fails and
+# the sound card never appears. Modules only.
+CONFIG_SND_SEQUENCER=m
 # 9-56: /sys/power/pm_test, pm_print_times, pm_debug_messages -- without these
 # a "pm_test" write silently fails and "echo freeze > state" really suspends.
 CONFIG_PM_DEBUG=y
