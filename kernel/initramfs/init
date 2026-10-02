@@ -13,11 +13,13 @@
 #   - the emergency way back to Android (volume up + down held 10 s), when the
 #     image carries /etc/android-boot.sha256 or, failing that, the state
 #     root has /etc/tb323fu/android-boot.sha256 (release images carry no hash)
-#   - loads the few modules that must not be built in (remoteproc PAS for the
+#   - mounts the image's modules squashfs (all modules of this kernel) and
+#     loads the few modules that must not be built in (remoteproc PAS for the
 #     charger/Type-C firmware, the touch driver)
 #   - prints a one-screen summary of the boot on the panel and in the kernel log
-#   - with baldur.end=hold (the normal case): picks a root partition and
-#     switch_roots into it (multiboot, below)
+#   - with baldur.end=hold (the normal case): picks a root partition, moves
+#     the modules mount to its /lib/modules/<release> and switch_roots into it
+#     (multiboot, below)
 #
 # The other endings (baldur.end=panic/reboot, or a panic into the crash dump
 # mode when no root is used) are for bring-up: they end the boot on purpose so
@@ -110,12 +112,40 @@ keys_back_to_android() {
 }
 keys_back_to_android &
 
+# Kernel modules. The image carries ALL modules of this kernel as one squashfs,
+# /lib/modules/<release>.sqfs (build.sh -m; depmod output included, aw882xx in
+# extra/). It is mounted here, the early modules below come from it, and the
+# root selection moves the mount into the chosen root's /lib/modules/<release>
+# before switch_root -- so every root runs exactly the modules of the kernel
+# that booted, and nothing is installed into the roots. (An image built without
+# -m carries only the early modules, as flat files in /lib/modules; each root
+# then needs its own /lib/modules/<release>.)
+rel=$(uname -r)
+modimg=
+if [ -f /lib/modules/$rel.sqfs ]; then
+	mkdir -p /lib/modules/$rel
+	if mount -t squashfs -o ro,loop /lib/modules/$rel.sqfs /lib/modules/$rel 2>/dev/null; then
+		modimg=/lib/modules/$rel
+	else
+		say "modules image /lib/modules/$rel.sqfs does not mount: no shared modules"
+	fi
+fi
+# modload NAME: insmod NAME and what it depends on, by modules.dep (deps are
+# listed last-loaded-first); busybox's small modprobe would scan every module
+modload() {
+	if [ -z "$modimg" ]; then insmod /lib/modules/$1.ko 2>/dev/null; return; fi
+	l=$(grep -m1 -E "(^|/)$1\.ko:" $modimg/modules.dep) || return 1
+	d=; for x in ${l#*:}; do d="$x $d"; done
+	for x in $d ${l%%:*}; do insmod $modimg/$x 2>/dev/null; done
+	return 0
+}
+
 # SoCCP: the charger firmware the bootloader already runs. The PAS driver
 # attaches to it (no firmware load) and its glink edge brings up pmic-glink:
 # battery, USB supply, Type-C. Loaded only after the serial shell is up, so a
 # bad attach still leaves a way in.
 for m in qcom_pil_info qcom_common qcom_sysmon qcom_q6v5 qcom_q6v5_pas; do
-	insmod /lib/modules/$m.ko 2>/dev/null
+	modload $m
 done
 
 # Touch: Novatek's NT36536 driver downloads the firmware into the IC's SRAM
@@ -124,7 +154,7 @@ done
 # Without its firmware here (release images carry none) the probe would fail
 # for good -- the driver does not retry -- so leave the module to the root:
 # udev loads it there (modalias spi:NVT-ts-spi) and it finds the root's firmware.
-[ -f /lib/firmware/novatek/novatek_ts_fw.bin ] && insmod /lib/modules/nt36536_ts.ko 2>/dev/null
+[ -f /lib/firmware/novatek/novatek_ts_fw.bin ] && modload nt36536_ts
 touch_echo() {
 	for i in /sys/class/input/input*; do
 		[ "$(cat $i/name 2>/dev/null)" = NVTCapacitiveTouchScreen ] && ev=$(ls -d $i/event* 2>/dev/null | head -1)
@@ -288,8 +318,9 @@ if [ "$end" = "hold" ]; then
 	# use the same rule. Order tried: boot-next, boot-default, the state
 	# root, then every other candidate in the same order; a root that is
 	# missing, does not mount or has no init is skipped, so a bad choice
-	# falls back by itself. Each root needs its own /lib/modules/$(uname -r)
-	# -- the kernel here is shared by all of them.
+	# falls back by itself. The kernel here is shared by all of them, and so
+	# are its modules: modmove (below) mounts the image's modules on the
+	# chosen root's /lib/modules/<release>.
 	partdev() { for u in /sys/class/block/sd*/uevent /sys/class/block/mmcblk*/uevent; do
 		[ -e $u ] && grep -q "^PARTNAME=$1\$" $u && { echo /dev/$(grep '^DEVNAME=' $u | cut -d= -f2); return 0; }
 		done; return 1; }
@@ -298,6 +329,34 @@ if [ "$end" = "hold" ]; then
 	roots() { for u in /sys/class/block/sd*/uevent /sys/class/block/mmcblk*/uevent; do
 		[ -e $u ] && grep -E '^PARTNAME=(baldur-root|baldur-root-sd|tb323fu-.+)$' $u | cut -d= -f2
 		done | LC_ALL=C sort -u; }
+	# The modules image (mounted at the top) -> <root>/lib/modules/<release>,
+	# with lib/modules resolved inside the root (merged-/usr roots link /lib
+	# to usr/lib; NixOS has no /lib: the empty mount point is harmless there,
+	# its kmod falls back to /lib/modules when its own generation has no
+	# directory for this release). The loop device keeps the image file
+	# alive after switch_root deletes the initramfs. Per root, in
+	# /etc/tb323fu/modules: "own" = no mount, the root carries its own tree
+	# (developers, DKMS); "overlay" is reserved (not implemented: shared).
+	# A root where the mount point cannot be created (read-only) boots
+	# without it and must carry its own tree.
+	modmove() {
+		mm=$(head -n1 /newroot/etc/tb323fu/modules 2>/dev/null | tr -d ' \r\t')
+		md=$(inroot "$(inroot /lib)/modules")
+		if [ "$mm" = own ]; then
+			umount $modimg 2>/dev/null && modimg=
+			if [ -e "/newroot$md/$rel/modules.dep" ]; then say " modules: own tree $md/$rel (/etc/tb323fu/modules = own)"
+			else say " modules: /etc/tb323fu/modules = own, but $1 has no $md/$rel/modules.dep"; fi
+			return
+		fi
+		[ -z "$mm" ] || [ "$mm" = shared ] || say " modules: /etc/tb323fu/modules = $mm is not supported by this image; using the shared modules"
+		if ! mkdir -p "/newroot$md/$rel" 2>/dev/null; then
+			say " modules: cannot create $md/$rel on $1 (read-only?): no shared modules, the root needs its own"
+		elif mount --move $modimg "/newroot$md/$rel"; then
+			modimg=; say " modules: shared image on $md/$rel"
+		else
+			say " modules: moving the image to $md/$rel failed: no shared modules"
+		fi
+	}
 	# UFS and the SD card usually enumerate before /init runs, but look again
 	# for up to 10 s rather than assume it
 	waitfor 100 '[ -n "$(roots)" ]' || say " no root partition (baldur-root, baldur-root-sd, tb323fu-*) after 10 s"
@@ -383,6 +442,7 @@ if [ "$end" = "hold" ]; then
 			elif nixinit; then init=/nix/var/nix/profiles/system/init
 			fi
 			if [ -z "$init" ]; then say " root $name ($rootdev): no init"; umount /newroot; continue; fi
+			[ -n "$modimg" ] && modmove $name
 			why="fallback"; [ "$name" = "$state" ] && why="default"
 			[ "$name" = "$def" ] && why="boot-default"
 			[ "$name" = "$next" ] && why="boot-next"

@@ -3,7 +3,8 @@
 # test-root-selection.sh -- run the root selection of init (the part between
 # ">>> root selection" and "<<< root selection") offline, against fake
 # partitions: a fake /sys/class/block, fake disks (directories) and stubs for
-# mount, umount, switch_root, chroot, kill. Nothing real is mounted.
+# mount, umount, switch_root, chroot, kill. Nothing real is mounted. Also the
+# modules-image move into the chosen root and modload (deps by modules.dep).
 #
 #   sh kernel/initramfs/test-root-selection.sh [SHELL ...]
 #
@@ -43,12 +44,15 @@ grep -q '^# >>> root selection' "$INIT" && grep -q '^# <<< root selection' "$INI
 
 # new case: a fresh tree
 setup() {
+	M=
 	T=$(mktemp -d /tmp/tb323fu-rootsel.XXXXXX)
 	mkdir -p "$T/sys/class/block" "$T/disk" "$T/bin" "$T/tmp" "$T/etc"
 	# stubs (mount understands what init does with it)
 	cat > "$T/bin/mount" <<EOF
 #!/bin/sh
 T=$T
+# the modules image: log where it goes (\$T/movefail: the move fails)
+[ "\$1" = --move ] && [ "\$2" = "\$T/modimg" ] && { echo "MOVE \${3#\$T}" >> "\$T/log"; [ ! -e "\$T/movefail" ]; exit; }
 case " \$* " in *" --move "*|*remount*) exit 0 ;; esac
 eval dir=\\\${\$#}; eval dev=\\\${\$((\$# - 1))}
 n=\${dev#/dev/}
@@ -61,6 +65,7 @@ EOF
 T=$T
 for a; do d=\$a; done
 [ -L "\$d" ] && rm -f "\$d" && echo "umount \${d#\$T}" >> "\$T/log"
+[ "\$d" = "\$T/modimg" ] && echo "umount /modimg" >> "\$T/log"
 exit 0
 EOF
 	cat > "$T/bin/switch_root" <<EOF
@@ -92,6 +97,9 @@ run() { # SHELL
 		echo "T=$T"
 		echo 'say() { echo "SAY $*" >> $T/log; }'
 		echo 'end=hold'
+		# the shared modules image (init mounts it at the top): with M=1
+		echo 'rel=7.3.0-rc4-tb323fu-t99'
+		if [ -n "$M" ]; then mkdir -p "$T/modimg"; echo "modimg=$T/modimg"; else echo 'modimg='; fi
 		# functions win over builtins and busybox applets alike
 		for s in mount umount chroot kill sync usleep; do echo "$s() { $T/bin/$s \"\$@\"; }"; done
 		grep -E '^(hash_ok|waitfor)\(\)' "$INIT"
@@ -222,7 +230,93 @@ file mmcblk0p2 etc/tb323fu/boot-menu ""; file mmcblk0p2 etc/tb323fu/boot-default
 run "$SH"; expect_switch mmcblk0p1 boot-next "menu on the state root, idle: the default"
 expect_log "^SAY  boot menu: tb323fu-ubuntu" "  menu said tb323fu-ubuntu"
 rm -rf "$T"
+
+# the shared modules image: moved into the chosen root's lib/modules
+R=7.3.0-rc4-tb323fu-t99
+moved() { sed -n 's/^MOVE //p' "$T/log" | tr '\n' ' ' | sed 's/ $//'; }
+expect_move() { # WANT DESC
+	[ "$(moved)" = "$1" ] && ok "$2" || { bad "$2: want move '$1', got '$(moved)'"; sed 's/^/        /' "$T/log" "$T/out"; }
+}
+setup; M=1; part sda17 baldur-root init; ln -s usr/lib "$T/disk/sda17/lib"; mkdir -p "$T/disk/sda17/usr/lib/modules"
+run "$SH"; expect_switch sda17 default "modules: merged /usr (lib -> usr/lib)"
+expect_move "/newroot/usr/lib/modules/$R" "  image on /usr/lib/modules/<release>"
+[ -d "$T/disk/sda17/usr/lib/modules/$R" ] && ok "  mount point created" || bad "  no mount point"
+expect_log "^SAY  modules: shared image on /usr/lib/modules/$R" "  said so"
+rm -rf "$T"
+
+setup; M=1; part mmcblk0p3 tb323fu-arch init; ln -s /usr/lib "$T/disk/mmcblk0p3/lib"; mkdir -p "$T/disk/mmcblk0p3/usr/lib"
+run "$SH"; expect_move "/newroot/usr/lib/modules/$R" "modules: absolute /lib -> /usr/lib resolved inside the root"
+[ ! -e "/usr/lib/modules/$R" ] && ok "  nothing created on the host" || bad "  created on the host"
+rm -rf "$T"
+
+setup; M=1; part mmcblk0p5 tb323fu-nixos; mkdir -p "$T/disk/mmcblk0p5/nix/var/nix/profiles/system"
+printf '#!/bin/sh\n' > "$T/disk/mmcblk0p5/nix/var/nix/profiles/system/init"; chmod +x "$T/disk/mmcblk0p5/nix/var/nix/profiles/system/init"
+run "$SH"; expect_move "/newroot/lib/modules/$R" "modules: NixOS (no /lib): /lib/modules/<release> created"
+grep -q "^SWITCH mmcblk0p5 /nix/var/nix/profiles/system/init" "$T/log" && ok "  NixOS init" || bad "  NixOS init"
+rm -rf "$T"
+
+setup; M=1; part sda17 baldur-root init; file sda17 etc/tb323fu/modules own; file sda17 "lib/modules/$R/modules.dep" ""
+run "$SH"; expect_move "" "modules: own mode: not moved"
+expect_log "^umount /modimg" "  image unmounted"
+expect_log "^SAY  modules: own tree /lib/modules/$R" "  said so"
+expect_switch sda17 default "  still boots"
+rm -rf "$T"
+
+setup; M=1; part sda17 baldur-root init; file sda17 etc/tb323fu/modules own
+run "$SH"; expect_log "^SAY  modules: /etc/tb323fu/modules = own, but baldur-root has no /lib/modules/$R/modules.dep" "modules: own mode without a tree: said so"
+rm -rf "$T"
+
+setup; M=1; part sda17 baldur-root init; file sda17 etc/tb323fu/modules overlay
+run "$SH"; expect_move "/newroot/lib/modules/$R" "modules: overlay (not implemented): shared"
+expect_log "^SAY  modules: /etc/tb323fu/modules = overlay is not supported" "  said so"
+rm -rf "$T"
+
+setup; M=1; part sda17 baldur-root init; : > "$T/disk/sda17/lib"
+run "$SH"; expect_move "" "modules: mount point cannot be created: not moved"
+expect_log "^SAY  modules: cannot create /lib/modules/$R on baldur-root" "  said so"
+expect_switch sda17 default "  still boots"
+rm -rf "$T"
+
+setup; M=1; part sda17 baldur-root init; : > "$T/movefail"
+run "$SH"; expect_log "^SAY  modules: moving the image to /lib/modules/$R failed" "modules: move fails: said so"
+expect_switch sda17 default "  still boots"
+rm -rf "$T"
+
+setup; M=1; part sda17 baldur-root; part mmcblk0p1 baldur-root-sd init; mkdir -p "$T/disk/mmcblk0p1/usr/lib"; ln -s usr/lib "$T/disk/mmcblk0p1/lib"
+run "$SH"; expect_move "/newroot/usr/lib/modules/$R" "modules: only the root that boots gets it (fallback past no init)"
+[ ! -e "$T/disk/sda17/lib/modules/$R" ] && ok "  nothing created on the skipped root" || bad "  mount point on the skipped root"
+rm -rf "$T"
+
+setup; part sda17 baldur-root init
+run "$SH"; expect_move "" "modules: image without a modules squashfs: nothing moved"
+grep -q "modules:" "$T/log" && bad "  modules message without an image" || ok "  no modules message"
+[ ! -e "$T/disk/sda17/lib" ] && ok "  nothing created" || bad "  created lib/"
+rm -rf "$T"
 done
 
+
+# modload (top of init): a module and its dependencies from the modules image,
+# by modules.dep -- dependencies first, in reverse order of the list
+for SH in "$@"; do
+echo "== $SH: modload"
+T=$(mktemp -d /tmp/tb323fu-modload.XXXXXX); mkdir -p "$T/m"
+d=kernel/drivers
+cat > "$T/m/modules.dep" <<EOF
+$d/remoteproc/qcom_q6v5_pas.ko: $d/remoteproc/qcom_q6v5.ko $d/remoteproc/qcom_sysmon.ko $d/remoteproc/qcom_common.ko $d/soc/qcom/qcom_pil_info.ko
+$d/soc/qcom/qcom_pil_info.ko:
+$d/input/touchscreen/nt36536_ts.ko:
+EOF
+{
+	echo "insmod() { echo \"\${1#$T/m/}\" >> $T/log; }"
+	echo "modimg=$T/m"
+	sed -n '/^modload() {/,/^}/p' "$INIT"
+	echo "modload qcom_q6v5_pas; modload q6v5_pas || echo 'not found' >> $T/log; modload nt36536_ts"
+} > "$T/run.sh"
+PATH=$PATH $SH "$T/run.sh" > "$T/out" 2>&1
+want="$d/soc/qcom/qcom_pil_info.ko $d/remoteproc/qcom_common.ko $d/remoteproc/qcom_sysmon.ko $d/remoteproc/qcom_q6v5.ko $d/remoteproc/qcom_q6v5_pas.ko not found $d/input/touchscreen/nt36536_ts.ko"
+got=$(tr '\n' ' ' < "$T/log" | sed 's/ $//')
+[ "$got" = "$want" ] && ok "deps first, whole names only, no deps" || { bad "modload: got '$got'"; cat "$T/out"; }
+rm -rf "$T"
+done
 echo "$((runs - fails))/$runs passed"
 [ $fails -eq 0 ]

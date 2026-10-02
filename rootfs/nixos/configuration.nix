@@ -7,7 +7,11 @@
 # generation is the one that boots (roll back with
 # `nix-env -p /nix/var/nix/profiles/system --rollback`).
 #
-# Everything device-specific (the kernel's modules and configuration, firmware,
+# Kernel modules come from the boot image: its initramfs mounts them on
+# /lib/modules/<release> (shared modules), and the kernel package here is a
+# stub without modules (packaging/nix/prebuilt-kernel.nix), so a kernel update
+# needs no rebuild. Everything device-specific (the kernel's configuration,
+# optionally its modules for an "own"-mode root, firmware,
 # sensor files, SSH keys, password hashes) is set through the tb323fu.rootfs.*
 # options by a local.nix that build-rootfs.sh writes outside this repository.
 { config, lib, pkgs, ... }:
@@ -30,8 +34,16 @@ in {
       description = "GPT partition name of the root filesystem.";
     };
     kernel.modules = mkOption {
-      type = types.path;
-      description = "A copy of /lib/modules/<version> of the kernel in the boot image (its name is the version).";
+      type = types.nullOr types.path;
+      default = null;
+      description = ''
+        null (default): shared modules -- the boot image's initramfs mounts its
+        modules on /lib/modules/<release> and NixOS's kmod falls through to it
+        (the generation holds a stub). A path: a copy of /lib/modules/<version>
+        of the kernel in the boot image (its name is the version), for a root
+        with "own" in /etc/tb323fu/modules or an image without the modules
+        squashfs; then every kernel change needs a rebuild.
+      '';
     };
     kernel.config = mkOption {
       type = types.nullOr types.path;

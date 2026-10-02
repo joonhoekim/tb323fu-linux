@@ -17,7 +17,15 @@
 #                         (readable on 1904x3040; the kernel's fonts are small)
 # /proc /sys /sys/fs/pstore  mount points
 #
-# /lib/modules/*.ko       from the kernel build, debug info stripped. Modules on
+# /lib/modules/<release>.sqfs  with build.sh -m (shared modules): ALL modules of
+#                         this kernel (make modules_install INSTALL_MOD_STRIP=1,
+#                         aw882xx in extra/, depmod output), squashfs xz. init
+#                         mounts it on /lib/modules/<release> (dir in the image),
+#                         loads the early modules below from it by modules.dep,
+#                         and moves the mount into the chosen root before
+#                         switch_root. The roots carry no modules of their own.
+# /lib/modules/*.ko       without -m: only the early modules, flat, from the
+#                         kernel build, debug info stripped. Modules on
 #                         purpose, loaded by init after the USB shell is up:
 #   qcom_pil_info qcom_common qcom_sysmon qcom_q6v5 qcom_q6v5_pas
 #                         remoteproc PAS: attaches to the charger firmware

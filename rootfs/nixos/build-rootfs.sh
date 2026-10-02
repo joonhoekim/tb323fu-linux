@@ -7,7 +7,7 @@
 #   sh build-rootfs.sh TARGET_DIR
 #
 # It writes a device-local flake to WORK -- outside this repository, because it
-# holds this device's kernel modules, firmware, sensor files, SSH keys and
+# holds this device's firmware, sensor files, SSH keys and
 # password hash -- that combines this repository's nixosModules.rootfs
 # (configuration.nix next to this file) with a generated local.nix, builds the
 # system and runs `nixos-install --no-bootloader` from it. WORK stays usable
@@ -22,7 +22,12 @@
 #   REPO=<this checkout>            this repository; the flake input is git+file:
 #                                   (committed files only) for a git checkout, else path:
 #   REPO_URL=                       override the flake URL of this repository
-#   MODULES_FROM=/lib/modules/$(uname -r)   kernel modules of the kernel that will boot it
+#   MODULES_FROM=                   empty (default): shared modules -- the boot image's
+#                                   initramfs mounts its modules on /lib/modules/<release>
+#                                   and the system holds a kernel stub, so kernel updates
+#                                   need no rebuild. A directory (e.g. /lib/modules/$(uname -r)):
+#                                   copy those modules into the system instead, for a root
+#                                   with "own" in /etc/tb323fu/modules (rebuild per kernel)
 #   KCONFIG_FROM=/proc/config.gz    that kernel's configuration (gzip or plain)
 #   FIRMWARE_FROM=/lib/firmware     qcom/ ath12k/ qca/ novatek/ (and aw882xx_acf.bin) from here
 #   SENSORS_FROM=                   sensor hub files for hexagonrpcd (dsp/ sensors/ socinfo/,
@@ -53,7 +58,7 @@ HOSTNAME_NEW=${HOSTNAME_NEW:-$ROOT_PARTLABEL}
 DESKTOP=${DESKTOP:-gnome}
 WORK=${WORK:-/root/nixos-tb323fu}
 REPO=${REPO:-$here}
-MODULES_FROM=${MODULES_FROM:-/lib/modules/$(uname -r)}
+MODULES_FROM=${MODULES_FROM:-}
 KCONFIG_FROM=${KCONFIG_FROM:-/proc/config.gz}
 FIRMWARE_FROM=${FIRMWARE_FROM:-/lib/firmware}
 SENSORS_FROM=${SENSORS_FROM:-}
@@ -73,15 +78,19 @@ nixstr() { printf '"%s"' "$(printf '%s' "$1" | sed 's/[\\"$]/\\&/g')"; }
 mountpoint -q "$T" || { echo "$T is not a mount point"; exit 1; }
 [ "$(uname -m)" = aarch64 ] || { echo "run this on an arm64 host"; exit 1; }
 command -v nix > /dev/null || { echo "needs nix"; exit 1; }
-[ -d "$MODULES_FROM" ] || { echo "no kernel modules at $MODULES_FROM"; exit 1; }
+[ -z "$MODULES_FROM" ] || [ -d "$MODULES_FROM" ] || { echo "no kernel modules at $MODULES_FROM"; exit 1; }
 
 # 1. the device-local flake: copies of what must not go into git
 say "device-local flake in $WORK"
-v=$(basename "$MODULES_FROM")
 mkdir -p "$WORK/kernel/modules"
 rm -rf "$WORK/kernel/modules"/*
-cp -a "$MODULES_FROM" "$WORK/kernel/modules/$v"
-rm -f "$WORK/kernel/modules/$v/build" "$WORK/kernel/modules/$v/source"
+kmods=null
+if [ -n "$MODULES_FROM" ]; then
+	v=$(basename "$MODULES_FROM")
+	cp -a "$MODULES_FROM" "$WORK/kernel/modules/$v"
+	rm -f "$WORK/kernel/modules/$v/build" "$WORK/kernel/modules/$v/source"
+	kmods="./kernel/modules + $(nixstr "/$v")"
+fi
 kconfig=null
 if [ -e "$KCONFIG_FROM" ]; then
 	case $KCONFIG_FROM in *.gz) gzip -dc "$KCONFIG_FROM" ;; *) cat "$KCONFIG_FROM" ;; esac > "$WORK/kernel/config"
@@ -115,7 +124,7 @@ cat > "$WORK/local.nix" <<EOF
 { ... }: {
   tb323fu.rootfs = {
     partlabel = $(nixstr "$ROOT_PARTLABEL");
-    kernel.modules = ./kernel/modules + $(nixstr "/$v");
+    kernel.modules = $kmods;
     kernel.config = $kconfig;
     firmware = $fw;
     desktop = $(nixstr "$DESKTOP");

@@ -4,10 +4,19 @@
 # built in, CONFIG_INITRAMFS_SOURCE) from this directory, a kernel build and a
 # few third-party files that are not stored in this repository.
 #
-#   kernel/initramfs/build.sh -k KBUILD_OUT -b BUSYBOX [-f FIRMWARE_ROOT] [options] OUT.cpio.gz
+#   kernel/initramfs/build.sh -k KBUILD_OUT -b BUSYBOX [-m MODULES_DIR] [-f FIRMWARE_ROOT] [options] OUT.cpio.gz
 #
-#   -k  kernel build directory (make O=...): the modules below and
-#       usr/gen_init_cpio come from it (build the modules first: make modules)
+#   -k  kernel build directory (make O=...): usr/gen_init_cpio and (without
+#       -m) the early modules come from it (build the modules first: make modules)
+#   -m  the kernel's whole installed modules tree, MODULES_DIR =
+#       <INSTALL_MOD_PATH>/lib/modules/<release> (make modules_install
+#       INSTALL_MOD_STRIP=1, out-of-tree modules in extra/, depmod -b run:
+#       modules.dep must be there). It goes into the image as one squashfs,
+#       /lib/modules/<release>.sqfs (xz; needs mksquashfs), which init mounts
+#       and moves into the chosen root: the roots then need no modules of
+#       their own (shared modules, docs/notes/kernel-updates-design.md).
+#       Without -m only the early modules are copied, flat into /lib/modules,
+#       and every root needs its own /lib/modules/<release>.
 #   -b  a STATIC aarch64 busybox (e.g. Debian's busybox-static, /bin/busybox;
 #       the tested one is BusyBox 1.36.1). Needs the applets init uses:
 #       sh, mount, insmod, setfont, watchdog, telnetd, usleep, switch_root, ...
@@ -38,13 +47,13 @@
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$here/../.." && pwd)
-kout= busybox= fwroot= regdb=/lib/firmware android= font= cc= list=
-while getopts k:b:f:r:a:F:c:l: o; do case $o in
-	k) kout=$OPTARG ;; b) busybox=$OPTARG ;; f) fwroot=$OPTARG ;; r) regdb=$OPTARG ;;
+kout= busybox= moddir= fwroot= regdb=/lib/firmware android= font= cc= list=
+while getopts k:b:m:f:r:a:F:c:l: o; do case $o in
+	k) kout=$OPTARG ;; b) busybox=$OPTARG ;; m) moddir=$OPTARG ;; f) fwroot=$OPTARG ;; r) regdb=$OPTARG ;;
 	a) android=$OPTARG ;; F) font=$OPTARG ;; c) cc=$OPTARG ;; l) list=$OPTARG ;;
-	*) sed -n '4,36p' "$0"; exit 2 ;; esac; done
+	*) sed -n '4,44p' "$0"; exit 2 ;; esac; done
 shift $((OPTIND - 1)); out=${1:?output .cpio.gz}
-[ -n "$kout" ] && [ -n "$busybox" ] || { sed -n '4,36p' "$0"; exit 2; }
+[ -n "$kout" ] && [ -n "$busybox" ] || { sed -n '4,44p' "$0"; exit 2; }
 if [ -z "$cc" ]; then
 	if [ "$(uname -m)" = aarch64 ]; then cc=cc; else cc=aarch64-linux-gnu-gcc; fi
 fi
@@ -60,12 +69,29 @@ cp "$repo/android/back-to-android" "$st/back-to-android"
 "$cc" -static -O2 -I"$kout/usr/include" -o "$st/gpu-probe" "$here/gpu-probe.c" 2>/dev/null \
 	|| { echo "gpu-probe not built (needs: make O=$kout headers_install); the summary skips it" >&2; rm -f "$st/gpu-probe"; }
 
-# kernel modules that stay modules on purpose (see README.md)
-for m in qcom_pil_info qcom_common qcom_sysmon qcom_q6v5 qcom_q6v5_pas nt36536_ts; do
-	f=$(find "$kout" -name "$m.ko" -print -quit)
-	[ -n "$f" ] || { echo "missing $m.ko in $kout (make modules)" >&2; exit 1; }
-	cp "$f" "$st/modules/"; "$strip" --strip-debug "$st/modules/$m.ko" 2>/dev/null || true
-done
+# kernel modules that stay modules on purpose (see README.md): init loads them
+early="qcom_pil_info qcom_common qcom_sysmon qcom_q6v5 qcom_q6v5_pas nt36536_ts"
+rel=
+if [ -n "$moddir" ]; then
+	# -m: the whole tree as one squashfs (init mounts it and modloads from it)
+	moddir=$(cd "$moddir" && pwd); rel=${moddir##*/}
+	[ -s "$moddir/modules.dep" ] || { echo "no $moddir/modules.dep (run depmod -b on the installed tree)" >&2; exit 1; }
+	for m in $early; do
+		grep -q -E "(^|/)$m\.ko:" "$moddir/modules.dep" || { echo "$m.ko is not in $moddir/modules.dep" >&2; exit 1; }
+	done
+	for l in build source; do [ -e "$moddir/$l" ] || [ -L "$moddir/$l" ] && { echo "$moddir/$l: remove the build tree links first" >&2; exit 1; }; done
+	command -v mksquashfs >/dev/null || { echo "needs mksquashfs (squashfs-tools)" >&2; exit 1; }
+	# fixed times: the same tree gives the same image
+	mksquashfs "$moddir" "$st/modules.sqfs" -comp xz -all-root -no-xattrs -noappend -quiet \
+		-mkfs-time 0 -all-time 0 > /dev/null
+	echo "modules image: $rel.sqfs, $(find "$moddir" -name '*.ko' | wc -l) modules, $(stat -c %s "$st/modules.sqfs") bytes" >&2
+else
+	for m in $early; do
+		f=$(find "$kout" -name "$m.ko" -print -quit)
+		[ -n "$f" ] || { echo "missing $m.ko in $kout (make modules)" >&2; exit 1; }
+		cp "$f" "$st/modules/"; "$strip" --strip-debug "$st/modules/$m.ko" 2>/dev/null || true
+	done
+fi
 
 # third-party: busybox, font, firmware, regulatory database
 cp "$busybox" "$st/busybox"
@@ -106,7 +132,8 @@ L="$st/initramfs.list"
 	echo "nod /dev/console 0600 0 0 c 5 1"
 	echo "file /font.psf $st/font.psf 0644 0 0"
 	for d in /proc /sys /sys/fs /sys/fs/pstore /lib /lib/modules; do echo "dir $d 0755 0 0"; done
-	for m in "$st"/modules/*.ko; do echo "file /lib/modules/${m##*/} $m 0644 0 0"; done
+	for m in "$st"/modules/*.ko; do [ -e "$m" ] && echo "file /lib/modules/${m##*/} $m 0644 0 0"; done
+	[ -n "$rel" ] && echo "dir /lib/modules/$rel 0755 0 0" && echo "file /lib/modules/$rel.sqfs $st/modules.sqfs 0644 0 0"
 	(cd "$st/fw" && find . -type d | sed 's|^\.||' | sort) | while read -r d; do echo "dir /lib/firmware$d 0755 0 0"; done
 	(cd "$st/fw" && find . -type f | sed 's|^\./||' | sort) | while read -r f; do echo "file /lib/firmware/$f $st/fw/$f 0644 0 0"; done
 } > "$L"
