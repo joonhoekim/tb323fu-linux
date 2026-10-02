@@ -5,7 +5,6 @@ Subject: [PATCH 10/56] drm/msm/adreno: A840: drop IFPC quirk for Infiniti
  bring-up
 
 Signed-off-by: idusergod <artem.martyanov06@gmail.com>
-y705-source: 0004-drm-msm-adreno-A840-drop-IFPC-quirk-for-Infiniti-bri.patch
 ---
  drivers/gpu/drm/msm/adreno/a6xx_catalog.c | 5 ++---
  1 file changed, 2 insertions(+), 3 deletions(-)

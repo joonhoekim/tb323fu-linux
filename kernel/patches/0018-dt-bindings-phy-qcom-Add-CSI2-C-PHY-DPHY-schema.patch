@@ -16,7 +16,7 @@ Reviewed-by: Krzysztof Kozlowski <krzysztof.kozlowski@oss.qualcomm.com>
 Link: https://patch.msgid.link/20260917-x1e-csi2-phy-v18-1-6515b5255fa9@linaro.org
 Signed-off-by: Vinod Koul <vkoul@kernel.org>
 
-[y705 rebase 7.3: file taken from next-20260925 (commit is at the shallow boundary)]
+[rebased onto 7.3: file taken from next-20260925 (commit is at the shallow boundary)]
 ---
  .../bindings/phy/qcom,x1e80100-csi2-phy.yaml  | 209 ++++++++++++++++++
  1 file changed, 209 insertions(+)

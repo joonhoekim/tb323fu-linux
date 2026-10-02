@@ -3,7 +3,7 @@ From: joonhoekim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:27:40 +0000
 Subject: [PATCH 30/56] Bluetooth: qca: WCN7860 (BRAHMA) on the WCN7850 flow
 
-For y705-mainline-plan.md 9-31. From infiniti-mainline/linux fecd7925d
+From infiniti-mainline/linux fecd7925d
 (EYC, OnePlus 15), placed by hand on this tree (two hunks did not apply):
 the WCN6750 patch-config prelude for QCA_WCN7850, an ELF (.mbn) rampatch
 from DT, the drain before the final ELF segment, and the peripheral
@@ -13,8 +13,6 @@ On TB323FU with this chip's own firmware (/vendor/bt_firmware/image):
 "QCA FW build version: BTFW.BRAHMA.2.0.1-00238 ... QCA setup on UART is
 completed" at 3.2 Mbps. The TLV rampatch from the same partition times out
 on its first segment with the stock flow.
-
-y705-source: 0013-bluetooth-qca-wcn7860-brahma.patch
 ---
  drivers/bluetooth/btqca.c   | 30 ++++++++++++-
  drivers/bluetooth/hci_qca.c | 89 ++++++++++++++++++++++++++++++++++++-

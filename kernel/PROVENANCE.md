@@ -29,30 +29,30 @@ column names the source; see that tree's history for the individual authors.
 | `0004` | arm64: dts: qcom: kaanapali: Add GPU cooling | Gaurav Kohli | qcom tree `arm64-for-7.4` (kaanapali GPU DT v3, Link: in patch) | upstream (queued for v7.4) | `1674574f14593262` |
 | `0005` | arm64: dts: qcom: kaanapali-mtp: Enable GPU | Akhil P Oommen | qcom tree `arm64-for-7.4` (kaanapali GPU DT v3, Link: in patch) | upstream (queued for v7.4) | `3541b3db577bac30` |
 | `0006` | arm64: dts: qcom: kaanapali-qrd: Enable GPU | Akhil P Oommen | qcom tree `arm64-for-7.4` (kaanapali GPU DT v3, Link: in patch) | upstream (queued for v7.4) | `01c93e8d2c936217` |
-| `0007` | drm/msm: DPU, DSI and MDSS fixes for AA601 cmd-mode DSC | idusergod | community [kaanapali-mainline](https://github.com/kaanapali-mainline/linux) testing `b6eab7f0e8` (partial) | community, not upstream | `9ac8edf8c34ced85` |
-| `0008` | drm/msm: cmd-mode DSC 1.2 fixes for DPU 13 (Kaanapali) | EYC | community kaanapali-mainline `144a400716` | community, not upstream | `25ac8cf324780678` |
-| `0009` | clk: qcom: dispcc-kaanapali: solve display artifacts at start | Nazar Kompanets | community kaanapali-mainline `6ba50855c6` | community, not upstream | `8bce12997f57965c` |
-| `0010` | drm/msm/adreno: A840: drop IFPC quirk for Infiniti bring-up | idusergod | community kaanapali-mainline `6a4127a8cd` (reverted by 0080) | community; net no-op with 0080 | `931fe187f8ad3cb8` |
-| `0011` | arm64: configs: add kaanapali-oneplus-infiniti_defconfig fragment | idusergod | community kaanapali-mainline `37a7606647` (defconfig fragment) | community; base of the baldur fragment | `4a8291cd05182f6c` |
+| `0007` | drm/msm: DPU, DSI and MDSS fixes for AA601 cmd-mode DSC | idusergod | community [kaanapali-mainline](https://github.com/kaanapali-mainline/linux) testing `b6eab7f0e8` (partial) | community, not upstream | `c90ec49a2c3462de` |
+| `0008` | drm/msm: cmd-mode DSC 1.2 fixes for DPU 13 (Kaanapali) | EYC | community kaanapali-mainline `144a400716` | community, not upstream | `e70b468bd1be7d7f` |
+| `0009` | clk: qcom: dispcc-kaanapali: solve display artifacts at start | Nazar Kompanets | community kaanapali-mainline `6ba50855c6` | community, not upstream | `f3110b92e9f6f3a0` |
+| `0010` | drm/msm/adreno: A840: drop IFPC quirk for Infiniti bring-up | idusergod | community kaanapali-mainline `6a4127a8cd` (reverted by 0080) | community; net no-op with 0080 | `675b0d64259a293b` |
+| `0011` | arm64: configs: add kaanapali-oneplus-infiniti_defconfig fragment | idusergod | community kaanapali-mainline `37a7606647` (defconfig fragment) | community; base of the baldur fragment | `97d2680233290042` |
 | `0012` | scsi: ufs: ufs-qcom: Enable only lane clocks in lane clock APIs | Nitin Rawat | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `f3343cbe58f236e9` |
 | `0013` | phy: qcom-mipi-csi2: Add a CSI2 MIPI DPHY driver | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `8e7938167b0d106d` |
 | `0014` | phy: core: Fix race-condition between _of_phy_get() and try_module_get() | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `2f0487131f392c19` |
 | `0015` | phy: core: Add phy_get_by_of_node() | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `c550554888abf161` |
 | `0016` | phy: core: Add devm_phy_get_by_of_node() | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `644f6ad80e7c4e50` |
 | `0017` | phy: core: Add missing kerneldoc colon in two locations | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `5cfc4b0ebbd9695b` |
-| `0018` | dt-bindings: phy: qcom: Add CSI2 C-PHY/DPHY schema | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `88335aa812c5c110` |
+| `0018` | dt-bindings: phy: qcom: Add CSI2 C-PHY/DPHY schema | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `67214dbf7d621bf0` |
 | `0019` | arm64: dts: qcom: kaanapali: add the second DSI controller and PHY | joonhoekim | this project | local | `e14bf5ad358920d6` |
 | `0020` | drm/panel: nt36523: add DSC, and the Lenovo TB323FU CSOT panel | joonhoekim | this project | local | `2148317b62e444e4` |
 | `0021` | arm64: carry a devicetree inside the kernel image | joonhoekim | this project | local (built-in DTB; bootloader workaround) | `57ed051b50008aab` |
 | `0022` | arm64: paint boot progress marks into the bootloader's framebuffer | joonhoekim | this project | local (debug: boot progress marks) | `f34bd0d5e38e6f7a` |
 | `0023` | drm/msm: video-mode DSC at 10 bpc -- make DSI and the DPU INTF agree on the line | joonhoekim | this project | local | `e898d60978c91560` |
-| `0024` | wifi: ath12k + PCI/pwrctrl: WCN7860 ("peach", 17cb:110e) | joonhoekim | [infiniti-mainline](https://github.com/infiniti-mainline/linux) `oneplus-15`, several authors, imported squashed (From: is the importer) | community, not upstream | `1412ff954c31d01e` |
-| `0025` | Input: touchscreen: import NT36536 host-download SPI driver (Novatek) | joonhoekim | [map220v/sm8850-mainline](https://github.com/map220v/sm8850-mainline) `iceland-7.2` (Novatek vendor driver, verbatim) | out of tree, not upstreamable | `82b01bcce08b5a8d` |
+| `0024` | wifi: ath12k + PCI/pwrctrl: WCN7860 ("peach", 17cb:110e) | joonhoekim | [infiniti-mainline](https://github.com/infiniti-mainline/linux) `oneplus-15`, several authors, imported squashed (From: is the importer) | community, not upstream | `5e6d4dd8b6e312b2` |
+| `0025` | Input: touchscreen: import NT36536 host-download SPI driver (Novatek) | joonhoekim | [map220v/sm8850-mainline](https://github.com/map220v/sm8850-mainline) `iceland-7.2` (Novatek vendor driver, verbatim) | out of tree, not upstreamable | `60db52d313383afd` |
 | `0026` | input: touchscreen: NT36536 host-download SPI driver (Novatek) | joonhoekim | this project | local | `f282333bdf1ec787` |
 | `0027` | input: nt36536: fixes for TB323FU | joonhoekim | this project | local | `8295fb8a601f0828` |
 | `0028` | backlight: aw99706: replay board registers after the HWEN reset | joonhoekim | this project | local | `669cd8efd24602c5` |
-| `0029` | iommu: arm-smmu-qcom: kaanapali MDSS identity domain | EYC | community / infiniti-mainline (EYC) | community, not upstream | `98325a0a17611918` |
-| `0030` | Bluetooth: qca: WCN7860 (BRAHMA) on the WCN7850 flow | joonhoekim | infiniti-mainline `fecd7925d` (EYC; From: is the importer) | community, not upstream | `f14da6306a25551d` |
+| `0029` | iommu: arm-smmu-qcom: kaanapali MDSS identity domain | EYC | community / infiniti-mainline (EYC) | community, not upstream | `a85b5d13de911cd1` |
+| `0030` | Bluetooth: qca: WCN7860 (BRAHMA) on the WCN7850 flow | joonhoekim | infiniti-mainline `fecd7925d` (EYC; From: is the importer) | community, not upstream | `bd8ea9dd50ad74c9` |
 | `0031` | arm64: dts: qcom: kaanapali: CPU6-7 in a PSCI cluster domain of their own | joonhoekim | this project | local | `842ef62d7a54d5e3` |
 | `0032` | drm/msm/dsi: phy: prepare the iface clock only while runtime active | joonhoekim | this project | local | `431db9c93144e5da` |
 | `0033` | power: supply: qcom_battmgr: let the host set the USB input current limit | joonhoekim | this project | local | `603833e12474aa61` |
@@ -61,9 +61,9 @@ column names the source; see that tree's history for the individual authors.
 | `0036` | usb: gadget: f_ncm: restart the TX timer when the freelist is empty | joonhoekim | this project | local | `4384718b5e07ffdd` |
 | `0037` | ASoC: codecs: wcd939x: read the ADC/DMIC switches per channel | joonhoekim | this project | local | `bd8da5b429e03dd4` |
 | `0038` | Input: aw86927 - accept the AW86937 | joonhoekim | this project | local | `739a07ea6f1ceb4b` |
-| `0039` | y705 0025-pmic5-gen4-adc: mailing-list series (squashed) | joonhoekim | mailing list: PMIC5 Gen4 ADC series (Jishnu Prakash), squashed | pending upstream | `334c82260a9ba2b2` |
-| `0040` | y705 0027-media-qcom-camss-kaanapali-v16: mailing-list series (squashed) | joonhoekim | mailing list: CAMSS kaanapali v16 (Hangxiang Ma), squashed | pending upstream | `efb27f723d4158bc` |
-| `0041` | y705 0028-media-i2c-s5kjn5-v4: mailing-list series (squashed) | joonhoekim | mailing list: S5KJN5 sensor v4 (Wenmeng Liu), squashed | pending upstream | `f63d8a5a32647955` |
+| `0039` | pmic5-gen4-adc: mailing-list series (squashed) | joonhoekim | mailing list: PMIC5 Gen4 ADC series (Jishnu Prakash), squashed | pending upstream | `8226529be24f4236` |
+| `0040` | media-qcom-camss-kaanapali-v16: mailing-list series (squashed) | joonhoekim | mailing list: CAMSS kaanapali v16 (Hangxiang Ma), squashed | pending upstream | `7b2d13ae583fc167` |
+| `0041` | media-i2c-s5kjn5-v4: mailing-list series (squashed) | joonhoekim | mailing list: S5KJN5 sensor v4 (Wenmeng Liu), squashed | pending upstream | `7d45c64a7d3e1c93` |
 | `0042` | media: qcom: camss: Add support for PHY API devices | Bryan O'Donoghue | mailing list: camss PHY API series 4/5 (Bryan O'Donoghue) | pending upstream | `b10dc4cce7742860` |
 | `0043` | media: qcom: camss: Use data-lanes starting at 1 for new CSIPHY mode | Bryan O'Donoghue | mailing list: camss PHY API series 5/5 (Bryan O'Donoghue) | pending upstream | `36389bd9fd734fa3` |
 | `0044` | pinctrl: qcom: kaanapali: add the I2C strong pull-up bit | joonhoekim | this project | local | `df563b612fd3824d` |

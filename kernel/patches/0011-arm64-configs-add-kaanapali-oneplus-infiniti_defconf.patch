@@ -8,7 +8,6 @@ Config fragment for OnePlus 15 on top of the arm64 defconfig. Apply with
 merge_config.sh -m, then olddefconfig.
 
 Signed-off-by: idusergod <artem.martyanov06@gmail.com>
-y705-source: 0005-arm64-configs-add-kaanapali-oneplus-infiniti_defconf.patch
 ---
  .../kaanapali-oneplus-infiniti_defconfig      | 873 ++++++++++++++++++
  1 file changed, 873 insertions(+)

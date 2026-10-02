@@ -5,7 +5,6 @@ Subject: [PATCH 29/56] iommu: arm-smmu-qcom: kaanapali MDSS identity domain
 
 Match the kaanapali MDSS so the display SMMU keeps the bootloader's
 identity mapping during takeover.
-y705-source: 0011-iommu-arm-smmu-qcom-kaanapali-mdss-identity.patch
 ---
  drivers/iommu/arm/arm-smmu/arm-smmu-qcom.c | 1 +
  1 file changed, 1 insertion(+)

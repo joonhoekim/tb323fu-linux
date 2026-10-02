@@ -4,7 +4,7 @@ Date: Sat, 26 Sep 2026 01:26:59 +0000
 Subject: [PATCH 24/56] wifi: ath12k + PCI/pwrctrl: WCN7860 ("peach",
  17cb:110e)
 
-For y705-mainline-plan.md 9-23. Not upstream; carried from the OnePlus 15
+Not upstream; carried from the OnePlus 15
 port (infiniti-mainline/linux, branch oneplus-15), which has the same chip:
 
 - 9cb8273bc "wifi: ath12k: add initial hardware definition for WCN7860"
@@ -18,11 +18,10 @@ port (infiniti-mainline/linux, branch oneplus-15), which has the same chip:
 - 348ad77eb "PCI/pwrctrl: pwrseq: add support for WCN7860": the pwrctrl
   driver must match pci17cb,110e or the host waits for it forever.
 
-On TB323FU the chip does not enumerate yet (see the plan); these compile
+On TB323FU the chip does not enumerate yet; these compile
 and the host bridge comes up.
 
-[y705 rebase 7.3: applied with fuzz (7.3 context: new QCC2072/IPQ5424 enum entries, qmi.c/qmi.h shifted)]
-y705-source: 0007-wifi-ath12k-wcn7860.patch
+[rebased onto 7.3: applied with fuzz (7.3 context: new QCC2072/IPQ5424 enum entries, qmi.c/qmi.h shifted)]
 ---
  drivers/net/wireless/ath/ath12k/core.h      |   1 +
  drivers/net/wireless/ath/ath12k/hw.h        |   1 +

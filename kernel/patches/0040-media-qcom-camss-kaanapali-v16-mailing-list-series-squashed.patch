@@ -1,8 +1,8 @@
 From 43e7a11a9c1a8e4c7d23ae4d16c1b7ee79d8b858 Mon Sep 17 00:00:00 2001
 From: joonhoekim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:30:28 +0000
-Subject: [PATCH 40/56] y705 0027-media-qcom-camss-kaanapali-v16: mailing-list
- series (squashed)
+Subject: [PATCH 40/56] media-qcom-camss-kaanapali-v16: mailing-list series
+ (squashed)
 
   [PATCH v16 01/11] dt-bindings: phy: qcom,x1e80100-csi2-phy: Add Kaanapali CSI2 PHY
   [PATCH v16 02/11] media: dt-bindings: Add CAMSS device for Kaanapali
@@ -17,7 +17,6 @@ Subject: [PATCH 40/56] y705 0027-media-qcom-camss-kaanapali-v16: mailing-list
   [PATCH v16 11/11] arm64: dts: qcom: kaanapali: Add camera MCLK pinctrl
 
 First author: Hangxiang Ma <hangxiang.ma@oss.qualcomm.com>
-y705-source: 0027-media-qcom-camss-kaanapali-v16.patch
 ---
  .../bindings/media/qcom,kaanapali-camss.yaml  | 375 +++++++++
  .../bindings/phy/qcom,x1e80100-csi2-phy.yaml  |   4 +-

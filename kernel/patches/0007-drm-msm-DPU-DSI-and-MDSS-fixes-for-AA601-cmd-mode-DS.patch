@@ -5,8 +5,7 @@ Subject: [PATCH 07/56] drm/msm: DPU, DSI and MDSS fixes for AA601 cmd-mode DSC
 
 Signed-off-by: idusergod <artem.martyanov06@gmail.com>
 
-[y705 rebase 7.3: slice_per_pkt hunks (dsi_host x4, drm_mipi_dsi.h) dropped: 7.3 has MIPI_DSI_MODE_DSC_ALL_SLICES_IN_PKT; kept DSC 1.2 RC params, DF_CTRL >8bpc, no DSC_CFG bit17 in video, virtual planes off, 7nm PLL vco_configured guard, MDSS skip-reset param]
-y705-source: 0001-drm-msm-DPU-DSI-and-MDSS-fixes-for-AA601-cmd-mode-DS.patch
+[rebased onto 7.3: slice_per_pkt hunks (dsi_host x4, drm_mipi_dsi.h) dropped: 7.3 has MIPI_DSI_MODE_DSC_ALL_SLICES_IN_PKT; kept DSC 1.2 RC params, DF_CTRL >8bpc, no DSC_CFG bit17 in video, virtual planes off, 7nm PLL vco_configured guard, MDSS skip-reset param]
 ---
  .../gpu/drm/msm/disp/dpu1/dpu_hw_dsc_1_2.c    |  6 +++---
  drivers/gpu/drm/msm/disp/dpu1/dpu_kms.c       |  2 +-

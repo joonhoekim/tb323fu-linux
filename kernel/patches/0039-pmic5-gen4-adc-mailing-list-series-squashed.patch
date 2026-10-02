@@ -1,8 +1,7 @@
 From 0a115277960eb7bbc533fbd2362e3cf83e1ee21f Mon Sep 17 00:00:00 2001
 From: joonhoekim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:29:22 +0000
-Subject: [PATCH 39/56] y705 0025-pmic5-gen4-adc: mailing-list series
- (squashed)
+Subject: [PATCH 39/56] pmic5-gen4-adc: mailing-list series (squashed)
 
   [PATCH 1/7] dt-bindings: iio: adc: Add support for QCOM PMIC5 Gen4 ADC
   [PATCH 2/7] iio: adc: qcom-spmi-adc5-gen3: Add support for QCOM PMIC5 Gen4 ADC
@@ -14,8 +13,7 @@ Subject: [PATCH 39/56] y705 0025-pmic5-gen4-adc: mailing-list series
 
 First author: Jishnu Prakash <jishnu.prakash@oss.qualcomm.com>
 
-[y705 rebase 7.3: applied on top of the 7.3 ADC_TM5 gen3 (0024 merged upstream); glymur-crd.dtsi hunks left out (only fuzz-3 matches, board unrelated); kaanapali-mtp/qrd hunks offset]
-y705-source: 0025-pmic5-gen4-adc.patch
+[rebased onto 7.3: applied on top of the 7.3 ADC_TM5 gen3 (0024 merged upstream); glymur-crd.dtsi hunks left out (only fuzz-3 matches, board unrelated); kaanapali-mtp/qrd hunks offset]
 ---
  .../bindings/iio/adc/qcom,spmi-adc5-gen3.yaml |  47 ++-
  arch/arm64/boot/dts/qcom/kaanapali-mtp.dts    | 312 ++++++++++++++++++

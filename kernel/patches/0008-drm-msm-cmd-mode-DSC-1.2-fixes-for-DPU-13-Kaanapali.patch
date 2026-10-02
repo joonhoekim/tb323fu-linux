@@ -13,8 +13,7 @@ over-deriving the DSI link rate, and wire pingpong DSC ops for the
 DPU 13 command-mode feed. Adds DSPP support for pentile SPR using the
 panel's stock AD296 calibration.
 
-[y705 rebase 7.3: two dsi_host hunks hardcoding slice_per_pkt=2 dropped: 7.3 packs slices per MIPI_DSI_MODE_DSC_ALL_SLICES_IN_PKT, which our panel now sets (vendor qcom,mdss-dsc-slice-per-pkt = 2)]
-y705-source: 0002-drm-msm-cmd-mode-DSC-1.2-fixes-for-DPU-13-Kaanapali.patch
+[rebased onto 7.3: two dsi_host hunks hardcoding slice_per_pkt=2 dropped: 7.3 packs slices per MIPI_DSI_MODE_DSC_ALL_SLICES_IN_PKT, which our panel now sets (vendor qcom,mdss-dsc-slice-per-pkt = 2)]
 ---
  .../disp/dpu1/catalog/dpu_13_0_kaanapali.h    |  15 ++-
  drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c      |  26 ++++-
