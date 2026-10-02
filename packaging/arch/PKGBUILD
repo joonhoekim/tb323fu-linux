@@ -53,7 +53,7 @@ package_tb323fu-platform() {
 
 package_tb323fu-helper() {
 	pkgdesc="TB323FU device helper daemon (D-Bus + polkit) and CLI"
-	depends=(dbus polkit systemd)
+	depends=(dbus polkit systemd curl)
 	optdepends=('tb323fu-platform: platform files')
 	install=tb323fu-helper.install
 	cd "$pkgbase/helper"

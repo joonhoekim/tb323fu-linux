@@ -1,0 +1,37 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# tb323fu-kernel-fetch -- download what tb323fu-helperd asks for into the
+# cache directory. Runs as tb323fu-kernel-fetch.service: a dynamic user, the
+# network, and the cache directory as the only writable place. Nothing it
+# writes is trusted: the daemon checks the signatures and hashes of every file
+# after this exits (docs/helper.md, "Kernel updates").
+#
+#   tb323fu-kernel-fetch [LIST]       LIST (default /run/tb323fu/kernel-fetch.list):
+#                                     one "NAME MAXBYTES URL" per line
+# Output: $CACHE_DIRECTORY/NAME for each line, fetch.log with one line per file.
+set -u
+list=${1:-/run/tb323fu/kernel-fetch.list}
+out=${CACHE_DIRECTORY:-/var/cache/tb323fu-kernel}
+log=$out/fetch.log
+: > "$log" || { echo "cannot write $log" >&2; exit 1; }
+command -v curl > /dev/null 2>&1 || { echo "curl is not installed" | tee -a "$log" >&2; exit 1; }
+[ -r "$list" ] || { echo "no download list $list" | tee -a "$log" >&2; exit 1; }
+rc=0
+while read -r name max url; do
+	[ -n "$name" ] || continue
+	case $name in .*|*[!A-Za-z0-9._-]*) echo "refusing the file name $name" >> "$log"; rc=1; continue ;; esac
+	case $max in ''|*[!0-9]*) echo "bad size for $name" >> "$log"; rc=1; continue ;; esac
+	case $url in https://*|http://*|file:///*) ;; *) echo "refusing the URL $url" >> "$log"; rc=1; continue ;; esac
+	rm -f "$out/$name" "$out/$name.part"
+	if curl -fsSL --proto '=https,http,file' --proto-redir '=https,http' --max-filesize "$max" \
+		--connect-timeout 20 --max-time 1800 --retry 2 -o "$out/$name.part" "$url" 2>> "$log"; then
+		size=$(wc -c < "$out/$name.part")
+		if [ "$size" -gt "$max" ]; then
+			rm -f "$out/$name.part"; echo "$name is larger than $max bytes" >> "$log"; rc=1; continue
+		fi
+		mv "$out/$name.part" "$out/$name" && echo "ok $name $size" >> "$log"
+	else
+		rm -f "$out/$name.part"; echo "could not download $name from $url" >> "$log"; rc=1
+	fi
+done < "$list"
+exit $rc

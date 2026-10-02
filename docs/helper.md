@@ -1,7 +1,7 @@
 # Device helper
 
 `tb323fu-helper` owns the TB323FU's user-facing knobs — charge limit and bypass, restart into Android, torch, RGB-ring
-charge indicator, idle refresh policy, GPU limits, USB wakeup, emergency key settings, multiboot selection,
+charge indicator, idle refresh policy, GPU limits, USB wakeup, emergency key settings, multiboot selection, kernel updates,
 diagnostics — and exposes them over **D-Bus** to a CLI, a GNOME quick-settings tile and a settings app.
 It needs only systemd, D-Bus and polkit, and works without any particular desktop. Code and build instructions:
 [`helper/`](../helper/README.md).
@@ -17,7 +17,9 @@ What it does not do:
 
 - **Booting never depends on the helper.** Everything needed to boot and to have working audio, input, sensors and
   the emergency way back to Android stays in plain files and services (layer 1 below).
-- No self-updater and no package-manager calls. Each distribution's packaging updates it.
+- No self-updater for the helper and no package-manager calls: each distribution's packaging updates it (the helper
+  only says when a newer version is published). **Kernels** are different: they are updated through the helper,
+  from signed releases ([Kernel updates](#kernel-updates)).
 - No new hardware drivers; the helper only drives interfaces the kernel already exposes.
 
 ## Layers
@@ -62,14 +64,82 @@ mounts it under `/run/tb323fu/state` when running from another root):
   no init is skipped.
 - Init per root: `/sbin/init` (Debian, Ubuntu, Arch, Fedora) or NixOS's `/nix/var/nix/profiles/system/init`.
 - `/etc/tb323fu/boot-menu` (any content) enables a menu at boot: volume-up moves to the next system, 5 s without a press boots it.
-- Every root needs the running kernel's modules in `/lib/modules/$(uname -r)` (the kernel is shared) and the firmware files.
+- The modules come with the boot image (shared modules, mounted on the chosen root's `/lib/modules/$(uname -r)` by the initramfs); a root with `/etc/tb323fu/modules` = `own` carries its own tree. Every root needs the firmware files.
 
 The helper's `Boot` object lists the roots (reading each one's `os-release`, mounted read-only without journal replay, cached) and writes
 the selection; when it runs from another root it mounts the state root under `/run/tb323fu/state` for that. CLI: `tb323fu-ctl boot`
 (`list`, `next NAME`, `clear`, `default NAME`, `reboot NAME`, `rescan`); the settings app has a "Systems" page.
-While reading each root the helper also checks it against the running kernel (`RootHealth`): the modules directory with
-`modules.dep`, its `extra/` (the out-of-tree aw882xx amplifier driver), and the audio DSP and Wi-Fi firmware (also `.zst`/`.xz`).
+While reading each root the helper also checks it against the running kernel (`RootHealth`): the audio DSP and Wi-Fi
+firmware (also `.zst`/`.xz`), and — only when the running boot image has no shared modules, or for a root in `own` mode —
+the modules directory with `modules.dep` and its `extra/` (the out-of-tree aw882xx amplifier driver); an `own`-mode root
+with a tree shows "own modules (not updated with the kernel)".
 `tb323fu-ctl boot list` prints the problems under the root, and the app warns on the row and in the restart dialog.
+
+## Kernel updates
+
+The kernel (with its device tree, initramfs and — with shared modules — all its modules) is updated through the
+helper from the project's signed releases. Design and the reasons behind it:
+[kernel-updates-design.md](notes/kernel-updates-design.md).
+
+**What a release is.** A kernel `Image` (raw or gzip), never a boot image: a boot image built by the project would
+carry Lenovo's header, GKI signature and vbmeta blobs, which must come from your own tablet. So the helper packs the
+kernel into **your own stock boot image** — the copy in `boot_b`, checked against the recorded Android hash first —
+exactly as `tools/boot-repack-kernel.py` does during the install (the helper's Rust port gives byte-identical images;
+checked on a real stock image with a raw and a gzip kernel). Each release has a signed manifest (release string,
+`/proc/version` banner, serial, channel, SHA-256 and size of the kernel file, release notes, the minimum helper and
+platform versions); a signed index lists the current release per channel (`stable`, `testing`) and an expiry date.
+Releases are made with [`tools/kernel-channel.py`](../tools/kernel-channel.py).
+
+**Trust.** Signatures are minisign (Ed25519), checked inside the daemon: the project key is compiled in (key id
+`A5D2DA7287637413`, also `/usr/share/tb323fu/keys/`); an administrator can add keys as
+`/etc/tb323fu/keys/kernel-*.pub` (a local test channel). An expired index is reported and not used; a release that is
+not newer than the running kernel (by serial) is not offered or installed.
+
+**The flow.**
+
+1. **Check** (daily when `kernel.auto_check` is on, or on request): the daemon writes the URLs it wants to
+   `/run/tb323fu/kernel-fetch.list` and starts `tb323fu-kernel-fetch.service` — a dynamic user with network access
+   and its cache directory `/var/cache/tb323fu-kernel` as the only writable place; the daemon itself never opens a
+   network connection. It then verifies the index and the channel's manifest.
+2. **Download**: the same unit fetches the kernel file; the daemon checks its size and SHA-256 against the signed
+   manifest and that the kernel's own version banner names the manifest's release, then keeps it in
+   `/var/lib/tb323fu/kernel/staged/<tag>/`.
+3. **Install** (admin): battery ≥ 30 % or a charger; `boot_b` must be the recorded Android image; the running
+   kernel must not be on trial itself. If `boot_a` holds the running kernel, it is saved first as
+   `/var/lib/tb323fu/linux-good.img` on the state root (tmp file, hash check, rename); otherwise an existing,
+   verified `linux-good.img` is required. Then the trial record, then the repacked image goes to `boot_a`, is read
+   back and compared; on a mismatch `linux-good.img` is written back.
+4. **Trial**: on each start the initramfs compares the record with `/proc/version` and counts the start in
+   `kernel-state` (volume-up held: not counted). The **third** start of a kernel that never got confirmed writes
+   `linux-good.img` back into `boot_a` (checked against its record), records `failed=` and restarts.
+5. **Confirm**: stable channel — `tb323fu-kernel-confirm.service` (platform files, layer 1, so it works without
+   the helper) waits until the system reached `graphical.target` (or `multi-user.target`) and 90 s more, on any
+   root, then copies `boot_a` to `linux-good.img` and records the kernel as good. Testing channel — only **Keep**
+   (settings app, `tb323fu-ctl kernel keep`) confirms; without it the kernel goes back after two more starts. The
+   same unit records a hand-flashed kernel as good once it ran 90 s, so a later trial always has something to go
+   back to.
+
+Android's Switch to Linux writes `linux-good.img` instead of the saved image when that image is a kernel still on
+trial or one that failed ([android/README.md](../android/README.md)). A kernel that dies **before** the initramfs
+runs cannot be caught (nothing of ours runs): fastboot (`fastboot flash boot_a linux-good.img`, volume down + power)
+or EDL, as in [recovery](recovery.md). The bootloader's A/B retry bits are not used (slot `_b` is not a working slot
+here).
+
+State on the state root (`/var/lib/tb323fu/`): `kernel-state` (`good=`, `good_sha256=`, `good_version=`,
+`good_serial=`, `trial=`, `trial_sha256=`, `trial_version=`, `trial_serial=`, `trial_channel=`, `tries=`, `max=`,
+`failed=`, `failed_sha256=`; `*_version` is the `/proc/version` line, which tells two builds with the same release
+apart) and `linux-good.img` (+ `.sha256`).
+
+CLI: `tb323fu-ctl kernel [status] | check | notes TAG | download TAG | install TAG [--reboot] | update [--reboot] |
+keep | rollback [--reboot] | channel stable|testing | auto-check on|off | helper-notify on|off | dismiss`. Settings
+app: **About** → Kernel Updates (status, "Kernel tNN available" with Notes and Download → Install… → Restart Now,
+Check Now, channel, daily check, Go Back while a kernel is on trial, a newer helper with its update command), a
+banner for Keep or after an automatic rollback; **Systems** shows a line while a kernel is on trial.
+
+Settings (`[kernel]` in `helper.toml`): `channel` (`stable`), `index_url` (the project site; a PC-served index for
+tests), `auto_check` (`true`; checks only, never downloads), `helper_notify` (`true`: the index's `helper.latest`
+newer than this helper shows in About and `tb323fu-ctl kernel`, with the command for this system from
+`os-release`).
 
 ## Persistence
 
@@ -125,8 +195,9 @@ Standard `org.freedesktop.DBus.Properties` for properties (with `PropertiesChang
 | `/…/Usb` · `…Usb` | `WakeEnabled` (b: USB host/port wakeup from suspend), `DevMode` (b: USB gadget network + serial console for developers) | `SetWake(b)`, `SetDevMode(b)` | — | `…usb-wake` — allow; `…dev-mode` — `auth_admin_keep` |
 | `/…/EmergencyKey` · `…EmergencyKey` | `Enabled` (b), `HoldSeconds` (u) — writes `/etc/tb323fu/emergency-key.conf` (`ENABLED`, `HOLD_SECONDS`, 3..30 s) that the layer-1 service reads; the service itself stays in layer 1 | `SetEnabled(b)`, `SetHoldSeconds(u)` | — | `…emergency-key` — allow for enabling/changing time, `auth_admin_keep` for disabling |
 | `/…/Diagnostics` · `…Diagnostics` | `CrashRecords` (u: pstore archive entries), `LastBootClean` (b: no panic record archived this boot and the previous boot's journal ends with a clean shutdown — a dump-mode crash leaves no pstore record) | `Export() → s` (path of a tarball with pstore, previous-boot journal tail, dmesg head, versions; user names/addresses/serials stripped) | — | `…diagnostics` — allow |
-| `/…/Boot` · `…Boot` | `Roots` (a(ssbs): GPT partition name, os-release PRETTY_NAME, present, init kind `systemd`/`nixos`/`none`, or `unknown` when it could not be mounted read-only to look, e.g. after an unclean shutdown), `Default` (s), `Next` (s, one-shot), `Current` (s: the partition `/` came from), `RootHealth` (a{sas}: root → problems for the running kernel — no `lib/modules/$(uname -r)/modules.dep`, no `extra/` (aw882xx amplifier driver), no audio DSP or Wi-Fi firmware; roots without problems and NixOS roots are left out) | `SetNext(s)`, `ClearNext()`, `SetDefault(s)`, `RebootInto(s)`, `Rescan()` | — | `…boot-next` — allow; `…reboot-into` — allow; `…boot-default` — `auth_admin_keep` |
+| `/…/Boot` · `…Boot` | `Roots` (a(ssbs): GPT partition name, os-release PRETTY_NAME, present, init kind `systemd`/`nixos`/`none`, or `unknown` when it could not be mounted read-only to look, e.g. after an unclean shutdown), `Default` (s), `Next` (s, one-shot), `Current` (s: the partition `/` came from), `RootHealth` (a{sas}: root → problems for the running kernel — no audio DSP or Wi-Fi firmware; without shared modules or in `own` mode also no `lib/modules/$(uname -r)/modules.dep`, no `extra/` (aw882xx amplifier driver), or "own modules"; roots without problems and NixOS roots are left out) | `SetNext(s)`, `ClearNext()`, `SetDefault(s)`, `RebootInto(s)`, `Rescan()` | — | `…boot-next` — allow; `…reboot-into` — allow; `…boot-default` — `auth_admin_keep` |
 | `/…/Thermal` · `…Thermal` (read-only) | `Surface` (d, °C: skin NTC, else quiet), `CpuMax` (d: hottest `cpu-*`/`cpullc-*` tsens zone), `GpuMax` (d: hottest `gpuss-*`), `Throttling` (b: a `cpufreq-*`/`devfreq-*` cooling device above state 0), `Zones` (a{sd}: board sensors by zone type without `-thermal`: skin, quiet, batt, batt2, usb, usb2-conn, lcm, wlan, ddr, ufs, xo, rear-cam, fcam, wls); NaN = absent | — | — | none (no methods; trips and policies are never written) |
+| `/…/Kernel` · `…Kernel` (when `boot_a` and `boot_b` exist) | `Running` (s: `uname -r`), `RunningBuild` (s: `/proc/version`), `SharedModules` (b: `/lib/modules/<release>` is the boot image's squashfs), `Channel` (s), `Available` (a(sssu): tag, release, notes URL, serial — the channel's release when newer than the running kernel and the index has not expired), `Downloaded` (as: verified, ready to install), `State` (s: `idle` / `checking` / `downloading` / `verifying` / `ready` / `installing` / `pending-reboot` / `trial` / `rolled-back`, also `rolling-back` / `keeping` / `dismissing` while those run), `Progress` (u, % of a download), `Trial` (s), `TrialChannel` (s), `Tries` (u), `MaxTries` (u), `KeepPending` (b: the running kernel is a testing-channel trial), `Good` (s: release of `linux-good.img`), `LastFailed` (s), `LastCheck` (t, unix time), `IndexExpired` (b), `AutoCheck` (b), `HelperLatest` (s: a newer published helper, "" none), `HelperUpdateCommand` (s), `Message` (s: the last operation's result) | `Check() → s`, `Download(s tag) → s`, `Install(s tag, b reboot) → s`, `Rollback(b reboot) → s`, `Keep() → s`, `Dismiss() → s`, `Notes(s tag) → s`, `SetChannel(s)`, `SetAutoCheck(b)`, `SetHelperNotify(b)`, `Refresh()` (re-read `kernel-state`; no authorization). The long methods answer when done | `Finished(s operation, b ok, s message)` | `…kernel-check` (also Dismiss), `…kernel-download`, `…kernel-keep` — allow; `…kernel-install`, `…kernel-rollback`, `…kernel-channel` (also SetAutoCheck, SetHelperNotify) — `auth_admin_keep` |
 | `/…` · `…Helper` | `Version` (s), `Features` (as), `Kernel` (s), `SeriesTag` (s: patch-series identity if the kernel exposes it, else unknown), `Firmware` (a{ss}: file → sha256 match state vs the manifest) | `Reload()` | — | `…admin` — `auth_admin` |
 
 </details>
@@ -148,6 +219,9 @@ Files (paths for a normal FHS distribution):
 | D-Bus policy | `/usr/share/dbus-1/system.d/io.github.joonhoekim.tb323fu.Helper.conf` (own: root; send: everyone; polkit decides) |
 | D-Bus activation | `/usr/share/dbus-1/system-services/io.github.joonhoekim.tb323fu.Helper.service` (`SystemdService=`) |
 | polkit | `/usr/share/polkit-1/actions/io.github.joonhoekim.tb323fu.helper.policy` |
+| kernel download | `/usr/libexec/tb323fu/tb323fu-kernel-fetch` + `/usr/lib/systemd/system/tb323fu-kernel-fetch.service` (oneshot, started by the daemon only: `DynamicUser=yes`, `CacheDirectory=tb323fu-kernel`, network, nothing else writable; needs `curl`) |
+| kernel signing keys | `/usr/share/tb323fu/keys/kernel-<keyid>.pub` (the same keys are compiled into the daemon; administrators add theirs in `/etc/tb323fu/keys/`) |
+| kernel confirmation | `tb323fu-kernel-confirm.service` + `/usr/libexec/tb323fu/tb323fu-kernel-confirm` — in the **platform** package (layer 1), enabled with the other platform units |
 | GNOME extension | `/usr/share/gnome-shell/extensions/tb323fu@joonhoekim.github.io/` (separate package) |
 | settings app | `/usr/bin/tb323fu-settings`, `.desktop`, icons (separate package) |
 
@@ -181,6 +255,8 @@ Also: `hexagonrpcd` (nixpkgs `hexagonrpc`) + iio-sensor-proxy when `sensors.data
 Without the device
 - Run the daemon against a **fake sysfs root** (`TB323FU_SYSFS_ROOT=/tmp/fake-sys` with the relevant files) on a private D-Bus (`dbus-run-session`): property reads, setters write the right values, capability detection hides objects whose files are missing, persistence round-trips, polkit denials return the right D-Bus error (with a test policy).
 - CLI golden-output tests against the same fake daemon.
+- Kernel updates (`tests/kernel-update-test.sh`, `dbus-run-session`, needs minisign, python3, curl): a channel built and signed with `tools/kernel-channel.py` (throw-away key), served as `file://`; check → notes → download → install (the repacked `boot_a` must equal `tools/boot-repack-kernel.py`'s image byte for byte, `linux-good.img` = the old image) → a "restart" on the new kernel → trial, Keep → linux-good; refusals: low battery, `boot_b` not the recorded image, install before download, reinstall of the running release; a changed index, an unknown key, an expired index; rollback. `cargo test` covers the same in the library (install/confirm/rollback on files, a read-back mismatch restores `linux-good.img`), and `cargo test -- --ignored real_images` compares the Rust repack with the Python tool's on real images.
+- The initramfs side (`kernel/initramfs/test-root-selection.sh`: start counting, rollback on the third start, a `linux-good.img` that does not match its record, a failing `boot_a` write, volume-up), the confirm script (`userspace/platform/test-kernel-confirm.sh`) and Android's choice (`android/test-state-root.sh`) run offline too.
 
 On the device
 - Charge limit: set 60/80 with a PD charger attached; threshold file and charging state follow; the UPower hint is absent (GNOME's switch gone).

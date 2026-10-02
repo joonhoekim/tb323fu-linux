@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: MIT
+# Started by tb323fu-helperd (Kernel.Check / Kernel.Download), never by itself:
+# downloads the files the daemon listed in /run/tb323fu/kernel-fetch.list into
+# /var/cache/tb323fu-kernel. The daemon has no network access of its own and
+# verifies everything this leaves there (signatures, hashes) before using it.
+[Unit]
+Description=Download a TB323FU kernel release for tb323fu-helperd
+Documentation=https://github.com/joonhoekim/tb323fu-linux/blob/main/docs/helper.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=@LIBEXECDIR@/tb323fu-kernel-fetch /run/tb323fu/kernel-fetch.list
+TimeoutStartSec=35min
+DynamicUser=yes
+CacheDirectory=tb323fu-kernel
+CacheDirectoryMode=0700
+UMask=0077
+# nothing else: no devices, no kernel knobs, no capabilities, IP only
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateIPC=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+SystemCallArchitectures=native
+SystemCallFilter=@system-service

@@ -22,6 +22,7 @@ pub struct Config {
     pub refresh: Refresh,
     pub gpu: Gpu,
     pub usb: Usb,
+    pub kernel: Kernel,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -77,6 +78,28 @@ pub struct Gpu {
     pub floors: BTreeMap<String, [u32; 2]>,
 }
 
+/// Kernel updates (docs/notes/kernel-updates-design.md).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct Kernel {
+    /// "stable" or "testing"
+    pub channel: String,
+    /// the signed index (https, http or file URL); a PC-served one for tests
+    pub index_url: String,
+    /// check the index once a day (never downloads by itself)
+    pub auto_check: bool,
+    /// show when a newer helper is published (the index's helper.latest)
+    pub helper_notify: bool,
+}
+
+pub const DEFAULT_INDEX_URL: &str = "https://joonhoekim.github.io/tb323fu-linux/kernel/index.json";
+
+impl Default for Kernel {
+    fn default() -> Self {
+        Kernel { channel: "stable".into(), index_url: DEFAULT_INDEX_URL.into(), auto_check: true, helper_notify: true }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(default)]
 pub struct Usb {
@@ -120,6 +143,7 @@ impl Default for Config {
             refresh: Refresh::default(),
             gpu: Gpu::default(),
             usb: Usb::default(),
+            kernel: Kernel::default(),
         }
     }
 }

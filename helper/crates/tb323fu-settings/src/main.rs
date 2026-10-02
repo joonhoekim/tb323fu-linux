@@ -33,10 +33,10 @@ const TIMINGS: [(&str, &str, u32, u32); 3] =
 const GPU_PROFILES: [&str; 3] = ["power-saver", "balanced", "performance"];
 const GPU_PROFILE_LABELS: [&str; 3] = ["Power Saver", "Balanced", "Performance"];
 /// Every object the helper can export (for "N of M available").
-const KNOWN_FEATURES: usize = 11;
+const KNOWN_FEATURES: usize = 12;
 const DEBOUNCE: Duration = Duration::from_millis(400);
 /// The objects refresh() polls (the root object is polled first).
-const OBJECTS: [&str; 11] = ["Battery", "Refresh", "Gpu", "Torch", "LedRing", "Usb", "EmergencyKey", "Android", "Diagnostics", "Boot", "Thermal"];
+const OBJECTS: [&str; 12] = ["Battery", "Refresh", "Gpu", "Torch", "LedRing", "Usb", "EmergencyKey", "Android", "Diagnostics", "Boot", "Thermal", "Kernel"];
 
 const CSS: &str = "
 .tag { font-size: smaller; font-weight: bold; padding: 2px 8px; border-radius: 999px;
@@ -431,6 +431,43 @@ struct Ui {
     ab_fw_rows: RefCell<Vec<adw::ActionRow>>,
     ab_fw_last: RefCell<Option<Vec<(String, String)>>>,
     about_debug: RefCell<String>,
+    // Kernel updates (About; a trial line on Systems)
+    kn: KernelUi,
+}
+
+/// The kernel-update widgets: status, the available release with one action
+/// button (Download -> Install… -> Restart Now), channel, daily check, a
+/// banner for Keep (testing channel) or after an automatic rollback.
+struct KernelUi {
+    group: adw::PreferencesGroup,
+    modules: gtk::Label,
+    state: gtk::Label,
+    avail: adw::ActionRow,
+    notes: gtk::Button,
+    action: gtk::Button,
+    check: adw::ActionRow,
+    check_btn: gtk::Button,
+    channel: adw::ComboRow,
+    auto: adw::SwitchRow,
+    back: adw::ActionRow,
+    helper: LongInfo,
+    banner: adw::Banner,
+    /// what the banner button does: "keep" or "dismiss"
+    banner_kind: RefCell<&'static str>,
+    /// what the action button does now: (verb, tag)
+    next: RefCell<(&'static str, String)>,
+    /// a long call is running (the poll keeps showing State and Progress)
+    busy: Cell<bool>,
+    sys_group: adw::PreferencesGroup,
+    sys_row: adw::ActionRow,
+}
+
+const CHANNELS: [&str; 2] = ["stable", "testing"];
+const CHANNEL_LABELS: [&str; 2] = ["Stable", "Testing"];
+
+/// "kernel-t28" -> "t28" (the tag without the project prefix).
+fn short_tag(t: &str) -> &str {
+    t.strip_prefix("kernel-").unwrap_or(t)
 }
 
 fn content_page(title: &str, child: &impl IsA<gtk::Widget>, banner: Option<&adw::Banner>) -> adw::NavigationPage {
@@ -582,6 +619,13 @@ impl Ui {
 
         // Systems (multiboot)
         let (p_boot, b) = page_box();
+        // a kernel on trial: confirmed once a system runs 90 s (or Keep)
+        let kn_sys_group = group(&b, "", "");
+        let kn_sys_row = adw::ActionRow::builder().title("Trying a New Kernel").build();
+        kn_sys_row.set_subtitle_lines(2);
+        kn_sys_row.add_prefix(&gtk::Image::from_icon_name("emblem-synchronizing-symbolic"));
+        kn_sys_group.add(&kn_sys_row);
+        kn_sys_group.set_visible(false);
         let boot_group = group(&b, "", "Restarting into one boots it once.");
         let rescan = gtk::Button::from_icon_name("view-refresh-symbolic");
         rescan.add_css_class("flat");
@@ -616,6 +660,33 @@ impl Ui {
         let g = group(&b, "Firmware", "Files from your tablet, checked against the manifest.");
         let ab_fw = adw::ExpanderRow::builder().title("Firmware Files").build();
         g.add(&ab_fw);
+        let kn_group = group(&b, "Kernel Updates", "Signed releases from the project, packed into your own boot image.");
+        group_help(&kn_group, "A new kernel is tried on the next start. Once a system has run with it for 90 seconds it is kept \
+            (testing channel: when you press Keep). If it does not get that far twice, the previous kernel comes back by itself.");
+        let kn_modules = info(&kn_group, "Kernel Modules");
+        let kn_state = info(&kn_group, "Status");
+        let kn_avail = adw::ActionRow::builder().title("New Kernel").build();
+        kn_avail.set_subtitle_lines(1);
+        let kn_notes = gtk::Button::with_label("Notes");
+        kn_notes.set_valign(gtk::Align::Center);
+        kn_notes.add_css_class("flat");
+        let kn_action = gtk::Button::with_label("Download");
+        kn_action.set_valign(gtk::Align::Center);
+        kn_action.add_css_class("suggested-action");
+        kn_avail.add_suffix(&kn_notes);
+        kn_avail.add_suffix(&kn_action);
+        kn_avail.set_visible(false);
+        kn_group.add(&kn_avail);
+        let (kn_check, kn_check_btn) = button(&kn_group, "Last Check", "", "Check Now");
+        let kn_channel = combo(&kn_group, "Channel", &CHANNEL_LABELS);
+        kn_channel.set_subtitle("Testing: every build that passed the device checks");
+        let kn_auto = switch(&kn_group, "Check Daily", "Never downloads by itself");
+        let (kn_back, kn_back_btn) = button(&kn_group, "Previous Kernel", "", "Go Back…");
+        kn_back_btn.add_css_class("destructive-action");
+        kn_back.set_visible(false);
+        let kn_helper = info_long(&kn_group, "Helper Update", &toasts);
+        kn_helper.row.set_visible(false);
+        let kn_banner = adw::Banner::new("");
 
         // Navigation
         let sidebar = gtk::ListBox::new();
@@ -631,7 +702,7 @@ impl Ui {
             ("Systems", "drive-multidisk-symbolic", &["Boot"], &p_boot, Some(&boot_banner)),
             ("Android", "system-reboot-symbolic", &["Android"], &p_and, None),
             ("Diagnostics", "utilities-system-monitor-symbolic", &["Diagnostics"], &p_diag, None),
-            ("About", "help-about-symbolic", &[""], &p_about, None),
+            ("About", "help-about-symbolic", &[""], &p_about, Some(&kn_banner)),
         ];
         let mut pages = Vec::new();
         for (title, icon, objects, page, banner) in defs {
@@ -781,8 +852,29 @@ impl Ui {
             ab_fw_rows: RefCell::new(Vec::new()),
             ab_fw_last: RefCell::new(None),
             about_debug: RefCell::new(String::new()),
+            kn: KernelUi {
+                group: kn_group,
+                modules: kn_modules,
+                state: kn_state,
+                avail: kn_avail,
+                notes: kn_notes,
+                action: kn_action,
+                check: kn_check,
+                check_btn: kn_check_btn,
+                channel: kn_channel,
+                auto: kn_auto,
+                back: kn_back,
+                helper: kn_helper,
+                banner: kn_banner,
+                banner_kind: RefCell::new(""),
+                next: RefCell::new(("", String::new())),
+                busy: Cell::new(false),
+                sys_group: kn_sys_group,
+                sys_row: kn_sys_row,
+            },
         });
         ui.connect(gpu_buttons, rescan, diag_open, retry);
+        ui.connect_kernel(kn_back_btn);
         ui
     }
 
@@ -1269,6 +1361,13 @@ impl Ui {
         if let Some(r) = &root {
             self.update_about(r);
         }
+        self.kn.group.set_visible(present("Kernel"));
+        if let Some(k) = props.get("Kernel").and_then(|x| x.as_ref()) {
+            self.update_kernel(k);
+        } else if !present("Kernel") {
+            self.kn.banner.set_revealed(false);
+            self.kn.sys_group.set_visible(false);
+        }
         self.updating.set(false);
     }
 
@@ -1405,6 +1504,280 @@ impl Ui {
             }
         });
         d.present(Some(&self.window));
+    }
+
+    /// A long Kernel call (check, download, install, ...) on a worker thread.
+    /// The object is not held busy, so the poll keeps showing State and
+    /// Progress meanwhile; the buttons are off instead.
+    fn kernel_call<B>(self: &Rc<Self>, method: &'static str, body: B, done: impl FnOnce(&Rc<Ui>, &Result<Option<String>, String>) + 'static)
+    where
+        B: serde::ser::Serialize + zbus::zvariant::DynamicType + Send + 'static,
+    {
+        if self.kn.busy.replace(true) {
+            return;
+        }
+        self.kernel_sensitive(false);
+        let client = self.client.borrow().clone();
+        let ui = self.clone();
+        glib::spawn_future_local(async move {
+            let res = gio::spawn_blocking(move || client.call("Kernel", method, &body))
+                .await
+                .unwrap_or_else(|_| Err("Something went wrong".into()));
+            ui.kn.busy.set(false);
+            ui.kernel_sensitive(true);
+            match &res {
+                Ok(Some(m)) if !m.is_empty() => ui.toast(m),
+                Err(e) => ui.toast(&format!("{}: {e}", dbus::setting_name(method))),
+                _ => {}
+            }
+            done(&ui, &res);
+            ui.refresh();
+        });
+    }
+
+    fn kernel_sensitive(&self, on: bool) {
+        for b in [&self.kn.action, &self.kn.check_btn] {
+            b.set_sensitive(on);
+        }
+        self.kn.banner.set_sensitive(on);
+    }
+
+    fn connect_kernel(self: &Rc<Self>, back_btn: gtk::Button) {
+        let ui = self.clone();
+        self.kn.check_btn.connect_clicked(move |_| ui.kernel_call("Check", (), |_, _| {}));
+        let ui = self.clone();
+        self.kn.action.connect_clicked(move |_| {
+            let (verb, tag) = ui.kn.next.borrow().clone();
+            match verb {
+                "download" => ui.kernel_call("Download", (tag,), |_, _| {}),
+                "install" => ui.confirm_install(&tag),
+                "restart" => {
+                    let cur = ui.boot_last.borrow().cur.clone();
+                    let d = adw::AlertDialog::new(Some("Restart Now?"),
+                        Some("The tablet restarts with the new kernel. Unsaved work is lost."));
+                    d.add_response("cancel", "Cancel");
+                    d.add_response("go", "Restart");
+                    d.set_response_appearance("go", adw::ResponseAppearance::Suggested);
+                    d.set_default_response(Some("go"));
+                    d.set_close_response("cancel");
+                    let ui2 = ui.clone();
+                    d.connect_response(None, move |_, r| {
+                        if r == "go" && !cur.is_empty() {
+                            ui2.call_simple("Boot", "RebootInto", (cur.clone(),));
+                        } else if r == "go" {
+                            ui2.toast("Restart the tablet to use the new kernel");
+                        }
+                    });
+                    d.present(Some(&ui.window));
+                }
+                _ => {}
+            }
+        });
+        let ui = self.clone();
+        self.kn.notes.connect_clicked(move |_| {
+            let tag = ui.kn.next.borrow().1.clone();
+            ui.show_notes(&tag);
+        });
+        let ui = self.clone();
+        self.kn.channel.connect_selected_notify(move |r| {
+            if !ui.updating.get() {
+                let c = CHANNELS[r.selected() as usize % CHANNELS.len()];
+                ui.call_simple("Kernel", "SetChannel", (c.to_string(),));
+            }
+        });
+        self.switch_sends(&self.kn.auto, "Kernel", "SetAutoCheck");
+        let ui = self.clone();
+        self.kn.banner.connect_button_clicked(move |_| {
+            let kind = *ui.kn.banner_kind.borrow();
+            match kind {
+                "keep" => ui.kernel_call("Keep", (), |_, _| {}),
+                "dismiss" => ui.kernel_call("Dismiss", (), |_, _| {}),
+                _ => {}
+            }
+        });
+        let ui = self.clone();
+        back_btn.connect_clicked(move |_| {
+            let d = adw::AlertDialog::new(Some("Go Back to the Previous Kernel?"),
+                Some("The last kernel that was kept goes back into the boot slot; the new one is recorded as failed. It is used from the next start."));
+            d.add_response("cancel", "Cancel");
+            d.add_response("go", "Go Back");
+            d.add_response("reboot", "Go Back and Restart");
+            d.set_response_appearance("reboot", adw::ResponseAppearance::Destructive);
+            d.set_default_response(Some("cancel"));
+            d.set_close_response("cancel");
+            let ui2 = ui.clone();
+            d.connect_response(None, move |_, r| match r {
+                "go" => ui2.kernel_call("Rollback", (false,), |_, _| {}),
+                "reboot" => ui2.kernel_call("Rollback", (true,), |_, _| {}),
+                _ => {}
+            });
+            d.present(Some(&ui.window));
+        });
+    }
+
+    fn confirm_install(self: &Rc<Self>, tag: &str) {
+        let d = adw::AlertDialog::new(Some(&format!("Install Kernel {}?", short_tag(tag))),
+            Some("It is packed into your own stock boot image and written to the boot slot, then tried on the next start. \
+                If it does not bring a system up twice, the previous kernel comes back by itself."));
+        d.add_response("cancel", "Cancel");
+        d.add_response("install", "Install");
+        d.add_response("reboot", "Install and Restart");
+        d.set_response_appearance("reboot", adw::ResponseAppearance::Suggested);
+        d.set_default_response(Some("reboot"));
+        d.set_close_response("cancel");
+        let (ui, t) = (self.clone(), tag.to_string());
+        d.connect_response(None, move |_, r| match r {
+            "install" => ui.kernel_call("Install", (t.clone(), false), |_, _| {}),
+            "reboot" => ui.kernel_call("Install", (t.clone(), true), |_, _| {}),
+            _ => {}
+        });
+        d.present(Some(&self.window));
+    }
+
+    /// The release notes (Markdown from the signed manifest), as text.
+    fn show_notes(self: &Rc<Self>, tag: &str) {
+        let t = tag.to_string();
+        self.call_then("Kernel", "Notes", (t.clone(),), move |ui, res| {
+            let Ok(Some(text)) = res else { return };
+            let l = gtk::Label::new(Some(if text.is_empty() { "No release notes." } else { text.as_str() }));
+            l.set_wrap(true);
+            l.set_xalign(0.0);
+            l.set_yalign(0.0);
+            l.set_selectable(true);
+            let sw = gtk::ScrolledWindow::builder().hscrollbar_policy(gtk::PolicyType::Never).min_content_height(240)
+                .max_content_height(480).propagate_natural_height(true).child(&l).build();
+            let d = adw::AlertDialog::new(Some(&format!("Kernel {}", short_tag(&t))), None);
+            d.set_extra_child(Some(&sw));
+            d.add_response("ok", "Close");
+            d.present(Some(&ui.window));
+        });
+    }
+
+    fn update_kernel(&self, p: &Props) {
+        let s = |k: &str| dbus::s(p, k).unwrap_or_default();
+        let state = s("State");
+        let (trial, good, failed) = (s("Trial"), s("Good"), s("LastFailed"));
+        let avail = dbus::releases(p, "Available");
+        let downloaded = dbus::strs(p, "Downloaded");
+        let keep = dbus::b(p, "KeepPending").unwrap_or(false);
+        let (tries, max) = (dbus::u(p, "Tries").unwrap_or(0), dbus::u(p, "MaxTries").unwrap_or(2));
+        set_text(&self.kn.modules, if dbus::b(p, "SharedModules") == Some(true) { "From the boot image" } else { "From this system" });
+        let label = match state.as_str() {
+            "checking" => "Checking…".to_string(),
+            "downloading" => format!("Downloading… {} %", dbus::u(p, "Progress").unwrap_or(0)),
+            "verifying" => "Verifying…".into(),
+            "installing" => "Installing…".into(),
+            "rolling-back" => "Going back…".into(),
+            "keeping" => "Keeping…".into(),
+            "ready" => "Ready to install".into(),
+            "pending-reboot" => format!("Restart to try {trial}"),
+            "trial" => format!("Trying {trial}, start {tries} of {max}"),
+            "rolled-back" => format!("{failed} did not start"),
+            _ if dbus::b(p, "IndexExpired") == Some(true) => "Release list expired".into(),
+            _ if !avail.is_empty() => "Update available".into(),
+            _ if dbus::t(p, "LastCheck").unwrap_or(0) == 0 => "Not checked yet".into(),
+            _ => "Up to date".into(),
+        };
+        set_text(&self.kn.state, &label);
+        set_class(&self.kn.state, "warning", state == "rolled-back" || state == "trial");
+
+        // the action: download, install, restart
+        let next: (&'static str, String) = if state == "pending-reboot" {
+            ("restart", String::new())
+        } else if let Some(a) = avail.first() {
+            (if downloaded.contains(&a.0) { "install" } else { "download" }, a.0.clone())
+        } else {
+            ("", String::new())
+        };
+        let show = !next.0.is_empty();
+        if self.kn.avail.is_visible() != show {
+            self.kn.avail.set_visible(show);
+        }
+        if show {
+            let (title, sub) = match (next.0, avail.first()) {
+                ("restart", _) => ("Kernel Installed".to_string(), format!("{trial} is tried on the next start")),
+                (_, Some(a)) => (format!("Kernel {} Available", short_tag(&a.0)), a.1.clone()),
+                _ => (String::new(), String::new()),
+            };
+            if self.kn.avail.title() != title {
+                self.kn.avail.set_title(&title);
+            }
+            if self.kn.avail.subtitle().as_deref() != Some(sub.as_str()) {
+                self.kn.avail.set_subtitle(&sub);
+            }
+            let btn = match next.0 {
+                "download" => "Download",
+                "install" => "Install…",
+                _ => "Restart Now",
+            };
+            if self.kn.action.label().as_deref() != Some(btn) {
+                self.kn.action.set_label(btn);
+            }
+            self.kn.notes.set_visible(next.0 != "restart");
+        }
+        *self.kn.next.borrow_mut() = next;
+
+        let last = dbus::t(p, "LastCheck").unwrap_or(0);
+        let when = if last == 0 {
+            "Never".to_string()
+        } else {
+            glib::DateTime::from_unix_local(last as i64).ok().and_then(|d| d.format("%Y-%m-%d %H:%M").ok()).map(|g| g.to_string()).unwrap_or_default()
+        };
+        if self.kn.check.subtitle().as_deref() != Some(when.as_str()) {
+            self.kn.check.set_subtitle(&when);
+        }
+        if !self.busy("Kernel") {
+            set_combo(&self.kn.channel, &CHANNELS, dbus::s(p, "Channel"));
+            set_switch(&self.kn.auto, dbus::b(p, "AutoCheck"));
+        }
+        let back = !trial.is_empty() && !good.is_empty();
+        self.kn.back.set_visible(back);
+        if back {
+            let sub = format!("Back to {good}");
+            if self.kn.back.subtitle().as_deref() != Some(sub.as_str()) {
+                self.kn.back.set_subtitle(&sub);
+            }
+        }
+        let hl = s("HelperLatest");
+        self.kn.helper.row.set_visible(!hl.is_empty());
+        if !hl.is_empty() {
+            let cmd = s("HelperUpdateCommand");
+            self.kn.helper.row.set_title(&format!("Helper {hl} Available"));
+            self.kn.helper.set(&cmd, &cmd);
+        }
+
+        // banner on About: Keep (testing channel) or the rollback notice
+        let (kind, text, btn): (&'static str, String, &str) = if keep {
+            ("keep", format!("Trying kernel {trial}: keep it if everything works"), "Keep")
+        } else if state == "rolled-back" {
+            ("dismiss", format!("Kernel {failed} did not start twice; back on {good}"), "Dismiss")
+        } else {
+            ("", String::new(), "")
+        };
+        *self.kn.banner_kind.borrow_mut() = kind;
+        if !kind.is_empty() {
+            if self.kn.banner.title() != text {
+                self.kn.banner.set_title(&text);
+            }
+            self.kn.banner.set_button_label(Some(btn));
+        }
+        if self.kn.banner.is_revealed() != !kind.is_empty() {
+            self.kn.banner.set_revealed(!kind.is_empty());
+        }
+
+        // Systems: a line on top while a kernel is on trial
+        let on_trial = state == "trial";
+        self.kn.sys_group.set_visible(on_trial);
+        if on_trial {
+            let sub = if keep {
+                format!("{trial}: kept when you press Keep (About), else back to {good} after {max} starts")
+            } else {
+                format!("{trial}: kept once a system has run 90 s with it")
+            };
+            if self.kn.sys_row.subtitle().as_deref() != Some(sub.as_str()) {
+                self.kn.sys_row.set_subtitle(&sub);
+            }
+        }
     }
 
     fn update_battery(&self, p: &Props) {

@@ -36,3 +36,10 @@ performance = [461, 1200]
 [usb]
 wake = false             # USB host wakeup from suspend (off by default on this board)
 # dev_mode = true        # USB gadget network + serial console; omit to keep the boot state
+
+[kernel]                 # kernel updates (docs/helper.md "Kernel updates")
+channel = "stable"       # "stable" or "testing" (testing: every build that passed the device checks;
+                         # a testing kernel is kept only when you press Keep)
+index_url = "https://joonhoekim.github.io/tb323fu-linux/kernel/index.json"   # the signed index
+auto_check = true        # look once a day (never downloads by itself)
+helper_notify = true     # say when a newer helper is published

@@ -38,6 +38,9 @@ tb323fu-ctl android --yes            # restart into Android now
 tb323fu-ctl diagnostics export       # sanitized tarball under /var/lib/tb323fu/diagnostics
 tb323fu-ctl boot list                # installed systems, and what each lacks for this kernel
 tb323fu-ctl thermal                  # surface, CPU, GPU and board temperatures, throttling (read-only)
+tb323fu-ctl kernel                   # kernel updates: running, trial, last good, available release
+tb323fu-ctl kernel update --reboot   # check, download, install (admin) and restart; or check / download TAG / install TAG
+tb323fu-ctl kernel keep              # keep a testing-channel kernel; rollback [--reboot] writes the last good one back
 tb323fu-ctl --json status
 ```
 
@@ -48,7 +51,7 @@ Settings are stored in `/etc/tb323fu/helper.toml` (see `data/helper.toml.example
 A GTK4/libadwaita front-end in `crates/tb323fu-settings/` — a separate Cargo workspace, so the daemon and CLI above
 build without GTK development libraries. It reads everything from `tb323fu-helperd` (property poll every 2 s) and
 changes settings through its methods; polkit decides what needs authentication, not the app. Pages: Battery, Display
-(refresh rate), Performance (GPU, temperatures), Torch & LED ring, USB, Emergency key, Systems, Android, Diagnostics, About. Pages whose
+(refresh rate), Performance (GPU, temperatures), Torch & LED ring, USB, Emergency key, Systems, Android, Diagnostics, About (with kernel updates). Pages whose
 object the daemon does not export are hidden; without the daemon the app shows a status page.
 
 ```sh
@@ -63,8 +66,9 @@ PREFIX=/usr/local ./install.sh      # binary, .desktop, icon, metainfo; --uninst
 The daemon runs as root; polkit decides per call. Everyday controls are allowed for the active local
 session without a password (charge limit, bypass, Android switch, flashlight, LED ring, refresh, GPU,
 USB wakeup, emergency-key settings, diagnostics). Authentication is asked for developer USB access,
-disabling the emergency key, `android require-auth`, and `reload`. Switching to Android can be made to ask
-for authentication with `tb323fu-ctl android require-auth on`. Actions are in
+disabling the emergency key, `android require-auth`, `reload`, and for kernel updates: installing, going back,
+and changing the channel or the daily check (looking for, downloading and keeping a kernel need none).
+Switching to Android can be made to ask for authentication with `tb323fu-ctl android require-auth on`. Actions are in
 `data/io.github.joonhoekim.tb323fu.helper.policy`.
 
 ## Tests
@@ -72,6 +76,7 @@ for authentication with `tb323fu-ctl android require-auth on`. Actions are in
 ```sh
 cargo test --release
 dbus-run-session -- sh tests/fake-sysfs-test.sh target/release   # daemon on a private bus against a fake device tree
+dbus-run-session -- sh tests/kernel-update-test.sh target/release  # kernel updates end to end (minisign, python3, curl)
 ```
 
 `TB323FU_SYSFS_ROOT` points every device path at a fake tree, `TB323FU_CONFIG` the settings file, and

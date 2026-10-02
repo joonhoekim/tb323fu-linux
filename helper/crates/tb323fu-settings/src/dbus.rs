@@ -104,6 +104,15 @@ pub fn setting_name(method: &str) -> &'static str {
         "RebootInto" => "Restart",
         "Rescan" => "Rescan",
         "Export" => "Export",
+        "Check" => "Kernel check",
+        "Download" => "Kernel download",
+        "Install" => "Kernel install",
+        "Keep" => "Keep kernel",
+        "Rollback" => "Previous kernel",
+        "Dismiss" => "Kernel notice",
+        "SetChannel" => "Kernel channel",
+        "SetAutoCheck" => "Daily check",
+        "Notes" => "Release notes",
         _ => "Settings",
     }
 }
@@ -258,6 +267,34 @@ pub fn roots(p: &Props, k: &str) -> Vec<(String, String, bool, String)> {
                     if let (Some(n), Some(l), Some(i)) = (str_of(&f[0]), str_of(&f[1]), str_of(&f[3])) {
                         out.push((n, l, b, i));
                     }
+                }
+            }
+        }
+    }
+    out
+}
+
+pub fn t(p: &Props, k: &str) -> Option<u64> {
+    match val(p, k)? {
+        Value::U64(x) => Some(*x),
+        Value::U32(x) => Some(u64::from(*x)),
+        _ => None,
+    }
+}
+
+/// a(sssu): the helper's Kernel.Available (tag, release, notes URL, serial).
+pub fn releases(p: &Props, k: &str) -> Vec<(String, String, String, u32)> {
+    let mut out = Vec::new();
+    if let Some(Value::Array(a)) = val(p, k) {
+        for v in a.iter() {
+            let v = match v {
+                Value::Value(b) => &**b,
+                other => other,
+            };
+            if let Value::Structure(st) = v {
+                let f = st.fields();
+                if let (4, Some(t), Some(r), Some(n), Some(Value::U32(s))) = (f.len(), f.first().and_then(str_of), f.get(1).and_then(str_of), f.get(2).and_then(str_of), f.get(3)) {
+                    out.push((t, r, n, *s));
                 }
             }
         }

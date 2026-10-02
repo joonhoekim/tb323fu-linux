@@ -211,9 +211,22 @@ fn clear_mount_point(dir: &str) {
 
 /// Run `f` with the state root's /etc/tb323fu (read-only unless `write`).
 fn with_state_etc<T>(write: bool, f: impl FnOnce(&Path) -> Res<T>) -> Res<T> {
+    with_state_dir(write, "etc/tb323fu", f)
+}
+
+/// One state-root mount at a time (the Boot and Kernel objects both use it,
+/// the latter from blocking threads). `f` must not call `with_state_dir`.
+static STATE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Run `f` with the directory `rel` (e.g. `var/lib/tb323fu`) on the state
+/// root, read-only unless `write` (then created). When running from another
+/// root the state root is mounted under /run/tb323fu/state for the call (or
+/// used where it is already mounted).
+pub fn with_state_dir<T>(write: bool, rel: &str, f: impl FnOnce(&Path) -> Res<T>) -> Res<T> {
+    let _g = STATE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let (state, cur) = (state_root(), current_root());
     if testing() || cur == state {
-        let d = if cur == state { sys::path("/etc/tb323fu") } else { sys::path(&format!("/roots/{state}/etc/tb323fu")) };
+        let d = if cur == state { sys::path(&format!("/{rel}")) } else { sys::path(&format!("/roots/{state}/{rel}")) };
         if write {
             fs::create_dir_all(&d).map_err(|e| format!("{}: {e}", d.display()))?;
         }
@@ -224,7 +237,7 @@ fn with_state_etc<T>(write: bool, f: impl FnOnce(&Path) -> Res<T>) -> Res<T> {
         if write && !rw {
             return Err(format!("{dev} is mounted read-only on {}", at.display()));
         }
-        let d = at.join("etc/tb323fu");
+        let d = at.join(rel);
         if write {
             fs::create_dir_all(&d).map_err(|e| format!("{}: {e}", d.display()))?;
         }
@@ -240,7 +253,7 @@ fn with_state_etc<T>(write: bool, f: impl FnOnce(&Path) -> Res<T>) -> Res<T> {
         clear_mount_point(STATE_MNT);
         return Err(format!("{STATE_MNT} does not hold {dev} after mounting it"));
     }
-    let d = PathBuf::from(STATE_MNT).join("etc/tb323fu");
+    let d = PathBuf::from(STATE_MNT).join(rel);
     let r = (|| {
         if write {
             fs::create_dir_all(&d).map_err(|e| format!("{}: {e}", d.display()))?;
@@ -252,6 +265,12 @@ fn with_state_etc<T>(write: bool, f: impl FnOnce(&Path) -> Res<T>) -> Res<T> {
     }
     clear_mount_point(STATE_MNT);
     r
+}
+
+/// Whether the running system is the state root itself (its /var/lib/tb323fu
+/// is then the state directory, and reading it costs nothing).
+pub fn on_state_root() -> bool {
+    current_root() == state_root()
 }
 
 fn first_word(p: &Path) -> Option<String> {
@@ -362,16 +381,24 @@ const KEY_FIRMWARE: [(&str, &str); 2] = [
 /// What a root with /sbin/init lacks for the shared kernel `release`: its
 /// modules (modules.dep), the out-of-tree amplifier driver (extra/), key
 /// firmware. NixOS roots carry modules and firmware in the store: not checked.
-pub fn health(dir: &Path, init: &str, release: &str) -> Vec<String> {
+/// With `shared` (the running boot image brought its modules, mounted on the
+/// root that boots) the modules are only checked for a root that opts out
+/// with /etc/tb323fu/modules = own.
+pub fn health(dir: &Path, init: &str, release: &str, shared: bool) -> Vec<String> {
     let mut p = Vec::new();
     if init != "systemd" || release.is_empty() {
         return p;
     }
+    let own = first_word(&in_root(dir, "etc/tb323fu/modules")).as_deref() == Some("own");
     let m = format!("lib/modules/{release}");
-    if !in_root(dir, &format!("{m}/modules.dep")).exists() {
+    if shared && !own {
+        // the boot image's modules: nothing to check in the root
+    } else if !in_root(dir, &format!("{m}/modules.dep")).exists() {
         p.push(format!("missing modules for {release} (no sound or Wi-Fi)"));
     } else if !in_root(dir, &format!("{m}/extra")).is_dir() {
         p.push(format!("missing extra/ modules for {release} (no speakers)"));
+    } else if shared {
+        p.push("own modules (not updated with the kernel)".to_string());
     }
     for (fw, what) in KEY_FIRMWARE {
         if !has_firmware(dir, &format!("lib/firmware/{fw}")) {
@@ -422,9 +449,10 @@ fn probe<T>(dev: &str, f: impl FnOnce(&Path) -> T) -> Option<T> {
 pub fn roots() -> Vec<Root> {
     let cur = current_root();
     let rel = kernel_release();
+    let shared = crate::kernel::shared_modules(&rel);
     let look = |dir: &Path| {
         let (label, init) = inspect(dir);
-        let problems = health(dir, &init, &rel);
+        let problems = health(dir, &init, &rel, shared);
         (label, init, problems)
     };
     partitions()
@@ -613,14 +641,14 @@ mod tests {
         let t = fake();
         let d = &t.0;
         let rel = "7.3.0-test";
-        assert!(health(d, "nixos", rel).is_empty(), "NixOS roots are not checked");
-        let p = health(d, "systemd", rel);
+        assert!(health(d, "nixos", rel, false).is_empty(), "NixOS roots are not checked");
+        let p = health(d, "systemd", rel, false);
         assert_eq!(p.len(), 3, "{p:?}");
         assert!(p[0].starts_with("missing modules for 7.3.0-test"));
         fs::create_dir_all(d.join("usr/lib/modules").join(rel)).unwrap();
         std::os::unix::fs::symlink("usr/lib", d.join("lib")).unwrap(); // merged /usr
         fs::write(d.join("usr/lib/modules").join(rel).join("modules.dep"), "").unwrap();
-        let p = health(d, "systemd", rel);
+        let p = health(d, "systemd", rel, false);
         assert!(p[0].starts_with("missing extra/"), "{p:?}");
         fs::create_dir_all(d.join("usr/lib/modules").join(rel).join("extra")).unwrap();
         for (fw, _) in KEY_FIRMWARE {
@@ -628,6 +656,15 @@ mod tests {
             fs::create_dir_all(f.parent().unwrap()).unwrap();
             fs::write(f, "").unwrap();
         }
-        assert!(health(d, "systemd", rel).is_empty());
+        assert!(health(d, "systemd", rel, false).is_empty());
+        // shared modules: the root's own tree does not matter, unless it opts out
+        assert!(health(d, "systemd", rel, true).is_empty());
+        fs::create_dir_all(d.join("etc/tb323fu")).unwrap();
+        fs::write(d.join("etc/tb323fu/modules"), "own\n").unwrap();
+        assert_eq!(health(d, "systemd", rel, true), ["own modules (not updated with the kernel)"]);
+        fs::remove_dir_all(d.join("usr/lib/modules")).unwrap();
+        assert!(health(d, "systemd", rel, true)[0].starts_with("missing modules"), "own mode without a tree");
+        fs::write(d.join("etc/tb323fu/modules"), "shared\n").unwrap();
+        assert!(health(d, "systemd", rel, true).is_empty(), "shared: no tree needed");
     }
 }

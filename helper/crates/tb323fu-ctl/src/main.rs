@@ -7,7 +7,7 @@ use zbus::zvariant::{OwnedValue, Value};
 
 const BUS: &str = "io.github.joonhoekim.tb323fu.Helper";
 const ROOT: &str = "/io/github/joonhoekim/tb323fu/Helper";
-const OBJECTS: [&str; 11] = ["Battery", "Android", "Torch", "LedRing", "Refresh", "Gpu", "Usb", "EmergencyKey", "Diagnostics", "Boot", "Thermal"];
+const OBJECTS: [&str; 12] = ["Battery", "Android", "Torch", "LedRing", "Refresh", "Gpu", "Usb", "EmergencyKey", "Diagnostics", "Boot", "Thermal", "Kernel"];
 
 const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
 
@@ -28,6 +28,18 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
                                  installed systems (multiboot): one-shot next boot, default, restart into;
                                  list also names what a system lacks for this kernel (modules, firmware)
   thermal                        temperatures (surface, CPU, GPU, board sensors) and throttling
+  kernel [status]                kernel updates: running, trial, last good, available release
+  kernel check|list|notes TAG    look for a newer kernel in the channel / show it / its release notes
+  kernel download TAG            download and verify a release
+  kernel install TAG [--reboot]  repack it into your stock boot image and write boot_a (admin);
+                                 it is tried on the next start and confirmed after 90 s (stable)
+  kernel update [--reboot]       check, download and install the newest release
+  kernel keep                    keep the running trial kernel (testing channel)
+  kernel rollback [--reboot]     write the last good kernel (linux-good.img) back (admin)
+  kernel channel stable|testing  release channel (admin)
+  kernel auto-check on|off       daily check for a new kernel (admin)
+  kernel helper-notify on|off    show when a newer helper is published (admin)
+  kernel dismiss                 hide the notice after an automatic rollback
   versions                       helper, kernel, series, firmware state
   reload                         re-read /etc/tb323fu/helper.toml (admin)";
 
@@ -213,6 +225,153 @@ impl Ctl {
     }
 }
 
+/// "2026-10-02 12:00 UTC" for unix seconds (0: never).
+fn utc(t: u64) -> String {
+    if t == 0 {
+        return "never".into();
+    }
+    let (days, secs) = ((t / 86400) as i64, t % 86400);
+    // civil from days (Howard Hinnant)
+    let z = days + 719468;
+    let era = z.div_euclid(146097);
+    let doe = z - era * 146097;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = yoe + era * 400 + i64::from(m <= 2);
+    format!("{y:04}-{m:02}-{d:02} {:02}:{:02} UTC", secs / 3600, secs % 3600 / 60)
+}
+
+impl Ctl {
+    /// A long method of the Kernel object; its message, or the exit code.
+    fn kcall<B>(&self, method: &str, body: &B) -> Result<String, i32>
+    where
+        B: serde::ser::Serialize + zbus::zvariant::DynamicType,
+    {
+        match self.conn.call_method(Some(BUS), path("Kernel").as_str(), Some(iface("Kernel").as_str()), method, body) {
+            Ok(reply) => Ok(reply.body().deserialize::<String>().unwrap_or_default()),
+            Err(zbus::Error::MethodError(_, msg, _)) => {
+                eprintln!("tb323fu-ctl: kernel {}: {}", method.to_lowercase(), msg.unwrap_or_default());
+                Err(1)
+            }
+            Err(e) => {
+                eprintln!("tb323fu-ctl: kernel {}: {e}", method.to_lowercase());
+                Err(1)
+            }
+        }
+    }
+
+    fn kernel_status(&self) -> i32 {
+        if self.json {
+            return self.show(&["Kernel"]);
+        }
+        let Some(p) = self.props("Kernel") else {
+            eprintln!("tb323fu-ctl: no Kernel object (helper not running, or no boot_a/boot_b)");
+            return 1;
+        };
+        let s = |k: &str| p.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let b = |k: &str| p.get(k).and_then(|v| v.as_bool()).unwrap_or(false);
+        let n = |k: &str| p.get(k).and_then(|v| v.as_u64()).unwrap_or(0);
+        println!("running    {}{}", s("Running"), if b("SharedModules") { " (modules from the boot image)" } else { "" });
+        println!("state      {}", s("State"));
+        println!("channel    {} (daily check {}, last check {}{})", s("Channel"), if b("AutoCheck") { "on" } else { "off" },
+            utc(n("LastCheck")), if b("IndexExpired") { ", index EXPIRED" } else { "" });
+        println!("good       {}", if s("Good").is_empty() { "(none saved yet)".into() } else { s("Good") });
+        if !s("Trial").is_empty() {
+            println!("trial      {} ({} channel, start {} of {})", s("Trial"), s("TrialChannel"), n("Tries"), n("MaxTries"));
+            if b("KeepPending") {
+                println!("           testing channel: `tb323fu-ctl kernel keep` keeps it; otherwise it goes back to {} after {} more failed starts",
+                    s("Good"), n("MaxTries").saturating_sub(n("Tries")));
+            }
+        }
+        if !s("LastFailed").is_empty() {
+            println!("failed     {} (did not start, or was rolled back; good kernel: {})", s("LastFailed"), s("Good"));
+        }
+        let downloaded: Vec<String> = p.get("Downloaded").and_then(|v| v.as_array())
+            .map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default();
+        match p.get("Available").and_then(|v| v.as_array()) {
+            Some(a) if !a.is_empty() => {
+                for e in a {
+                    let f = |i: usize| e.get(i).map(|v| v.as_str().map(str::to_string).unwrap_or_else(|| v.to_string())).unwrap_or_default();
+                    println!("available  {} {}{}", f(0), f(1), if downloaded.contains(&f(0)) { " (downloaded)" } else { "" });
+                }
+            }
+            _ => println!("available  (nothing newer)"),
+        }
+        if !s("HelperLatest").is_empty() {
+            println!("helper     {} available: {}", s("HelperLatest"), s("HelperUpdateCommand"));
+        }
+        if !s("Message").is_empty() {
+            println!("last       {}", s("Message"));
+        }
+        0
+    }
+
+    fn kernel(&self, rest: &[&str], reboot: bool) -> i32 {
+        let say = |r: Result<String, i32>| match r {
+            Ok(m) => {
+                println!("{m}");
+                0
+            }
+            Err(c) => c,
+        };
+        match rest.first().copied() {
+            None | Some("status") | Some("list") => self.kernel_status(),
+            Some("check") => say(self.kcall("Check", &())),
+            Some("notes") => match rest.get(1) {
+                Some(t) => say(self.kcall("Notes", &(*t,))),
+                None => usage(),
+            },
+            Some("download") => match rest.get(1) {
+                Some(t) => say(self.kcall("Download", &(*t,))),
+                None => usage(),
+            },
+            Some("install") => match rest.get(1) {
+                Some(t) => say(self.kcall("Install", &(*t, reboot))),
+                None => usage(),
+            },
+            Some("update") => {
+                match self.kcall("Check", &()) {
+                    Ok(m) => println!("{m}"),
+                    Err(c) => return c,
+                }
+                let p = self.props("Kernel").unwrap_or_default();
+                let Some(tag) = p.get("Available").and_then(|v| v.as_array()).and_then(|a| a.first())
+                    .and_then(|e| e.get(0)).and_then(|v| v.as_str()).map(str::to_string) else {
+                    println!("nothing to update");
+                    return 0;
+                };
+                let have = p.get("Downloaded").and_then(|v| v.as_array()).is_some_and(|a| a.iter().any(|x| x.as_str() == Some(tag.as_str())));
+                if !have {
+                    match self.kcall("Download", &(tag.as_str(),)) {
+                        Ok(m) => println!("{m}"),
+                        Err(c) => return c,
+                    }
+                }
+                say(self.kcall("Install", &(tag.as_str(), reboot)))
+            }
+            Some("keep") => say(self.kcall("Keep", &())),
+            Some("rollback") => say(self.kcall("Rollback", &(reboot,))),
+            Some("dismiss") => say(self.kcall("Dismiss", &())),
+            Some("channel") => match rest.get(1).copied() {
+                Some(ch @ ("stable" | "testing")) => self.call("Kernel", "SetChannel", &(ch,)),
+                _ => usage(),
+            },
+            Some("auto-check") => match onoff(rest.get(1)) {
+                Some(on) => self.call("Kernel", "SetAutoCheck", &(on,)),
+                None => usage(),
+            },
+            Some("helper-notify") => match onoff(rest.get(1)) {
+                Some(on) => self.call("Kernel", "SetHelperNotify", &(on,)),
+                None => usage(),
+            },
+            _ => usage(),
+        }
+    }
+}
+
 fn onoff(s: Option<&&str>) -> Option<bool> {
     match s.copied() {
         Some("on") | Some("true") | Some("1") => Some(true),
@@ -374,6 +533,7 @@ fn run(args: &[String]) -> i32 {
             _ => usage(),
         },
         "thermal" => c.thermal(),
+        "kernel" => c.kernel(rest, args.iter().any(|x| x == "--reboot")),
         "reload" => c.call("", "Reload", &()),
         _ => usage(),
     }

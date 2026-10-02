@@ -110,4 +110,43 @@
     <message>Authentication is required to change the helper's administrative settings</message>
     <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin</allow_active></defaults>
   </action>
+
+  <!-- kernel updates (docs/helper.md "Kernel updates"): looking and downloading
+       are harmless (signed, verified, nothing installed); writing boot_a and
+       changing the channel ask for authentication -->
+  <action id="io.github.joonhoekim.tb323fu.helper.kernel-check">
+    <description>Look for a new kernel release</description>
+    <message>Authentication is required to look for a new kernel</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.kernel-download">
+    <description>Download a kernel release</description>
+    <message>Authentication is required to download a kernel</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.kernel-install">
+    <description>Install a new kernel</description>
+    <message>Authentication is required to install a new kernel</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.kernel-rollback">
+    <description>Go back to the previous kernel</description>
+    <message>Authentication is required to go back to the previous kernel</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.kernel-keep">
+    <description>Keep the kernel that is being tried</description>
+    <message>Authentication is required to keep this kernel</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.tb323fu.helper.kernel-channel">
+    <description>Change the kernel update settings (channel, daily check)</description>
+    <message>Authentication is required to change the kernel update settings</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
 </policyconfig>

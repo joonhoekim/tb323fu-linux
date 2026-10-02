@@ -9,6 +9,7 @@
 
 mod diag;
 mod ifaces;
+mod kernel;
 mod polkit;
 
 use ifaces::*;
@@ -180,9 +181,10 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
     let has_usb = f::usb_wake().is_some() || f::gadget().is_some();
     let has_boot = !tb323fu_helper_core::boot::partitions().is_empty();
     let has_thermal = f::thermal().is_some();
+    let has_kernel = tb323fu_helper_core::kernel::find_device().is_ok();
     for (on, name) in [(has_battery, "Battery"), (has_android, "Android"), (has_torch, "Torch"), (has_ledring, "LedRing"),
         (has_refresh, "Refresh"), (has_gpu, "Gpu"), (has_usb, "Usb"), (true, "EmergencyKey"), (true, "Diagnostics"), (has_boot, "Boot"),
-        (has_thermal, "Thermal")] {
+        (has_thermal, "Thermal"), (has_kernel, "Kernel")] {
         if on {
             features.push(name.to_string());
         }
@@ -231,6 +233,13 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
     if has_boot {
         b = b.serve_at(P_BOOT, Boot::new(shared.clone()))?;
     }
+    let kern = kernel::Inner::new(shared.clone());
+    if has_kernel {
+        b = b.serve_at(kernel::P_KERNEL, kernel::Kernel(kern.clone()))?;
+        // kernel-state may sit on another root: read it off the executor
+        let k2 = kern.clone();
+        std::thread::spawn(move || k2.reload_state());
+    }
     if has_thermal {
         b = b.serve_at(P_THERMAL, Thermal)?;
     }
@@ -268,6 +277,11 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
         watch::<Diagnostics>(&conn, P_DIAG, &mut last).await;
         if has_boot { watch::<Boot>(&conn, P_BOOT, &mut last).await; }
         if has_thermal { watch::<Thermal>(&conn, P_THERMAL, &mut last).await; }
+        if has_kernel {
+            kern.poll_state();
+            kern.auto_tick();
+            watch::<kernel::Kernel>(&conn, kernel::P_KERNEL, &mut last).await;
+        }
         async_io::Timer::after(Duration::from_secs(5)).await;
     }
 }

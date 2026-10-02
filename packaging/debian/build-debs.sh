@@ -60,7 +60,7 @@ build() {
 }
 
 # ---- tb323fu-platform
-DESTDIR=$work/tb323fu-platform PREFIX=/usr SYSCONFDIR=/etc sh "$root/userspace/platform/install.sh" > /dev/null
+DESTDIR=$work/tb323fu-platform PREFIX=/usr SYSCONFDIR=/etc VERSION=$VERSION sh "$root/userspace/platform/install.sh" > /dev/null
 control tb323fu-platform "$ARCH" "systemd, udev, bluez, swh-plugins, wireless-regdb" \
 	"pipewire, wireplumber, alsa-ucm-conf, iio-sensor-proxy, hexagonrpcd, qrtr-tools, rmtfs, tqftpserv, tb323fu-helper" \
 	"Lenovo Legion Tab Gen 5 (TB323FU) platform files" \
@@ -73,20 +73,20 @@ tb323fu-btaddr."
 script tb323fu-platform postinst 'if [ "$1" = configure ]; then
 	udevadm control --reload 2>/dev/null || true
 	systemctl daemon-reload 2>/dev/null || true
-	systemctl enable tb323fu-gen-ids.service tb323fu-btaddr.service tb323fu-dsp.service tb323fu-audio.service tb323fu-usb-port.service tb323fu-emergency-key.service 2>/dev/null || true
+	systemctl enable tb323fu-gen-ids.service tb323fu-btaddr.service tb323fu-dsp.service tb323fu-audio.service tb323fu-usb-port.service tb323fu-emergency-key.service tb323fu-kernel-confirm.service 2>/dev/null || true
 	systemctl --global enable tb323fu-speaker-gain.service 2>/dev/null || true
 	if systemctl list-unit-files bootmac-bluetooth.service >/dev/null 2>&1; then systemctl mask bootmac-bluetooth.service 2>/dev/null || true; fi
 	[ -e /etc/tb323fu/android-boot.sha256 ] || echo "tb323fu-platform: put the Android boot image hash in /etc/tb323fu/android-boot.sha256 (see android/README.md) to arm the emergency key"
 fi'
 script tb323fu-platform prerm 'if [ "$1" = remove ]; then
-	systemctl disable tb323fu-gen-ids.service tb323fu-btaddr.service tb323fu-dsp.service tb323fu-audio.service tb323fu-usb-port.service tb323fu-emergency-key.service 2>/dev/null || true
+	systemctl disable tb323fu-gen-ids.service tb323fu-btaddr.service tb323fu-dsp.service tb323fu-audio.service tb323fu-usb-port.service tb323fu-emergency-key.service tb323fu-kernel-confirm.service 2>/dev/null || true
 	systemctl --global disable tb323fu-speaker-gain.service 2>/dev/null || true
 fi'
 build tb323fu-platform "$ARCH"
 
 # ---- tb323fu-helper
 DESTDIR=$work/tb323fu-helper PREFIX=/usr LIBEXECDIR=/usr/libexec/tb323fu sh "$root/helper/install.sh" > /dev/null
-control tb323fu-helper "$ARCH" "dbus, polkitd | policykit-1, systemd" "tb323fu-platform" \
+control tb323fu-helper "$ARCH" "dbus, polkitd | policykit-1, systemd, curl" "tb323fu-platform" \
 	"TB323FU device helper (charge limit, refresh, torch, LED ring, GPU, ...)" \
 	"tb323fu-helperd owns the device knobs behind one system D-Bus service
 (io.github.joonhoekim.tb323fu.Helper) with polkit checks; tb323fu-ctl is its CLI.

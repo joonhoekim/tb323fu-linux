@@ -10,3 +10,11 @@ license.workspace = true
 serde.workspace = true
 toml.workspace = true
 sha2.workspace = true
+serde_json.workspace = true
+# kernel updates: minisign signature check (pure Rust) and gzip'd kernels
+minisign-verify = "0.2"
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+
+[dev-dependencies]
+# signs test indexes and manifests with throw-away keys
+minisign = { version = "0.7", default-features = false }

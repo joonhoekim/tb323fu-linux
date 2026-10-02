@@ -5,8 +5,10 @@
 //! can be tested against a fake sysfs tree (`TB323FU_SYSFS_ROOT`).
 
 pub mod boot;
+pub mod bootimg;
 pub mod config;
 pub mod features;
+pub mod kernel;
 pub mod sys;
 
 pub use config::Config;

@@ -24,11 +24,14 @@ else
 fi
 DBUSSVC=${DBUSSVC:-/usr/share/dbus-1/system-services}
 POLKIT=${POLKIT:-/usr/share/polkit-1/actions}
+# public keys of the kernel release channel (also compiled into the daemon)
+KEYDIR=${KEYDIR:-$PREFIX/share/tb323fu/keys}
 here=$(cd "$(dirname "$0")" && pwd)
 B=$here/target/release
 
 files() {
 	echo "$LIBEXECDIR/tb323fu-helperd $BINDIR/tb323fu-ctl $UNITDIR/tb323fu-helperd.service"
+	echo "$LIBEXECDIR/tb323fu-kernel-fetch $UNITDIR/tb323fu-kernel-fetch.service $KEYDIR/kernel-A5D2DA7287637413.pub"
 	echo "$DBUSCONF/io.github.joonhoekim.tb323fu.Helper.conf $DBUSSVC/io.github.joonhoekim.tb323fu.Helper.service"
 	echo "$POLKIT/io.github.joonhoekim.tb323fu.helper.policy"
 }
@@ -47,6 +50,11 @@ install -Dm755 "$B/tb323fu-ctl" "$DESTDIR$BINDIR/tb323fu-ctl"
 sed "s|@LIBEXECDIR@|$LIBEXECDIR|" "$here/data/tb323fu-helperd.service" > "$here/data/.unit"
 install -Dm644 "$here/data/.unit" "$DESTDIR$UNITDIR/tb323fu-helperd.service"
 rm -f "$here/data/.unit"
+install -Dm755 "$here/data/tb323fu-kernel-fetch" "$DESTDIR$LIBEXECDIR/tb323fu-kernel-fetch"
+sed "s|@LIBEXECDIR@|$LIBEXECDIR|" "$here/data/tb323fu-kernel-fetch.service" > "$here/data/.unit"
+install -Dm644 "$here/data/.unit" "$DESTDIR$UNITDIR/tb323fu-kernel-fetch.service"
+rm -f "$here/data/.unit"
+for k in "$here"/data/keys/kernel-*.pub; do install -Dm644 "$k" "$DESTDIR$KEYDIR/$(basename "$k")"; done
 install -Dm644 "$here/data/io.github.joonhoekim.tb323fu.Helper.conf" "$DESTDIR$DBUSCONF/io.github.joonhoekim.tb323fu.Helper.conf"
 install -Dm644 "$here/data/io.github.joonhoekim.tb323fu.Helper.service" "$DESTDIR$DBUSSVC/io.github.joonhoekim.tb323fu.Helper.service"
 install -Dm644 "$here/data/io.github.joonhoekim.tb323fu.helper.policy" "$DESTDIR$POLKIT/io.github.joonhoekim.tb323fu.helper.policy"

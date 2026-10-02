@@ -14,7 +14,7 @@ let
   settings = pk.tb323fu-settings;
   extension = pk.tb323fu-helper-gnome;
   # tools the platform scripts and the helper call through PATH
-  toolPath = with pkgs; [ coreutils gnugrep gnused gawk findutils util-linux procps kmod bluez alsa-utils systemd busybox ];
+  toolPath = with pkgs; [ coreutils gnugrep gnused gawk findutils util-linux procps kmod bluez alsa-utils systemd gzip busybox ];
   # the [Install] sections of packaged units are ignored by NixOS: the same targets here
   platformUnits = {
     tb323fu-gen-ids = "sysinit.target";
@@ -23,6 +23,7 @@ let
     tb323fu-btaddr = "bluetooth.target";
     tb323fu-usb-port = "multi-user.target";
     tb323fu-emergency-key = "multi-user.target";
+    tb323fu-kernel-confirm = "multi-user.target";
   };
   ucm2 = pkgs.symlinkJoin {
     name = "alsa-ucm2-tb323fu";
@@ -151,6 +152,8 @@ in {
       systemd.packages = [ helper ];
       services.dbus.packages = [ helper ];
       security.polkit.enable = true;
+      # kernel updates: the daemon starts this download unit (DynamicUser, network)
+      systemd.services.tb323fu-kernel-fetch.path = [ pkgs.curl pkgs.coreutils ];
       systemd.services.tb323fu-helperd = {
         wantedBy = [ "multi-user.target" ];
         path = toolPath ++ [ platform ];
