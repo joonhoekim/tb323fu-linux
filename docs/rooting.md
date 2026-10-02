@@ -60,15 +60,127 @@ LTBox also checked the bootloader of the earlier firmware `18.0.10.039` (passed)
 
 ## What you need
 
-- A Windows PC. LTBox also runs on macOS and Linux according to its documentation, but only Windows was used here;
-  ROW firmware is only downloadable through Lenovo's Windows tool.
-- [LTBox](https://github.com/miner7222/LTBox) ([documentation](https://miner7222.github.io/ltbox/en/index.html)) and,
-  on Windows, the Qualcomm USB driver it offers to install on first run (reboot the PC after installing it).
+- A host computer: **Windows** (used here), or macOS / Linux (**not tested here**) — see [Host computer](#host-computer).
+- [LTBox](https://github.com/miner7222/LTBox) ([documentation](https://miner7222.github.io/ltbox/en/index.html)).
 - [Android platform-tools](https://developer.android.com/tools/releases/platform-tools) (`adb`).
 - The firmware package for your device from [Lenovo Software Fix](https://pcsupport.lenovo.com/rescue-and-smart-assistant)
-  (ROW). PRC firmware: LTBox's dashboard offers the download for PRC units (not checked here).
+  (ROW). Software Fix runs only on Windows; options for other hosts are under
+  [Getting the firmware package without Windows](#getting-the-firmware-package-without-windows).
+  PRC firmware: LTBox's dashboard offers the download for PRC units (not checked here).
 - A USB-C data cable, battery above 50 %, and about 60 GB free disk space (firmware package plus a full dump).
 - A second place to keep the backup (external disk, NAS).
+
+## Host computer
+
+LTBox is a native desktop application (Rust) with release builds for Windows, macOS and Linux; it brings its own adb,
+Sahara and Firehose code, so for LTBox itself no separate EDL tool is needed. Only the Windows path was used for this
+guide. The macOS and Linux sections below are **assembled from LTBox's and the tools' own documentation and have not
+been tried on this tablet** — the steps after this section (the LTBox screens) should be the same on every host, but
+that too is unchecked.
+
+| Host | Status here | LTBox package | EDL (9008) access |
+|---|---|---|---|
+| Windows 11 x86-64 | **verified** (LTBox v3.3.1 / v3.3.2) | zip or Scoop | Qualcomm USB driver, installed from LTBox |
+| macOS 11+ | **not tested here** | Homebrew cask or tarball (universal) | bundled libusb, no driver |
+| Linux x86-64 / arm64 | **not tested here** | `.deb`, `.rpm`, tarball, AUR `ltbox-bin` | udev rule (`ltbox --install-udev`) |
+| NixOS | **not tested here** | tarball | udev rule in the NixOS configuration |
+
+Check the current release and its `.sha256` files on [LTBox's releases page](https://github.com/miner7222/LTBox/releases);
+install instructions per OS are in [LTBox's documentation](https://miner7222.github.io/ltbox/en/index.html), and the
+driver part in [Connecting a device](https://miner7222.github.io/ltbox/en/connecting-a-device.html).
+
+### Windows (verified)
+
+1. Unpack the LTBox zip to a path **without spaces or special characters** and run `ltbox.exe` (or install it with
+   Scoop, as LTBox's documentation describes; not used here).
+2. On first start the dashboard offers to install the **Qualcomm USB driver**. Install it and **reboot the PC**.
+   Afterwards the tablet in EDL shows up as "Qualcomm HS-USB QDLoader 9008".
+3. Install platform-tools (`adb`) and put it on `PATH`.
+4. Get the firmware package with Lenovo Software Fix ([below](#get-the-firmware-package)) and close Software Fix
+   completely before starting LTBox.
+
+If LTBox crashes or shows an empty window on a laptop with two GPUs, its troubleshooting page suggests starting it
+with `$env:ICED_BACKEND = "tiny-skia"` in PowerShell (not needed here).
+
+Paths on Windows used later in this guide: LTBox's backup folder `%LOCALAPPDATA%\ltbox\backup\`, its log folder
+`%APPDATA%\ltbox\logs\`.
+
+### macOS (not tested here)
+
+1. Install LTBox: `brew tap miner7222/tap`, `brew trust miner7222/tap`, `brew install --cask ltbox` — or unpack the
+   `macos_universal` tarball into `/Applications`. Needs macOS 11 or later.
+2. The app is only ad-hoc signed, so Gatekeeper blocks the first start. LTBox's documentation gives three ways:
+   `xattr -dr com.apple.quarantine /Applications/LTBox.app`, right-click → Open, or System Settings → Privacy &
+   Security → Open Anyway.
+3. No USB driver is needed: LTBox bundles libusb. Allow the accessory when macOS asks whether the USB device may
+   connect (Apple-silicon Macs ask for new accessories).
+4. platform-tools: `brew install --cask android-platform-tools`.
+5. The firmware package: Software Fix does not run on macOS — see
+   [Getting the firmware package without Windows](#getting-the-firmware-package-without-windows).
+6. Where LTBox keeps its backup and log folders on macOS was not checked; find the root backup folder after rooting
+   (see [step 2](#2-root-without-unlocking-ltbox)) and copy it next to your dump.
+
+For the one recovery case that needs the separate [`edl`](https://github.com/bkerler/edl) tool
+([Slot marked unbootable](recovery.md#slot-marked-unbootable)): its README installs it on macOS with
+`brew install libusb git` and `pip3 install .`.
+
+### Linux (not tested here)
+
+1. Install LTBox: on Debian/Ubuntu from LTBox's APT repository or the `.deb`, on Fedora from its DNF repository or the
+   `.rpm`, on Arch from the AUR (`ltbox-bin`, a community package), or unpack the tarball. The repositories and
+   their keys are given in [LTBox's documentation](https://miner7222.github.io/ltbox/en/index.html).
+2. USB access without root: with the tarball run `sudo ./ltbox --install-udev` once, then **unplug and replug** the
+   tablet (the packages are expected to ship the rule; check). It lets the desktop session open the Qualcomm 9008
+   and Lenovo USB devices.
+3. Run LTBox as your normal user (not with `sudo`). It needs libusb-1.0, libudev, xkbcommon, Wayland or X11 libraries
+   and fontconfig — usually already present on a desktop.
+4. platform-tools: your distribution's `android-tools` / `adb` package. With systemd 258 or newer, adb access works
+   through systemd's built-in rule; on older systems install `android-udev-rules` (or your distribution's equivalent).
+5. If **ModemManager** is running, it may probe the 9008 serial device and disturb the EDL session; the `edl` tool's
+   README tells you to stop it (`sudo systemctl stop ModemManager`). Not known whether LTBox is affected — stopping it
+   for the session costs nothing.
+6. The firmware package: see [Getting the firmware package without Windows](#getting-the-firmware-package-without-windows).
+
+For the separate [`edl`](https://github.com/bkerler/edl) tool on Linux: its `install-linux-edl-drivers.sh` installs the
+udev rules (`51-edl.rules`, …) and blacklists `qcserial`, then asks you to rebuild the initramfs and reboot.
+
+#### NixOS (not tested here)
+
+- LTBox has no nixpkgs package and no AppImage (checked October 2026). The Linux tarball is a dynamically linked
+  binary, so it needs [`nix-ld`](https://github.com/nix-community/nix-ld) (`programs.nix-ld.enable = true;` plus the
+  libraries above in `programs.nix-ld.libraries`) or `steam-run ./ltbox`.
+- `ltbox --install-udev` writes into `/etc/udev/rules.d`, which NixOS does not manage. Put an equivalent rule into
+  the configuration instead, for example
+
+  ```nix
+  services.udev.extraRules = ''
+    # Qualcomm EDL (9008) and Lenovo devices, for the logged-in user
+    SUBSYSTEM=="usb", ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="9008", TAG+="uaccess"
+    SUBSYSTEM=="usb", ATTRS{idVendor}=="17ef", TAG+="uaccess"
+  '';
+  ```
+
+  or `services.udev.packages = [ pkgs.edl ];` (nixpkgs' `edl` ships `51-edl.rules` for 9008).
+- adb: add `pkgs.android-tools` to the system packages. The old `programs.adb.enable` option and the `adbusers`
+  group were removed from nixpkgs (25.11) because systemd's own rule now covers adb.
+- `pkgs.edl` is the [`edl`](https://github.com/bkerler/edl) tool, for the recovery case above.
+
+### Getting the firmware package without Windows
+
+Lenovo distributes ROW firmware for this tablet only through Software Fix (Rescue and Smart Assistant), a Windows
+application. LTBox does **not** download firmware; its flashing pages expect a folder you already have. Options, none
+of them tried here except the first:
+
+| Option | Notes | Status |
+|---|---|---|
+| Software Fix on any Windows PC | download only, then copy the whole unpacked package to your Mac/Linux machine. Software Fix also accepts the model name (`TB323FU`) instead of a connected tablet | **verified** (download on the development PC) |
+| Software Fix in a Windows virtual machine | VirtualBox, VMware, UTM (Apple silicon: Windows 11 on Arm), QEMU/KVM. For the download no USB passthrough should be needed if the model is entered by name. Do not flash from a VM | not tested |
+| [LenovoMotoFirmwareDownloader](https://github.com/enigma550/LenovoMotoFirmwareDownloader) | unofficial, cross-platform, queries the same Lenovo backend by model; needs your Lenovo account login. Tablet support (TB323FU) is not stated by the project | not tested — third-party code handling your credentials |
+| Firmware mirror sites | no way to check integrity | not recommended |
+
+Whatever the source, the package must contain `image/qsahara_device_programmer.x` and the images it lists (see
+below). Keep the downloaded archive unchanged as a reference copy: LTBox writes decrypted files into the folder it
+flashes from.
 
 ## 1. Back up
 
@@ -186,7 +298,7 @@ Result on this unit: `Flashed efisp` (135,168 bytes) then `Flashed init_boot_a` 
 `kernelsu` was live in `/proc/modules`, the bootloader still `locked` / `green`, slot `_a`.
 
 **Keep LTBox's backup folder** (on Windows `%LOCALAPPDATA%\ltbox\backup\root\TB323FU_<date_time>\`, containing
-`init_boot.img` and `manifest.json`) and copy it next to your dump. Unroot needs it. On this unit the backed-up
+`init_boot.img` and `manifest.json`; on macOS and Linux the location was not checked) and copy it next to your dump. Unroot needs it. On this unit the backed-up
 `init_boot.img` was identical to `image/init_boot.img` of the firmware package for the same version.
 
 Save LTBox's **Work History** with its Save button if you want a record — the file log under `%APPDATA%\ltbox\logs\`
@@ -276,7 +388,7 @@ systems ([multiboot](../kernel/initramfs/README.md#root-partitions-and-multiboot
 | Where | What it costs | Notes |
 |---|---|---|
 | microSD (new GPT, ext4) | nothing on the tablet | Android then reports the card as unsupported; that is expected |
-| internal UFS, after `userdata` | **a factory reset of Android** | `userdata` is f2fs (cannot shrink) and encrypted; afterwards reinstall the KernelSU manager, allow Shell and disable the OTA apps again. A step-by-step procedure is not written yet |
+| internal UFS, after `userdata` | **a factory reset of Android** | `userdata` is f2fs (cannot shrink) and encrypted; afterwards reinstall the KernelSU manager, allow Shell and disable the OTA apps again. Steps: [install.md, step 8](install.md#8-optional-a-linux-root-on-the-internal-storage) |
 
 <details>
 <summary>How the UFS root was made on the development unit</summary>
@@ -307,6 +419,9 @@ Every one of these checks hashes before and after writing and stops without rebo
 to Linux module finds a bad write, it copies Android back from `boot_b` before giving up.
 
 ## 5. First boot of Linux
+
+The full install procedure — firmware, building the boot image, a root partition, the first boot and moving the root
+to the internal storage — is in **[Installing Linux](install.md)**. The points below are a summary.
 
 - Root filesystems: [docs/distros.md](distros.md) lists the systems built with [`rootfs/`](../rootfs/) and booted
   on the device, and what every root needs (kernel modules, firmware, masked services).
@@ -341,6 +456,8 @@ to Linux module finds a bad write, it copies Android back from `boot_b` before g
 - [gbl_root_baldur](https://github.com/miner7222/gbl_root_baldur) (the GBL build LTBox pins for this model)
 - [bkerler/edl](https://github.com/bkerler/edl)
 - [XDA thread for the TB323FU](https://xdaforums.com/t/gen-5-lenovo-legion-tab-5-global-tb323fu-how-to-root-and-bootloader-unlock.4800204/)
-- In this repository: [android/](../android/README.md), [firmware/](../firmware/README.md),
+- In this repository: [install](install.md), [android/](../android/README.md), [firmware/](../firmware/README.md),
   [kernel/initramfs/](../kernel/initramfs/README.md), [tools/](../tools/README.md), [distros](distros.md),
   [helper](helper.md), [hardware status](hardware-status.md), [recovery](recovery.md)
+
+**Next:** [Installing Linux](install.md) — from a rooted tablet to Linux on its own partition.

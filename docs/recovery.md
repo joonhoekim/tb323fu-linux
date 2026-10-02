@@ -7,6 +7,9 @@ EDL loader, and Android's boot image kept in `boot_b`.
 Start with the smallest step: rebooting → fixing `boot_a` from Android (`adb` + `dd`) → unroot → one partition over
 EDL → full firmware with data kept → factory reset. Check every file's hash before writing it.
 
+LTBox itself (Flash Partitions, Unroot, Flash Firmware) has builds for Windows, macOS and Linux; host setup is in
+[rooting.md → Host computer](rooting.md#host-computer). Only the Windows build was used for the recovery steps here.
+
 | Symptom | Go to |
 |---|---|
 | Linux does not boot | [Linux does not boot](#linux-does-not-boot) |
@@ -85,6 +88,21 @@ flip the bit by hand — the GPT header CRC covers it.
 - The serial (COM) driver path never got past the Sahara handshake; the libusb-win32 driver crashed.
 - Set `PYTHONIOENCODING=utf-8` on Windows, otherwise the progress bar can crash the tool mid-write.
 - After the driver switch LTBox no longer sees the device until the driver is removed in Device Manager.
+- The `edl` README now recommends the Qualcomm 9008 serial driver plus UsbDk on Windows instead of Zadig/WinUSB; that
+  combination was not tried here.
+
+</details>
+
+<details>
+<summary>The <code>edl</code> tool on macOS and Linux (not tested here)</summary>
+
+From the tool's README; none of this was used on the development unit.
+
+- **Linux:** stop ModemManager for the session, run the repository's `install-linux-edl-drivers.sh` (udev rules for
+  9008, blacklists `qcserial`), rebuild the initramfs and reboot; then `pip3 install .` from the clone.
+  On NixOS, `pkgs.edl` provides the tool and its udev rule (`services.udev.packages = [ pkgs.edl ];`).
+- **macOS:** `brew install libusb git`, then `pip3 install .` from the clone. No driver.
+- The commands (`edl.py rs` / `ws` / `reset` with the loader `.xml`) are the same on every host.
 
 </details>
 
