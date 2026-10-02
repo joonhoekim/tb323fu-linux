@@ -42,8 +42,8 @@ Nothing third-party is stored here:
 2. **Emergency way back to Android**: volume up + down held for 10 s runs `back-to-android`, which copies the
    Android boot image from `boot_b` back into `boot_a` and reboots — only if `boot_b` matches the expected hash.
    The hash comes from the image (`/etc/android-boot.sha256`, `build.sh -a`) or, for images built without one
-   (release images), from the root: `init` copies `/etc/tb323fu/android-boot.sha256` of `baldur-root` (else
-   `baldur-root-sd`) while it reads the boot selection. With neither, the chord does nothing in the initramfs
+   (release images), from the root: `init` copies `/etc/tb323fu/android-boot.sha256` of the state root (below;
+   if it does not mount, of the next root that does) while it reads the boot selection. With neither, the chord does nothing in the initramfs
    and the panel says so.
 3. **Modules**: the remoteproc PAS driver (it attaches to the charger/Type-C firmware the bootloader already
    runs) and the touch driver are loaded after the USB shell is up, so a bad attach still leaves a way in. The
@@ -74,20 +74,24 @@ Roots are found by **GPT partition name** — names you give the partitions when
 
 | Name | Usually on | Role |
 |---|---|---|
-| `baldur-root` | UFS (a partition after `userdata`) | the default root; also holds the selection files |
+| `baldur-root` | UFS (a partition after `userdata`) | the default root when present |
 | `baldur-root-sd` | microSD | fallback |
 | `tb323fu-*` (e.g. `tb323fu-ubuntu`, `tb323fu-arch`) | microSD | more systems, one per partition |
 
-The selection lives on `baldur-root`:
+No name is required. The **state root** is the first present of `baldur-root`, `baldur-root-sd`, then the
+`tb323fu-*` partitions in sorted order (an SD card with only `tb323fu-arch`, `tb323fu-fedora`, `tb323fu-ubuntu`:
+`tb323fu-arch`). The helper and Android's Switch to Linux pick it by the same rule. The selection lives on it:
 
 - `/etc/tb323fu/boot-next`: one partition name, used **once**. `init` deletes it (and syncs) before trying that
   root, so a system that hangs later boots the default next time.
-- `/etc/tb323fu/boot-default`: persistent default (otherwise `baldur-root`).
+- `/etc/tb323fu/boot-default`: persistent default (otherwise the state root).
 - `/etc/tb323fu/boot-menu`: if present, a menu on the panel: volume-up moves to the next root, 5 s without a
   press boots the one shown.
 
-Order tried: boot-next, boot-default, `baldur-root`, `baldur-root-sd`. A root that is missing, does not mount or
-has no init is skipped, and the screen says why. The init of a root is `/sbin/init` (Debian, Ubuntu, Arch,
+Order tried: boot-next, boot-default, the state root, then every other candidate in the same order. A root
+that is missing, does not mount or has no init is skipped, and the screen says why. The state root also keeps
+`/var/lib/tb323fu/linux-current.img`, the image `back-to-android` saves for Android's Switch to Linux.
+`test-root-selection.sh` runs this part of `init` offline against fake partitions (busybox sh, dash). The init of a root is `/sbin/init` (Debian, Ubuntu, Arch,
 Fedora; an absolute symlink is resolved inside the root) or NixOS's `/nix/var/nix/profiles/system/init`.
 Every root needs its own `/lib/modules/$(uname -r)`: the kernel is shared by all of them (NixOS: the
 modules are part of the system, see [`rootfs/nixos`](../../rootfs/nixos/configuration.nix)).

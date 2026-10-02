@@ -11,7 +11,7 @@
 #   - a way in from a PC first: USB serial shell (ttyGS0) and USB network
 #     (usb0 192.168.7.2, telnet), so a boot that goes wrong stays reachable
 #   - the emergency way back to Android (volume up + down held 10 s), when the
-#     image carries /etc/android-boot.sha256 or, failing that, the default
+#     image carries /etc/android-boot.sha256 or, failing that, the state
 #     root has /etc/tb323fu/android-boot.sha256 (release images carry no hash)
 #   - loads the few modules that must not be built in (remoteproc PAS for the
 #     charger/Type-C firmware, the touch driver)
@@ -83,8 +83,8 @@ ifconfig usb0 192.168.7.2 netmask 255.255.255.0 up 2>/dev/null && telnetd -l /bi
 # together for 10 s. The expected hash of the Android image in boot_b comes from
 # the image (/etc/android-boot.sha256, built with build.sh -a) or, when the image
 # has none (release images: the hash differs per firmware version and region),
-# from the root partition: the root selection below copies baldur-root's (else
-# baldur-root-sd's) /etc/tb323fu/android-boot.sha256 to /tmp. Either way
+# from the root partition: the root selection below copies the state root's
+# /etc/tb323fu/android-boot.sha256 to /tmp (see there). Either way
 # back-to-android still refuses to write unless boot_b matches it, so a wrong or
 # stale hash only means "no restore", never a bad write. keyhold polls both keys.
 hash_ok() { case $1 in *[!0-9a-f]*) return 1 ;; esac; [ ${#1} -eq 64 ]; }
@@ -277,45 +277,56 @@ say "================================================================"
 # A first boot of a Debian image built with rootfs/ finishes debootstrap here,
 # in a chroot. Holding volume-up while the summary is up keeps the initramfs;
 # so does anything that fails on the way.
+# >>> root selection (kernel/initramfs/test-root-selection.sh runs this part offline)
 if [ "$end" = "hold" ]; then
-	# Multiboot: the selection lives on the default root (baldur-root):
-	# /etc/tb323fu/boot-next (one-shot, consumed here) and
-	# /etc/tb323fu/boot-default (persistent). Order tried: boot-next,
-	# boot-default, baldur-root, baldur-root-sd; a root that is missing, does
-	# not mount or has no init is skipped, so a bad choice falls back by itself.
-	# /etc/tb323fu/boot-menu enables a volume-up menu. Each root needs its own
-	# /lib/modules/$(uname -r) -- the kernel here is shared by all of them.
+	# Multiboot. The state root is the first present of baldur-root,
+	# baldur-root-sd, then the tb323fu-* partitions in sorted order -- no
+	# name is required, an SD-only card of tb323fu-* roots works too. It
+	# holds /etc/tb323fu/boot-next (one-shot, consumed here),
+	# /etc/tb323fu/boot-default (persistent) and /etc/tb323fu/boot-menu
+	# (enables a volume-up menu); the helper and Android's Switch to Linux
+	# use the same rule. Order tried: boot-next, boot-default, the state
+	# root, then every other candidate in the same order; a root that is
+	# missing, does not mount or has no init is skipped, so a bad choice
+	# falls back by itself. Each root needs its own /lib/modules/$(uname -r)
+	# -- the kernel here is shared by all of them.
 	partdev() { for u in /sys/class/block/sd*/uevent /sys/class/block/mmcblk*/uevent; do
 		[ -e $u ] && grep -q "^PARTNAME=$1\$" $u && { echo /dev/$(grep '^DEVNAME=' $u | cut -d= -f2); return 0; }
 		done; return 1; }
-	# UFS and the SD card usually enumerate before /init runs, but look again
-	# for up to 10 s rather than assume it
-	rootpart() { partdev baldur-root >/dev/null || partdev baldur-root-sd >/dev/null; }
-	waitfor 100 rootpart || say " no baldur-root partition after 10 s"
+	# the candidates present, in the state-root order: byte order is that
+	# order ("baldur-root" < "baldur-root-sd" < "tb323fu-*")
 	roots() { for u in /sys/class/block/sd*/uevent /sys/class/block/mmcblk*/uevent; do
 		[ -e $u ] && grep -E '^PARTNAME=(baldur-root|baldur-root-sd|tb323fu-.+)$' $u | cut -d= -f2
-		done; }
+		done | LC_ALL=C sort -u; }
+	# UFS and the SD card usually enumerate before /init runs, but look again
+	# for up to 10 s rather than assume it
+	waitfor 100 '[ -n "$(roots)" ]' || say " no root partition (baldur-root, baldur-root-sd, tb323fu-*) after 10 s"
+	order=$(roots)
+	state=$(echo "$order" | head -n1)
 	next= ; def= ; menu=
 	# the emergency key's Android hash, for images built without one (see
 	# above): read here, while a root is mounted read-only anyway
 	roothash() { [ -s /tmp/android-boot.sha256 ] && return
 		for f in /sel/etc/tb323fu/android-boot.sha256 /sel/etc/android-boot.sha256; do
 			[ -s $f ] && { head -c 64 $f > /tmp/android-boot.sha256; return; }; done; }
-	ufs=$(partdev baldur-root)
-	if [ -n "$ufs" ] && mkdir -p /sel && mount -t ext4 -o ro $ufs /sel 2>/dev/null; then
+	# The selection from the state root. The hash from the state root too, or
+	# when it does not mount, from the first other root that does.
+	for name in $order; do
+		dev=$(partdev $name) && mkdir -p /sel && mount -t ext4 -o ro $dev /sel 2>/dev/null || continue
 		roothash
-		[ -s /sel/etc/tb323fu/boot-next ] && next=$(head -n1 /sel/etc/tb323fu/boot-next | tr -d ' \r\t')
-		[ -s /sel/etc/tb323fu/boot-default ] && def=$(head -n1 /sel/etc/tb323fu/boot-default | tr -d ' \r\t')
-		[ -e /sel/etc/tb323fu/boot-menu ] && menu=1
-		if [ -n "$next" ]; then
-			# one-shot: forget it before trying, so a root that hangs later
-			# boots the default next time
-			mount -o remount,rw /sel && rm -f /sel/etc/tb323fu/boot-next && sync
+		if [ "$name" = "$state" ]; then
+			[ -s /sel/etc/tb323fu/boot-next ] && next=$(head -n1 /sel/etc/tb323fu/boot-next | tr -d ' \r\t')
+			[ -s /sel/etc/tb323fu/boot-default ] && def=$(head -n1 /sel/etc/tb323fu/boot-default | tr -d ' \r\t')
+			[ -e /sel/etc/tb323fu/boot-menu ] && menu=1
+			if [ -n "$next" ]; then
+				# one-shot: forget it before trying, so a root that hangs later
+				# boots the default next time
+				mount -o remount,rw /sel && rm -f /sel/etc/tb323fu/boot-next && sync
+			fi
 		fi
 		umount /sel
-	elif sd=$(partdev baldur-root-sd) && mkdir -p /sel && mount -t ext4 -o ro $sd /sel 2>/dev/null; then
-		roothash; umount /sel
-	fi
+		break
+	done
 	if ! hash_ok "$(head -c 64 /etc/android-boot.sha256 2>/dev/null)"; then
 		if hash_ok "$(head -c 64 /tmp/android-boot.sha256 2>/dev/null)"; then
 			say " emergency key: Android image hash from the root ($(head -c 12 /tmp/android-boot.sha256)...)"
@@ -325,8 +336,8 @@ if [ "$end" = "hold" ]; then
 	fi
 	touch /tmp/android-hash-done
 	if [ -n "$menu" ]; then
-		list=$(roots | sort -u); n=$(echo "$list" | wc -l); i=1
-		cur=${next:-${def:-baldur-root}}
+		list=$order; n=$(echo "$list" | wc -l); i=1
+		cur=${next:-${def:-$state}}
 		i=$(echo "$list" | grep -n -x "$cur" | cut -d: -f1); [ -n "$i" ] || i=1
 		say " boot menu: volume-up = next, wait 5 s = boot"
 		last=$(date +%s); up=0
@@ -345,7 +356,7 @@ if [ "$end" = "hold" ]; then
 		say " volume-up held: staying in the initramfs"
 	else
 		tried=
-		for name in $next $def baldur-root baldur-root-sd; do
+		for name in $next $def $order; do
 			case " $tried " in *" $name "*) continue ;; esac
 			tried="$tried $name"
 			rootdev=$(partdev $name) || { say " root $name: no such partition"; continue; }
@@ -372,8 +383,9 @@ if [ "$end" = "hold" ]; then
 			elif nixinit; then init=/nix/var/nix/profiles/system/init
 			fi
 			if [ -z "$init" ]; then say " root $name ($rootdev): no init"; umount /newroot; continue; fi
-			why="default"; [ "$name" = "$next" ] && why="boot-next"
-			[ "$name" = "$def" ] && [ "$name" != "$next" ] && why="boot-default"
+			why="fallback"; [ "$name" = "$state" ] && why="default"
+			[ "$name" = "$def" ] && why="boot-default"
+			[ "$name" = "$next" ] && why="boot-next"
 			say " switching to root $name on $rootdev ($why), init $init"
 			# stop everything this script started (serial shell, telnetd, key
 			# and touch watchers, the watchdog feeder -- busybox closes the
@@ -405,6 +417,7 @@ if [ "$end" = "hold" ]; then
 		say " no usable root; staying in the initramfs"
 	fi
 fi
+# <<< root selection
 
 [ "$end" = "hold" ] && while :; do sleep 3600; done
 [ "$end" = "reboot" ] || [ "$end" = "panic" ] || [ "$dload" = "full" ] || while :; do sleep 3600; done

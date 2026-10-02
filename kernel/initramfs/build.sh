@@ -23,7 +23,8 @@
 #   -a  file with the sha256 of YOUR Android boot image in boot_b (enables the
 #       volume up+down emergency way back to Android; see android/README.md).
 #       Without it init reads the hash from the root partition
-#       (/etc/tb323fu/android-boot.sha256 on baldur-root, else baldur-root-sd);
+#       (/etc/tb323fu/android-boot.sha256 on the state root: baldur-root, else
+#       baldur-root-sd, else the first tb323fu-*);
 #       with neither, the chord does nothing in the initramfs (the rootfs's own
 #       tb323fu-emergency-key service still works).
 #   -F  console font, PSF (default: console-setup's Lat15-Terminus28x14,
