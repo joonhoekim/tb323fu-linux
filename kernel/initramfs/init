@@ -94,11 +94,7 @@ keys_back_to_android() {
 		# wait for the root selection to look (it runs after the summary)
 		waitfor 600 '[ -e /tmp/android-hash-done ]'
 		want=$(head -c 64 /tmp/android-boot.sha256 2>/dev/null)
-		if ! hash_ok "$want"; then
-			say " emergency key off: no Android image hash (not in this image, no /etc/tb323fu/android-boot.sha256 on the root)"
-			return
-		fi
-		say " emergency key: Android image hash from the root ($(echo $want | cut -c1-12)...)"
+		hash_ok "$want" || return	# the root selection said why
 	fi
 	while :; do
 		keyhold 10 pmic_resin:114 gpio-keys:115 2>/dev/null | while read -r s; do
@@ -316,6 +312,13 @@ if [ "$end" = "hold" ]; then
 		umount /sel
 	elif sd=$(partdev baldur-root-sd) && mkdir -p /sel && mount -t ext4 -o ro $sd /sel 2>/dev/null; then
 		roothash; umount /sel
+	fi
+	if ! hash_ok "$(head -c 64 /etc/android-boot.sha256 2>/dev/null)"; then
+		if hash_ok "$(head -c 64 /tmp/android-boot.sha256 2>/dev/null)"; then
+			say " emergency key: Android image hash from the root ($(head -c 12 /tmp/android-boot.sha256)...)"
+		else
+			say " emergency key off: no Android image hash (none in this image, no /etc/tb323fu/android-boot.sha256 on the root)"
+		fi
 	fi
 	touch /tmp/android-hash-done
 	if [ -n "$menu" ]; then
