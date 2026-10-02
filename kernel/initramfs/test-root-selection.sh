@@ -33,6 +33,8 @@ section() {
 		-e 's#/tmp/#$T/tmp/#g' \
 		-e 's#c 64 /etc/android-boot#c 64 $T/etc/android-boot#g' \
 		-e 's#/dev/tty1#/dev/null#g' \
+		-e 's#/proc/version#$T/proc/version#g' \
+		-e 's#/proc/sys/vm/drop_caches#$T/drop_caches#g' \
 		-e 's#kill -\(TERM\|KILL\) -1#: &#' \
 		-e 's#exec switch_root#exec $T/bin/switch_root#'
 }
@@ -46,7 +48,8 @@ grep -q '^# >>> root selection' "$INIT" && grep -q '^# <<< root selection' "$INI
 setup() {
 	M=
 	T=$(mktemp -d /tmp/tb323fu-rootsel.XXXXXX)
-	mkdir -p "$T/sys/class/block" "$T/disk" "$T/bin" "$T/tmp" "$T/etc"
+	mkdir -p "$T/sys/class/block" "$T/disk" "$T/bin" "$T/tmp" "$T/etc" "$T/proc"
+	echo "Linux version 7.3.0-rc4-tb323fu-t99 (u@h) (clang) #1 SMP" > "$T/proc/version"
 	# stubs (mount understands what init does with it)
 	cat > "$T/bin/mount" <<EOF
 #!/bin/sh
@@ -102,6 +105,8 @@ run() { # SHELL
 		if [ -n "$M" ]; then mkdir -p "$T/modimg"; echo "modimg=$T/modimg"; else echo 'modimg='; fi
 		# functions win over builtins and busybox applets alike
 		for s in mount umount chroot kill sync usleep; do echo "$s() { $T/bin/$s \"\$@\"; }"; done
+		# kernel trial: no restart, uname from a file, boot_a under $T/dev
+		echo "reboot() { echo REBOOT >> $T/log; }; uname() { cat $T/uname; }; TB323FU_DEVDIR=$T/dev"
 		grep -E '^(hash_ok|waitfor)\(\)' "$INIT"
 		section
 	} > "$T/run.sh"
@@ -229,6 +234,74 @@ setup; part mmcblk0p1 tb323fu-ubuntu init; part mmcblk0p2 tb323fu-arch init
 file mmcblk0p2 etc/tb323fu/boot-menu ""; file mmcblk0p2 etc/tb323fu/boot-default tb323fu-ubuntu
 run "$SH"; expect_switch mmcblk0p1 boot-next "menu on the state root, idle: the default"
 expect_log "^SAY  boot menu: tb323fu-ubuntu" "  menu said tb323fu-ubuntu"
+rm -rf "$T"
+
+# kernel trial (kernel updates): starts counted on the state root, rollback after max
+V27="Linux version 7.3.0-rc4-tb323fu-t27 (u@h) (clang) #1 SMP PREEMPT Wed Oct 1"
+V28="Linux version 7.3.0-rc4-tb323fu-t28 (u@h) (clang) #1 SMP PREEMPT Thu Oct 2"
+# trialsetup TRIES [GOOD_SHA]: baldur-root (sda17) with a trial of t28, running t28; boot_a = sda5
+trialsetup() {
+	setup; part sda17 baldur-root init; part sda5 boot_a
+	mkdir -p "$T/dev"; printf 'T28-IMAGE' > "$T/dev/sda5"
+	mkdir -p "$T/disk/sda17/var/lib/tb323fu"
+	printf 'T27-GOOD-IMAGE' > "$T/disk/sda17/var/lib/tb323fu/linux-good.img"
+	gs=${2:-$(printf 'T27-GOOD-IMAGE' | sha256sum | cut -c1-64)}
+	ts=$(printf 'T28-IMAGE' | sha256sum | cut -c1-64)
+	printf '%s\n' "good=7.3.0-rc4-tb323fu-t27" "good_sha256=$gs" "good_version=$V27" "trial=7.3.0-rc4-tb323fu-t28" \
+		"trial_sha256=$ts" "trial_version=$V28" "trial_serial=28" "trial_channel=stable" "tries=$1" "max=2" \
+		> "$T/disk/sda17/var/lib/tb323fu/kernel-state"
+	echo "$V28" > "$T/proc/version"
+}
+kstate() { sed -n "s/^$1=//p" "$T/disk/sda17/var/lib/tb323fu/kernel-state"; }
+
+trialsetup 0; run "$SH"
+[ "$(kstate tries)" = 1 ] && ok "trial: first start counted (tries 1)" || bad "trial: tries '$(kstate tries)'"
+expect_log "^SAY  kernel 7.3.0-rc4-tb323fu-t28 on trial: start 1 of 2 (kept once a system runs 90 s)" "  said so"
+expect_switch sda17 default "  boots on"
+rm -rf "$T"
+
+trialsetup 1; sed -i 's/^trial_channel=.*/trial_channel=testing/' "$T/disk/sda17/var/lib/tb323fu/kernel-state"; run "$SH"
+[ "$(kstate tries)" = 2 ] && ok "trial: second start counted (testing channel)" || bad "trial: tries '$(kstate tries)'"
+expect_log "start 2 of 2 (kept when you press Keep)" "  said so (Keep)"
+rm -rf "$T"
+
+trialsetup 2; run "$SH"
+[ "$(cat "$T/dev/sda5")" = T27-GOOD-IMAGE ] && ok "trial: third start: linux-good.img back in boot_a" || bad "trial: boot_a = '$(cat "$T/dev/sda5")'"
+[ "$(kstate failed)" = 7.3.0-rc4-tb323fu-t28 ] && [ -z "$(kstate trial)" ] && [ -z "$(kstate tries)" ] && ok "  failed= recorded, trial cleared" || bad "  state: $(cat "$T/disk/sda17/var/lib/tb323fu/kernel-state")"
+[ "$(kstate failed_sha256)" = "$(printf 'T28-IMAGE' | sha256sum | cut -c1-64)" ] && ok "  failed_sha256" || bad "  failed_sha256"
+[ "$(kstate good)" = 7.3.0-rc4-tb323fu-t27 ] && ok "  good kept" || bad "  good lost"
+expect_log "^REBOOT" "  restarted"
+[ -z "$(switched)" ] && ok "  no root booted with the failed kernel" || bad "  switched to $(switched)"
+rm -rf "$T"
+
+trialsetup 2 "$(printf 'c%.0s' $(seq 64))"; run "$SH"
+[ "$(cat "$T/dev/sda5")" = T28-IMAGE ] && ok "trial: linux-good.img not matching its record: not written" || bad "trial: wrote a bad linux-good"
+expect_log "does not match its record" "  said so"
+expect_switch sda17 default "  boots the trial kernel on"
+rm -rf "$T"
+
+trialsetup 2; rm "$T/dev/sda5"; mkdir "$T/dev/sda5"; run "$SH"
+expect_log "does not read back as linux-good.img" "trial: boot_a write fails: said so"
+expect_log "^SAY  staying in the initramfs" "  stays in the initramfs"
+[ -z "$(switched)" ] && ok "  no switch" || bad "  switched to $(switched)"
+rm -rf "$T"
+
+trialsetup 0; echo "$V27" > "$T/proc/version"; run "$SH"
+[ "$(kstate tries)" = 0 ] && ok "trial: another kernel runs (installed, not yet started): not counted" || bad "trial: counted for another kernel"
+rm -rf "$T"
+
+trialsetup 0; echo "gpio101 : in  low" > "$T/gpio"; run "$SH"
+[ "$(kstate tries)" = 0 ] && ok "trial: volume-up held: not counted" || bad "trial: counted with volume-up"
+expect_log "volume-up held, this start is not counted" "  said so"
+rm -rf "$T"
+
+trialsetup 0; sed -i '/^trial_version=/d' "$T/disk/sda17/var/lib/tb323fu/kernel-state"; echo 7.3.0-rc4-tb323fu-t28 > "$T/uname"; run "$SH"
+[ "$(kstate tries)" = 1 ] && ok "trial: no trial_version: matched by uname -r" || bad "trial: uname match"
+rm -rf "$T"
+
+trialsetup 2; rm "$T/disk/sda17/var/lib/tb323fu/linux-good.img"; run "$SH"
+expect_log "no linux-good.img to go back to" "trial: no linux-good.img: said so"
+expect_switch sda17 default "  boots on"
 rm -rf "$T"
 
 # the shared modules image: moved into the chosen root's lib/modules

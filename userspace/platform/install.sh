@@ -47,6 +47,9 @@ putdir 644 systemd/system/iio-sensor-proxy.service.d "$PREFIX/lib/systemd/system
 putdir 644 systemd/system.conf.d "$PREFIX/lib/systemd/system.conf.d"
 putdir 755 systemd/system-sleep "$PREFIX/lib/systemd/system-sleep"
 putdir 644 systemd/user "$PREFIX/lib/systemd/user"
+# what kernel releases can ask for (min_platform in a kernel manifest)
+mkdir -p "$DESTDIR$PREFIX/share/tb323fu"
+echo "${VERSION:-0.1.0}" > "$DESTDIR$PREFIX/share/tb323fu/platform-version"
 
 # helpers
 putdir 755 libexec "$libexec"
@@ -91,7 +94,8 @@ cat <<EOF
 Installed the TB323FU platform files under ${DESTDIR:-/}.
 Enable the services (in the target system):
   systemctl enable tb323fu-gen-ids.service tb323fu-btaddr.service tb323fu-dsp.service \\
-                   tb323fu-audio.service tb323fu-usb-port.service tb323fu-emergency-key.service
+                   tb323fu-audio.service tb323fu-usb-port.service tb323fu-emergency-key.service \\
+                   tb323fu-kernel-confirm.service
   systemctl --global enable tb323fu-speaker-gain.service
   udevadm control --reload
 The emergency key needs $SYSCONFDIR/tb323fu/android-boot.sha256 (the hash printed when

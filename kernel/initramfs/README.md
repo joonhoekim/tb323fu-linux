@@ -147,6 +147,14 @@ instead: NixOS stage 2 (started without a NixOS stage 1) mounts `/proc`, `/sys`,
 The helper sets these files for you: `tb323fu-ctl boot list|next NAME|default NAME|reboot NAME`, or the
 "Systems" page of Tablet Settings (see [../../docs/helper.md](../../docs/helper.md)).
 
+**Kernel trial.** A kernel the helper installed is on trial until a system confirms it (90 s after it came up, or
+Keep for the testing channel; [docs/helper.md](../../docs/helper.md#kernel-updates)). While reading the selection,
+`init` compares `/var/lib/tb323fu/kernel-state` on the state root with `/proc/version`: a start of the trial kernel
+is counted (`tries=`); its third start (after `max` = 2 starts that never got confirmed) writes `linux-good.img` back into `boot_a`
+— only when it matches its recorded SHA-256, read back after the write — records `failed=` and restarts. If the
+write does not read back, `init` stays in the initramfs. Volume-up held: the start is not counted.
+`test-root-selection.sh` covers these cases too.
+
 Holding **volume-up** while the summary is shown keeps the initramfs (a shell on the USB serial port).
 If no root is usable, `init` also stays in the initramfs.
 

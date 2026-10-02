@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MIT
+# Kernel updates: a kernel on trial (installed by tb323fu-helperd, counted by
+# the initramfs) is confirmed once a system came up with it and stayed up for
+# 90 s -- graphical.target where there is one, else multi-user.target. Then
+# boot_a becomes linux-good.img on the state root (tb323fu-kernel-confirm).
+# Testing-channel kernels wait for Keep instead (docs/helper.md).
+[Unit]
+Description=Confirm the running kernel 90 s after the system came up
+Documentation=https://github.com/joonhoekim/tb323fu-linux/blob/main/docs/helper.md
+After=graphical.target multi-user.target
+
+[Service]
+Type=exec
+ExecStart=/usr/libexec/tb323fu/tb323fu-kernel-confirm --boot
+
+[Install]
+WantedBy=multi-user.target

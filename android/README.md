@@ -26,6 +26,9 @@ the Linux state root, mounted read-only from Android), else a staged fallback in
 first present of `baldur-root`, `baldur-root-sd`, then the `tb323fu-*` partitions in sorted order — the root the initramfs reads the boot
 selection from ([kernel/initramfs](../kernel/initramfs/README.md#root-partitions-and-multiboot)); `back-to-android` mounts it when
 running from another root. `test-state-root.sh` checks both scripts' choice offline.
+Kernel updates ([docs/helper.md](../docs/helper.md#kernel-updates)): when the saved image is a kernel still on trial
+(installed by the helper, not yet confirmed) or one that failed its trial — by `kernel-state` on the state root — the
+Action button writes the last confirmed image, `linux-good.img`, instead and says so.
 If the written `boot_a` does not verify, it copies Android back from `boot_b` before giving up.
 
 If both directions fail, the tablet can still be recovered with Qualcomm EDL and a full backup — make one before trying any of this

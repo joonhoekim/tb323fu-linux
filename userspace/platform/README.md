@@ -42,6 +42,7 @@ them with `install.sh`; the Debian, Arch and Nix packages in `packaging/` carry 
 | `iio-sensor-proxy.service.d/tb323fu-stop-timeout.conf` | kill the proxy after 3 s on stop (it once ignored SIGTERM and held a suspend for 90 s) |
 | `system-sleep/tb323fu-sensors` | stop the sensor stream across suspend; the streaming sensor hub otherwise keeps the SoC out of its deepest idle |
 | `system.conf.d/tb323fu-watchdog.conf` | the firmware leaves the SoC watchdog running: systemd keeps feeding it (30 s) |
+| `tb323fu-kernel-confirm.service` + `tb323fu-kernel-confirm` | kernel updates: 90 s after the system reached `graphical.target` (or `multi-user.target`), confirm a kernel on trial — `boot_a` becomes `linux-good.img` on the state root, so the initramfs stops counting its starts. Testing-channel kernels wait for Keep; a hand-flashed kernel is recorded as good the same way. Works without the helper ([docs/helper.md](../../docs/helper.md#kernel-updates)); `test-kernel-confirm.sh` runs it offline |
 | `user/tb323fu-speaker-gain.service` + `tb323fu-speaker-gain` | open the speaker amplifiers up only while PipeWire's protecting filter chain runs; safe attenuation otherwise (safety: there is no DSP speaker protection) |
 
 ### Audio and camera → `/usr/share/…`
@@ -76,7 +77,7 @@ GNOME-only extras live in [`../desktop/gnome/`](../desktop/gnome/).
 ## Services to enable
 
 ```sh
-systemctl enable tb323fu-gen-ids tb323fu-btaddr tb323fu-dsp tb323fu-audio tb323fu-usb-port tb323fu-emergency-key
+systemctl enable tb323fu-gen-ids tb323fu-btaddr tb323fu-dsp tb323fu-audio tb323fu-usb-port tb323fu-emergency-key tb323fu-kernel-confirm
 systemctl --global enable tb323fu-speaker-gain
 ```
 

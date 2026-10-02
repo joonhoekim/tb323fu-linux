@@ -368,6 +368,56 @@ if [ "$end" = "hold" ]; then
 	roothash() { [ -s /tmp/android-boot.sha256 ] && return
 		for f in /sel/etc/tb323fu/android-boot.sha256 /sel/etc/android-boot.sha256; do
 			[ -s $f ] && { head -c 64 $f > /tmp/android-boot.sha256; return; }; done; }
+	# Kernel updates (docs/helper.md "Kernel updates"): a kernel the helper
+	# installed runs on trial until a system confirms it (90 s after it came
+	# up, or Keep for the testing channel). Its starts are counted here in
+	# /var/lib/tb323fu/kernel-state on the state root. The start after max
+	# (default 2) counted starts that were never confirmed puts linux-good.img
+	# (the last confirmed image) back into boot_a, checked against its record,
+	# and restarts.
+	# Called with the state root on /sel.
+	kpart() { d=$(partdev $1) && echo "${TB323FU_DEVDIR:-/dev}/${d#/dev/}"; }
+	ktrial() {
+		ks=/sel/var/lib/tb323fu/kernel-state
+		[ -s $ks ] || return 0
+		kget() { sed -n "s/^$1=//p" $ks | tail -n1; }
+		kset() { { grep -v "^$1=" $ks; [ -z "$2" ] || printf '%s=%s\n' "$1" "$2"; } > $ks.tmp && mv $ks.tmp $ks; }
+		kt=$(kget trial); ktv=$(kget trial_version)
+		[ -n "$kt" ] || return 0
+		if [ -n "$ktv" ]; then [ "$ktv" = "$(cat /proc/version)" ] || return 0
+		else [ "$kt" = "$(uname -r)" ] || return 0; fi
+		if grep -q 'gpio101 *: in *low' /sys/kernel/debug/gpio 2>/dev/null; then
+			say " kernel $kt on trial: volume-up held, this start is not counted"; return 0
+		fi
+		mount -o remount,rw /sel || { say " kernel $kt on trial: the state root is not writable, start not counted"; return 0; }
+		kn=$(( $(kget tries | tr -cd 0-9) + 1 )); kmax=$(kget max | tr -cd 0-9); kmax=${kmax:-2}
+		if [ $kn -le $kmax ]; then
+			kset tries $kn; sync
+			if [ "$(kget trial_channel)" = testing ]; then say " kernel $kt on trial: start $kn of $kmax (kept when you press Keep)"
+			else say " kernel $kt on trial: start $kn of $kmax (kept once a system runs 90 s)"; fi
+			return 0
+		fi
+		kg=/sel/var/lib/tb323fu/linux-good.img; kgs=$(kget good_sha256); kgood=$(kget good); ka=$(kpart boot_a)
+		say " kernel $kt did not bring a system up in $kmax starts: going back to ${kgood:-the last good kernel}"
+		if [ -z "$ka" ] || [ ! -e "$ka" ] || [ ${#kgs} -ne 64 ] || [ ! -s $kg ]; then
+			say "   no linux-good.img to go back to; trying $kt again"; return 0
+		fi
+		if [ "$(sha256sum $kg | cut -c1-64)" != "$kgs" ]; then
+			say "   linux-good.img does not match its record: not writing it; trying $kt again"; return 0
+		fi
+		dd if=$kg of=$ka bs=1M conv=fsync 2>/dev/null; sync
+		echo 3 > /proc/sys/vm/drop_caches
+		if [ "$(sha256sum $ka | cut -c1-64)" != "$kgs" ]; then
+			say "   boot_a does not read back as linux-good.img: staying here (from a PC: fastboot flash boot_a linux-good.img)"
+			kstuck=1; return 0
+		fi
+		kset failed "$kt"; kset failed_sha256 "$(kget trial_sha256)"
+		for k in trial trial_sha256 trial_version trial_serial trial_channel tries; do kset $k ""; done
+		sync; umount /sel
+		say "   boot_a holds ${kgood:-the last good kernel} again; restarting"
+		reboot -f; kstuck=1
+	}
+	kstuck=
 	# The selection from the state root. The hash from the state root too, or
 	# when it does not mount, from the first other root that does.
 	for name in $order; do
@@ -382,6 +432,7 @@ if [ "$end" = "hold" ]; then
 				# boots the default next time
 				mount -o remount,rw /sel && rm -f /sel/etc/tb323fu/boot-next && sync
 			fi
+			ktrial
 		fi
 		umount /sel
 		break
@@ -411,7 +462,9 @@ if [ "$end" = "hold" ]; then
 		done
 		say ""; say " boot menu: $sel"; next=$sel
 	fi
-	if grep -q 'gpio101 *: in *low' /sys/kernel/debug/gpio 2>/dev/null && [ -z "$menu" ]; then
+	if [ -n "$kstuck" ]; then
+		say " staying in the initramfs (boot_a: see above)"
+	elif grep -q 'gpio101 *: in *low' /sys/kernel/debug/gpio 2>/dev/null && [ -z "$menu" ]; then
 		say " volume-up held: staying in the initramfs"
 	else
 		tried=

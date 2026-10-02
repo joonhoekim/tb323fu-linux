@@ -1,0 +1,131 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# tb323fu-kernel-confirm -- confirm the running kernel after a trial start
+# (docs/helper.md "Kernel updates", docs/notes/kernel-updates-design.md 3.5).
+# Layer 1: works without the helper.
+#
+#   tb323fu-kernel-confirm --boot   wait 90 s, then confirm (tb323fu-kernel-confirm.service,
+#                                   started once the system reached its target)
+#   tb323fu-kernel-confirm          confirm now
+#
+# kernel-state on the state root (/var/lib/tb323fu, the first present of
+# baldur-root, baldur-root-sd, then the tb323fu-* partitions in sorted order)
+# records a kernel that was installed but not yet confirmed (trial=...); the
+# initramfs counts its starts and puts linux-good.img back after two that did
+# not get here. Confirming means: boot_a still holds the trial image, so copy
+# it to linux-good.img (tmp file, hash check, rename) and record it as good.
+#
+# Stable channel: a system that came up and stayed up for 90 s confirms its
+# kernel, whichever root it is. Testing channel (trial_channel=testing): only
+# Keep in the settings app or `tb323fu-ctl kernel keep` confirms; this script
+# leaves it alone. A running kernel that is not recorded at all (written to
+# boot_a by hand) becomes the good one the same way, so a later trial always
+# has a kernel to go back to.
+#
+# Tests: TB323FU_ROOT prefixes every path (sysfs, /dev, /proc, the state
+# root), TB323FU_CURRENT_ROOT names the root / is on, TB323FU_CONFIRM_DELAY
+# replaces the 90 s.
+set -u
+R=${TB323FU_ROOT:-}
+say() { echo "tb323fu-kernel-confirm: $*"; }
+
+[ "${1:-}" = --boot ] && sleep "${TB323FU_CONFIRM_DELAY:-90}"
+
+find_part() { for u in "$R"/sys/class/block/*/uevent; do
+	grep -qx "PARTNAME=$1" "$u" 2>/dev/null || continue
+	echo "$R/dev/$(sed -n 's/^DEVNAME=//p' "$u")"; done; }
+state_root() { for u in "$R"/sys/class/block/*/uevent; do sed -n 's/^PARTNAME=//p' "$u" 2>/dev/null; done |
+	grep -E '^(baldur-root|baldur-root-sd|tb323fu-.+)$' | LC_ALL=C sort -u | head -n1; }
+cur_root() { [ -n "${TB323FU_CURRENT_ROOT+x}" ] && { echo "$TB323FU_CURRENT_ROOT"; return; }
+	mm=$(awk '$5 == "/" { m = $3 } END { print m }' /proc/self/mountinfo)
+	sed -n 's/^PARTNAME=//p' "/sys/dev/block/$mm/uevent" 2>/dev/null; }
+
+a=$(find_part boot_a)
+[ "$(echo "$a" | wc -w)" = 1 ] && [ -e "$a" ] || { say "boot_a not found once; nothing to do"; exit 0; }
+
+st=$(state_root); m=
+if [ -z "$st" ] || [ "$st" = "$(cur_root)" ]; then
+	S=$R/var/lib/tb323fu
+else
+	m=$R/run/tb323fu/confirm-state
+	d=$(find_part "$st" | head -n1)
+	mkdir -p "$m" && mount -t ext4 "$d" "$m" 2> /dev/null || { say "cannot mount the state root $st ($d)"; exit 1; }
+	S=$m/var/lib/tb323fu
+fi
+F=$S/kernel-state
+done_() { sync; [ -n "$m" ] && umount "$m"; exit "$1"; }
+
+get() { sed -n "s/^$1=//p" "$F" 2> /dev/null | tail -n1; }
+# setkv KEY VALUE: replace the key (an empty value removes it), keep all others
+setkv() { { grep -v "^$1=" "$F" 2> /dev/null; [ -z "$2" ] || printf '%s=%s\n' "$1" "$2"; } > "$F.tmp" && mv "$F.tmp" "$F"; }
+sha() { sha256sum "$1" | cut -c1-64; }
+
+ver=$(cat "$R/proc/version"); rel=$(cat "$R/proc/sys/kernel/osrelease")
+trial=$(get trial); tver=$(get trial_version)
+running_trial=
+if [ -n "$tver" ]; then [ "$tver" = "$ver" ] && running_trial=1
+elif [ -n "$trial" ] && [ "$trial" = "$rel" ]; then running_trial=1; fi
+
+# save_good SHA: boot_a -> linux-good.img, checked
+save_good() {
+	mkdir -p "$S" && dd if="$a" of="$S/linux-good.img.tmp" bs=1M 2> /dev/null && sync &&
+		[ "$(sha "$S/linux-good.img.tmp")" = "$1" ] &&
+		mv "$S/linux-good.img.tmp" "$S/linux-good.img" && echo "$1" > "$S/linux-good.img.sha256" && sync ||
+		{ rm -f "$S/linux-good.img.tmp"; say "could not save linux-good.img"; return 1; }
+}
+
+# the boot image in boot_a carries this kernel (its /proc/version line)
+boot_a_runs() {
+	ks=$(od -An -tu4 -j8 -N4 "$a" | tr -d ' ')
+	case $ks in ''|*[!0-9]*) return 1 ;; esac
+	mg=$(dd if="$a" bs=1 skip=4096 count=2 2> /dev/null | od -An -tx1 | tr -d ' \n')
+	if [ "$mg" = 1f8b ]; then
+		dd if="$a" bs=4096 skip=1 count=$(( (ks + 4095) / 4096 )) 2> /dev/null | head -c "$ks" | gzip -dc 2> /dev/null | grep -aqF "$ver"
+	else
+		dd if="$a" bs=4096 skip=1 count=$(( (ks + 4095) / 4096 )) 2> /dev/null | head -c "$ks" | grep -aqF "$ver"
+	fi
+}
+
+if [ -n "$running_trial" ]; then
+	if [ "$(get trial_channel)" = testing ]; then
+		say "$trial is a testing-channel kernel: kept only with Keep (tb323fu-ctl kernel keep)"
+		done_ 0
+	fi
+	ha=$(sha "$a")
+	[ "$ha" = "$(get trial_sha256)" ] || { say "boot_a no longer holds the trial image of $trial; not confirming"; done_ 1; }
+	save_good "$ha" || done_ 1
+	failed=$(get failed)
+	setkv good "$trial"; setkv good_sha256 "$ha"; setkv good_version "$tver"; setkv good_serial "$(get trial_serial)"
+	for k in trial trial_sha256 trial_version trial_serial trial_channel tries; do setkv $k ""; done
+	[ "$failed" = "$trial" ] && { setkv failed ""; setkv failed_sha256 ""; }
+	say "confirmed $trial: boot_a saved as linux-good.img"
+else
+	gver=$(get good_version); good=$(get good)
+	if [ -n "$gver" ] && [ "$gver" = "$ver" ] || { [ -z "$gver" ] && [ -n "$good" ] && [ "$good" = "$rel" ]; }; then
+		[ -n "$trial" ] || done_ 0	# confirmed earlier: nothing to do
+	fi
+	ha=$(sha "$a")
+	if [ -n "$trial" ]; then
+		# installed and waiting for a restart: leave it; a stale record (boot_a
+		# was rewritten since, e.g. Android wrote linux-good back) is dropped
+		[ "$ha" = "$(get trial_sha256)" ] && { say "$trial is installed and waits for a restart"; done_ 0; }
+		say "dropping the stale trial record of $trial (boot_a holds another image)"
+		for k in trial trial_sha256 trial_version trial_serial trial_channel tries; do setkv $k ""; done
+	fi
+	if [ -n "$gver" ] && [ "$gver" = "$ver" ] && [ "$(get good_sha256)" = "$ha" ] && [ -f "$S/linux-good.img" ]; then
+		done_ 0
+	fi
+	if boot_a_runs; then
+		save_good "$ha" || done_ 1
+		serial=${rel##*-tb323fu-t}; case $serial in ''|*[!0-9]*) serial= ;; esac
+		setkv good "$rel"; setkv good_sha256 "$ha"; setkv good_version "$ver"; setkv good_serial "$serial"
+		[ -n "$(get max)" ] || setkv max 2
+		say "recorded the running kernel $rel as good (linux-good.img)"
+	else
+		say "boot_a does not hold the running kernel; nothing recorded"
+	fi
+fi
+# tell the helper, if it runs (optional)
+busctl --system call io.github.joonhoekim.tb323fu.Helper /io/github/joonhoekim/tb323fu/Helper/Kernel \
+	io.github.joonhoekim.tb323fu.Helper.Kernel Refresh > /dev/null 2>&1 || true
+done_ 0

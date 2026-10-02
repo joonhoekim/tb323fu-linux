@@ -8,7 +8,10 @@
 #   1. the Linux that was running last: back-to-android saves boot_a to
 #      /var/lib/tb323fu/linux-current.img (+ .sha256) on the Linux state
 #      root (below; baldur-root when there is one), mounted here read-only
-#      (ro,noload -- no journal replay, nothing written);
+#      (ro,noload -- no journal replay, nothing written) -- or, when that
+#      image is a kernel still on trial or one that failed its trial
+#      (kernel-state there, docs/helper.md "Kernel updates"), the last
+#      confirmed one, linux-good.img;
 #   2. otherwise the staged fallback (android/install-module.sh stage IMG):
 #      /data/adb/tb323fu/linux.img (+ .sha256).
 # The way back is back-to-android in Linux (volume up+down held 10 s, or the
@@ -54,6 +57,29 @@ if [ -n "$state" ] && root=$(partdev "$state"); then
 		src="last running Linux (root partition $state)"
 	}
 fi
+# >>> kernel trial (android/test-state-root.sh runs this part offline)
+# Kernel updates (docs/helper.md): a kernel the helper installed is on trial
+# until a Linux system confirms it, and one that did not start is recorded as
+# failed (kernel-state on the state root). When the saved image is such a
+# kernel, write the last confirmed one (linux-good.img) instead.
+ks=$M/var/lib/tb323fu/kernel-state
+kget() { sed -n "s/^$1=//p" "$ks" 2>/dev/null | tail -n1; }
+if [ ${#want} -eq 64 ] && [ -f "$ks" ]; then
+	why=
+	[ "$want" = "$(kget trial_sha256)" ] && why="kernel $(kget trial) is on trial (not confirmed yet)"
+	[ "$want" = "$(kget failed_sha256)" ] && why="kernel $(kget failed) did not start"
+	if [ -n "$why" ]; then
+		gw=$(kget good_sha256)
+		if [ ${#gw} -eq 64 ] && [ -f "$M/var/lib/tb323fu/linux-good.img" ]; then
+			echo "- the saved image: $why; using the last good one ($(kget good)) instead"
+			img=$M/var/lib/tb323fu/linux-good.img; want=$gw
+			src="last good Linux (linux-good.img, root partition $state)"
+		else
+			echo "- note: the saved image: $why, and there is no linux-good.img; using it anyway"
+		fi
+	fi
+fi
+# <<< kernel trial
 if [ ${#want} -ne 64 ]; then
 	cleanup
 	img=$D/linux.img

@@ -102,5 +102,30 @@ part sda5 boot_a 8:5 byname; part sda6 tb323fu 8:6 byname; part sda7 userdata 8:
 expect "$(action "$SH")" " " "action, no candidate (\"tb323fu\" alone is none)"
 rm -rf "$T"
 done
+
+# the kernel-trial rule of action.sh: which image it writes
+trial_of() { sed -n '/^# >>> kernel trial/,/^# <<< kernel trial/p' "$here/switch-to-linux/action.sh"; }
+trial_of | grep -q . || { echo "no kernel trial markers in action.sh"; exit 2; }
+A=$(printf 'a%.0s' $(seq 64)); G=$(printf 'b%.0s' $(seq 64)); X=$(printf 'c%.0s' $(seq 64))
+pick() { # SHELL -> "img-basename want"
+	{ echo "M=$T/root; state=baldur-root; img=\$M/var/lib/tb323fu/linux-current.img; want=$A; src=saved"
+	  trial_of; echo 'echo "${img##*/} $want"'; } > "$T/k.sh"
+	$1 "$T/k.sh" 2>"$T/k.err" | tail -n1
+}
+kstate() { mkdir -p "$T/root/var/lib/tb323fu"; printf '%s\n' "$@" > "$T/root/var/lib/tb323fu/kernel-state"; }
+for SH in "$@"; do
+echo "== $SH: kernel trial"
+setup; mkdir -p "$T/root/var/lib/tb323fu"; : > "$T/root/var/lib/tb323fu/linux-good.img"
+expect "$(pick "$SH")" "linux-current.img $A" "no kernel-state: the saved image"
+kstate good=t27 "good_sha256=$G" "trial_sha256=$X"
+expect "$(pick "$SH")" "linux-current.img $A" "a trial of another image: the saved image"
+kstate good=t27 "good_sha256=$G" trial=t28 "trial_sha256=$A"
+expect "$(pick "$SH")" "linux-good.img $G" "the saved image is the unconfirmed trial: linux-good.img"
+kstate good=t27 "good_sha256=$G" failed=t28 "failed_sha256=$A"
+expect "$(pick "$SH")" "linux-good.img $G" "the saved image failed: linux-good.img"
+rm "$T/root/var/lib/tb323fu/linux-good.img"
+expect "$(pick "$SH")" "linux-current.img $A" "failed, but no linux-good.img: the saved image (with a note)"
+rm -rf "$T"
+done
 echo "$((runs - fails))/$runs passed"
 [ $fails -eq 0 ]
