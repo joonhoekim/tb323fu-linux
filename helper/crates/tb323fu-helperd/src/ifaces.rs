@@ -672,7 +672,7 @@ impl Helper {
 // ------------------------------------------------------------------ Boot
 
 /// Cached multiboot state: listing roots mounts other partitions, and reading
-/// the selection mounts the UFS root when running elsewhere -- so the poller
+/// the selection mounts the state root when running elsewhere -- so the poller
 /// only compares the cache and the partition list; `Rescan()` and the setters
 /// refresh it.
 #[derive(Default)]
@@ -741,7 +741,7 @@ impl Boot {
     fn default(&self) -> String {
         let need = self.cache().default.is_none();
         if need { self.refresh_selection(); }
-        self.cache().default.clone().unwrap_or_else(|| boot::DEFAULT_ROOT.into())
+        self.cache().default.clone().unwrap_or_else(boot::state_root)
     }
     #[zbus(property)]
     fn next(&self) -> String {
@@ -772,7 +772,7 @@ impl Boot {
         invalidate(&em, Self::IFACE, Self::PROPS).await;
         Ok(())
     }
-    /// Persistent default root (baldur-root removes the override).
+    /// Persistent default root (the state root removes the override).
     async fn set_default(&self, name: String, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
         #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
         polkit::check(conn, &hdr, "boot-default", self.0.no_polkit).await?;

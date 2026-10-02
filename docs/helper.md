@@ -50,19 +50,22 @@ GNOME and apt.
 
 ## Multiboot
 
-The kernel's initramfs can boot any of these root filesystems (GPT partition names): `baldur-root` (UFS, the default), `baldur-root-sd`
-and `tb323fu-*` (for example `tb323fu-ubuntu`, `tb323fu-arch`, `tb323fu-nixos` on the SD card). The selection lives on the UFS root:
+The kernel's initramfs can boot any of these root filesystems (GPT partition names): `baldur-root` (usually UFS), `baldur-root-sd`
+and `tb323fu-*` (for example `tb323fu-ubuntu`, `tb323fu-arch`, `tb323fu-nixos` on the SD card). None is required. The selection lives on
+the **state root**: the first present of `baldur-root`, `baldur-root-sd`, then the `tb323fu-*` partitions in sorted order (the helper
+mounts it under `/run/tb323fu/state` when running from another root):
 
 - `/etc/tb323fu/boot-next` — one-shot: the initramfs reads it, **deletes it before trying the root**, then boots it. A system that hangs
   later therefore boots the default on the next restart.
-- `/etc/tb323fu/boot-default` — persistent default (absent = `baldur-root`).
-- Order tried: next, default, `baldur-root`, `baldur-root-sd`; a root that is missing, does not mount or has no init is skipped.
+- `/etc/tb323fu/boot-default` — persistent default (absent = the state root).
+- Order tried: next, default, the state root, then every other candidate in the same order; a root that is missing, does not mount or has
+  no init is skipped.
 - Init per root: `/sbin/init` (Debian, Ubuntu, Arch, Fedora) or NixOS's `/nix/var/nix/profiles/system/init`.
 - `/etc/tb323fu/boot-menu` (any content) enables a menu at boot: volume-up moves to the next system, 5 s without a press boots it.
 - Every root needs the running kernel's modules in `/lib/modules/$(uname -r)` (the kernel is shared) and the firmware files.
 
 The helper's `Boot` object lists the roots (reading each one's `os-release`, mounted read-only without journal replay, cached) and writes
-the selection; when it runs from another root it mounts the UFS root under `/run/tb323fu/ufs` for that. CLI: `tb323fu-ctl boot`
+the selection; when it runs from another root it mounts the state root under `/run/tb323fu/state` for that. CLI: `tb323fu-ctl boot`
 (`list`, `next NAME`, `clear`, `default NAME`, `reboot NAME`, `rescan`); the settings app has a "Systems" page.
 While reading each root the helper also checks it against the running kernel (`RootHealth`): the modules directory with
 `modules.dep`, its `extra/` (the out-of-tree aw882xx amplifier driver), and the audio DSP and Wi-Fi firmware (also `.zst`/`.xz`).

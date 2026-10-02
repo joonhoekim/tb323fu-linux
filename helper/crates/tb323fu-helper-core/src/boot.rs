@@ -3,18 +3,23 @@
 //! persistent selection it reads (userspace/platform and the kernel initramfs,
 //! docs/helper.md "Boot").
 //!
-//! Candidate roots are GPT partitions named `baldur-root` (UFS, the default),
-//! `baldur-root-sd` and `tb323fu-*`. The selection files live on the UFS root
-//! only: `/etc/tb323fu/boot-next` (consumed by the initramfs on the next boot)
-//! and `/etc/tb323fu/boot-default`. When the helper runs from another root it
-//! mounts the UFS root under `/run/tb323fu/ufs` for the read or write. A root
-//! that is already mounted (e.g. the desktop's automounter on another distro)
-//! is used where it is instead: a second ext4 mount with other options fails.
+//! Candidate roots are GPT partitions named `baldur-root` (usually UFS),
+//! `baldur-root-sd` and `tb323fu-*`. The selection files live on the state
+//! root only: `/etc/tb323fu/boot-next` (consumed by the initramfs on the next
+//! boot) and `/etc/tb323fu/boot-default`. The state root is the first present
+//! of `baldur-root`, `baldur-root-sd`, then the `tb323fu-*` partitions in
+//! sorted order -- the same rule as the initramfs and Android's Switch to
+//! Linux (`state_root`). When the helper runs from another root it mounts the
+//! state root under `/run/tb323fu/state` for the read or write. A root that is
+//! already mounted (e.g. the desktop's automounter on another distro) is used
+//! where it is instead: a second ext4 mount with other options fails.
 //!
 //! Tests: with `TB323FU_SYSFS_ROOT` set, partitions come from the fake
-//! `/sys/class/block`, the selection files from the fake `/etc/tb323fu`, the
-//! content of each root from `<fake root>/roots/<name>/`, and the current root
-//! from `TB323FU_CURRENT_ROOT` (default `baldur-root`). Nothing is mounted.
+//! `/sys/class/block`, the content of each root from `<fake root>/roots/<name>/`,
+//! and the current root from `TB323FU_CURRENT_ROOT` (default `baldur-root`).
+//! The selection files are the fake `/etc/tb323fu` when the current root is
+//! the state root, else `<fake root>/roots/<state root>/etc/tb323fu`. Nothing
+//! is mounted.
 
 use crate::sys;
 use std::fs;
@@ -24,8 +29,9 @@ use std::process::Command;
 
 pub type Res<T> = Result<T, String>;
 
+/// The state root when no candidate is present at all.
 pub const DEFAULT_ROOT: &str = "baldur-root";
-const UFS_MNT: &str = "/run/tb323fu/ufs";
+const STATE_MNT: &str = "/run/tb323fu/state";
 const PROBE_MNT: &str = "/run/tb323fu/probe";
 
 /// One bootable root as the initramfs sees it.
@@ -66,7 +72,8 @@ fn uevent(p: &Path) -> (Option<String>, Option<String>) {
     (name, dev)
 }
 
-/// (partition name, /dev node) of every candidate root, sorted by name.
+/// (partition name, /dev node) of every candidate root, sorted by name -- which
+/// is also the state-root order ("baldur-root" < "baldur-root-sd" < "tb323fu-*").
 pub fn partitions() -> Vec<(String, String)> {
     let base = sys::path("/sys/class/block");
     let mut v: Vec<(String, String)> = sys::list_dir(&base)
@@ -84,6 +91,14 @@ pub fn partitions() -> Vec<(String, String)> {
 
 fn partition_dev(name: &str) -> Option<String> {
     partitions().into_iter().find(|(n, _)| n == name).map(|(_, d)| d)
+}
+
+/// The root that holds the boot selection (and, for Android, the saved Linux
+/// image): the first present of `baldur-root`, `baldur-root-sd`, then the
+/// `tb323fu-*` partitions in sorted order; `baldur-root` when none is present.
+/// Also the default root when `boot-default` is not set.
+pub fn state_root() -> String {
+    partitions().into_iter().next().map(|(n, _)| n).unwrap_or_else(|| DEFAULT_ROOT.to_string())
 }
 
 /// The partition `/` was mounted from ("" when it is not a named partition).
@@ -194,16 +209,17 @@ fn clear_mount_point(dir: &str) {
     }
 }
 
-/// Run `f` with the UFS root's /etc/tb323fu (read-only unless `write`).
-fn with_ufs_etc<T>(write: bool, f: impl FnOnce(&Path) -> Res<T>) -> Res<T> {
-    if testing() || current_root() == DEFAULT_ROOT {
-        let d = sys::path("/etc/tb323fu");
+/// Run `f` with the state root's /etc/tb323fu (read-only unless `write`).
+fn with_state_etc<T>(write: bool, f: impl FnOnce(&Path) -> Res<T>) -> Res<T> {
+    let (state, cur) = (state_root(), current_root());
+    if testing() || cur == state {
+        let d = if cur == state { sys::path("/etc/tb323fu") } else { sys::path(&format!("/roots/{state}/etc/tb323fu")) };
         if write {
             fs::create_dir_all(&d).map_err(|e| format!("{}: {e}", d.display()))?;
         }
         return f(&d);
     }
-    let dev = partition_dev(DEFAULT_ROOT).ok_or("no baldur-root partition")?;
+    let dev = partition_dev(&state).ok_or("no root partition (baldur-root, baldur-root-sd, tb323fu-*)")?;
     if let Some((at, rw)) = mounted_at(&dev) {
         if write && !rw {
             return Err(format!("{dev} is mounted read-only on {}", at.display()));
@@ -218,13 +234,13 @@ fn with_ufs_etc<T>(write: bool, f: impl FnOnce(&Path) -> Res<T>) -> Res<T> {
         }
         return r;
     }
-    clear_mount_point(UFS_MNT);
-    mount(&dev, UFS_MNT, write)?;
-    if !is_mounted_here(&dev, Path::new(UFS_MNT)) {
-        clear_mount_point(UFS_MNT);
-        return Err(format!("{UFS_MNT} does not hold {dev} after mounting it"));
+    clear_mount_point(STATE_MNT);
+    mount(&dev, STATE_MNT, write)?;
+    if !is_mounted_here(&dev, Path::new(STATE_MNT)) {
+        clear_mount_point(STATE_MNT);
+        return Err(format!("{STATE_MNT} does not hold {dev} after mounting it"));
     }
-    let d = PathBuf::from(UFS_MNT).join("etc/tb323fu");
+    let d = PathBuf::from(STATE_MNT).join("etc/tb323fu");
     let r = (|| {
         if write {
             fs::create_dir_all(&d).map_err(|e| format!("{}: {e}", d.display()))?;
@@ -234,7 +250,7 @@ fn with_ufs_etc<T>(write: bool, f: impl FnOnce(&Path) -> Res<T>) -> Res<T> {
     if write {
         let _ = Command::new("sync").status();
     }
-    clear_mount_point(UFS_MNT);
+    clear_mount_point(STATE_MNT);
     r
 }
 
@@ -246,13 +262,13 @@ fn first_word(p: &Path) -> Option<String> {
 
 /// The one-shot selection ("" when none).
 pub fn next() -> String {
-    with_ufs_etc(false, |d| Ok(first_word(&d.join("boot-next")).unwrap_or_default())).unwrap_or_default()
+    with_state_etc(false, |d| Ok(first_word(&d.join("boot-next")).unwrap_or_default())).unwrap_or_default()
 }
 
-/// The persistent default (baldur-root when not set).
+/// The persistent default (the state root when not set).
 pub fn default_root() -> String {
-    with_ufs_etc(false, |d| Ok(first_word(&d.join("boot-default")).unwrap_or_else(|| DEFAULT_ROOT.to_string())))
-        .unwrap_or_else(|_| DEFAULT_ROOT.to_string())
+    with_state_etc(false, |d| Ok(first_word(&d.join("boot-default")).unwrap_or_else(state_root)))
+        .unwrap_or_else(|_| state_root())
 }
 
 fn check_name(name: &str) -> Res<()> {
@@ -267,11 +283,11 @@ fn check_name(name: &str) -> Res<()> {
 
 pub fn set_next(name: &str) -> Res<()> {
     check_name(name)?;
-    with_ufs_etc(true, |d| fs::write(d.join("boot-next"), format!("{name}\n")).map_err(|e| format!("boot-next: {e}")))
+    with_state_etc(true, |d| fs::write(d.join("boot-next"), format!("{name}\n")).map_err(|e| format!("boot-next: {e}")))
 }
 
 pub fn clear_next() -> Res<()> {
-    with_ufs_etc(true, |d| match fs::remove_file(d.join("boot-next")) {
+    with_state_etc(true, |d| match fs::remove_file(d.join("boot-next")) {
         Ok(()) => Ok(()),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(e) => Err(format!("boot-next: {e}")),
@@ -280,9 +296,9 @@ pub fn clear_next() -> Res<()> {
 
 pub fn set_default(name: &str) -> Res<()> {
     check_name(name)?;
-    with_ufs_etc(true, |d| {
+    with_state_etc(true, |d| {
         let p = d.join("boot-default");
-        if name == DEFAULT_ROOT {
+        if name == state_root() {
             match fs::remove_file(&p) {
                 Ok(()) => Ok(()),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
@@ -512,6 +528,48 @@ mod tests {
         assert_eq!(default_root(), "tb323fu-nixos");
         set_default("baldur-root").unwrap();
         assert!(!r.join("etc/tb323fu/boot-default").exists());
+        assert_eq!(state_root(), "baldur-root");
+        std::env::remove_var("TB323FU_SYSFS_ROOT");
+    }
+
+    #[test]
+    fn state_root_without_baldur_root() {
+        let _g = LOCK.lock().unwrap();
+        let t = fake();
+        let r = &t.0;
+        std::env::set_var("TB323FU_SYSFS_ROOT", r);
+        std::env::remove_var("TB323FU_CURRENT_ROOT");
+        assert_eq!(state_root(), "baldur-root", "nothing present");
+
+        // an SD-only card of tb323fu-* roots, running from Ubuntu: the
+        // selection lives on tb323fu-arch (first in sorted order)
+        part(r, "mmcblk0p1", "tb323fu-ubuntu");
+        part(r, "mmcblk0p2", "tb323fu-arch");
+        part(r, "mmcblk0p3", "tb323fu-fedora");
+        part(r, "sda1", "persist");
+        std::env::set_var("TB323FU_CURRENT_ROOT", "tb323fu-ubuntu");
+        assert_eq!(state_root(), "tb323fu-arch");
+        assert_eq!(default_root(), "tb323fu-arch");
+        set_next("tb323fu-fedora").unwrap();
+        assert_eq!(fs::read_to_string(r.join("roots/tb323fu-arch/etc/tb323fu/boot-next")).unwrap(), "tb323fu-fedora\n");
+        assert!(!r.join("etc/tb323fu/boot-next").exists(), "not on the running root");
+        assert_eq!(next(), "tb323fu-fedora");
+        set_default("tb323fu-fedora").unwrap();
+        assert_eq!(default_root(), "tb323fu-fedora");
+        set_default("tb323fu-arch").unwrap();
+        assert!(!r.join("roots/tb323fu-arch/etc/tb323fu/boot-default").exists(), "the state root removes the override");
+        assert_eq!(default_root(), "tb323fu-arch");
+        // running from the state root itself: its own /etc/tb323fu
+        std::env::set_var("TB323FU_CURRENT_ROOT", "tb323fu-arch");
+        set_next("tb323fu-ubuntu").unwrap();
+        assert_eq!(fs::read_to_string(r.join("etc/tb323fu/boot-next")).unwrap(), "tb323fu-ubuntu\n");
+
+        // baldur-root-sd comes before the tb323fu-* roots, baldur-root before both
+        part(r, "mmcblk0p4", "baldur-root-sd");
+        assert_eq!(state_root(), "baldur-root-sd");
+        part(r, "sda17", "baldur-root");
+        assert_eq!(state_root(), "baldur-root");
+        std::env::remove_var("TB323FU_CURRENT_ROOT");
         std::env::remove_var("TB323FU_SYSFS_ROOT");
     }
 
@@ -545,7 +603,7 @@ mod tests {
         assert_eq!(find_mount(over, "179:5"), None, "Fedora is covered: probe it instead");
         assert_eq!(find_mount(over, "179:1"), Some((PathBuf::from("/mnt/t"), false)));
         assert!(is_mount_point(mi, "/run/tb323fu/probe"));
-        assert!(!is_mount_point(mi, "/run/tb323fu/ufs"));
+        assert!(!is_mount_point(mi, "/run/tb323fu/state"));
         assert_eq!(majmin((179 << 8) | 5), "179:5");
         assert_eq!(majmin((259u64 << 8) | (0x12345 & 0xff) | ((0x12345u64 & !0xff) << 12)), "259:74565");
     }

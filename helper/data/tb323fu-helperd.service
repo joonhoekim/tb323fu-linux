@@ -17,7 +17,7 @@ ProtectSystem=strict
 ConfigurationDirectory=tb323fu
 StateDirectory=tb323fu
 # /run/tb323fu: mount points for reading other roots and for writing the boot
-# selection on the UFS root when running from another root (multiboot)
+# selection on the state root when running from another root (multiboot)
 RuntimeDirectory=tb323fu
 ReadWritePaths=/var/lib /sys
 ProtectHome=yes
