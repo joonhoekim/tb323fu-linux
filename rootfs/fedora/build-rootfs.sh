@@ -20,7 +20,11 @@
 #   IMAGE_DIR=https://dl.fedoraproject.org/pub/fedora/linux/releases/$RELEASE/Container/aarch64/images
 #   FEDORA_KEY_FPR=                 fingerprint of the key that signs the image CHECKSUM
 #                                   (defaults to the Fedora 44 key for RELEASE=44)
-#   MODULES_FROM=/lib/modules/$(uname -r)   kernel modules of the kernel that will boot it
+#   MODULES_FROM=                   empty (default): none -- the boot image carries its
+#                                   modules and its initramfs mounts them on
+#                                   /lib/modules/<release> (shared modules). A directory
+#                                   (lib/modules/<release>): copy it in, for a root that
+#                                   opts out ("own" in /etc/tb323fu/modules)
 #   FIRMWARE_FROM=/lib/firmware     copy qcom/ ath12k/ qca/ novatek/ aw882xx_acf.bin from here
 #   CONFIG_FROM=/etc/tb323fu        copy bt-address, android-boot.sha256, audio.conf,
 #                                   emergency-key.conf when present (device-specific,
@@ -62,7 +66,7 @@ PROXY=${PROXY:-}
 IMAGE_DIR=${IMAGE_DIR:-https://dl.fedoraproject.org/pub/fedora/linux/releases/$REL/Container/aarch64/images}
 [ "$REL" = 44 ] && FEDORA_KEY_FPR=${FEDORA_KEY_FPR:-36F612DCF27F7D1A48A835E4DBFCF71C6D9F90A6}
 FEDORA_KEY_FPR=${FEDORA_KEY_FPR:?set FEDORA_KEY_FPR for Fedora $REL}
-MODULES_FROM=${MODULES_FROM:-/lib/modules/$(uname -r)}
+MODULES_FROM=${MODULES_FROM:-}
 FIRMWARE_FROM=${FIRMWARE_FROM:-/lib/firmware}
 CONFIG_FROM=${CONFIG_FROM:-/etc/tb323fu}
 HEXAGONRPCD_FROM=${HEXAGONRPCD_FROM:-}

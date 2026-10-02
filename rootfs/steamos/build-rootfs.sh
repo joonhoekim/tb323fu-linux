@@ -27,7 +27,10 @@
 #                                   the release; the parts are checked against it)
 #   WORK_DIR=/var/tmp/steamos-arm   download and unpack here (~25 GB for this release)
 #   MODULES_FROM=/lib/modules/$(uname -r)   kernel modules of the kernel that will boot it
-#                                   (with extra/ -- the speaker amplifier driver)
+#                                   (with extra/ -- the speaker amplifier driver); used to
+#                                   trim the image's modules-load.d lists. With a boot image
+#                                   that carries its modules (shared modules) the copy is
+#                                   hidden by the initramfs' mount of the same release
 #   FIRMWARE_FROM=/lib/firmware     copy qcom/ ath12k/ qca/ novatek/ aw882xx_acf.bin from here
 #   LADSPA_FROM=/usr/lib/ladspa     sc4_1882.so and fast_lookahead_limiter_1913.so (swh-plugins)
 #                                   for the speaker protection filter; SteamOS has none

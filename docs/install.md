@@ -3,7 +3,7 @@
 How to get from a rooted TB323FU (Android with KernelSU, see [Rooting and dual boot setup](rooting.md)) to mainline
 Linux booting from its own partition, with Android kept as the way back.
 
-> **No release has been published yet.** A release will be a kernel `Image` plus its modules and a repack tool — never
+> **No release has been published yet.** A release will be a kernel `Image` (with all its modules inside) and a repack tool — never
 > a ready-made `boot.img` ([why](#why-there-is-no-ready-made-bootimg)); until then you build the kernel yourself (step 3)
 > and put together a root filesystem with the scripts in this repository. This guide was **reconstructed from the development records** of one
 > tablet; the individual steps were done on that tablet, but the guide as a whole has **not been re-run end to end**
@@ -132,14 +132,20 @@ own tablet's stock image.
 ### 3a. From a release
 
 **[untested as a whole]** (the repack tool and its output are [verified]: every kernel on the development tablet was
-packed this way). A release has `Image-tb323fu-<tag>`, `modules-tb323fu-<tag>.tar.gz`, `boot-repack-kernel.py` and
-`SHA256SUMS`:
+packed this way). A release has `Image-tb323fu-<tag>`, `boot-repack-kernel.py` and `SHA256SUMS` (and
+`modules-tb323fu-<tag>.tar.gz`, which you normally do not need, below):
 
 ```sh
 sha256sum -c SHA256SUMS
 python3 boot-repack-kernel.py stock-boot.img Image-tb323fu-<tag> linux-boot.img
-mkdir -p mods && tar -C mods -xzf modules-tb323fu-<tag>.tar.gz      # → mods/lib/modules/<release>
 ```
+
+**Modules come with the kernel.** The `Image` carries all modules of its kernel (the out-of-tree speaker amplifier
+driver included) as a squashfs in its initramfs, and the initramfs mounts it read-only on `/lib/modules/<release>`
+of whichever root it boots ([kernel/initramfs/README.md](../kernel/initramfs/README.md#kernel-modules-shared)). Nothing
+is installed into the root filesystems, and a kernel update is only the new boot image. **[verified]** on the
+development tablet (Debian, Ubuntu, Arch, Fedora, NixOS, 2026-10-02). The modules tarball is the same tree, for a root
+that opts out (`own` in its `/etc/tb323fu/modules`, e.g. for DKMS).
 
 `tools/install/install.sh boot` runs the repack for you (`KERNEL_IMAGE=…`). The tool also accepts a gzip-compressed
 kernel (`Image.gz`; the bootloader decompresses it — checked once on the development tablet); LZ4 is refused, the
@@ -165,14 +171,19 @@ scripts/kconfig/merge_config.sh -m -O out out/.config \
     arch/arm64/configs/kaanapali-oneplus-infiniti_defconfig ../tb323fu-linux/kernel/config/baldur.fragment \
     ../tb323fu-linux/kernel/config/baldur-display.fragment ../tb323fu-linux/kernel/config/baldur-netfilter.fragment
 make ARCH=arm64 LLVM=1 O=out olddefconfig
-make ARCH=arm64 LLVM=1 O=out -j"$(nproc)" dtbs modules
-make ARCH=arm64 LLVM=1 O=out INSTALL_MOD_PATH="$PWD/mods" modules_install   # → mods/lib/modules/<release>
+# a release name of your own, unique per build (old and new modules never collide)
+scripts/config --file out/.config --set-str LOCALVERSION -tb323fu-mybuild1
+make ARCH=arm64 LLVM=1 O=out LOCALVERSION= olddefconfig
+make ARCH=arm64 LLVM=1 O=out LOCALVERSION= -j"$(nproc)" dtbs modules headers_install
+make ARCH=arm64 LLVM=1 O=out LOCALVERSION= INSTALL_MOD_PATH="$PWD/mods" INSTALL_MOD_STRIP=1 modules_install
 # the speaker amplifier driver (out of tree) into mods/lib/modules/<release>/extra/
-make ARCH=arm64 LLVM=1 O=out M="$PWD/../tb323fu-linux/kernel/out-of-tree/aw882xx" CONFIG_SND_SOC_AW882XX=m \
-    INSTALL_MOD_PATH="$PWD/mods" modules modules_install
+make ARCH=arm64 LLVM=1 O=out LOCALVERSION= M="$PWD/../tb323fu-linux/kernel/out-of-tree/aw882xx" \
+    CONFIG_SND_SOC_AW882XX=m INSTALL_MOD_PATH="$PWD/mods" INSTALL_MOD_STRIP=1 modules modules_install
+rel=$(make -s ARCH=arm64 LLVM=1 O=out LOCALVERSION= kernelrelease)
+rm -f mods/lib/modules/$rel/build mods/lib/modules/$rel/source; depmod -b mods $rel
 
-# initramfs (firmware from step 1, hash from step 2)
-../tb323fu-linux/kernel/initramfs/build.sh -k out -b /path/to/busybox-static \
+# initramfs: all modules (-m, needs mksquashfs), firmware from step 1, hash from step 2
+../tb323fu-linux/kernel/initramfs/build.sh -k out -b /path/to/busybox-static -m mods/lib/modules/$rel \
     -f ../fw/tb323fu-firmware -a ../tb323fu-config/android-boot.sha256 \
     -l initramfs.list initramfs.cpio.gz
 # set CONFIG_INITRAMFS_SOURCE in out/.config to the cpio (see kernel/README.md), then:
@@ -189,7 +200,8 @@ Notes:
   ([`kernel/out-of-tree/aw882xx`](../kernel/out-of-tree/aw882xx/)); without it the build boots and everything else
   works, but the speakers stay silent. `modules_install` with `M=` puts it in `extra/` and runs `depmod`. **[untested]**
   as written here (the development builds use the same `make … M=… CONFIG_SND_SOC_AW882XX=m` line).
-- Keep `mods/lib/modules/<release>`: every root filesystem needs exactly these modules.
+- With `-m` the boot image carries `mods/lib/modules/<release>` itself; the roots need no copy. Keep the tree only for
+  a root in `own` mode. (Without `-m` you get the old layout: every root needs its own copy of exactly these modules.)
 
 ## 4. Partition a microSD card
 
@@ -259,12 +271,12 @@ builders do all of it. Status per distribution is in [distros.md](distros.md).
 
 On the development tablet every builder ran **on the tablet itself, under Linux** [verified]. Running them on a
 separate arm64 machine with the card in a reader is [untested]. Point them at the files from steps 1–3, because their
-defaults (`/lib/modules/$(uname -r)`, `/lib/firmware`, `/etc/tb323fu`) are the build host's own:
+defaults (`/lib/firmware`, `/etc/tb323fu`) are the build host's own. No kernel modules: the boot image brings them
+(`MODULES_FROM` only for a root in `own` mode, see 3a):
 
 ```sh
 sudo mount /dev/sdX2 /mnt/t
 sudo env ROOT_PARTLABEL=tb323fu-ubuntu \
-    MODULES_FROM="$PWD/linux-tb323fu/mods/lib/modules/<release>" \
     FIRMWARE_FROM="$PWD/fw/tb323fu-firmware/lib/firmware" \
     CONFIG_FROM="$PWD/tb323fu-config" \
     DESKTOP=gnome DEV_USER=<your user> \
@@ -330,7 +342,7 @@ Then check from a terminal on the tablet (or over SSH/serial with `DEV_ACCESS=1`
 
 ```sh
 uname -r                                   # the release you built
-ls /lib/modules/$(uname -r)                # present: modules match the kernel
+findmnt /lib/modules/$(uname -r)           # squashfs on /dev/loop0: the boot image's own modules
 systemctl is-system-running                # running (or degraded: systemctl --failed)
 cat /etc/tb323fu/android-boot.sha256       # your boot_b hash
 tb323fu-ctl boot list                      # the roots the initramfs can see (with the helper installed)
@@ -413,8 +425,10 @@ round trip through Android is no longer needed for kernel updates.
 ## Multiboot
 
 Several roots can live side by side, one per partition named `tb323fu-*` (on the card or anywhere else). They all
-share the one kernel in `boot_a`, so each needs that kernel's modules in `/lib/modules/<release>` — build each with
-the same `MODULES_FROM`, and update all of them when you install a new kernel.
+share the one kernel in `boot_a` and its modules: the initramfs mounts the boot image's modules on
+`/lib/modules/<release>` of whichever root it starts, so a new kernel needs nothing installed in any root (NixOS
+included: its system holds a kernel stub). A root can opt out with `own` in `/etc/tb323fu/modules`; it then needs its
+own copy of the modules of every kernel it boots.
 
 Choosing a root [verified]:
 

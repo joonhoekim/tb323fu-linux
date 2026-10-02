@@ -11,7 +11,11 @@
 #   HOSTNAME_NEW=tb323fu-ubuntu     hostname of the new system
 #   DESKTOP=gnome                   gnome (minimal GNOME + GDM) or none
 #   MIRROR=http://ports.ubuntu.com/ubuntu-ports
-#   MODULES_FROM=/lib/modules/$(uname -r)   kernel modules of the kernel that will boot it
+#   MODULES_FROM=                   empty (default): none -- the boot image carries its
+#                                   modules and its initramfs mounts them on
+#                                   /lib/modules/<release> (shared modules). A directory
+#                                   (lib/modules/<release>): copy it in, for a root that
+#                                   opts out ("own" in /etc/tb323fu/modules)
 #   FIRMWARE_FROM=/lib/firmware     copy qcom/ ath12k/ qca/ novatek/ (and aw882xx_acf.bin) from here
 #   DEBS_FROM=DIR                   install the tb323fu-*.deb packages found here
 #   CONFIG_FROM=/etc/tb323fu        copy bt-address, android-boot.sha256, audio.conf,
@@ -33,7 +37,7 @@ ROOT_PARTLABEL=${ROOT_PARTLABEL:-tb323fu-ubuntu}
 HOSTNAME_NEW=${HOSTNAME_NEW:-tb323fu-ubuntu}
 DESKTOP=${DESKTOP:-gnome}
 MIRROR=${MIRROR:-http://ports.ubuntu.com/ubuntu-ports}
-MODULES_FROM=${MODULES_FROM:-/lib/modules/$(uname -r)}
+MODULES_FROM=${MODULES_FROM:-}
 FIRMWARE_FROM=${FIRMWARE_FROM:-/lib/firmware}
 CONFIG_FROM=${CONFIG_FROM:-/etc/tb323fu}
 DEV_ACCESS=${DEV_ACCESS:-0}

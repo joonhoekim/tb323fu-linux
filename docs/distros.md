@@ -24,8 +24,13 @@ The kernel does not depend on a distribution. These are the systems that have be
 
 The builders in [`rootfs/`](../rootfs/) do all of it.
 
-- **Kernel modules** of the boot image's kernel in `/lib/modules/<release>` (NixOS: a derivation wrapping them,
-  `packaging/nix/prebuilt-kernel.nix`). No distribution kernel, bootloader or initramfs is used.
+- **No kernel modules of its own.** The boot image carries all modules of its kernel and the initramfs mounts them
+  read-only on `/lib/modules/<release>` of the root it starts (merged `/usr` roots: `/usr/lib/modules/<release>`),
+  so a kernel update is just the new boot image ([kernel/initramfs](../kernel/initramfs/README.md#kernel-modules-shared)).
+  NixOS holds a kernel stub (`packaging/nix/prebuilt-kernel.nix`) and its kmod falls through to that mount. The root
+  only needs a writable `/` for the mount point. `own` in `/etc/tb323fu/modules` opts a root out (it then carries its
+  own tree, e.g. for DKMS). No distribution kernel, bootloader or initramfs is used: one installed by a package gets
+  its own release directory and is ignored.
 - **Firmware** from your own tablet (`firmware/`): `qcom`, `ath12k`, `qca`, `novatek` (touch — without it the
   touchscreen is dead), `aw882xx_acf.bin`, and `regulatory.db` (`wireless-regdb`).
 - **wpa_supplicant** next to NetworkManager (without it Wi-Fi shows as unavailable).

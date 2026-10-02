@@ -11,7 +11,11 @@
 #   HOSTNAME_NEW=tb323fu-arch       hostname of the new system
 #   DESKTOP=gnome                   gnome (minimal GNOME + GDM) or none
 #   TARBALL_URL=http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz
-#   MODULES_FROM=/lib/modules/$(uname -r)   kernel modules of the kernel that will boot it
+#   MODULES_FROM=                   empty (default): none -- the boot image carries its
+#                                   modules and its initramfs mounts them on
+#                                   /lib/modules/<release> (shared modules). A directory
+#                                   (lib/modules/<release>): copy it in, for a root that
+#                                   opts out ("own" in /etc/tb323fu/modules)
 #   FIRMWARE_FROM=/lib/firmware     copy qcom/ ath12k/ qca/ novatek/ aw882xx_acf.bin from here
 #   PKGS_FROM=DIR                   install the tb323fu-*.pkg.tar.* packages found here
 #                                   (build them with packaging/arch/PKGBUILD)
@@ -41,7 +45,7 @@ ROOT_PARTLABEL=${ROOT_PARTLABEL:-tb323fu-arch}
 HOSTNAME_NEW=${HOSTNAME_NEW:-tb323fu-arch}
 DESKTOP=${DESKTOP:-gnome}
 TARBALL_URL=${TARBALL_URL:-http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-latest.tar.gz}
-MODULES_FROM=${MODULES_FROM:-/lib/modules/$(uname -r)}
+MODULES_FROM=${MODULES_FROM:-}
 FIRMWARE_FROM=${FIRMWARE_FROM:-/lib/firmware}
 PKGS_FROM=${PKGS_FROM:-}
 CONFIG_FROM=${CONFIG_FROM:-/etc/tb323fu}
@@ -104,10 +108,12 @@ ch "pacman -S --noconfirm --needed $(echo $pk)"
 ch "systemctl mask rmtfs tqftpserv >/dev/null 2>&1 || true"   # rmtfs -s starts the modem; a modem crash resets the SoC
 
 # 3. kernel modules and firmware of the device
-k=$(basename "$MODULES_FROM")
-mkdir -p "$T/usr/lib/modules"
-cp -a "$MODULES_FROM" "$T/usr/lib/modules/"
-ch "depmod $k"
+if [ -n "$MODULES_FROM" ]; then   # own mode only; normally the boot image's modules are mounted
+	k=$(basename "$MODULES_FROM")
+	mkdir -p "$T/usr/lib/modules"
+	cp -a "$MODULES_FROM" "$T/usr/lib/modules/"
+	ch "depmod $k"
+fi
 ( cd "$FIRMWARE_FROM" && tar cf - $(ls -d ath12k qcom qca novatek aw882xx_acf.bin 2>/dev/null) ) |
 	tar xpf - -C "$T/usr/lib/firmware"
 

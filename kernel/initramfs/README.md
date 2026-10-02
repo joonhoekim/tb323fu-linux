@@ -7,8 +7,8 @@ is self-contained: the bootloader starts the kernel, the kernel runs [`init`](in
 
 | File | What |
 |---|---|
-| [`init`](init) | `/init`: USB way in, emergency chord, module loading, boot summary, root selection (MIT) |
-| [`build.sh`](build.sh) | assembles the cpio from this directory, a kernel build, a static busybox and your firmware |
+| [`init`](init) | `/init`: USB way in, emergency chord, the modules image, boot summary, root selection (MIT) |
+| [`build.sh`](build.sh) | assembles the cpio from this directory, a kernel build and its installed modules, a static busybox and your firmware |
 | [`spec.list`](spec.list) | annotated layout: every file in the image, where it comes from, why it is there |
 | [`gpu-probe.c`](gpu-probe.c) | optional helper for the summary (is the Adreno alive), GPL-2.0 |
 
@@ -19,7 +19,8 @@ is self-contained: the bootloader starts the kernel, the kernel runs [`init`](in
 
 ```sh
 make O=out modules headers_install        # the kernel build (see ../README.md)
-kernel/initramfs/build.sh -k out -b /path/to/busybox-static -f /path/to/firmware-root \
+make O=out INSTALL_MOD_PATH=mods INSTALL_MOD_STRIP=1 modules_install   # + aw882xx into extra/, then depmod -b mods <release>
+kernel/initramfs/build.sh -k out -b /path/to/busybox-static -m mods/lib/modules/<release> -f /path/to/firmware-root \
     -a android-boot.sha256 initramfs.cpio.gz
 # then CONFIG_INITRAMFS_SOURCE="…/initramfs.cpio.gz" in out/.config and build the Image,
 # or: -l initramfs.list and pass that to tools/build-boot.sh -i
@@ -34,6 +35,7 @@ Nothing third-party is stored here:
   in the initramfs as well as in the root filesystem. Without `-f` the image carries no vendor firmware (release
   images are built that way).
 - **regulatory.db**: from wireless-regdb.
+- **mksquashfs** (squashfs-tools) on the build machine, for `-m`.
 
 ## What `init` does
 
@@ -45,12 +47,48 @@ Nothing third-party is stored here:
    (release images), from the root: `init` copies `/etc/tb323fu/android-boot.sha256` of the state root (below;
    if it does not mount, of the next root that does) while it reads the boot selection. With neither, the chord does nothing in the initramfs
    and the panel says so.
-3. **Modules**: the remoteproc PAS driver (it attaches to the charger/Type-C firmware the bootloader already
-   runs) and the touch driver are loaded after the USB shell is up, so a bad attach still leaves a way in. The
-   touch driver only when its firmware is in the image — otherwise the root's udev loads it.
+3. **Modules**: mounts the image's modules squashfs (below), then loads the remoteproc PAS driver (it attaches to
+   the charger/Type-C firmware the bootloader already runs) and the touch driver from it, after the USB shell is up,
+   so a bad attach still leaves a way in. The touch driver only when its firmware is in the image — otherwise the
+   root's udev loads it.
 4. **Boot summary** on the panel and in the kernel log (so it also lands in ramoops): kernel, command line,
    CPUs, thermal, block devices, SD card, USB, battery, DRM, then the latest kernel warnings.
-5. **Root selection** (with `baldur.end=hold`, the normal command line) and `switch_root`.
+5. **Root selection** (with `baldur.end=hold`, the normal command line), the modules mount moved into the chosen
+   root, and `switch_root`.
+
+### Kernel modules (shared)
+
+The image carries **all** modules of its kernel: `build.sh -m` puts the installed tree (`make modules_install
+INSTALL_MOD_STRIP=1`, the out-of-tree aw882xx driver in `extra/`, `depmod` run at build time, no `updates/`) into the
+cpio as one squashfs, `/lib/modules/<release>.sqfs` (xz, about 6 MB for some 750 modules). `init` mounts it on
+`/lib/modules/<release>` (loop device, read-only), loads the early modules from it by `modules.dep`, and before
+`switch_root` moves the mount to `lib/modules/<release>` **inside the chosen root** — resolved there, so a merged-`/usr`
+root gets it on `/usr/lib/modules/<release>` and NixOS (no `/lib`) on a new `/lib/modules/<release>`. After boot:
+
+```
+$ findmnt /lib/modules/$(uname -r)
+TARGET                                 SOURCE     FSTYPE   OPTIONS
+/usr/lib/modules/7.3.0-rc4-tb323fu-t28 /dev/loop0 squashfs ro,relatime,errors=continue
+```
+
+So every root runs exactly the modules of the kernel that booted, nothing is installed into the roots, and a kernel
+update, a rollback or Android's Switch to Linux only move whole boot images. Every build has its own release name
+(`CONFIG_LOCALVERSION="-tb323fu-<tag>"`), so old trees in the roots never collide. Background and decisions:
+[`docs/notes/kernel-updates-design.md`](../../docs/notes/kernel-updates-design.md).
+
+- **Read-only.** `depmod -a` fails harmlessly (the image has the complete depmod output); kmod, udev and
+  `systemd-modules-load` only read. DKMS or a module replaced for a test need a root of its own: put `own` in that
+  root's `/etc/tb323fu/modules` — `init` then leaves it alone and the root needs its own `/lib/modules/<release>`
+  (the release's `modules-*.tar.gz`). For a one-off test without that: copy the tree to a tmpfs, `mount --bind` it over
+  the mount, change it, `depmod` (gone at the next boot). `overlay` (an overlayfs with a per-root upper layer) is
+  reserved and not implemented; such a root gets the shared tree.
+- **A read-only root** (the mount point cannot be created) boots without the mount; the panel says so.
+- **NixOS**: its kmod tries `/run/booted-system/kernel-modules/lib/modules/<release>` first and falls through to
+  `/lib/modules/<release>` when that does not exist; the system holds a kernel stub
+  ([`packaging/nix/prebuilt-kernel.nix`](../../packaging/nix/prebuilt-kernel.nix)), so it needs no rebuild per kernel.
+- The image stays in the initramfs' memory (about 6 MB, not swappable).
+- An image built without `-m` carries only the early modules, flat in `/lib/modules`; every root then needs its own
+  `/lib/modules/<release>` (the layout before 2026-10-02).
 
 ### Without firmware (release images)
 
@@ -94,8 +132,8 @@ that is missing, does not mount or has no init is skipped, and the screen says w
 `/var/lib/tb323fu/linux-current.img`, the image `back-to-android` saves for Android's Switch to Linux.
 `test-root-selection.sh` runs this part of `init` offline against fake partitions (busybox sh, dash). The init of a root is `/sbin/init` (Debian, Ubuntu, Arch,
 Fedora; an absolute symlink is resolved inside the root) or NixOS's `/nix/var/nix/profiles/system/init`.
-Every root needs its own `/lib/modules/$(uname -r)`: the kernel is shared by all of them (NixOS: the
-modules are part of the system, see [`rootfs/nixos`](../../rootfs/nixos/configuration.nix)).
+The kernel and its modules are shared by all of them: `init` mounts the image's modules into whichever root it
+starts ([above](#kernel-modules-shared)).
 
 <details>
 <summary>How the switch differs for NixOS</summary>

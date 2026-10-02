@@ -1,8 +1,8 @@
 # Kernel updates through the helper — design
 
-> **Design note, not implemented.** Nothing here exists yet; it describes how kernel updates and kernel
-> modules should work once the project publishes boot images. `docs/notes/` is not rendered on the
-> project site (the site picks up `docs/*.md` only). Status: draft for review, 2026-10-02.
+> **Design note, partly implemented.** Section 2 (shared modules) is implemented and verified on the device
+> (2026-10-02, see 2.6); sections 3–5 (helper update flow, trial boot, self-update) are being implemented.
+> `docs/notes/` is not rendered on the project site (the site picks up `docs/*.md` only).
 
 ## 1. The problem
 
@@ -146,6 +146,45 @@ contain a directory for the running release:
   must point at `/lib/modules`). If the fall-through ever stops working, the alternative is a stage-2 hook:
   the initramfs passes the mount at `/lib/modules/<release>` and a NixOS activation snippet symlinks
   `kernel-modules` there — more moving parts, so not the first choice.
+
+### 2.6 Implementation (2026-10-02)
+
+Implemented as designed in 2.2–2.5; the details that were left open or came out differently:
+
+- **Build** (`kernel/initramfs/build.sh -m MODULES_DIR`): `MODULES_DIR` is the installed, depmod'ed
+  `<INSTALL_MOD_PATH>/lib/modules/<release>`; build.sh refuses a tree without `modules.dep`, with `build`/`source`
+  links or without the early modules, and runs `mksquashfs -comp xz -all-root -no-xattrs -mkfs-time 0 -all-time 0`.
+  The cpio gets `/lib/modules/<release>.sqfs` and the empty mount point `/lib/modules/<release>`. Without `-m` the
+  old layout (flat early modules) is built. **No build-identity file inside the image:** the banner (`#N`, date) is
+  only known after the final link, which already contains the image; the tree is the kernel's by construction. The
+  own-mode tarball (`modules-tb323fu-<tag>.tar.gz`, same tree) carries `tb323fu-build` = the banner.
+- **Early modules**: loaded by a small shell `modload` that reads `modules.dep` (dependencies first) and `insmod`s
+  from the mount — busybox's small `modprobe` would scan all modules.
+- **Move**: after the root's init is found, before the processes of the initramfs are stopped; only the root that
+  boots gets it. Panel/kmsg line: `baldur:  modules: shared image on <resolved path>`. The resolved path is what
+  `/proc/self/mountinfo` shows (`/usr/lib/modules/<release>` on merged-`/usr` roots); `findmnt -T
+  /lib/modules/$(uname -r)` finds it from any root. The loop device shows `BACK-FILE /lib/modules/<release>.sqfs
+  (deleted)`, autoclear set.
+- **`/etc/tb323fu/modules`**: `own` = no move, the image is unmounted, the panel says whether the root has a
+  `modules.dep` for the release; empty or `shared` = default; `overlay` (Q5) is **not implemented** — such a root
+  gets the shared tree and the panel says so. A failed `mkdir`/move boots without the mount (said on the panel).
+- **SharedModules for the helper**: true when `/lib/modules/$(uname -r)` resolves to a `squashfs` mount from a
+  `/dev/loop*` device (`findmnt -n -o FSTYPE,SOURCE -T /lib/modules/$(uname -r)`).
+- **NixOS**: `prebuilt-kernel.nix` with `modules = null` (now the default of `tb323fu.rootfs.kernel.modules`) builds
+  `linux-tb323fu-shared-modules`: `lib/modules/0-tb323fu-shared` with empty `modules.order`/`modules.builtin`,
+  version from the config header. Checked on the device: nixpkgs' kmod (31, `--with-modulesdirs`) falls through, no
+  unit sets `MODULE_DIR`, `kernel.modprobe` is the store's kmod. The fall-through also worked with the **old**
+  generation (store modules for `7.3.0-rc4-oneplus-infiniti+`, booting `…-tb323fu-t28`): an existing NixOS root keeps
+  working before its stub rebuild, and keeps its old kernel's modules for a rollback until then.
+- **Fedora SELinux** (2.4): the device's Fedora root runs with SELinux **disabled**, so no mount context was needed;
+  revisit if a root enforces.
+- **Sizes (M0)**, squashfs xz of the stripped tree: development kernel t28 (740 modules, 35.1 MB tree) **6.1 MB**
+  (lz4hc 10.2 MB, tar.gz 8.4 MB); release rc2 (782 modules) 6.2 MB. Images: t28 (development, with firmware) raw
+  62.6 MB / gzip 26.5 MB; release rc2 (no firmware) raw **36.2 MB** / gzip **20.0 MB** — `boot_a` (96 MiB, 100.7 MB)
+  headroom 64 MB raw, 81 MB gzip.
+- **Device checks** (t28 = development tree + shared modules, rc2 = public release build): M1 Debian, M2 Ubuntu, Arch,
+  Fedora, NixOS (old generation and stub generation), baldur-root-sd; M3 Android round trip (`back-to-android` →
+  Switch to Linux → the same image). Results in the y705 plan, 9-104 "공유 모듈".
 
 ## 3. Update flow through the helper
 
