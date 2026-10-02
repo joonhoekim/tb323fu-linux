@@ -96,11 +96,11 @@ The kernel running on the development tablet (config: `config/reference.config`)
 
 - a knob exposing experimental panel modes (vendor 144/165 Hz and a 143 Hz variant; only 90 and 164 Hz are in the series, 0109),
 - an idle-state flight recorder for crash analysis, and a knob that refuses the CPU cluster idle state,
-- modem (MPSS) device tree nodes, remoteproc knobs and QRTR logging used to investigate GNSS (the tablet appears to have no usable GNSS antenna),
+- modem (MPSS) device tree nodes, and remoteproc knobs used to investigate GNSS (the tablet appears to have no usable GNSS antenna),
 - a q6apm change that polls for the audio framework instead of a fixed 5 s wait (an upstream candidate, not yet in the series).
 
 Default knobs in the series: the idle refresh rate policy is automatic (`msm.idle_refresh_policy=2`, patch 0110).
-The iris and q6apm drivers are modules; the tested device loads rebuilt modules from `/lib/modules/<version>/updates/`.
+All of it is built from one tree (no out-of-tree rebuilds of in-tree drivers any more); the only out-of-tree module is the aw882xx speaker amplifier driver, installed in `/lib/modules/<version>/extra/`.
 
 ## Licensing
 
