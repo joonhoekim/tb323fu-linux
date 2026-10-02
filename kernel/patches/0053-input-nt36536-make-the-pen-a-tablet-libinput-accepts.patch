@@ -17,7 +17,7 @@ axis orientation and the button bits are unverified. Applies after 0027.
  2 files changed, 18 insertions(+)
 
 diff --git a/drivers/input/touchscreen/nt36536/nt36xxx.c b/drivers/input/touchscreen/nt36536/nt36xxx.c
-index a93a57959..f76769a2c 100644
+index acce7abe6..abd21ea08 100644
 --- a/drivers/input/touchscreen/nt36536/nt36xxx.c
 +++ b/drivers/input/touchscreen/nt36536/nt36xxx.c
 @@ -725,6 +725,8 @@ static void release_pen_event(void) {

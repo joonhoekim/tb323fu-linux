@@ -12,7 +12,7 @@
  * Two lanes: msm_dp takes the lane count from DPCD and data-lanes only, not
  * from the Type-C pin assignment. A USB-C monitor with a hub (pin assignment
  * D, 2 DP lanes + USB3) failed channel EQ at 4 lanes and trains at
- * HBR2 x2 (1680x1050) with this; USB3 keeps its two lanes (9-65).
+ * HBR2 x2 (1680x1050) with this; USB3 keeps its two lanes.
  */
 
 &dispcc {

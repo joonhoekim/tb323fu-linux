@@ -296,7 +296,7 @@ index 93c028a12..322439982 100644
  				  const struct drm_display_mode *mode);
  enum drm_mode_status msm_dsi_host_check_dsc(struct mipi_dsi_host *host,
 diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
-index 44f717281..e6e05afc3 100644
+index b8cc80c38..1ee802c60 100644
 --- a/drivers/gpu/drm/msm/dsi/dsi_host.c
 +++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
 @@ -2630,6 +2630,36 @@ int msm_dsi_host_power_off(struct mipi_dsi_host *host)

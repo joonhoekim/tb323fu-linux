@@ -16,7 +16,7 @@ in 0.32 s.
 
 diff --git a/arch/arm64/boot/dts/qcom/baldur-video.dtsi b/arch/arm64/boot/dts/qcom/baldur-video.dtsi
 new file mode 100644
-index 000000000..eeff76d0e
+index 000000000..ead21fd1d
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/baldur-video.dtsi
 @@ -0,0 +1,12 @@
@@ -25,7 +25,7 @@ index 000000000..eeff76d0e
 + * Lenovo Legion Tab Y700 5th Gen (TB323FU, "baldur"): iris video codec (VPU 4.0)
 + * with the OEM-signed firmware from the Android vendor partition
 + * (vendor/firmware/vpu40_2v.mbn), kept with the ADSP/CDSP images.
-+ * y705-mainline-plan.md 9-101; the node comes from infiniti-mainline 032-040.
++ * The node comes from infiniti-mainline 032-040.
 + */
 +
 +&iris {
@@ -33,7 +33,7 @@ index 000000000..eeff76d0e
 +	status = "okay";
 +};
 diff --git a/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts b/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts
-index 7f5cf7818..de17c9280 100644
+index ebebedad7..a993b1783 100644
 --- a/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts
 +++ b/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts
 @@ -28,4 +28,5 @@

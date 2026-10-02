@@ -17,7 +17,7 @@ mA, the battery charging at about 740 mA with the screen off.
  1 file changed, 35 insertions(+)
 
 diff --git a/drivers/power/supply/qcom_battmgr.c b/drivers/power/supply/qcom_battmgr.c
-index 7716eb9e1..c5a64309a 100644
+index 7716eb9e1..14bc845b1 100644
 --- a/drivers/power/supply/qcom_battmgr.c
 +++ b/drivers/power/supply/qcom_battmgr.c
 @@ -1065,6 +1065,38 @@ static const struct power_supply_desc sc8280xp_usb_psy_desc = {
@@ -25,7 +25,7 @@ index 7716eb9e1..c5a64309a 100644
  };
  
 +/*
-+ * y705 (plan 9-46): the input current limit is set by the host. On a
++ * The input current limit is set by the host. On a
 + * standard downstream port the firmware starts at USB 2.0's 500 mA, and
 + * the vendor kernel raises it (900 mA on the same PC port).
 + */

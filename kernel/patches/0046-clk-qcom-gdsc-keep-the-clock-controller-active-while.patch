@@ -16,7 +16,7 @@ stuck at off").
  2 files changed, 52 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/clk/qcom/gdsc.c b/drivers/clk/qcom/gdsc.c
-index b99d70149..7639c30ce 100644
+index b99d70149..fcc1ec628 100644
 --- a/drivers/clk/qcom/gdsc.c
 +++ b/drivers/clk/qcom/gdsc.c
 @@ -12,6 +12,7 @@
@@ -59,7 +59,7 @@ index b99d70149..7639c30ce 100644
 + * controller's required-opps level while it switches on. The controller only
 + * holds that vote while it is runtime active, which is not the case when a
 + * consumer powers the GDSC before it prepares any of the controller's clocks
-+ * ("cam_cc_titan_top_gdsc status stuck at 'off'", y705 plan 9-60). Keep the
++ * ("cam_cc_titan_top_gdsc status stuck at 'off'"). Keep the
 + * controller active for as long as the GDSC is on.
 + */
 +static int gdsc_enable(struct generic_pm_domain *domain)

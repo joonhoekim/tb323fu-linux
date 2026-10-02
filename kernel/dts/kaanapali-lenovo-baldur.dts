@@ -15,7 +15,7 @@
  * The rootfs for this stage is an initramfs, so no block device is needed.
  *
  * Board facts come from the devicetree this device's ABL passes to Android
- * (/sys/firmware/fdt), recorded in logs/2026-09-22-mainline-survey.txt.
+ * (/sys/firmware/fdt).
  * Structure follows kaanapali-oneplus-infiniti-common.dts by EYC and
  * FantomTchi7 (BSD-3-Clause).
  */
@@ -30,7 +30,7 @@
  * notifier that sets PS_HOLD to warm reset before an orderly restart, as
  * Android's qcom_pon does. Added to cure ramoops' 1->0 bit flips, which it
  * did not -- Android-to-Android reboots show the same flips at the same
- * offsets (9-15).
+ * offsets.
  */
 #include "pmk8850.dtsi"
 
@@ -158,7 +158,7 @@
 			 * parameter "ecc" reads 0 there, which is what fooled us:
 			 * the first kexec'd boot wrote without ECC, and Android's
 			 * "correction" garbled the console and broke the
-			 * compressed dump record (9-15).
+			 * compressed dump record.
 			 */
 			ecc-size = <16>;
 		};
@@ -166,7 +166,7 @@
 };
 
 /*
- * Stage 4: storage (9-16 onwards). Read-only as far as this port goes -- init
+ * Stage 4: storage. Read-only as far as this port goes -- init
  * mounts nothing, the kernel only reads the partition tables. bRefClkFreq is
  * safe: ref_clk is RPMH_LN_BB_CLK3 = xo_board 76.8 MHz / 2 = 38.4 MHz, which is
  * what the device already holds (2), so ufshcd reads it and writes nothing.
@@ -175,7 +175,7 @@
 #include "baldur-regulators.dtsi"
 #include "baldur-storage.dtsi"
 
-/* USB device mode (9-19): the eUSB2 repeater lives on pmih0108, SPMI1 SID 7 */
+/* USB device mode: the eUSB2 repeater lives on pmih0108, SPMI1 SID 7 */
 #include "pmih0108-kaanapali.dtsi"
 #include "baldur-usb.dtsi"
 #include <dt-bindings/thermal/thermal.h>
@@ -185,7 +185,7 @@
 #include "baldur-keys.dtsi"
 
 /*
- * 9-28: a CoreSight trace NoC nothing here uses; its probe waits forever
+ * A CoreSight trace NoC nothing here uses; its probe waits forever
  * ("deferred probe pending: (reason unknown)").
  */
 &{/soc@0/tn@111b8000} {

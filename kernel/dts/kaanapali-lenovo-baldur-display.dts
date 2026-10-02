@@ -13,7 +13,7 @@
 #include "baldur-gpu.dtsi"
 /*
  * Wi-Fi (WCN7860 on PCIe0) is written but does not come up yet: the chip
- * never answers link training (plan 9-23). Kept out until it does.
+ * never answers link training. Kept out until it does.
  *
  */
 #include "pmh0104-kaanapali.dtsi"

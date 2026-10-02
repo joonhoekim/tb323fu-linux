@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur"): USB-C as a high-speed USB device (plan 9-19).
+ * TB323FU ("baldur"): USB-C as a high-speed USB device.
  *
  * The point is a way in: a CDC-ACM serial console (and NCM networking) from
  * the PC, instead of photographs of the panel. So this is the smallest USB that
@@ -37,7 +37,7 @@
 
 &usb {
 	/*
-	 * 9-57: data role from ucsi (pmic-glink connector@0); peripheral until
+	 * Data role from ucsi (pmic-glink connector@0); peripheral until
 	 * it says otherwise, so the PC link comes up as before.
 	 */
 	dr_mode = "otg";
@@ -50,7 +50,7 @@
 };
 
 /*
- * SuperSpeed (9-57): the QMP USB3-DP combo PHY as on the MTP (vendor ssphy:
+ * SuperSpeed: the QMP USB3-DP combo PHY as on the MTP (vendor ssphy:
  * vdd pmh0110 F l4, core pmh0110 D l1); its orientation comes from the
  * pmic-glink connector (ucsi), its SS lanes go to the dwc3 (kaanapali.dtsi).
  */

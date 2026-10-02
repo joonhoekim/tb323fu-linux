@@ -20,7 +20,7 @@ rebound. Re-arm the timer instead.
  1 file changed, 9 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/usb/gadget/function/f_ncm.c b/drivers/usb/gadget/function/f_ncm.c
-index 500c9c19c..489fea5c7 100644
+index 500c9c19c..04d7372d5 100644
 --- a/drivers/usb/gadget/function/f_ncm.c
 +++ b/drivers/usb/gadget/function/f_ncm.c
 @@ -1158,7 +1158,15 @@ static enum hrtimer_restart ncm_tx_timeout(struct hrtimer *data)
@@ -32,7 +32,7 @@ index 500c9c19c..489fea5c7 100644
 +			/*
 +			 * No free request to send the pending NTB: try again
 +			 * later, or it waits for the next datagram, which may
-+			 * never come (the link stalls, 9-51).
++			 * never come (the link stalls).
 +			 */
 +			hrtimer_forward_now(data, TX_TIMEOUT_NSECS);
 +			return HRTIMER_RESTART;

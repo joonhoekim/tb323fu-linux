@@ -32,20 +32,20 @@ quiet-thermal rose 31.9 -> 44.8 C with the 43 and 44 C steps engaged.
 
 diff --git a/arch/arm64/boot/dts/qcom/baldur-skin-thermal.dtsi b/arch/arm64/boot/dts/qcom/baldur-skin-thermal.dtsi
 new file mode 100644
-index 000000000..897e86c13
+index 000000000..3272dbe6b
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/baldur-skin-thermal.dtsi
 @@ -0,0 +1,141 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * TB323FU ("baldur"): board-temperature (skin) throttling after Android's
-+ * thermal-engine (y705 plan 9-104, study/research/2026-09-30-thermal-cooling.md).
++ * thermal-engine.
 + *
 + * baldur-thermal.dtsi only protects the silicon (95 C junction, passive, per
 + * CPU zone); kaanapali.dtsi does 105 C for the GPU. Android throttles long
 + * before that, on the board NTC "quiet-therm" (PMK8850 AMUX3_GPIO, our
 + * quiet-thermal): /vendor/etc/thermal-engine_cpu_0.conf and _gpu_0.conf of
-+ * the default user case 0 (logs/2026-09-27-android-thermal-policy.txt):
++ * the default user case 0:
 + *
 + *   quiet-therm  43 C  45 C  47 C  49 C     (clear 2 C lower)
 + *   cluster 1    2.88  1.75  1.02  0.88 GHz  (cpu6-7, policy6)
@@ -178,7 +178,7 @@ index 000000000..897e86c13
 +	};
 +};
 diff --git a/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts b/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts
-index de17c9280..eb8d1a284 100644
+index a993b1783..0cb46dae1 100644
 --- a/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts
 +++ b/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts
 @@ -25,6 +25,7 @@

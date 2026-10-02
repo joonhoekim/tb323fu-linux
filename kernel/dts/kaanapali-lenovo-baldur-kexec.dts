@@ -4,7 +4,7 @@
  * instead of by the bootloader.
  *
  * The difference is what Android leaves behind. /memory still comes from the
- * bootloader's tree and already excludes every fixed firmware carve-out (9-12),
+ * bootloader's tree and already excludes every fixed firmware carve-out,
  * but four regions inside it are CMA pools in the vendor tree
  * ("shared-dma-pool", reusable) that Android lends out once it runs -- the two
  * VM regions to Gunyah guests, the other two to hardware. Straight from the
@@ -46,7 +46,7 @@
 /*
  * The application SMMU cannot be reset after Android. arm_smmu_device_reset()
  * rewrites all 122 stream-match entries, and on the first kexec'd boot the
- * write to entry 19 took a synchronous external abort (9-15) -- Gunyah had
+ * write to entry 19 took a synchronous external abort -- Gunyah had
  * handed that stream to someone else while Android ran. Nothing stage 3 needs
  * sits behind this SMMU (the GPU SMMU at 0x3da0000 reset fine), so leave it off
  * until we know which entries HLOS still owns.

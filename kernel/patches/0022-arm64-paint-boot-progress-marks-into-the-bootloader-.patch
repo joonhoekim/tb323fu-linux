@@ -10,7 +10,7 @@ That picture is the same whether the kernel died in its first instruction or
 two seconds before userspace, and nothing else survives to tell them apart:
 ramoops does not exist until its device is created at arch_initcall_sync, so
 a kernel that dies before then leaves no log at all -- not even in the copy
-the crash dump mode makes of it (tools/rawdump.py).
+the crash dump mode makes of it (the rawdump partition).
 
 The display controller is still scanning the splash buffer out, though, and
 the panel is video mode, so a store to that buffer is on the glass one frame

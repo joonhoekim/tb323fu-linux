@@ -8,7 +8,7 @@
  * channel then reaches this node, and qcom_battmgr / ucsi_glink hang off it.
  * Vendor DT: pmic-glink { qcom,pmic-glink-channel = "PMIC_RTR_SOCCP_APPS"; }.
  *
- * Connector graph (9-57): the vendor tree has two usb-c-connectors under
+ * Connector graph: the vendor tree has two usb-c-connectors under
  * ucsi-glink, both into the one dwc3 (HS: dwc3 port@0 / port@1; SBU: the two
  * FSA4480s). connector@0 / ucsi port0 is the bottom port (USB 3.2 + DP);
  * ucsi port1 the side port (USB 2.0 only). Only connector@0 is wired here:
@@ -68,7 +68,7 @@
 };
 
 /*
- * USB-C analog audio / SBU (9-58): the bottom port's SBU switch is the
+ * USB-C analog audio / SBU: the bottom port's SBU switch is the
  * FSA4480 at i2c5 0x43 (vendor "fsa4480_i2c", into ucsi connector 0); the
  * side port's is 0x42 ("fsa4480_sub_i2c", connector 1 -- not wired, that
  * port has no connector node here). No supply in the vendor node.

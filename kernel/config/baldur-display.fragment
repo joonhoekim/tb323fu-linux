@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0-only
-# Stage 5 (9-18): merge after baldur.fragment. The panel driver has to be
+# Stage 5: merge after baldur.fragment. The panel driver has to be
 # built in -- the initramfs carries no modules.
 CONFIG_DRM_PANEL_NOVATEK_NT36523=y
 CONFIG_ARM64_BUILTIN_FDT_NAME="qcom/kaanapali-lenovo-baldur-display.dtb"
 
-# 9-25: the panel's backlight, an Awinic AW99706 on I2C12.
+# The panel's backlight, an Awinic AW99706 on I2C12.
 CONFIG_BACKLIGHT_AW99706=y
 
-# 9-26: touch, Novatek NT36536 (0008-input-nt36536-hookup.patch). A module:
+# Touch, Novatek NT36536 (patch 0026). A module:
 # init loads it from the initramfs.
 CONFIG_TOUCHSCREEN_NT36536_SPI=m

@@ -14,10 +14,10 @@ under review for the Kaanapali MTP board.
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/arch/arm64/boot/dts/qcom/baldur-wifi.dtsi b/arch/arm64/boot/dts/qcom/baldur-wifi.dtsi
-index 47b6a5193..dcdfa3ed9 100644
+index 4dced6128..f7b2de18b 100644
 --- a/arch/arm64/boot/dts/qcom/baldur-wifi.dtsi
 +++ b/arch/arm64/boot/dts/qcom/baldur-wifi.dtsi
-@@ -199,7 +199,7 @@ &pcie0_phy {
+@@ -198,7 +198,7 @@ &pcie0_phy {
  };
  
  &pcie_port0 {

@@ -6,13 +6,13 @@
  * at 0x34 (sound-channel 0, reset TLMM 114) and 0x37 (channel 1, reset
  * TLMM 71), on QUP1 SE4 (i2c@a90000, SDA/SCL TLMM 36/37). No WSA
  * amplifiers. The microphones are two analog mics on a WCD9395 on SoundWire
- * (9-50; 9-47 had them as DMICs, wrongly).
+ * (an earlier version had them as DMICs, wrongly).
  *
  * The amplifiers answer only with L12B at 1.8 V (their digital supply;
  * Android keeps it there, on with no listed consumer). Here L12B is also the
  * panel's VDDIO, which asked for 1.2 V and dropped it with the screen off:
  * pin it at 1.8 V and on. Chip ID 0x2308, Awinic's aw882xx driver
- * (mainline/kernel/aw882xx, 9-47).
+ * (out of tree).
  */
 
 &vreg_l12b_1p8 {
@@ -54,8 +54,8 @@
 };
 
 /*
- * ADSP (9-49): Android's adsp.mdt / adsp_dtb.mdt from the modem partition's
- * image/, squashed to .mbn (tools/pil-squash.py), in the rootfs under
+ * ADSP: Android's adsp.mdt / adsp_dtb.mdt from the modem partition's
+ * image/, squashed to .mbn (pil-squash.py), in the rootfs under
  * /lib/firmware/qcom/kaanapali/lenovo/baldur.
  *
  * The vendor adspslpi region is 0x4600000, and this bootloader hands memory
@@ -74,13 +74,13 @@
 };
 
 /*
- * Speakers (9-49): Android's PAL_DEVICE_OUT_SPEAKER backend is
+ * Speakers: Android's PAL_DEVICE_OUT_SPEAKER backend is
  * MI2S-LPAIF-RX-PRIMARY -- LPASS primary MI2S on TLMM 122 (SCK), 125 (WS),
  * 123 (SD0), 124 (SD1), with the pin settings of the vendor's i2s0_*_active.
  * The amplifiers' data line is SD1 (the topology says so; on SD0 they get
  * nothing). The DSP drives the clocks (BP_FP, set by the sc8280xp machine driver); the
  * amplifiers take BCLK and WS. Front ends come from the topology,
- * qcom/kaanapali/LENOVO-TB323FU-tplg.bin (mainline/audio/).
+ * qcom/kaanapali/LENOVO-TB323FU-tplg.bin.
  */
 &tlmm {
 	pri_mi2s_active: pri-mi2s-active-state {
@@ -118,7 +118,7 @@
 	sound {
 		compatible = "qcom,kaanapali-sndcard", "qcom,sm8450-sndcard";
 		model = "LENOVO-TB323FU";
-		/* the amplifiers want 32-bit slots, as Android runs them (0019) */
+		/* the amplifiers want 32-bit slots, as Android runs them (0034) */
 		qcom,mi2s-s32le;
 
 		pinctrl-0 = <&pri_mi2s_active>;
@@ -172,7 +172,7 @@
 };
 
 /*
- * Microphones (9-50): a WCD9395 on SoundWire, as on the MTP -- the vendor
+ * Microphones: a WCD9395 on SoundWire, as on the MTP -- the vendor
  * tree has it (wcd939x-codec, TX/RX slaves at unique id 3/4) with the same
  * reset (TLMM 161) and supplies (pmh0101 l15 1.8 V, pmh0110 g l1 1.2 V,
  * pmh0101 bob1 for mic bias). Android captures through
@@ -225,7 +225,7 @@
 	 * Android runs master port 3 on data lane 1 and port 4 on lane 2
 	 * (SWRM_DPn +0x28 while recording); kaanapali.dtsi has lane 0 for
 	 * both. Taken over as Android has it; it did not change the flat
-	 * -47 dBFS noise under the microphones (9-50), so all three lanes
+	 * -47 dBFS noise under the microphones, so all three lanes
 	 * are wired. The slave ports follow the master port's lane
 	 * (qcom_swrm_compute_params).
 	 */
@@ -260,12 +260,12 @@
 };
 
 /*
- * The flat -47 dBFS noise under the microphones (9-50) was the decimators'
+ * The flat -47 dBFS noise under the microphones was the decimators'
  * filter block at 0x800 + 0x80 * n, which the mainline driver never touches.
  * Android, recording, has these in the decimators it uses (+0x10..+0x28 are
  * its DT's adapt-tuning-reg-values; +0x00 bit 4 clear matters most, -15 dB).
  * With them the floor is about -65 dBFS. Written on every decimator enable
- * (0020).
+ * (0035).
  */
 &lpass_txmacro {
 	qcom,dec-tuning-reg-values = <0x00 0x41  0x10 0x4c  0x14 0x1d  0x18 0x7c

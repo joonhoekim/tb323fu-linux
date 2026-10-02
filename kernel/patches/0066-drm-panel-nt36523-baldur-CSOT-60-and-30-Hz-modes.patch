@@ -15,7 +15,7 @@ Signed-off-by: joonhoekim <26rote@gmail.com>
  1 file changed, 29 insertions(+)
 
 diff --git a/drivers/gpu/drm/panel/panel-novatek-nt36523.c b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
-index 834cfbdce..ecd029a45 100644
+index 834cfbdce..4496f06d2 100644
 --- a/drivers/gpu/drm/panel/panel-novatek-nt36523.c
 +++ b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
 @@ -1376,6 +1376,35 @@ static const struct drm_display_mode baldur_csot_modes[] = {
@@ -27,7 +27,7 @@ index 834cfbdce..ecd029a45 100644
 +	 * -- same pixel clock and horizontal timing, only the vertical front
 +	 * porch is longer, so the display switches to them in place (msm
 +	 * dpu_crtc_vfp_only()). The vendor 165/144/90 Hz timings change the
-+	 * horizontal timing or break the picture (y705 plan 9-96).
++	 * horizontal timing or break the picture.
 +	 */
 +	{
 +		.clock = (952 + 90 + 16 + 64) * 2 * (3040 + 3426 + 4 + 330) * 60 / 1000,

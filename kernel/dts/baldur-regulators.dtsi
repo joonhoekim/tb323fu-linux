@@ -4,7 +4,7 @@
  *
  * Only the rails something in this port actually consumes are here, not the
  * full PMIC complement. Every voltage was read out of this device's own ABL
- * devicetree (logs/2026-09-22-mainline-survey.txt), and the labels follow the
+ * devicetree, and the labels follow the
  * OnePlus 15 board DTS so the two can be compared line by line.
  *
  * Where the two boards differ, ours is used and the difference is noted. They
@@ -26,7 +26,7 @@
 			regulator-name = "vreg_l4b_1p8";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
-			/* 9-45: AUTO, as the MTP has it; HPM kept it in high power for good */
+			/* AUTO, as the MTP has it; HPM kept it in high power for good */
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
 			regulator-allow-set-load;
 			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
@@ -126,7 +126,7 @@
 						   RPMH_REGULATOR_MODE_AUTO>;
 		};
 
-		/* WCD9395 mic bias (vendor pmh0101_bob1, 3.008-4.0 V; 9-50) */
+		/* WCD9395 mic bias (vendor pmh0101_bob1, 3.008-4.0 V) */
 		vreg_bob1: bob1 {
 			regulator-name = "vreg_bob1";
 			regulator-min-microvolt = <3008000>;
@@ -198,7 +198,7 @@
 			regulator-min-microvolt = <1224000>;
 			regulator-max-microvolt = <1372000>;
 			/*
-			 * 9-45: AUTO (PFM when light), not HPM (always PWM): the WCN
+			 * AUTO (PFM when light), not HPM (always PWM): the WCN
 			 * rails sat in high power even with Wi-Fi idle. The vendor
 			 * lets the chip raise them through the PDC instead.
 			 */
@@ -211,7 +211,7 @@
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2000000>;
 			/*
-			 * 9-45: AUTO (PFM when light), not HPM (always PWM): the WCN
+			 * AUTO (PFM when light), not HPM (always PWM): the WCN
 			 * rails sat in high power even with Wi-Fi idle. The vendor
 			 * lets the chip raise them through the PDC instead.
 			 */
@@ -223,7 +223,7 @@
 		compatible = "qcom,pmh0110-rpmh-regulators";
 		qcom,pmic-id = "G_E0";
 
-		/* WCD9395 vdd-px (vendor pmh0110_g_l1 1.2 V; 9-50) */
+		/* WCD9395 vdd-px (vendor pmh0110_g_l1 1.2 V) */
 		vreg_l1g_1p2: ldo1 {
 			regulator-name = "vreg_l1g_1p2";
 			regulator-min-microvolt = <1200000>;
@@ -294,7 +294,7 @@
 			regulator-min-microvolt = <400000>;
 			regulator-max-microvolt = <1000000>;
 			/*
-			 * 9-45: AUTO (PFM when light), not HPM (always PWM): the WCN
+			 * AUTO (PFM when light), not HPM (always PWM): the WCN
 			 * rails sat in high power even with Wi-Fi idle. The vendor
 			 * lets the chip raise them through the PDC instead.
 			 */
@@ -307,7 +307,7 @@
 			regulator-min-microvolt = <500000>;
 			regulator-max-microvolt = <1100000>;
 			/*
-			 * 9-45: AUTO (PFM when light), not HPM (always PWM): the WCN
+			 * AUTO (PFM when light), not HPM (always PWM): the WCN
 			 * rails sat in high power even with Wi-Fi idle. The vendor
 			 * lets the chip raise them through the PDC instead.
 			 */

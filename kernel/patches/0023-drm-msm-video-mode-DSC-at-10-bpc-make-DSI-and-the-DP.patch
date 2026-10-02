@@ -48,7 +48,7 @@ index ba810f26e..2ac517db5 100644
  		timing->dce_bytes_per_line = msm_dsc_get_bytes_per_line(dsc);
  	}
 diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
-index d6bb2f482..44f717281 100644
+index d6bb2f482..b8cc80c38 100644
 --- a/drivers/gpu/drm/msm/dsi/dsi_host.c
 +++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
 @@ -396,8 +396,8 @@ int dsi_link_clk_set_rate_6g(struct msm_dsi_host *msm_host)
@@ -82,7 +82,7 @@ index d6bb2f482..44f717281 100644
 +	 * (dpu_encoder_phys_vid.c) and DSI's ACTIVE_H follows the pixel
 +	 * format, so a 10bpc video panel (RGB101010) must use 30 here as well.
 +	 * With 24 the DSI line came out 318 pclk against the INTF's 253 per
-+	 * link and the DSI FIFO overflowed (TB323FU, y705 plan 9-18).
++	 * link and the DSI FIFO overflowed (TB323FU).
 +	 */
 +	new_hdisplay = DIV_ROUND_UP(hdisplay * bpp_x16,
 +				    (video ? dsc->bits_per_component * 3 : 24) * 16);

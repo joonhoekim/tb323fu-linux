@@ -24,25 +24,25 @@ CONFIG_DRM_SIMPLEDRM=y
 CONFIG_BLK_DEV_INITRD=y
 CONFIG_RD_GZIP=y
 
-# 9-10: 커널이 부트로더에서 /memory 하나만 받게 만든다.
-# 0003-arm64-builtin-fdt.patch 가 필요하다.
+# 커널이 부트로더에서 /memory 하나만 받게 만든다.
+# 패치 0021 이 필요하다.
 CONFIG_ARM64_BUILTIN_FDT=y
 CONFIG_ARM64_BUILTIN_FDT_NAME="qcom/kaanapali-lenovo-baldur.dtb"
 
-# cmdline 도 커널에 박는다. vendor_boot 의 것을 쓰지 않는다 (8장 그대로).
-# 끝의 qcom_scm.download_mode=full 은 9-12: SCM 이 프로브된 뒤로는 깨끗하지 않은
+# cmdline 도 커널에 박는다. vendor_boot 의 것을 쓰지 않는다.
+# 끝의 qcom_scm.download_mode=full: SCM 이 프로브된 뒤로는 깨끗하지 않은
 # 재시작(패닉)이 XBL 크래시 덤프 모드로 가고, 덤프 수집기가 ramoops 콘솔을 UFS 의
 # rawdump 파티션에 적는다. 그 복사본은 뒤따르는 전원 차단과 EDL 을 견딘다.
 CONFIG_CMDLINE="icc-rpmh.qos_disable=1 icc_rpmh.qos_disable=1 fw_devlink.sync_state=timeout fbcon=font:TER16x32 panic=10 oops=panic console=tty1 keep_bootcon qcom_scm.download_mode=full baldur.end=hold consoleblank=120 no_console_suspend mem_sleep_default=s2idle"
 CONFIG_CMDLINE_FORCE=y
 
-# 3단계 userspace 도 안에. initramfs.cpio.gz 를 만드는 법은 mainline/README.md 참고.
+# 3단계 userspace 도 안에. initramfs.cpio.gz 를 만드는 법은 tb323fu-linux 의 kernel/initramfs/ 참고.
 # 경로는 빌드하는 기계에 맞게 고친다.
 # set to your own initramfs (the copy inside patch 0055 carries the original builder path)
 CONFIG_INITRAMFS_SOURCE=""
 
-# 9-12: 멈춤을 패닉으로 바꾼다. 부트로더가 워치독을 켜 둔 채 넘기지 않아서
-# (9-10 에서 15분 동안 리셋이 없었다) 패닉 없이 멈춘 커널은 영원히 멈춰 있고,
+# 멈춤을 패닉으로 바꾼다. 부트로더가 워치독을 켜 둔 채 넘기지 않아서
+# (첫 부팅 때 15분 동안 리셋이 없었다) 패닉 없이 멈춘 커널은 영원히 멈춰 있고,
 # 그러면 덤프도 로그도 없다. 이 둘이 있으면 도는 채로 걸린 CPU(soft lockup)와
 # D 상태로 60초 넘게 잠든 태스크(대개 멈춘 initcall)가 패닉 -> 덤프가 된다.
 CONFIG_SOFTLOCKUP_DETECTOR=y
@@ -51,10 +51,10 @@ CONFIG_DETECT_HUNG_TASK=y
 CONFIG_DEFAULT_HUNG_TASK_TIMEOUT=60
 CONFIG_BOOTPARAM_HUNG_TASK_PANIC=1
 
-# 9-12: 화면 진행 표시. ramoops 가 등록되기 전(=rawdump 에도 아무것도 안 남는 구간)에
-# 멈추면 9-10 처럼 스플래시만 남는다. 이 패널은 video mode 라 DPU 가 splash 버퍼를 매
+# 화면 진행 표시. ramoops 가 등록되기 전(=rawdump 에도 아무것도 안 남는 구간)에
+# 멈추면 첫 부팅 때처럼 스플래시만 남는다. 이 패널은 video mode 라 DPU 가 splash 버퍼를 매
 # 프레임 다시 읽으므로, 거기 칠한 픽셀은 드라이버 없이 바로 보인다.
-# 0004-arm64-boot-progress-marks.patch 가 필요하다. 값은 보드 DT 의 simple-framebuffer 와 같다.
+# 패치 0022 가 필요하다. 값은 보드 DT 의 simple-framebuffer 와 같다.
 CONFIG_BOOT_MARKS=y
 CONFIG_BOOT_MARKS_FB_BASE=0xfc800000
 CONFIG_BOOT_MARKS_FB_STRIDE=7616
@@ -67,23 +67,23 @@ CONFIG_FONTS=y
 CONFIG_FONT_8x16=y
 CONFIG_FONT_TER16x32=y
 
-# 9-17: MMC's card-init path only speaks pr_debug. init turns it on for the
+# MMC's card-init path only speaks pr_debug. init turns it on for the
 # SD host and re-binds the driver to see why no card comes up.
 CONFIG_DYNAMIC_DEBUG=y
 
-# 9-20: SCMI reaches CPUCP through this mailbox. As a module (the OnePlus
+# SCMI reaches CPUCP through this mailbox. As a module (the OnePlus
 # fragment's =m) it never loads -- the initramfs carries no modules -- and
 # arm-scmi sits deferred with "failed to setup channel", so no cpufreq, and
 # the CPUs stay wherever the bootloader left them.
 CONFIG_QCOM_CPUCP_MBOX=y
 
-# 9-28: the OnePlus 15's touch driver (Synaptics S3910) is built in and
-# announces itself at boot; this board's touch is Novatek (9-26).
+# The OnePlus 15's touch driver (Synaptics S3910) is built in and
+# announces itself at boot; this board's touch is Novatek.
 # CONFIG_TOUCHSCREEN_SYNAPTICS_TCM_ONCELL is not set
 # CONFIG_TOUCHSCREEN_SYNAPTICS_TCM is not set
 # CONFIG_TOUCHSCREEN_SYNAPTICS_TCM_SPI is not set
 
-# 9-30: Bluetooth built in -- the WCN7860's BT half on uart18 is how we learnt
+# Bluetooth built in -- the WCN7860's BT half on uart18 is how we learnt
 # the chip is alive (HCI version read, before any firmware).
 CONFIG_BT=y
 CONFIG_BT_HCIUART=y
@@ -92,34 +92,34 @@ CONFIG_BT_HCIUART_QCA=y
 
 # The OnePlus fragment names the machine "infiniti".
 CONFIG_DEFAULT_HOSTNAME="baldur"
-# 9-36: let a user country hint (wpa_supplicant country=KR, iw reg set) reach
+# Let a user country hint (wpa_supplicant country=KR, iw reg set) reach
 # the WCN7860 firmware; without these the self-managed phy stays on world 00
 CONFIG_CFG80211_CERTIFICATION_ONUS=y
 CONFIG_ATH_REG_DYNAMIC_USER_REG_HINTS=y
-# 9-41: the CPU bandwidth monitors (qcom,kaanapali-cpu-bwmon, sdm845 flow)
+# The CPU bandwidth monitors (qcom,kaanapali-cpu-bwmon, sdm845 flow)
 # scale DDR with CPU traffic; built in, since no modules reach the rootfs.
 # Without a driver they also held two interconnects' sync_state (fw_devlink).
 CONFIG_QCOM_ICC_BWMON=y
-# 9-50: the LPASS LPI pin controller (kaanapali.dtsi: sm8750 with the sm8650
+# The LPASS LPI pin controller (kaanapali.dtsi: sm8750 with the sm8650
 # fallback) -- the RX/TX SoundWire masters to the WCD9395 wait for its pins.
 CONFIG_PINCTRL_SM8650_LPASS_LPI=m
 # ALSA sequencer (MIDI). Fedora's dist-alsa.conf loads snd-seq right after snd-pcm
 # ("install snd-pcm ... && modprobe snd-seq"); without it that modprobe fails and
 # the sound card never appears. Modules only.
 CONFIG_SND_SEQUENCER=m
-# 9-56: /sys/power/pm_test, pm_print_times, pm_debug_messages -- without these
+# /sys/power/pm_test, pm_print_times, pm_debug_messages -- without these
 # a "pm_test" write silently fails and "echo freeze > state" really suspends.
 CONFIG_PM_DEBUG=y
 CONFIG_PM_SLEEP_DEBUG=y
-# 9-56: a device suspend/resume callback that does not return within 15 s
+# A device suspend/resume callback that does not return within 15 s
 # panics with its name and stack (into pstore -> rawdump via 900E).
 CONFIG_DPM_WATCHDOG=y
 CONFIG_DPM_WATCHDOG_TIMEOUT=15
 CONFIG_DPM_WATCHDOG_WARNING_TIMEOUT=15
-# PMIC5 Gen4 ADC + ADC_TM: board thermistors, PMIC die temps (9-59, 0024/0025)
+# PMIC5 Gen4 ADC + ADC_TM: board thermistors, PMIC die temps (0039)
 CONFIG_QCOM_SPMI_ADC5_GEN3=y
 CONFIG_QCOM_SPMI_ADC_TM5_GEN3=y
-# kaanapali CAMSS (RDI) + CSI2 PHY + sensors (9-60, 0026-0029)
+# kaanapali CAMSS (RDI) + CSI2 PHY + sensors (0013-0016, 0040-0045)
 CONFIG_PHY_QCOM_MIPI_CSI2=m
 CONFIG_VIDEO_S5KJN5=m
 CONFIG_VIDEO_S5KJNS=m

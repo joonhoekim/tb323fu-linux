@@ -6,7 +6,7 @@ Subject: [PATCH 25/56] Input: touchscreen: import NT36536 host-download SPI
 
 Verbatim copy of drivers/input/touchscreen/nt36536/ from map220v/sm8850-mainline
 branch iceland-7.2, so that
-0008/0010/0040 apply on top of it.
+the board patches 0026, 0027 and 0053 apply on top of it.
 ---
  drivers/input/touchscreen/nt36536/Kconfig     |   11 +
  drivers/input/touchscreen/nt36536/Makefile    |    8 +

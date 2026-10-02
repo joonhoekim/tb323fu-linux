@@ -22,7 +22,7 @@ drivers/input/touchscreen/nt36536/; apply in that directory (patch -p0).
  3 files changed, 28 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/input/touchscreen/nt36536/nt36xxx.c b/drivers/input/touchscreen/nt36536/nt36xxx.c
-index 1ec7fd9e2..a93a57959 100644
+index 1ec7fd9e2..acce7abe6 100644
 --- a/drivers/input/touchscreen/nt36536/nt36xxx.c
 +++ b/drivers/input/touchscreen/nt36536/nt36xxx.c
 @@ -753,6 +753,12 @@ static int32_t nvt_parse_dt(struct device *dev)
@@ -30,7 +30,7 @@ index 1ec7fd9e2..a93a57959 100644
  
  	ts->pen_support = of_property_read_bool(np, "novatek,pen-support");
 +	/*
-+	 * baldur (9-28): finger reports came swapped and Y-flipped, a
++	 * baldur: finger reports came swapped and Y-flipped, a
 +	 * landscape board's rotation. Keep it only where DT asks; the pen
 +	 * path never did it.
 +	 */
@@ -69,7 +69,7 @@ index 0d7b4375f..bdc456ee2 100644
  	uint8_t y_gang_num;
  	struct input_dev *pen_input_dev;
 diff --git a/drivers/input/touchscreen/nt36536/nt36xxx_fw_update.c b/drivers/input/touchscreen/nt36536/nt36xxx_fw_update.c
-index 535ddba6c..c41b21d1f 100644
+index 535ddba6c..f9a3fb97e 100644
 --- a/drivers/input/touchscreen/nt36536/nt36xxx_fw_update.c
 +++ b/drivers/input/touchscreen/nt36536/nt36xxx_fw_update.c
 @@ -894,8 +894,20 @@ int32_t nvt_update_firmware(const char *firmware_name)
@@ -78,7 +78,7 @@ index 535ddba6c..c41b21d1f 100644
  	mutex_lock(&ts->lock);
 -	nvt_update_firmware(ts->fw_name);
 +	/*
-+	 * baldur (9-27): finish the way resume does. With only the download,
++	 * baldur: finish the way resume does. With only the download,
 +	 * the first load at boot left the IC silent until a panel off/on.
 +	 */
 +	if (!nvt_update_firmware(ts->fw_name))

@@ -11,7 +11,7 @@ for mutter (monitors-changed), which closes GNOME's overview and app grid.
 Do it inside the kernel instead: the committed mode stays 120 Hz and only
 the vertical front porch of the running DSI video interface is stretched
 (vtotal 3400 -> 6800 -> 13600 = 120 -> 60 -> 30 Hz). The DSI TOTAL
-register and the INTF vsync period are rewritten (0051's update_vfp), then
+register and the INTF vsync period are rewritten (0065's update_vfp), then
 the INTFs are flushed outside a commit under the CRTC's commit lock, so
 userspace never sees a mode change. dpu_crtc_get_scanout_position() uses
 the live vtotal so vblank timestamps stay right while stretched.
@@ -47,7 +47,7 @@ Not meant for upstream in this form (board-specific policy, one DSI encoder only
  9 files changed, 557 insertions(+)
 
 diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
-index 0786f09cb..657b009ac 100644
+index 0786f09cb..4d8a1029b 100644
 --- a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
 +++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
 @@ -297,6 +297,9 @@ static bool dpu_crtc_get_scanout_position(struct drm_crtc *crtc,
@@ -61,7 +61,7 @@ index 0786f09cb..657b009ac 100644
  	if (stime)
  		*stime = ktime_get();
 diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
-index 73211060c..baad51c03 100644
+index 73211060c..62d82950b 100644
 --- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
 +++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
 @@ -9,7 +9,10 @@
@@ -142,7 +142,7 @@ index 73211060c..baad51c03 100644
 + *              lands with the next commit), bit1 add the CTL bit (default 3)
 + *   state      read-only: current values and counters
 + * Before system suspend and on encoder disable the mode's vtotal is restored
-+ * and latched first (a 30 Hz sleep ended in TZ err-fatal in 9-100).
++ * and latched first (a 30 Hz sleep ended in a TZ err-fatal).
 + */
 +static int idle_refresh_policy = 2;
 +static unsigned int idle_refresh_hz = 60;
@@ -627,7 +627,7 @@ index 73211060c..baad51c03 100644
  
  	memcpy(&dpu_enc->disp_info, disp_info, sizeof(*disp_info));
 diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h
-index cc236be5b..cc097c970 100644
+index cc236be5b..e4835b107 100644
 --- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h
 +++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h
 @@ -68,6 +68,8 @@ struct drm_encoder *dpu_encoder_init(struct drm_device *dev,
@@ -640,7 +640,7 @@ index cc236be5b..cc097c970 100644
  
  bool dpu_encoder_is_widebus_enabled(const struct drm_encoder *drm_enc);
 diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c
-index 8401c7662..18211a830 100644
+index 8401c7662..1d0af77b3 100644
 --- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c
 +++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.c
 @@ -180,6 +180,28 @@ static inline void dpu_hw_ctl_trigger_flush_v1(struct dpu_hw_ctl *ctx)
@@ -673,7 +673,7 @@ index 8401c7662..18211a830 100644
  {
  	trace_dpu_hw_ctl_trigger_pending_flush(ctx->pending_flush_mask,
 diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.h b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.h
-index e535bf013..69ad9e074 100644
+index e535bf013..35b03eb34 100644
 --- a/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.h
 +++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_hw_ctl.h
 @@ -358,4 +358,6 @@ struct dpu_hw_ctl *dpu_hw_ctl_init(struct drm_device *dev,
@@ -684,7 +684,7 @@ index e535bf013..69ad9e074 100644
 +
  #endif /*_DPU_HW_CTL_H */
 diff --git a/drivers/gpu/drm/msm/dsi/dsi.c b/drivers/gpu/drm/msm/dsi/dsi.c
-index 05e1cbde6..a56d0bcd8 100644
+index 05e1cbde6..5bf7563d6 100644
 --- a/drivers/gpu/drm/msm/dsi/dsi.c
 +++ b/drivers/gpu/drm/msm/dsi/dsi.c
 @@ -24,6 +24,13 @@ void msm_dsi_update_vtotal(struct msm_dsi *msm_dsi,
@@ -702,7 +702,7 @@ index 05e1cbde6..a56d0bcd8 100644
  {
  	return msm_dsi_host_is_wide_bus_enabled(msm_dsi->host);
 diff --git a/drivers/gpu/drm/msm/dsi/dsi.h b/drivers/gpu/drm/msm/dsi/dsi.h
-index 322439982..45eeb8a6d 100644
+index 322439982..fe4be853d 100644
 --- a/drivers/gpu/drm/msm/dsi/dsi.h
 +++ b/drivers/gpu/drm/msm/dsi/dsi.h
 @@ -78,6 +78,7 @@ int msm_dsi_host_power_on(struct mipi_dsi_host *host,
@@ -714,7 +714,7 @@ index 322439982..45eeb8a6d 100644
  				  const struct drm_display_mode *mode);
  enum drm_mode_status msm_dsi_host_check_dsc(struct mipi_dsi_host *host,
 diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
-index e6e05afc3..bb6ef34c1 100644
+index 1ee802c60..bf563cf02 100644
 --- a/drivers/gpu/drm/msm/dsi/dsi_host.c
 +++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
 @@ -2660,6 +2660,24 @@ void msm_dsi_host_update_vtotal(struct mipi_dsi_host *host,
@@ -743,7 +743,7 @@ index e6e05afc3..bb6ef34c1 100644
  				  const struct drm_display_mode *mode)
  {
 diff --git a/drivers/gpu/drm/msm/msm_drv.h b/drivers/gpu/drm/msm/msm_drv.h
-index fe233e20b..fff27c2e0 100644
+index fe233e20b..2d3ad8726 100644
 --- a/drivers/gpu/drm/msm/msm_drv.h
 +++ b/drivers/gpu/drm/msm/msm_drv.h
 @@ -303,6 +303,7 @@ bool msm_dsi_is_master_dsi(struct msm_dsi *msm_dsi);

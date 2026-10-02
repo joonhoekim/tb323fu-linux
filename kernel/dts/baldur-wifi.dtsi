@@ -9,7 +9,7 @@
  * 0.9 V comes from S2J here, not from S7G as on the MTP.
  *
  * NOT WORKING YET, and not included by any board file: the chip never answers
- * link training (LTSSM loops in Detect, "Device not found"), see plan 9-23.
+ * link training (LTSSM loops in Detect, "Device not found").
  *
  * Bluetooth itself (UART) is left out, but its enable line is described: the
  * vendor cnss drives BT_EN low before it powers WLAN ("cnss_probe: Disabling
@@ -57,7 +57,7 @@
 	 * 204, wlan-dev-sol-gpio 205). Both are eGPIOs that another subsystem
 	 * owns until something selects function "gpio"; the vendor cnss does,
 	 * and drives host-SOL low, before it powers the chip. Left alone, the
-	 * chip held WAKE# low and never answered link training (9-23).
+	 * chip held WAKE# low and never answered link training.
 	 */
 	wlan_sol_default: wlan-sol-default-state {
 		host-sol-pins {
@@ -170,7 +170,7 @@
 };
 
 /*
- * 9-30 experiment: WLCX/WLMX at the vendor cnss votes. The PMIC ranges start
+ * Experiment: WLCX/WLMX at the vendor cnss votes. The PMIC ranges start
  * at 0.4/0.5 V and the regulator core parks an unset rail at its minimum;
  * on Android the PDC raises them on the chip's clock requests, here nothing
  * may. BT (UART) answers either way -- it does not use WLCX/WLMX.
@@ -220,7 +220,7 @@
 /*
  * Bluetooth, the same chip over the 4-wire HS-UART (vendor
  * qupv3_se18_4uart @ 0x1994000 = uart18), as the OnePlus 15 port wires it.
- * 9-30: first used to ask whether the WCN7860 is alive at all -- the HCI
+ * First used to ask whether the WCN7860 is alive at all -- the HCI
  * version read comes before any firmware.
  */
 / {
@@ -252,7 +252,7 @@
 		 * (/vendor/bt_firmware/image, BTFW.BRAHMA.2.0.1-00238): NVM, then
 		 * the rampatch. The TLV there times out on its first segment with
 		 * the stock WCN7850 flow; the ELF goes through the BRAHMA path of
-		 * infiniti fecd7925d (0013).
+		 * infiniti fecd7925d (0030).
 		 */
 		firmware-name = "brhbtnv20.bin", "brhbtfw20.mbn";
 	};

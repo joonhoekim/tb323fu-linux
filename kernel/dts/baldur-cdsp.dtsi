@@ -3,7 +3,7 @@
  * TB323FU ("baldur") compute DSP.
  *
  * Android's cdsp.mdt / cdsp_dtb.mdt (modem partition image/), squashed to
- * .mbn with tools/pil-squash.py, in the rootfs next to the ADSP's under
+ * .mbn with pil-squash.py, in the rootfs next to the ADSP's under
  * /lib/firmware/qcom/kaanapali/lenovo/baldur (too big for the boot image;
  * baldur-dsp.service starts it once the rootfs is up). The reserved regions
  * in kaanapali.dtsi (cdsp 0x1900000 at 0x9b500000, dtb 0x80000 at

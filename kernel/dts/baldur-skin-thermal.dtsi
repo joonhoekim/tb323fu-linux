@@ -7,7 +7,7 @@
  * CPU zone); kaanapali.dtsi does 105 C for the GPU. Android throttles long
  * before that, on the board NTC "quiet-therm" (PMK8850 AMUX3_GPIO, our
  * quiet-thermal): /vendor/etc/thermal-engine_cpu_0.conf and _gpu_0.conf of
- * the default user case 0 (logs/2026-09-27-android-thermal-policy.txt):
+ * the default user case 0:
  *
  *   quiet-therm  43 C  45 C  47 C  49 C     (clear 2 C lower)
  *   cluster 1    2.88  1.75  1.02  0.88 GHz  (cpu6-7, policy6)

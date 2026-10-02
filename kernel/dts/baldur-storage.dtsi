@@ -2,7 +2,7 @@
 /*
  * Stage 4 for TB323FU ("baldur"): UFS and the microSD slot.
  *
- * Included by kaanapali-lenovo-baldur.dts since 2026-09-24 (plan 9-17). It was
+ * Included by kaanapali-lenovo-baldur.dts since 2026-09-24. It was
  * left out at first: stage 3 boots from an
  * initramfs precisely so that no block device has to come up first; bringing
  * storage in earlier would only add ways for the first boot to fail. Add
@@ -13,7 +13,7 @@
  * uses are declared in baldur-regulators.dtsi, which has to come first.
  *
  * Every rail and GPIO here was read out of this device's own ABL devicetree
- * (see logs/2026-09-22-mainline-survey.txt), and then compared against the
+ * (its /sys/firmware/fdt under Android), and then compared against the
  * OnePlus 15 board DTS. They are the same board-for-board -- same LDOs, same
  * voltages to the microvolt, same UFS reset GPIO. That is worth knowing: the
  * storage wiring on this SoC is reference-design level, not per-vendor, so
@@ -69,7 +69,7 @@
 
 	/*
 	 * Without these the SD pads keep whatever drive and pulls they boot
-	 * with, and the first stage-4 boot (9-17) brought the host up but never
+	 * with, and the first stage-4 boot brought the host up but never
 	 * saw the card -- no "new SD card", no error.
 	 */
 	pinctrl-0 = <&sdc2_default>;
@@ -79,8 +79,8 @@
 	/*
 	 * The card misses its first probe unless something slows the path down:
 	 * with MMC debug printing, 45 ms passed between power-on and CMD8 and it
-	 * came up every time; at the core's default 10 ms it mostly did not
-	 * (9-17). The LDO behind vmmc is switched through RPMh.
+	 * came up every time; at the core's default 10 ms it mostly did not.
+	 * The LDO behind vmmc is switched through RPMh.
 	 */
 	post-power-on-delay-ms = <100>;
 

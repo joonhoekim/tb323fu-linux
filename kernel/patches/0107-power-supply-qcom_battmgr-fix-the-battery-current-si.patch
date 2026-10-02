@@ -22,7 +22,7 @@ Assisted-by: LLM
  1 file changed, 7 insertions(+)
 
 diff --git a/drivers/power/supply/qcom_battmgr.c b/drivers/power/supply/qcom_battmgr.c
-index c5a64309a..e4f2a2900 100644
+index 14bc845b1..9fa5ebeb2 100644
 --- a/drivers/power/supply/qcom_battmgr.c
 +++ b/drivers/power/supply/qcom_battmgr.c
 @@ -313,6 +313,8 @@ struct qcom_battmgr {

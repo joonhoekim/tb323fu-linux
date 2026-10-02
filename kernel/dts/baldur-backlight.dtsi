@@ -11,7 +11,7 @@
  * frequency and current limit, LED current) to the chip, and the mainline
  * driver rewrites them from DT or its defaults -- 20 mA where this panel
  * runs 28. So the values below are the ones read back from the chip as the
- * bootloader left it, before any driver touched it (9-25):
+ * bootloader left it, before any driver touched it:
  *   CFG0 0x65 -> dim-mode 1 (DC)      CFG1 0x39 -> 750 kHz, 3 A limit
  *   CFG2 0x2e -> 28 mA, UVLO 2.2 V    CFG6 0x99 -> ramp 2
  *   CFG4/5 0x07ff -> brightness 2047 of 4095
@@ -46,9 +46,9 @@
 		/*
 		 * The driver resets the chip (HWEN low) when it probes, which
 		 * throws away what the bootloader set up beyond CFG0-2: the
-		 * backlight went dark with every register reading "on" (9-27).
+		 * backlight went dark with every register reading "on".
 		 * These are the bootloader's values, in the vendor driver's
-		 * order (off, 0x0c/0x06/0x07, on). 0009-backlight-aw99706-init-regs.
+		 * order (off, 0x0c/0x06/0x07, on). Patch 0028.
 		 */
 		awinic,init-regs = /bits/ 8 <0x0d 0x00  0x0c 0x48  0x06 0x99
 					    0x07 0x05  0x0d 0xf8>;

@@ -8,8 +8,8 @@
  *
  * to the board DTS only after stage 3 has booted and stage 4 has storage.
  * Needs baldur-regulators.dtsi first, and the driver side needs
- * 0002-drm-panel-nt36523-baldur-dsc.patch plus
- * 0001-kaanapali-add-mdss_dsi1.patch (kaanapali.dtsi describes one DSI link;
+ * patch 0020 (the panel with DSC) plus
+ * patch 0019 (mdss_dsi1: kaanapali.dtsi describes one DSI link;
  * this panel uses two).
  *
  * Turning MDSS on is also what gives up the bootloader's splash buffer, and
@@ -18,7 +18,7 @@
  * channel has to be ramoops alone, or a real console.
  *
  * Everything here was read out of this device's ABL devicetree
- * (logs/2026-09-22-mainline-survey.txt):
+ * (its /sys/firmware/fdt under Android):
  *
  *	panel      CSOT NT36523, 1904x3040, dual-DSI (952/link),
  *	           video mode burst, DSC 1.2, 4 lanes
@@ -52,7 +52,7 @@
 	 * One panel on two links (bonded DSI). Without these the second host
 	 * tried to take its clocks from its own PHY and failed ("Failed to
 	 * parent byte_src - dsi_pll_byte: -22"), and the panel's first command
-	 * over it failed with -22 (9-18). Same shape as sm8250-xiaomi-elish.
+	 * over it failed with -22. Same shape as sm8250-xiaomi-elish.
 	 */
 	qcom,dual-dsi-mode;
 	qcom,sync-dual-dsi;
@@ -76,7 +76,7 @@
 		vdd-supply = <&vreg_l11b_1p0>;
 		vci-supply = <&vreg_l13b_3p0>;
 
-		/* external AW99706 on I2C12, baldur-backlight.dtsi (9-25) */
+		/* external AW99706 on I2C12, baldur-backlight.dtsi */
 		backlight = <&panel_backlight>;
 
 		ports {
@@ -123,8 +123,8 @@
 	 * names "dsi_pll_byte"/"dsi_pll_pixel" -- assigned-clock-parents is not
 	 * used (dsi_link_clk_set_rate_6g_v2_9). With DSI1's own PHY there the
 	 * reparent failed with -22 on every frame: dispcc has no DSI1 PHY input
-	 * in kaanapali.dtsi (9-18, second run). So the two PLL entries point at
-	 * DSI0's PHY; the rest is 0001's list unchanged.
+	 * in kaanapali.dtsi. So the two PLL entries point at
+	 * DSI0's PHY; the rest is 0019's list unchanged.
 	 */
 	clocks = <&dispcc DISP_CC_MDSS_BYTE1_CLK>,
 		 <&dispcc DISP_CC_MDSS_BYTE1_INTF_CLK>,

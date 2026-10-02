@@ -30,7 +30,7 @@ separate test patch behind a module parameter, outside this series.
  1 file changed, 46 insertions(+)
 
 diff --git a/drivers/gpu/drm/panel/panel-novatek-nt36523.c b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
-index ecd029a45..bec8b00ae 100644
+index 4496f06d2..627bf0134 100644
 --- a/drivers/gpu/drm/panel/panel-novatek-nt36523.c
 +++ b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
 @@ -1081,6 +1081,37 @@ static void nt36523_remove(struct mipi_dsi_device *dsi)
@@ -39,7 +39,7 @@ index ecd029a45..bec8b00ae 100644
  
 +/*
 + * baldur: two more refresh rates next to the 120/60/30 Hz of the mode table
-+ * (plan 9-104; the compositor keeps the preferred 120 Hz until one is picked):
++ * (the compositor keeps the preferred 120 Hz until one is picked):
 + *   90 Hz   the vendor's dtiming@5 (long horizontal blanking)
 + *   164 Hz  the 120 Hz horizontal timing with the shortest vertical total. The
 + *           vendor's own 165/144 Hz timings (dtiming@4/@3) share an 82 px per

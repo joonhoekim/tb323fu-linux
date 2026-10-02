@@ -11,7 +11,7 @@ roll is clockwise, V4L2 rotation counter-clockwise).
  1 file changed, 8 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/qcom/baldur-camera.dtsi b/arch/arm64/boot/dts/qcom/baldur-camera.dtsi
-index b75b67587..71aa8e55a 100644
+index 581001931..e60ed3175 100644
 --- a/arch/arm64/boot/dts/qcom/baldur-camera.dtsi
 +++ b/arch/arm64/boot/dts/qcom/baldur-camera.dtsi
 @@ -186,6 +186,10 @@ camera@56 {

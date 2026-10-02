@@ -31,7 +31,7 @@ Assisted-by: LLM
  2 files changed, 12 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/clk/qcom/gdsc.c b/drivers/clk/qcom/gdsc.c
-index 7639c30ce..130cb610c 100644
+index fcc1ec628..0c8908cbf 100644
 --- a/drivers/clk/qcom/gdsc.c
 +++ b/drivers/clk/qcom/gdsc.c
 @@ -402,15 +402,18 @@ static int gdsc_enable(struct generic_pm_domain *domain)
