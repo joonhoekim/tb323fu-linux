@@ -178,6 +178,15 @@ if [ "$DEV_ACCESS" = 1 ]; then
 	ch systemctl enable ssh.service >/dev/null 2>&1   # Ubuntu leaves openssh-server disabled
 	# the PC's key, if this host has one for root
 	[ -e /root/.ssh/authorized_keys ] && { mkdir -p "$T/root/.ssh"; cp /root/.ssh/authorized_keys "$T/root/.ssh/"; chmod 700 "$T/root/.ssh"; }
+	# GNOME suspends after 15 min idle, and s2idle turns USB and Wi-Fi off: the
+	# tablet vanishes from the PC. Never suspend on idle (a dconf system default;
+	# a user's own setting still wins).
+	mkdir -p "$T/etc/dconf/profile" "$T/etc/dconf/db/local.d"
+	[ -e "$T/etc/dconf/profile/user" ] || printf 'user-db:user\n' > "$T/etc/dconf/profile/user"
+	grep -qx 'system-db:local' "$T/etc/dconf/profile/user" || echo 'system-db:local' >> "$T/etc/dconf/profile/user"
+	printf "[org/gnome/settings-daemon/plugins/power]\nsleep-inactive-ac-type='nothing'\nsleep-inactive-battery-type='nothing'\n" \
+		> "$T/etc/dconf/db/local.d/00-tb323fu-dev"
+	ch dconf update 2>/dev/null || true
 fi
 
 ch apt-get -y -q clean

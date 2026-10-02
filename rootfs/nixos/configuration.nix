@@ -135,7 +135,16 @@ in {
     systemd.services."autovt@tty1".enable = mkIf (gnome && cfg.user != null) false;
     # the TB323FU quick-settings extension, on by default for every user
     programs.dconf.profiles.user.databases = mkIf gnome [{
-      settings."org/gnome/shell".enabled-extensions = [ "tb323fu@joonhoekim.github.io" ];
+      settings = {
+        "org/gnome/shell".enabled-extensions = [ "tb323fu@joonhoekim.github.io" ];
+      } // lib.optionalAttrs cfg.devAccess {
+        # GNOME suspends after 15 min idle, and s2idle turns USB and Wi-Fi off:
+        # the tablet vanishes from the PC. Never suspend on idle.
+        "org/gnome/settings-daemon/plugins/power" = {
+          sleep-inactive-ac-type = "nothing";
+          sleep-inactive-battery-type = "nothing";
+        };
+      };
     }];
 
     # --- developer access

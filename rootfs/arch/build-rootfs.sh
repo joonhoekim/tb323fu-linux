@@ -162,6 +162,15 @@ if [ "$DEV_ACCESS" = 1 ]; then
 		install -d -m 700 "$T/root/.ssh"; install -m 600 "$DEV_SSH_KEYS" "$T/root/.ssh/authorized_keys"
 	fi
 	ch "systemctl enable systemd-networkd serial-getty@ttyGS0.service >/dev/null"
+	# GNOME suspends after 15 min idle, and s2idle turns USB and Wi-Fi off: the
+	# tablet vanishes from the PC. Never suspend on idle (a dconf system default;
+	# a user's own setting still wins).
+	mkdir -p "$T/etc/dconf/profile" "$T/etc/dconf/db/local.d"
+	[ -e "$T/etc/dconf/profile/user" ] || printf 'user-db:user\n' > "$T/etc/dconf/profile/user"
+	grep -qx 'system-db:local' "$T/etc/dconf/profile/user" || echo 'system-db:local' >> "$T/etc/dconf/profile/user"
+	printf "[org/gnome/settings-daemon/plugins/power]\nsleep-inactive-ac-type='nothing'\nsleep-inactive-battery-type='nothing'\n" \
+		> "$T/etc/dconf/db/local.d/00-tb323fu-dev"
+	ch "dconf update 2>/dev/null || true"
 fi
 
 # 7b. sensors: hexagonrpcd (SSC over fastrpc) is not packaged for Arch Linux ARM

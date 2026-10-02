@@ -347,6 +347,15 @@ if [ "$DEV_ACCESS" = 1 ]; then
 		install -d -m 700 "$T/root/.ssh"; install -m 600 "$DEV_SSH_KEYS" "$T/root/.ssh/authorized_keys"
 	fi
 	ch systemctl enable systemd-networkd.service serial-getty@ttyGS0.service >/dev/null 2>&1
+	# GNOME suspends after 15 min idle, and s2idle turns USB and Wi-Fi off: the
+	# tablet vanishes from the PC. Never suspend on idle (a dconf system default;
+	# a user's own setting still wins).
+	mkdir -p "$T/etc/dconf/profile" "$T/etc/dconf/db/local.d"
+	[ -e "$T/etc/dconf/profile/user" ] || printf 'user-db:user\n' > "$T/etc/dconf/profile/user"
+	grep -qx 'system-db:local' "$T/etc/dconf/profile/user" || echo 'system-db:local' >> "$T/etc/dconf/profile/user"
+	printf "[org/gnome/settings-daemon/plugins/power]\nsleep-inactive-ac-type='nothing'\nsleep-inactive-battery-type='nothing'\n" \
+		> "$T/etc/dconf/db/local.d/00-tb323fu-dev"
+	ch dconf update >/dev/null 2>&1 || true
 fi
 
 # 9b. FEX: use Fedora's x86-64 RootFS (fex-emu-rootfs-fedora, an EROFS image; this
