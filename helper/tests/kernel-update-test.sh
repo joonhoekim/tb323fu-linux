@@ -89,6 +89,10 @@ d += b"\0" * (size - 64 - len(d))
 d += struct.pack(">4sIIQQQ", b"AVBf", 1, 0, vb_off, vb_off, len(vb)) + b"\0" * 28
 open(f"{R}/stock.img", "wb").write(d)
 EOF
+# polkit refuses a policy file that is not well-formed XML (e.g. "--" inside a
+# comment) and then knows none of its actions: every call fails (seen 2026-10-03)
+python3 -c "import sys, xml.dom.minidom as m; m.parse(sys.argv[1])" "$here/../data/io.github.joonhoekim.tb323fu.helper.policy" &&
+	ok "the polkit policy is well-formed XML" || bad "polkit policy XML"
 RP="python3 $repo/tools/boot-repack-kernel.py"
 $RP "$R/stock.img" --self-test > /dev/null && ok "fake stock image passes the repack tool's self-test" || bad "fake stock image"
 $RP "$R/stock.img" "$R/Image-t27" "$R/boot-t27.img" > /dev/null

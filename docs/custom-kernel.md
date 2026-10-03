@@ -9,7 +9,7 @@ Background: [helper.md "Kernel updates"](helper.md#kernel-updates) (what the hel
 [kernel-updates-design.md](notes/kernel-updates-design.md).
 
 > **Status.** The helper side — `install-local`, the GitHub Releases channel, trial boot, Keep and rollback — is
-> **[verified]** on the development tablet (2026-10-03, with development kernels and a test release). The build
+> **[verified]** on the development tablet (2026-10-03, with development kernels and a test release; the app's file chooser is built but not yet tried by a person). The build
 > commands are the ones in [install.md 3b](install.md#3b-build-it-yourself) **[from records]**.
 
 ## 1. Build

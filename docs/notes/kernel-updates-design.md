@@ -489,12 +489,35 @@ from `boot_b` after the Android hash check, `linux-good.img`, read-back, trial, 
 - Not done: a size or signature policy for local files (nothing to check them against), installing older official
   releases (downgrades; a local install of an old `Image` is the way meanwhile).
 
-**Tests** (no device): `cargo test` 29 + 2 ignored (release list parsing with drafts, mixed serials, foreign asset
+**Tests** (no device): `cargo test` 28 + 2 ignored (release list parsing with drafts, mixed serials, foreign asset
 URLs, helper releases; channel pick; SHA256SUMS/digest/banner checks; optional signatures — no key, no signature,
 another key, tampered; local files raw/gzip/boot image, with and without the modules image; install/confirm with
 labels); `real_kernel_inspect` on the t30 Image (shared) and the t27 Image (no modules image);
-`tests/kernel-update-test.sh` against a `file://` stand-in made with `tools/kernel-release.py fake-api` (63 checks);
-initramfs 164/164, confirm 42/42, Android 30/30.
+`tests/kernel-update-test.sh` against a `file://` stand-in made with `tools/kernel-release.py fake-api` (all
+passed; it also checks that the polkit policy is well-formed XML); initramfs 164/164, confirm 42/42, Android 30/30.
+
+**Device check (2026-10-03, development kernels t30 and t31 = t28 tree + the `trial_keep` initramfs; about 12
+minutes, 6 restarts, no crash):**
+
+- **GitHub channel**: a test pre-release `kernel-t31` (`Image-tb323fu-t31`, `.gz`, `SHA256SUMS`) in a private
+  repository, a token as the credential for the test only (in `/run`, gone with the next restart). `check` on the
+  testing channel offered it; the second check was answered `304 Not Modified` from the cached copy; with the token
+  moved away the check failed with "not found (HTTP 404) … a private repository needs a token". `download` (26 MB `.gz`, 5 s): `SHA256SUMS`
+  and GitHub's `digest` (present on every asset) matched. `install`: `boot_a` = `boot-repack-kernel.py`'s image of
+  the tablet's own `boot_b` byte for byte; the initramfs said "start 1 of 2 (kept when you press Keep)"; `keep` →
+  good t31. The unauthenticated path against a public repository (no kernel releases) worked; the test release and
+  its tag were deleted.
+- **Local file, `--keep`**: the t30 **boot image** (only its kernel used), `--name "t30 back"`: the confirm unit kept
+  it 96 s after boot, `good_label` carried over.
+- **Local file, `--trial`**: the raw t31 `Image`: the confirm unit said "waits for Keep … not confirming it here" at
+  96 s; starts 1 and 2 counted; the third start wrote `linux-good.img` (the kept t30) back and restarted: t30 runs,
+  `failed=t31`, `trial_keep`/`trial_label` cleared by the initramfs, State `rolled-back`.
+- **Found**: the polkit policy had `--` inside an XML comment (the new `kernel-install-local` comment) — polkit then
+  registers **none** of the file's actions, so every helper call that checks one failed ("Action … is not
+  registered"; seen after the restart, the install before it still worked). Fixed, and the end-to-end test now parses
+  the file. `install.sh` from `git archive` is not executable (`sh install.sh`).
+- Not repeated today: the Android rule (unchanged code: it compares image hashes), the settings app's file chooser
+  (built and installed, not looked at by a person).
 
 ### 3.9 Plan 2: releases built by GitHub Actions, with artifact attestations
 
