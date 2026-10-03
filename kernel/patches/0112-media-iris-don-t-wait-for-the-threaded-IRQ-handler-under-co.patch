@@ -1,8 +1,6 @@
 From: Joonhoe Kim <26rote@gmail.com>
 Subject: [PATCH] media: iris: don't wait for the threaded IRQ handler under core->lock
 
-DRAFT, not sent, not tested on the device (compile-tested only).
-
 iris_vpu_power_off() calls disable_irq(), which waits for a running
 threaded handler. All its callers hold core->lock: iris_core_deinit()
 (remove and the sys error handler), the iris_core_init() error path, and

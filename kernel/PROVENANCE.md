@@ -23,24 +23,24 @@ column names the source; see that tree's history for the individual authors.
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
-| `0001` | arm64: dts: qcom: kaanapali: add the GPU SMMU node | Qingqing Zhou | qcom tree `arm64-for-7.4` (kaanapali GPU DT v3, Link: in patch) | upstream (queued for v7.4) | `ea84290779bebe3c` |
-| `0002` | arm64: dts: qcom: kaanapali: Add QFPROM node | Jingyi Wang | qcom tree `arm64-for-7.4` (kaanapali GPU DT v3, Link: in patch) | upstream (queued for v7.4) | `0ce87440b99f68d8` |
-| `0003` | arm64: dts: qcom: Add GPU support for Kaanapali | Akhil P Oommen | qcom tree `arm64-for-7.4` (kaanapali GPU DT v3, Link: in patch) | upstream (queued for v7.4) | `6089dc88850d1987` |
-| `0004` | arm64: dts: qcom: kaanapali: Add GPU cooling | Gaurav Kohli | qcom tree `arm64-for-7.4` (kaanapali GPU DT v3, Link: in patch) | upstream (queued for v7.4) | `1674574f14593262` |
-| `0005` | arm64: dts: qcom: kaanapali-mtp: Enable GPU | Akhil P Oommen | qcom tree `arm64-for-7.4` (kaanapali GPU DT v3, Link: in patch) | upstream (queued for v7.4) | `3541b3db577bac30` |
-| `0006` | arm64: dts: qcom: kaanapali-qrd: Enable GPU | Akhil P Oommen | qcom tree `arm64-for-7.4` (kaanapali GPU DT v3, Link: in patch) | upstream (queued for v7.4) | `01c93e8d2c936217` |
+| `0001` | arm64: dts: qcom: kaanapali: add the GPU SMMU node | Qingqing Zhou | qcom tree `arm64-for-7.4` (kaanapali GPU DT v3, Link: in patch) | upstream (queued for v7.4) | `09cb4d1e2ba7c805` |
+| `0002` | arm64: dts: qcom: kaanapali: Add QFPROM node | Jingyi Wang | qcom tree `arm64-for-7.4` (kaanapali GPU DT v3, Link: in patch) | upstream (queued for v7.4) | `09cb4d1e2ba7c805` |
+| `0003` | arm64: dts: qcom: Add GPU support for Kaanapali | Akhil P Oommen | qcom tree `arm64-for-7.4` (kaanapali GPU DT v3, Link: in patch) | upstream (queued for v7.4) | `09cb4d1e2ba7c805` |
+| `0004` | arm64: dts: qcom: kaanapali: Add GPU cooling | Gaurav Kohli | qcom tree `arm64-for-7.4` (kaanapali GPU DT v3, Link: in patch) | upstream (queued for v7.4) | `09cb4d1e2ba7c805` |
+| `0005` | arm64: dts: qcom: kaanapali-mtp: Enable GPU | Akhil P Oommen | qcom tree `arm64-for-7.4` (kaanapali GPU DT v3, Link: in patch) | upstream (queued for v7.4) | `09cb4d1e2ba7c805` |
+| `0006` | arm64: dts: qcom: kaanapali-qrd: Enable GPU | Akhil P Oommen | qcom tree `arm64-for-7.4` (kaanapali GPU DT v3, Link: in patch) | upstream (queued for v7.4) | `09cb4d1e2ba7c805` |
 | `0007` | drm/msm: DPU, DSI and MDSS fixes for AA601 cmd-mode DSC | idusergod | community [kaanapali-mainline](https://github.com/kaanapali-mainline/linux) testing `b6eab7f0e8` (partial) | community, not upstream | `c90ec49a2c3462de` |
 | `0008` | drm/msm: cmd-mode DSC 1.2 fixes for DPU 13 (Kaanapali) | EYC | community kaanapali-mainline `144a400716` | community, not upstream | `e70b468bd1be7d7f` |
 | `0009` | clk: qcom: dispcc-kaanapali: solve display artifacts at start | Nazar Kompanets | community kaanapali-mainline `6ba50855c6` | community, not upstream | `f3110b92e9f6f3a0` |
 | `0010` | drm/msm/adreno: A840: drop IFPC quirk for Infiniti bring-up | idusergod | community kaanapali-mainline `6a4127a8cd` (reverted by 0080) | community; net no-op with 0080 | `675b0d64259a293b` |
 | `0011` | arm64: configs: add kaanapali-oneplus-infiniti_defconfig fragment | idusergod | community kaanapali-mainline `37a7606647` (defconfig fragment) | community; base of the baldur fragment | `97d2680233290042` |
-| `0012` | scsi: ufs: ufs-qcom: Enable only lane clocks in lane clock APIs | Nitin Rawat | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `f3343cbe58f236e9` |
-| `0013` | phy: qcom-mipi-csi2: Add a CSI2 MIPI DPHY driver | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `8e7938167b0d106d` |
-| `0014` | phy: core: Fix race-condition between _of_phy_get() and try_module_get() | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `2f0487131f392c19` |
-| `0015` | phy: core: Add phy_get_by_of_node() | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `c550554888abf161` |
-| `0016` | phy: core: Add devm_phy_get_by_of_node() | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `644f6ad80e7c4e50` |
-| `0017` | phy: core: Add missing kerneldoc colon in two locations | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `5cfc4b0ebbd9695b` |
-| `0018` | dt-bindings: phy: qcom: Add CSI2 C-PHY/DPHY schema | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `67214dbf7d621bf0` |
+| `0012` | scsi: ufs: ufs-qcom: Enable only lane clocks in lane clock APIs | Nitin Rawat | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `09cb4d1e2ba7c805` |
+| `0013` | phy: qcom-mipi-csi2: Add a CSI2 MIPI DPHY driver | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `09cb4d1e2ba7c805` |
+| `0014` | phy: core: Fix race-condition between _of_phy_get() and try_module_get() | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `09cb4d1e2ba7c805` |
+| `0015` | phy: core: Add phy_get_by_of_node() | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `09cb4d1e2ba7c805` |
+| `0016` | phy: core: Add devm_phy_get_by_of_node() | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `09cb4d1e2ba7c805` |
+| `0017` | phy: core: Add missing kerneldoc colon in two locations | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `09cb4d1e2ba7c805` |
+| `0018` | dt-bindings: phy: qcom: Add CSI2 C-PHY/DPHY schema | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `09cb4d1e2ba7c805` |
 | `0019` | arm64: dts: qcom: kaanapali: add the second DSI controller and PHY | joonhoekim | this project | local | `e14bf5ad358920d6` |
 | `0020` | drm/panel: nt36523: add DSC, and the Lenovo TB323FU CSOT panel | joonhoekim | this project | local | `2148317b62e444e4` |
 | `0021` | arm64: carry a devicetree inside the kernel image | joonhoekim | this project | local (built-in DTB; bootloader workaround) | `57ed051b50008aab` |
