@@ -890,6 +890,11 @@ pub fn install(dev: &Device, android_hash: &str, run: &Running, state: &Path, c:
     if st.max == 0 {
         st.max = DEFAULT_MAX_TRIES;
     }
+    if st.failed == st.trial {
+        st.failed.clear();
+        st.failed_sha256.clear();
+        st.other.retain(|(k, _)| k != "failed_seen");
+    }
     st.save(state)?;
 
     if let Err(e) = dev.write_a(&img) {
@@ -1273,6 +1278,18 @@ mod tests {
         fs::write(f.state.join(GOOD_IMG), g).unwrap();
         assert!(rollback(&f.dev, &f.state, Ok(())).unwrap_err().contains("does not match"));
         assert_eq!(fs::read(&f.dev.boot_a).unwrap(), a27);
+    }
+
+    #[test]
+    fn reinstalling_a_failed_release_forgets_the_failure() {
+        let f = fake();
+        let (k, c, _) = k28();
+        install(&f.dev, &f.stock_sha, &f.run27, &f.state, &c, &k, Ok(())).unwrap();
+        rollback(&f.dev, &f.state, Ok(())).unwrap();
+        assert_eq!(KernelState::load(&f.state).failed, "7.3.0-rc4-tb323fu-t28");
+        install(&f.dev, &f.stock_sha, &f.run27, &f.state, &c, &k, Ok(())).unwrap();
+        let st = KernelState::load(&f.state);
+        assert_eq!((st.trial.as_str(), st.failed.as_str(), st.failed_sha256.as_str()), ("7.3.0-rc4-tb323fu-t28", "", ""));
     }
 
     #[test]
