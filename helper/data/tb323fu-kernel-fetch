@@ -1,5 +1,6 @@
 #!/bin/sh
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Joonhoe Kim
 # tb323fu-kernel-fetch -- download what tb323fu-helperd asks for into the
 # cache directory. Runs as tb323fu-kernel-fetch.service: a dynamic user, the
 # network, and the cache directory as the only writable place. Nothing it

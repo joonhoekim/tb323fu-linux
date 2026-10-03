@@ -23,7 +23,7 @@ rustPlatform.buildRustPackage {
   '';
   meta = with lib; {
     description = "TB323FU device helper daemon (D-Bus + polkit) and CLI";
-    license = licenses.mit;
+    license = licenses.gpl3Plus;
     platforms = platforms.linux;
     mainProgram = "tb323fu-ctl";
   };

@@ -1,5 +1,6 @@
 #!/bin/sh
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Joonhoe Kim
 # kernel-update-test.sh -- the kernel update flow end to end, without a tablet:
 # releases prepared with tools/kernel-release.py and published on a local
 # stand-in of the GitHub REST API (a file:// tree), the daemon on a private

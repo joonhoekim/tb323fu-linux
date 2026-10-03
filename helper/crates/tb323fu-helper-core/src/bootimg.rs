@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Joonhoe Kim
 //! Android boot images of this tablet: put a new kernel into the user's own
 //! stock image (the copy in `boot_b`), and look into a kernel for its version
 //! banner. A port of `tools/boot-repack-kernel.py` (same layout rules, same

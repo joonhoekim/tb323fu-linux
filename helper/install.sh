@@ -1,5 +1,6 @@
 #!/bin/sh
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Joonhoe Kim
 # install.sh -- install tb323fu-helperd and tb323fu-ctl (after `cargo build --release`).
 #   ./install.sh [--uninstall]
 #   PREFIX=/usr DESTDIR=/tmp/pkg ./install.sh          # packaging

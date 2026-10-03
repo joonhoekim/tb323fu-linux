@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Joonhoe Kim
 //! Kernel updates (docs/notes/kernel-updates-design.md, section 3): releases
 //! from GitHub Releases, kernels from a local file, the trial-boot record on
 //! the state root, and the writes to `boot_a` -- install, confirm ("keep"),

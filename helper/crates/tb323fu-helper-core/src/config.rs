@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Joonhoe Kim
 //! Persistent settings: `/etc/tb323fu/helper.toml` (override with
 //! `TB323FU_CONFIG`). Missing file or keys mean defaults. On the first start
 //! without a file, values are migrated once from the legacy

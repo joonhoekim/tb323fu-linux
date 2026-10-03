@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Joonhoe Kim
 //! tb323fu-settings: GTK4/libadwaita settings app for the TB323FU helper.
 //!
 //! A thin front-end: every value comes from tb323fu-helperd over the system

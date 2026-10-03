@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Joonhoe Kim
 //! Minimal blocking D-Bus client for tb323fu-helperd: GetAll per object and
 //! method calls. Everything the UI shows comes from property snapshots.
 
