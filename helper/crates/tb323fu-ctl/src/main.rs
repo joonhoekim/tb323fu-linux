@@ -45,10 +45,10 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
                                  list also names what a system lacks for this kernel (modules, firmware)
   thermal                        temperatures (surface, CPU, GPU, board sensors), throttling, profile
   thermal profile quiet|default|performance
-                                 board-temperature profile (performance: up to 58 °C, asks once)
+                                 board-temperature profile (performance: up to 58 °C)
   thermal follow on|off          the thermal profile follows the performance profile
   thermal bypass on|off          Bypass charging while the thermal profile is performance
-  thermal panel-limit on|off     dim the panel at 55 °C (off asks for authentication)
+  thermal panel-limit on|off     dim the panel at 55 °C
   kernel [status]                kernel updates: running, trial, last good, available release
   kernel check|list|notes TAG    look for a newer kernel in the channel / show it / its release notes
   kernel download TAG            download and verify a release
@@ -62,9 +62,9 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
                                  once a system has run 90 s; otherwise back after its third start
   kernel keep                    keep the running trial kernel (testing channel, local files)
   kernel rollback [--reboot]     write the last good kernel (linux-good.img) back (admin)
-  kernel channel stable|testing  release channel (admin; the source is kernel.source in helper.toml)
-  kernel auto-check on|off       daily check for a new kernel (admin)
-  kernel helper-notify on|off    show when a newer helper is published (admin)
+  kernel channel stable|testing  release channel (the source is kernel.source in helper.toml)
+  kernel auto-check on|off       daily check for a new kernel
+  kernel helper-notify on|off    show when a newer helper is published
   kernel dismiss                 hide the notice after an automatic rollback
   versions                       helper, kernel, series, firmware state
   reload                         re-read /etc/tb323fu/helper.toml (admin)";
