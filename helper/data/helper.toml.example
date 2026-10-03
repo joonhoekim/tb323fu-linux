@@ -7,6 +7,10 @@
 [battery]
 charge_limit = 80        # %; applied at every start (20..100)
 bypass = false           # hold the battery at its charge while on external power
+recharge_gap = 10        # charging resumes this many % below the limit (3..20; start threshold)
+full_by = ""             # "HH:MM": charge to 100 % in time for this local time, back to the limit 2 h later
+                         # (or when unplugged after it); estimated from the charge left and the charger power
+full_by_days = []        # ["mon", "tue", ...]; empty = every day
 
 [android]
 require_auth = false     # ask for authentication before "restart into Android"

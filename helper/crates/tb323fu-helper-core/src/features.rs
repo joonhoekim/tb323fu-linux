@@ -36,6 +36,12 @@ pub struct BatteryInfo {
     pub design_capacity_mah: i32,
     pub charge_limit: u32,
     pub online: bool,
+    /// % of the design capacity (battmgr `state_of_health`), -1 unknown
+    pub state_of_health: i32,
+    /// open-circuit voltage estimate, mV (0 unknown)
+    pub ocv_mv: u32,
+    /// charge now, mAh (`charge_counter`, 0 unknown)
+    pub charge_counter_mah: u32,
 }
 
 pub fn battery_info() -> Res<BatteryInfo> {
@@ -55,6 +61,9 @@ pub fn battery_info() -> Res<BatteryInfo> {
         design_capacity_mah: num("charge_full_design").map(|v| (v / 1000) as i32).unwrap_or(-1),
         charge_limit: num("charge_control_end_threshold").unwrap_or(100) as u32,
         online: external_power(),
+        state_of_health: num("state_of_health").filter(|v| (0..=200).contains(v)).map(|v| v as i32).unwrap_or(-1),
+        ocv_mv: (num("voltage_ocv").unwrap_or(0) / 1000).max(0) as u32,
+        charge_counter_mah: (num("charge_counter").unwrap_or(0) / 1000).max(0) as u32,
     })
 }
 
@@ -102,17 +111,22 @@ pub fn battery_state(i: &BatteryInfo, bypass: bool) -> &'static str {
 }
 
 pub const CHARGE_LIMIT_MIN: u32 = 20;
+/// Recharge gap: charging resumes this many percent below the limit.
+pub const RECHARGE_GAP_RANGE: std::ops::RangeInclusive<u32> = 3..=20;
 
-/// Set the end threshold (and start = end - 10, as UPower did), keeping
-/// start <= end at every step.
-pub fn set_charge_limit(pct: u32) -> Res<()> {
+/// Set the end threshold and start = end - gap, keeping start <= end at
+/// every step.
+pub fn set_charge_limit(pct: u32, gap: u32) -> Res<()> {
+    if !RECHARGE_GAP_RANGE.contains(&gap) {
+        return Err("recharge gap must be 3..20 %".into());
+    }
     if !(CHARGE_LIMIT_MIN..=100).contains(&pct) {
         return Err(format!("charge limit must be {CHARGE_LIMIT_MIN}..100"));
     }
     let b = battery_dir().ok_or("no battery power supply")?;
     let end = b.join("charge_control_end_threshold");
     let start = b.join("charge_control_start_threshold");
-    let new_start = pct.saturating_sub(10);
+    let new_start = pct.saturating_sub(gap);
     let cur_start = sys::read_i64(&start).unwrap_or(0) as u32;
     if sys::exists(&start) && new_start < cur_start {
         sys::write(&start, &new_start.to_string()).map_err(|e| werr("start threshold", e))?;
@@ -714,7 +728,8 @@ mod tests {
     }
     fn info(status: &str, cap: u32, ma: i32, limit: u32) -> BatteryInfo {
         BatteryInfo { status: status.into(), capacity: cap, current_ma: ma, voltage_mv: 4000, temperature_c: 25.0,
-            health: "Good".into(), cycle_count: 1, design_capacity_mah: -1, charge_limit: limit, online: true }
+            health: "Good".into(), cycle_count: 1, design_capacity_mah: -1, charge_limit: limit, online: true,
+            state_of_health: 100, ocv_mv: 0, charge_counter_mah: 0 }
     }
     #[test]
     fn states() {

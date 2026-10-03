@@ -110,6 +110,23 @@ $C --json battery | grep -q '"ChargerAdapter": "PD_PPS"' && ok "adapter PPS" || 
 $C --json battery | grep -q '"InputVoltageMv": 9192' && ok "input voltage" || bad "input voltage"
 mk $U/voltage_now 9000000; mk $U/current_max 3000000
 
+# recharge gap, battery health, "full by"
+$C battery recharge-gap 5 && check "recharge gap 5: start 55" $B/charge_control_start_threshold 55
+$C battery recharge-gap 30 2>/dev/null && bad "recharge gap 30 accepted" || ok "recharge gap 30 refused"
+$C battery recharge-gap 10 >/dev/null
+mk $B/state_of_health 97
+$C --json battery | grep -q '"StateOfHealth": 97' && ok "state of health" || bad "state of health"
+mk /run/tb323fu-fake-clock "mon 06:30"
+$C battery full-by 07:00 mon,tue && waitfor $B/charge_control_end_threshold 100 && ok "full by 07:00 at 06:30: limit 100" || bad "full by did not raise the limit"
+$C --json battery | grep -q '"ChargeLimit": 60' && ok "ChargeLimit still shows the configured 60" || bad "ChargeLimit during full by"
+$C --json battery | grep -q '"FullByActive": true' && ok "FullByActive" || bad "FullByActive"
+mk /run/tb323fu-fake-clock "mon 09:30"
+waitfor $B/charge_control_end_threshold 60 && ok "two hours after the target: limit back to 60" || bad "full by did not end"
+mk /run/tb323fu-fake-clock "wed 06:30"
+sleep 6; check "not on Wednesday" $B/charge_control_end_threshold 60
+$C battery full-by 7:75 2>/dev/null && bad "bad time accepted" || ok "bad time refused"
+$C battery full-by off && grep -q 'full_by = ""' $R/etc/tb323fu/helper.toml && ok "full by off persisted" || bad "full by off"
+
 $C torch on && check "torch on at default level" /sys/class/leds/white:flash/brightness 96
 $C torch level 40 && check "torch level while on" /sys/class/leds/white:flash/brightness 40
 $C torch off && check "torch off" /sys/class/leds/white:flash/brightness 0

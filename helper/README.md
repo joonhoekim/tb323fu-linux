@@ -29,6 +29,8 @@ without touching the running system.
 tb323fu-ctl battery                  # capacity, state (charging/bypass/...), current, voltage, temperature, charger
 tb323fu-ctl charge-limit 80          # 20..100
 tb323fu-ctl bypass on                # hold the battery where it is while on external power
+tb323fu-ctl battery recharge-gap 5   # charging resumes 5 % below the limit
+tb323fu-ctl battery full-by 07:00 mon tue wed thu fri   # 100 % by 7:00 on weekdays, then back to the limit
 tb323fu-ctl torch on | off | level 60
 tb323fu-ctl ledring charge | off | brightness 40 | low 15
 tb323fu-ctl refresh auto | off | manual 60 | preset power-saver|balanced|smooth | idle 1000 5000

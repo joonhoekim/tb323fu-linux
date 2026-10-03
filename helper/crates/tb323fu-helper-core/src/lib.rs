@@ -12,6 +12,7 @@ pub mod features;
 pub mod haptics;
 pub mod kernel;
 pub mod perf;
+pub mod schedule;
 pub mod sys;
 
 pub use config::Config;

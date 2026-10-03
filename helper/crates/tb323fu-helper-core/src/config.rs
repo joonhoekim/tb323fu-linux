@@ -39,6 +39,12 @@ pub struct Battery {
     pub bypass: bool,
     /// the limit to restore when bypass is switched off
     pub saved_limit: Option<u32>,
+    /// charging resumes this many percent below the limit (start threshold)
+    pub recharge_gap: u32,
+    /// "HH:MM": be at 100 % at this local time ("" = off)
+    pub full_by: String,
+    /// days for full_by ("mon".."sun"); empty = every day
+    pub full_by_days: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -198,7 +204,7 @@ pub struct Usb {
 
 impl Default for Battery {
     fn default() -> Self {
-        Battery { charge_limit: 80, bypass: false, saved_limit: None }
+        Battery { charge_limit: 80, bypass: false, saved_limit: None, recharge_gap: 10, full_by: String::new(), full_by_days: Vec::new() }
     }
 }
 impl Default for Torch {

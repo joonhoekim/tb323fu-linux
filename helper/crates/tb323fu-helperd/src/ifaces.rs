@@ -63,14 +63,17 @@ pub struct Battery(pub Arc<Shared>);
 impl Snapshot for Battery {
     const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Battery";
     const PROPS: &'static [&'static str] = &["ChargeLimit", "Bypass", "Status", "State", "Capacity", "CurrentMa", "VoltageMv",
-        "TemperatureC", "Health", "CycleCount", "DesignCapacityMah", "ChargerType", "ChargerContract", "ChargerAdapter", "InputVoltageMv", "InputCurrentMa"];
+        "TemperatureC", "Health", "CycleCount", "DesignCapacityMah", "ChargerType", "ChargerContract", "ChargerAdapter", "InputVoltageMv", "InputCurrentMa",
+        "RechargeGap", "FullBy", "FullByDays", "FullByActive", "StateOfHealth", "OcvMv"];
     fn snapshot(&self) -> String {
         // current/voltage/temperature move all the time: only state-like values
         // trigger a signal (clients poll the live values while showing them)
         let i = f::battery_info().ok();
         let bypass = self.0.cfg().battery.bypass;
-        format!("{:?} {bypass} {:?} {}", i.as_ref().map(|i| (i.charge_limit, i.capacity, &i.status, &i.health)),
-            i.as_ref().map(|i| f::battery_state(i, bypass)), f::charger_info().stable_key())
+        let c = self.0.cfg().battery;
+        format!("{:?} {bypass} {:?} {} {} {} {:?} {}", i.as_ref().map(|i| (i.charge_limit, i.capacity, &i.status, &i.health, i.state_of_health)),
+            i.as_ref().map(|i| f::battery_state(i, bypass)), f::charger_info().stable_key(), c.recharge_gap, c.full_by, c.full_by_days,
+            self.0.full_by_active())
     }
 }
 
@@ -78,7 +81,40 @@ impl Snapshot for Battery {
 impl Battery {
     #[zbus(property)]
     fn charge_limit(&self) -> u32 {
+        if self.0.full_by_active() {
+            return self.0.cfg().battery.charge_limit;
+        }
         f::battery_info().map(|i| i.charge_limit).unwrap_or(100)
+    }
+    /// charging resumes this many percent below the limit
+    #[zbus(property)]
+    fn recharge_gap(&self) -> u32 {
+        self.0.cfg().battery.recharge_gap
+    }
+    /// "HH:MM" local time to be full by, "" off
+    #[zbus(property)]
+    fn full_by(&self) -> String {
+        self.0.cfg().battery.full_by
+    }
+    /// days of the week for FullBy ("mon".."sun"); empty = every day
+    #[zbus(property)]
+    fn full_by_days(&self) -> Vec<String> {
+        self.0.cfg().battery.full_by_days
+    }
+    /// charging to 100 % for FullBy now
+    #[zbus(property)]
+    fn full_by_active(&self) -> bool {
+        self.0.full_by_active()
+    }
+    /// % of the design capacity, -1 unknown
+    #[zbus(property)]
+    fn state_of_health(&self) -> i32 {
+        f::battery_info().map(|i| i.state_of_health).unwrap_or(-1)
+    }
+    /// open-circuit voltage estimate, mV (0 unknown)
+    #[zbus(property)]
+    fn ocv_mv(&self) -> u32 {
+        f::battery_info().map(|i| i.ocv_mv).unwrap_or(0)
     }
     #[zbus(property)]
     fn bypass(&self) -> bool {
@@ -147,7 +183,8 @@ impl Battery {
     async fn set_charge_limit(&self, percent: u32, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
         #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
         polkit::check(conn, &hdr, "charge-limit", self.0.no_polkit).await?;
-        f::set_charge_limit(percent).map_err(invalid)?;
+        self.0.full_by_end(false);
+        f::set_charge_limit(percent, self.0.cfg().battery.recharge_gap).map_err(invalid)?;
         self.0.update(|c| {
             c.battery.charge_limit = percent;
             c.battery.bypass = false;
@@ -170,6 +207,42 @@ impl Battery {
             self.0.update(|c| c.thermal.bypass_auto = false);
             self.0.rt.lock().unwrap().bypass_declined = !on;
         }
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+
+    /// Charging resumes `percent` below the limit (3..20).
+    async fn set_recharge_gap(&self, percent: u32, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "charge-limit", self.0.no_polkit).await?;
+        if !f::RECHARGE_GAP_RANGE.contains(&percent) {
+            return Err(invalid("recharge gap must be 3..20 %".into()));
+        }
+        let c = self.0.cfg().battery;
+        let end = f::battery_info().map(|i| i.charge_limit).unwrap_or(c.charge_limit);
+        f::set_charge_limit(end, percent).map_err(failed)?;
+        self.0.update(|c| c.battery.recharge_gap = percent);
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+    /// Be at 100 % by `time` ("HH:MM", local; "" switches it off) on `days`
+    /// ("mon".."sun"; none = every day).
+    async fn set_full_by(&self, time: String, days: Vec<String>, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "charge-limit", self.0.no_polkit).await?;
+        if !time.is_empty() {
+            tb323fu_helper_core::schedule::parse_hhmm(&time).map_err(invalid)?;
+        }
+        tb323fu_helper_core::schedule::valid_days(&days).map_err(invalid)?;
+        let mut days = days;
+        days.sort_by_key(|d| tb323fu_helper_core::schedule::DAYS.iter().position(|x| x == d));
+        days.dedup();
+        self.0.full_by_end(true);
+        self.0.update(|c| {
+            c.battery.full_by = time.clone();
+            c.battery.full_by_days = days.clone();
+        });
+        self.0.full_by_tick();
         invalidate(&em, Self::IFACE, Self::PROPS).await;
         Ok(())
     }

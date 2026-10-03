@@ -43,6 +43,8 @@ pub struct Runtime {
     wifi_ticks: u32,
     /// motors the gain was written to (a reloaded driver gets it again)
     haptics_seen: Vec<std::path::PathBuf>,
+    /// "full by": the target (local week minute) of the window in progress
+    pub full_by_target: Option<i32>,
 }
 
 pub struct Shared {
@@ -212,7 +214,7 @@ impl Shared {
         if on && !cfg.battery.bypass {
             let info = f::battery_info()?;
             let hold = info.capacity.max(f::CHARGE_LIMIT_MIN).min(100);
-            f::set_charge_limit(hold)?;
+            f::set_charge_limit(hold, cfg.battery.recharge_gap)?;
             let prev = cfg.battery.charge_limit;
             self.update(|c| {
                 c.battery.saved_limit = Some(prev);
@@ -220,7 +222,7 @@ impl Shared {
             });
         } else if !on && cfg.battery.bypass {
             let back = cfg.battery.saved_limit.unwrap_or(cfg.battery.charge_limit);
-            f::set_charge_limit(back)?;
+            f::set_charge_limit(back, cfg.battery.recharge_gap)?;
             self.update(|c| {
                 c.battery.charge_limit = back;
                 c.battery.bypass = false;
@@ -311,6 +313,66 @@ impl Shared {
         perf::iw().is_some() && !perf::wifi_interfaces().is_empty()
     }
 
+    /// "Full by": raise the limit to 100 % when the estimated charging time
+    /// before the target begins; back to the configured limit two hours after
+    /// the target, or at once when unplugged after it. Not while Bypass is on.
+    pub fn full_by_tick(&self) {
+        use tb323fu_helper_core::schedule as sch;
+        let c = self.cfg();
+        let Ok(target_min) = sch::parse_hhmm(&c.battery.full_by) else {
+            self.full_by_end(false);
+            return;
+        };
+        if c.battery.bypass || f::battery_dir().is_none() {
+            self.full_by_end(false);
+            return;
+        }
+        let Some(now) = sch::now_week_minute() else { return };
+        let plugged = f::external_power();
+        let active = self.rt.lock().unwrap().full_by_target;
+        match active {
+            Some(t) => {
+                let d = sch::delta_to(now, t);
+                if d <= -sch::HOLD_AFTER_MIN || (d <= 0 && !plugged) {
+                    self.full_by_end(true);
+                }
+            }
+            None => {
+                let Some(until) = sch::until_target(now, target_min, &c.battery.full_by_days) else { return };
+                let Ok(i) = f::battery_info() else { return };
+                let input = f::charger_info();
+                let need = sch::charge_minutes(i.capacity, i.charge_counter_mah, input.input_mv * input.input_ma / 1000);
+                if until > 0 && until <= need && i.charge_limit < 100 {
+                    match f::set_charge_limit(100, c.battery.recharge_gap) {
+                        Ok(()) => {
+                            eprintln!("tb323fu-helperd: full by {}: charging to 100 % ({until} min left, ~{need} min needed)", c.battery.full_by);
+                            self.rt.lock().unwrap().full_by_target = Some((now + until).rem_euclid(sch::WEEK));
+                        }
+                        Err(e) => eprintln!("tb323fu-helperd: full by: {e}"),
+                    }
+                }
+            }
+        }
+    }
+
+    /// End a "full by" window (with `restore`, write the configured limit back).
+    pub fn full_by_end(&self, restore: bool) {
+        if self.rt.lock().unwrap().full_by_target.take().is_none() {
+            return;
+        }
+        let c = self.cfg();
+        if restore && !c.battery.bypass {
+            match f::set_charge_limit(c.battery.charge_limit, c.battery.recharge_gap) {
+                Ok(()) => eprintln!("tb323fu-helperd: full by: limit back to {} %", c.battery.charge_limit),
+                Err(e) => eprintln!("tb323fu-helperd: full by: {e}"),
+            }
+        }
+    }
+
+    pub fn full_by_active(&self) -> bool {
+        self.rt.lock().unwrap().full_by_target.is_some()
+    }
+
     /// Write the vibration strength to motors that appeared (start, driver reload).
     pub fn haptics_tick(&self) {
         let nodes: Vec<std::path::PathBuf> = tb323fu_helper_core::haptics::motors().into_iter().map(|m| m.node).collect();
@@ -379,7 +441,7 @@ async fn ppd_active_profile(conn: &zbus::Connection) -> Option<String> {
 fn apply_startup(s: &Shared) {
     let c = s.cfg();
     if f::battery_dir().is_some() && !c.battery.bypass {
-        if let Err(e) = f::set_charge_limit(c.battery.charge_limit) {
+        if let Err(e) = f::set_charge_limit(c.battery.charge_limit, c.battery.recharge_gap) {
             eprintln!("tb323fu-helperd: charge limit: {e}");
         }
     }
@@ -519,6 +581,7 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
         shared.profile_tick(&conn, false).await;
         shared.panel_tick();
         shared.haptics_tick();
+        shared.full_by_tick();
         let want = shared.cfg().usb.wake;
         if f::usb_wake().is_some_and(|w| w != want) {
             let _ = f::set_usb_wake(want);

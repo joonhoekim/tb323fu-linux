@@ -13,7 +13,10 @@ const OBJECTS: [&str; 13] = ["Battery", "Android", "Torch", "LedRing", "Refresh"
 const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
 
   status                         all features
-  battery                        battery, charger and charge limit
+  battery                        battery, charger, charge limit and health (SOH, cycles)
+  battery recharge-gap PERCENT   charging resumes this far below the limit (3..20, default 10)
+  battery full-by HH:MM [DAY...]|off
+                                 be at 100 % by this time (days mon..sun, default every day), then back to the limit
   charge-limit [PERCENT]         show or set the charge limit (20..100)
   bypass on|off                  hold the battery at its current charge on external power
   android [--yes]                show, or with --yes restart into Android now
@@ -539,7 +542,22 @@ fn run(args: &[String]) -> i32 {
     match a[0] {
         "status" => c.show(&OBJECTS),
         "versions" => c.show(&[""]),
-        "battery" => c.show(&["Battery"]),
+        "battery" => match rest.first().copied() {
+            None => c.show(&["Battery"]),
+            Some("recharge-gap") => match num(rest.get(1)) {
+                Some(n) => c.call("Battery", "SetRechargeGap", &(n,)),
+                None => usage(),
+            },
+            Some("full-by") => match rest.get(1).copied() {
+                Some("off") => c.call("Battery", "SetFullBy", &("", Vec::<String>::new())),
+                Some(t) => {
+                    let days: Vec<String> = rest[2..].iter().flat_map(|d| d.split(',')).filter(|d| !d.is_empty()).map(str::to_string).collect();
+                    c.call("Battery", "SetFullBy", &(t, days))
+                }
+                None => usage(),
+            },
+            _ => usage(),
+        },
         "charge-limit" => match num(rest.first()) {
             Some(p) => c.call("Battery", "SetChargeLimit", &(p,)),
             None if rest.is_empty() => c.show(&["Battery"]),
