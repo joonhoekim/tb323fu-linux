@@ -304,6 +304,17 @@ pub fn ledring_color(i: &BatteryInfo, low: u32, bypass: bool) -> Option<[u32; 3]
     }
 }
 
+/// An sRGB colour as the ring's PWM levels: the LEDs are linear, so without
+/// gamma a mixed colour (#c061cb) looks white on the ring.
+pub fn led_pwm(c: [u32; 3]) -> [u32; 3] {
+    c.map(|v| (255.0 * (v.min(255) as f64 / 255.0).powf(2.2)).round() as u32)
+}
+
+fn led_intensity(c: [u32; 3]) -> String {
+    let p = led_pwm(c);
+    format!("{} {} {}", p[0], p[1], p[2])
+}
+
 pub fn ledring_apply(color: Option<[u32; 3]>, brightness: u32) -> Res<()> {
     let d = ledring_dir();
     match color {
@@ -312,7 +323,7 @@ pub fn ledring_apply(color: Option<[u32; 3]>, brightness: u32) -> Res<()> {
         // multi_intensity write and loses a brightness written right after it
         Some(c) => {
             sys::write(&d.join("brightness"), &brightness.min(255).to_string()).map_err(|e| werr("LED ring", e))?;
-            sys::write(&d.join("multi_intensity"), &format!("{} {} {}", c[0], c[1], c[2])).map_err(|e| werr("LED ring", e))
+            sys::write(&d.join("multi_intensity"), &led_intensity(c)).map_err(|e| werr("LED ring", e))
         }
     }
 }
@@ -362,8 +373,10 @@ pub fn ledring_hw_breathe(color: [u32; 3], max: u32, period_ms: u32) -> Res<()> 
     let d = ledring_dir();
     let e = |e| werr("LED ring", e);
     sys::write(&d.join("trigger"), "none").map_err(e)?;
-    sys::write(&d.join("multi_intensity"), &format!("{} {} {}", color[0], color[1], color[2])).map_err(e)?;
+    sys::write(&d.join("multi_intensity"), &led_intensity(color)).map_err(e)?;
     sys::write(&d.join("trigger"), "pattern").map_err(e)?;
+    // the trigger starts with repeat 0, which the driver refuses for a hardware pattern
+    let _ = sys::write(&d.join("repeat"), "-1");
     let res = if d.join("hw_pattern").exists() {
         sys::write(&d.join("hw_pattern"), &breathe_pattern(max, period_ms)).map_err(e)
     } else {

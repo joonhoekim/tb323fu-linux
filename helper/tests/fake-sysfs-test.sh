@@ -136,10 +136,10 @@ $C torch level 40 && check "torch level while on" /sys/class/leds/white:flash/br
 $C torch off && check "torch off" /sys/class/leds/white:flash/brightness 0
 
 sleep 0.5
-check "LED ring amber while charging" $L/multi_intensity "255 90 0"
+check "LED ring amber while charging" $L/multi_intensity "255 26 0"
 check "LED ring brightness (migrated)" $L/brightness 33
-$C ledring color '#102030' && $C ledring solid && sleep 0.3 && check "solid while charging: charge colour takes over" $L/multi_intensity "255 90 0"
-$C ledring charge-override off && sleep 0.3 && check "solid: own colour" $L/multi_intensity "16 32 48"
+$C ledring color '#102030' && $C ledring solid && sleep 0.3 && check "solid while charging: charge colour takes over" $L/multi_intensity "255 26 0"
+$C ledring charge-override off && sleep 0.3 && check "solid: own colour" $L/multi_intensity "1 3 6"
 check "solid: full brightness" $L/brightness 33
 $C ledring color red 2>/dev/null && bad "colour 'red' accepted" || ok "colour 'red' refused"
 $C ledring speed 1000 && $C ledring breathe && sleep 0.2
@@ -149,16 +149,17 @@ bs=""; for i in 1 2 3 4; do bs="$bs $(cat $R$L/brightness)"; sleep 0.13; done
 mk $BL/bl_power 4; sleep 0.5; check "screen off: breathing stops at full brightness" $L/brightness 33
 mk $BL/bl_power 0
 $C ledring pulse '#00ff00' 1 && sleep 0.1 && check "pulse shows its colour" $L/multi_intensity "0 255 0"
-sleep 0.6; check "after the pulse: back to the ring colour" $L/multi_intensity "16 32 48"
+sleep 0.6; check "after the pulse: back to the ring colour" $L/multi_intensity "1 3 6"
 # a kernel with hardware patterns: breathing runs on the chip
-mk $L/trigger "[none] pattern"; mk $L/hw_pattern ""
+mk $L/trigger "[none] pattern"; mk $L/hw_pattern ""; mk $L/repeat 0
 $C ledring speed 2000 && sleep 0.3
 check "hw breathing: pattern trigger" $L/trigger pattern
 check "hw breathing: eight-point cycle" $L/hw_pattern "3 250 7 250 18 250 29 250 33 250 29 250 18 250 7 250"
-check "hw breathing: colour" $L/multi_intensity "16 32 48"
+check "hw breathing: colour" $L/multi_intensity "1 3 6"
+check "hw breathing: repeat forever before the pattern" $L/repeat "-1"
 $C ledring solid && sleep 0.3 && check "solid: pattern trigger cleared" $L/trigger none
 check "solid after hw breathing: brightness" $L/brightness 33
-rm -f $R$L/trigger $R$L/hw_pattern
+rm -f $R$L/trigger $R$L/hw_pattern $R$L/repeat
 $C ledring charge-override on >/dev/null
 $C ledring off && check "LED ring off" $L/brightness 0
 
