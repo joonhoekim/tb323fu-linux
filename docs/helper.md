@@ -146,8 +146,8 @@ GitHub Actions, verifiable without any key) are planned: [design 3.9](notes/kern
 
 Android's Switch to Linux writes `linux-good.img` instead of the saved image when that image is a kernel still on
 trial or one that failed ([android/README.md](../android/README.md)). A kernel that dies **before** the initramfs
-runs cannot be caught (nothing of ours runs): fastboot (`fastboot flash boot_a linux-good.img`, volume down + power)
-or EDL, as in [recovery](recovery.md). The bootloader's A/B retry bits are not used (slot `_b` is not a working slot
+runs cannot be caught (nothing of ours runs). Fastboot is read-only on this bootloader, so the way back is EDL,
+writing `boot_a` from a PC — see [recovery](recovery.md#linux-does-not-boot). The bootloader's A/B retry bits are not used (slot `_b` is not a working slot
 here).
 
 **A kernel from a file.** `tb323fu-ctl kernel install-local PATH` or **Install Kernel from File…** in the app

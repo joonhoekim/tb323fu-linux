@@ -2,14 +2,15 @@
 # SPDX-License-Identifier: MIT
 # post-crash.sh — PC: right after the tablet came back from an unexpected
 # reboot/crash, collect everything the boot logs still hold, in one go:
-#   pstore (first — AGENTS.md ch.3; both /sys/fs/pstore and systemd-pstore's
+#   pstore (first; both /sys/fs/pstore and systemd-pstore's
 #   archive /var/lib/systemd/pstore), the boot list, the previous boot's journal
 #   (tail of everything + kernel, and where it stops vs. the boot's end time),
 #   this boot's early kernel log and reset/watchdog/PON lines, cmdline,
 #   download mode, uptime.
 #   TB323FU_HOST=192.168.7.2 LOGDIR=./logs tools/post-crash.sh TAG   # -> $LOGDIR/<date>-TAG/
-# Read-only on the tablet. If the tablet sits in 900E instead, use
-# minidump.sh first (one Sahara session only).
+# Read-only on the tablet. If the tablet sits in Qualcomm crash-dump mode
+# (USB 05c6:900e) instead, it has no network: collect the dump first (one
+# Sahara session only), then force-restart.
 set -u
 H=${TB323FU_HOST:-192.168.7.2}
 tag=${1:-crash}

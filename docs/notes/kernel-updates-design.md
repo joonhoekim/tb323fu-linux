@@ -188,7 +188,7 @@ Implemented as designed in 2.2–2.5; the details that were left open or came ou
   headroom 64 MB raw, 81 MB gzip.
 - **Device checks** (t28 = development tree + shared modules, rc2 = public release build): M1 Debian, M2 Ubuntu, Arch,
   Fedora, NixOS (old generation and stub generation), baldur-root-sd; M3 Android round trip (`back-to-android` →
-  Switch to Linux → the same image). Results in the y705 plan, 9-104 "공유 모듈".
+  Switch to Linux → the same image). On 2026-10-02 every root mounted the shared modules on the development tablet.
 
 ## 3. Update flow through the helper
 
@@ -263,7 +263,7 @@ Done by the daemon, method `Kernel.Install(tag, reboot)`, polkit `kernel-install
    SHA-256. On a mismatch: write `linux-good.img` back, verify, delete the trial record, report the error.
    A 96 MiB write takes about a second on UFS; there is no atomic way to replace a partition, so the
    power check in step 1 and the read-back are the protection (a half-written `boot_a` still leaves
-   fastboot and EDL, section 3.6).
+   EDL; fastboot is read-only on this bootloader).
 5. Reboot now or later (the user's choice). Until the reboot, `Kernel.Pending` shows the installed tag.
 
 ### 3.5 Boot-success marker and automatic fallback
@@ -291,8 +291,8 @@ max=2
   so a crash during boot comes back to the initramfs and counts as a try. The watchdog that the initramfs
   feeds covers hangs after init has started, as long as the bootloader leaves it armed (Q3).
 - **What it cannot catch:** a kernel that hangs or panics **before** `/init` every time. Nothing of ours runs
-  then. The ways out stay: the emergency chord needs the initramfs too, so for this case it is fastboot
-  (volume down + power) with `fastboot flash boot_a linux-good.img` from a PC, or EDL. The `testing` channel
+  then. The emergency chord needs the initramfs too, and fastboot is read-only on this bootloader, so the way
+  out is EDL, writing `boot_a` from a PC ([recovery](../recovery.md#linux-does-not-boot)). The `testing` channel
   exists so that this is caught on the maintainer's tablet first.
 - **Through Android:** the KernelSU action today writes `linux-current.img` (the image that ran last). It
   gains one rule: if `kernel-state` has an unconfirmed `trial` or a `failed=` equal to the saved image's
@@ -339,7 +339,8 @@ Settings app:
 Implemented as designed in 3.1–3.6, tested without the device and then on it (M4, M5 below); what
 was left open or came out differently:
 
-- **Release files** ([`tools/kernel-channel.py`](../../tools/kernel-channel.py) `add`/`index`/`sign`/`verify`): a
+- **Release files** (`tools/kernel-channel.py` `add`/`index`/`sign`/`verify`, since removed; replaced by
+  [`tools/kernel-release.py`](../../tools/kernel-release.py)): a
   channel directory with `index.json` and per release `<tag>/tb323fu-<tag>.json` + the kernel file; every `.json`
   has a `.minisig`. Index: `format`, `generated`, `expires`, `channels` (`<name>` → `tag`, `serial`, `manifest`
   URL, relative to the index), `helper` (`latest`, `notes`). Manifest: `format`, `tag`, `release`, `build` (the
@@ -626,7 +627,7 @@ Not testable safely: a kernel that dies before `/init` (documented manual recove
   and option (a) as the fallback with the same mount code.
 - **Early-boot regressions are not caught automatically** (3.5). Mitigation: the testing channel, and a
   `stable` release only after M1–M2 on real hardware.
-- **Power loss during the `boot_a` write.** About one second; battery check first; fastboot and EDL remain.
+- **Power loss during the `boot_a` write.** About one second; battery check first; EDL remains (fastboot is read-only).
 - **NixOS depends on nixpkgs' kmod search order.** If nixpkgs drops the `/lib/modules` fall-through, NixOS
   loses its modules after a NixOS update — the M2 check becomes a release check, and the activation-snippet
   alternative (2.5) is ready to implement.
