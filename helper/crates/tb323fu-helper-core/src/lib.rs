@@ -9,6 +9,7 @@ pub mod boot;
 pub mod bootimg;
 pub mod config;
 pub mod features;
+pub mod haptics;
 pub mod kernel;
 pub mod perf;
 pub mod sys;

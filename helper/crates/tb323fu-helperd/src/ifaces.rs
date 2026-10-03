@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tb323fu_helper_core::boot;
 use tb323fu_helper_core::features as f;
+use tb323fu_helper_core::haptics;
 use tb323fu_helper_core::perf;
 use std::sync::Mutex;
 use zbus::fdo;
@@ -32,6 +33,7 @@ pub const P_EMERGENCY: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Emergency
 pub const P_DIAG: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Diagnostics";
 pub const P_BOOT: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Boot";
 pub const P_THERMAL: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Thermal";
+pub const P_HAPTICS: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Haptics";
 
 fn failed(e: String) -> fdo::Error {
     fdo::Error::Failed(e)
@@ -1048,4 +1050,50 @@ impl Thermal {
     /// The performance profile ended by itself (a battery or the board too hot).
     #[zbus(signal)]
     pub async fn profile_fallback(em: &SignalEmitter<'_>, reason: &str) -> zbus::Result<()>;
+}
+
+// ------------------------------------------------------------------ Haptics
+
+/// The vibration motors: device gain for every application, and a test buzz.
+pub struct Haptics(pub Arc<Shared>);
+
+impl Snapshot for Haptics {
+    const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Haptics";
+    const PROPS: &'static [&'static str] = &["Strength", "Motors"];
+    fn snapshot(&self) -> String {
+        format!("{} {:?}", self.0.cfg().haptics.strength, haptics::motors())
+    }
+}
+
+#[interface(name = "io.github.joonhoekim.OpenDeviceHelper1.Haptics")]
+impl Haptics {
+    /// 0..100 %
+    #[zbus(property)]
+    fn strength(&self) -> u32 {
+        self.0.cfg().haptics.strength
+    }
+    /// "left", "right"
+    #[zbus(property)]
+    fn motors(&self) -> Vec<String> {
+        haptics::motors().into_iter().map(|m| m.name).collect()
+    }
+    async fn set_strength(&self, percent: u32, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "haptics", self.0.no_polkit).await?;
+        if percent > 100 {
+            return Err(invalid("strength must be 0..100".into()));
+        }
+        haptics::set_strength(percent).map_err(failed)?;
+        self.0.update(|c| c.haptics.strength = percent);
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+    /// A 0.3 s buzz on "left", "right" or "both" at the current strength.
+    async fn test(&self, motor: String, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "haptics", self.0.no_polkit).await?;
+        if !["left", "right", "both"].contains(&motor.as_str()) {
+            return Err(invalid("motor must be left, right or both".into()));
+        }
+        blocking::unblock(move || haptics::test(&motor)).await.map_err(failed)
+    }
 }

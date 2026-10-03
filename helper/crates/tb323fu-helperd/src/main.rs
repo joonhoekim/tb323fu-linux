@@ -41,6 +41,8 @@ pub struct Runtime {
     wifi_want_off: bool,
     wifi_off: Vec<String>,
     wifi_ticks: u32,
+    /// motors the gain was written to (a reloaded driver gets it again)
+    haptics_seen: Vec<std::path::PathBuf>,
 }
 
 pub struct Shared {
@@ -309,6 +311,21 @@ impl Shared {
         perf::iw().is_some() && !perf::wifi_interfaces().is_empty()
     }
 
+    /// Write the vibration strength to motors that appeared (start, driver reload).
+    pub fn haptics_tick(&self) {
+        let nodes: Vec<std::path::PathBuf> = tb323fu_helper_core::haptics::motors().into_iter().map(|m| m.node).collect();
+        let mut rt = self.rt.lock().unwrap();
+        if nodes.is_empty() || rt.haptics_seen == nodes {
+            return;
+        }
+        let s = self.cfg().haptics.strength;
+        match tb323fu_helper_core::haptics::set_strength(s) {
+            Ok(()) => eprintln!("tb323fu-helperd: vibration strength {s} %"),
+            Err(e) => eprintln!("tb323fu-helperd: vibration: {e}"),
+        }
+        rt.haptics_seen = nodes;
+    }
+
     /// Everything that follows the performance profile.
     pub async fn profile_tick(&self, conn: &zbus::Connection, force: bool) {
         self.gpu_tick(conn, force).await;
@@ -420,9 +437,10 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
     let has_boot = !tb323fu_helper_core::boot::partitions().is_empty();
     let has_thermal = f::thermal().is_some() || perf::thermal_profile_available();
     let has_kernel = tb323fu_helper_core::kernel::find_device().is_ok();
+    let has_haptics = !tb323fu_helper_core::haptics::motors().is_empty();
     for (on, name) in [(has_battery, "Battery"), (has_android, "Android"), (has_torch, "Torch"), (has_ledring, "LedRing"),
         (has_refresh, "Refresh"), (has_gpu, "Gpu"), (has_usb, "Usb"), (true, "EmergencyKey"), (true, "Diagnostics"), (has_boot, "Boot"),
-        (has_thermal, "Thermal"), (has_kernel, "Kernel")] {
+        (has_thermal, "Thermal"), (has_kernel, "Kernel"), (has_haptics, "Haptics")] {
         if on {
             features.push(name.to_string());
         }
@@ -485,6 +503,9 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
     if has_thermal {
         b = b.serve_at(P_THERMAL, Thermal(shared.clone()))?;
     }
+    if has_haptics {
+        b = b.serve_at(P_HAPTICS, Haptics(shared.clone()))?;
+    }
     let conn = b.name(BUS)?.build().await?;
     eprintln!("tb323fu-helperd {} on {} bus: {}", env!("CARGO_PKG_VERSION"), if session { "session" } else { "system" },
         shared.features.join(" "));
@@ -497,6 +518,7 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
         shared.ledring_tick(false);
         shared.profile_tick(&conn, false).await;
         shared.panel_tick();
+        shared.haptics_tick();
         let want = shared.cfg().usb.wake;
         if f::usb_wake().is_some_and(|w| w != want) {
             let _ = f::set_usb_wake(want);
@@ -520,6 +542,7 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
         watch::<Diagnostics>(&conn, P_DIAG, &mut last).await;
         if has_boot { watch::<Boot>(&conn, P_BOOT, &mut last).await; }
         if has_thermal { watch::<Thermal>(&conn, P_THERMAL, &mut last).await; }
+        if has_haptics { watch::<Haptics>(&conn, P_HAPTICS, &mut last).await; }
         if has_kernel {
             kern.poll_state();
             kern.auto_tick();

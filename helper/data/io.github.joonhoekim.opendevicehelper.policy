@@ -72,6 +72,12 @@
     <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
   </action>
 
+  <action id="io.github.joonhoekim.opendevicehelper.haptics">
+    <description>Change the vibration strength or test the vibration motors</description>
+    <message>Authentication is required to change the vibration strength</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
   <action id="io.github.joonhoekim.opendevicehelper.usb-wake">
     <description>Allow or forbid waking up from USB devices</description>
     <message>Authentication is required to change USB wakeup</message>

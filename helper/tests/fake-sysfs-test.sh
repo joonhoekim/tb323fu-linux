@@ -73,6 +73,8 @@ cat > $R/usr/sbin/iw <<EOF
 case "\$3" in get) echo "Power save: \$(cat $R/iw-ps)";; set) echo "\$5" > $R/iw-ps;; esac
 EOF
 chmod +x $R/usr/sbin/iw
+# vibration motors (event nodes are plain files here: each FF_GAIN write appends an input_event)
+for n in 5 6; do mk /sys/class/input/event$n/device/name aw86927-haptics; mkdir -p $R/dev/input; : > $R/dev/input/event$n; done
 # wait until a file has the value (the 5 s poller)
 waitfor() { for i in $(seq 1 30); do [ "$(cat "$R$1" 2>/dev/null)" = "$2" ] && return 0; sleep 0.3; done; return 1; }
 
@@ -170,6 +172,13 @@ waitfor $BL/brightness 4000 && ok "cool panel: brightness restored" || bad "cool
 $C gpu wifi-low-latency on && $C gpu profile performance && check "performance: Wi-Fi power save off" /iw-ps off
 $C gpu profile balanced && check "balanced: Wi-Fi power save back on" /iw-ps on
 $C gpu wifi-low-latency off
+
+# vibration strength: FF_GAIN events (type 0x15, code 0x60) on both motors
+gain() { od -An -tx1 -v $R/dev/input/event$1 | tr -d ' \n' | tail -c 16; }
+[ -s $R/dev/input/event5 ] && ok "start writes the default strength" || bad "no gain written at start"
+$C haptics strength 50 && [ "$(gain 5)" = "15006000ff7f0000" ] && [ "$(gain 6)" = "15006000ff7f0000" ] && ok "strength 50 -> gain 0x7fff on both" || bad "strength 50: $(gain 5) $(gain 6)"
+$C haptics strength 150 2>/dev/null && bad "strength 150 accepted" || ok "strength 150 refused"
+$C --json haptics | grep -q '"left"' && ok "motors listed" || bad "motors"
 
 $C usb wake on && check "usb wake" /sys/bus/platform/devices/a600000.usb/power/wakeup enabled
 $C usb dev off && check "dev mode off unbinds" /sys/kernel/config/usb_gadget/g1/UDC ""

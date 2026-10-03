@@ -8,7 +8,7 @@ use zbus::zvariant::{OwnedValue, Value};
 
 const BUS: &str = "io.github.joonhoekim.OpenDeviceHelper1";
 const ROOT: &str = "/io/github/joonhoekim/OpenDeviceHelper1";
-const OBJECTS: [&str; 12] = ["Battery", "Android", "Torch", "LedRing", "Refresh", "Gpu", "Usb", "EmergencyKey", "Diagnostics", "Boot", "Thermal", "Kernel"];
+const OBJECTS: [&str; 13] = ["Battery", "Android", "Torch", "LedRing", "Refresh", "Gpu", "Usb", "EmergencyKey", "Diagnostics", "Boot", "Thermal", "Haptics", "Kernel"];
 
 const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
 
@@ -26,6 +26,8 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
   gpu cpu-limits PROFILE LITTLE_MIN LITTLE_MAX BIG_MIN BIG_MAX
                                  CPU limits of a profile, MHz (the top of the range keeps boost)
   gpu wifi-low-latency on|off    Wi-Fi power saving off in the performance profile
+  haptics [strength PERCENT|test left|right|both]
+                                 vibration strength for every application (0..100), a short test buzz
   usb [wake on|off|dev on|off]
   emergency-key [on|off|hold SECONDS]
   diagnostics [export]
@@ -631,6 +633,15 @@ fn run(args: &[String]) -> i32 {
                 Some(b) => c.call("Gpu", "SetWifiLowLatency", &(b,)),
                 None => usage(),
             },
+            _ => usage(),
+        },
+        "haptics" => match rest.first().copied() {
+            None => c.show(&["Haptics"]),
+            Some("strength") => match num(rest.get(1)) {
+                Some(n) => c.call("Haptics", "SetStrength", &(n,)),
+                None => usage(),
+            },
+            Some("test") => c.call("Haptics", "Test", &(rest.get(1).copied().unwrap_or("both"),)),
             _ => usage(),
         },
         "usb" => match (rest.first().copied(), onoff(rest.get(1))) {

@@ -25,6 +25,7 @@ pub struct Config {
     pub cpu: Cpu,
     pub thermal: Thermal,
     pub wifi: Wifi,
+    pub haptics: Haptics,
     pub usb: Usb,
     pub kernel: Kernel,
 }
@@ -132,6 +133,20 @@ pub struct Wifi {
     pub low_latency_performance: bool,
 }
 
+/// The vibration motors.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct Haptics {
+    /// 0..100 %, the force-feedback gain every application gets
+    pub strength: u32,
+}
+
+impl Default for Haptics {
+    fn default() -> Self {
+        Haptics { strength: 100 }
+    }
+}
+
 /// Kernel updates (docs/notes/kernel-updates-design.md).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
@@ -217,6 +232,7 @@ impl Default for Config {
             cpu: Cpu::default(),
             thermal: Thermal::default(),
             wifi: Wifi::default(),
+            haptics: Haptics::default(),
             usb: Usb::default(),
             kernel: Kernel::default(),
         }

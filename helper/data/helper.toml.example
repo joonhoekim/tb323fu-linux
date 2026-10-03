@@ -55,6 +55,9 @@ panel_limit = true             # dim the panel to 70 % while it is at 55 °C or 
 low_latency_performance = false   # Wi-Fi power saving off in the performance profile (iw; a connection
                                   # whose profile sets 802-11-wireless.powersave stays NetworkManager's)
 
+[haptics]
+strength = 100           # vibration strength 0..100 % (force-feedback gain of both motors, for every application)
+
 [usb]
 wake = false             # USB host wakeup from suspend (off by default on this board)
 # dev_mode = true        # USB gadget network + serial console; omit to keep the boot state
