@@ -54,7 +54,7 @@ free descriptor count did not trend down, so the loss is not a host-side
 leak here: the buffers held by the hardware simply fall out of a
 circulation that only ever replaces what it reaps.
 
-Signed-off-by: (the human adds it)
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
 ---
 Notes: the device results above are for the first revision, which warned
 "rx refill ring low" twice on every boot (the firmware taking the initial

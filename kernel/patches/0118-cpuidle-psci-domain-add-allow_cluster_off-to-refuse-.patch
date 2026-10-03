@@ -36,6 +36,8 @@ states in runtime idle, the cause is not fixed. It is not known whether
 the cause is a race around cluster off/on in the OSI idle path or a
 defect in the firmware (PSCI implementation or hypervisor). s2idle still
 enters the cluster states and is not covered by the measurement above.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
 ---
  arch/arm64/configs/baldur.fragment    |  2 +-
  drivers/cpuidle/cpuidle-psci-domain.c | 21 +++++++++++++++++++++

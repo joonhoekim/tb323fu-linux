@@ -28,6 +28,7 @@ no rmtfs traffic, SoC reset 60 s later. After: the first
 NEW_SERVER to the modem is retried once (100 ms), rmtfs opens
 /boot/modem_fs1 and fs2, 19 services on node 0, modem up for 180 s.
 
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
 ---
  net/qrtr/ns.c | 10 +++++++++-
  1 file changed, 9 insertions(+), 1 deletion(-)

@@ -19,6 +19,8 @@ estimates, not from the OPP table, as on glymur.
 Measured on a Lenovo Legion Tab Gen 5 (TB323FU) without this change:
 Geekbench 6 single-core scores 2288 when the scheduler places the task
 and 3604 when it is pinned to CPU6.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
 ---
  arch/arm64/boot/dts/qcom/kaanapali.dtsi | 8 ++++++++
  1 file changed, 8 insertions(+)

@@ -31,6 +31,8 @@ v4l2h265dec/v4l2vp9dec against avdec_h265/vp9dec, bit-exact: HEVC Main10
 1920x1080 (30 frames) and 3840x2160 (10 frames), VP9 profile 2 1920x1080
 (30 frames), HEVC 8-bit 1920x1080 as a control; 0 differing frames and no
 session errors. 8-bit H.264/HEVC/VP9 decode and H.264/HEVC encode unchanged.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
 ---
  .../platform/qcom/iris/iris_vpu_buffer.c      | 27 ++++++++++++-------
  1 file changed, 17 insertions(+), 10 deletions(-)

@@ -34,8 +34,8 @@ power off stays until iris_vpu_power_on() enables the IRQ again.
 iris_core_deinit() calls synchronize_irq() after it drops the lock, so
 remove still waits for the handler before it tears down.
 
-Fixes: (look up the commit that added disable_irq() to iris_vpu_power_off)
-Signed-off-by: (the human adds it)
+Fixes: b9c2215bdedc ("media: qcom: iris: use disable_irq() during power-off")
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
 ---
 --- a/drivers/media/platform/qcom/iris/iris_core.h
 +++ b/drivers/media/platform/qcom/iris/iris_core.h

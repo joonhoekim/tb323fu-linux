@@ -35,6 +35,8 @@ before, 6 back-to-back raw RDI streams hung on the second start; after,
 6/6 back-to-back, 4/4 with TITAN_TOP cycling in between, and the
 libcamera/PipeWire desktop check (PipeWire 1080p stream, then front and
 back 150 frames each) pass, every icc_set_bw() under 0.5 ms.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
 ---
  drivers/media/platform/qcom/camss/camss.c | 74 +++++++++++++++++------
  drivers/media/platform/qcom/camss/camss.h |  2 +

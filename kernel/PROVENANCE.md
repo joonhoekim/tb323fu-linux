@@ -19,7 +19,7 @@ column names the source; see that tree's history for the individual authors.
 ## Patches
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114 and 0116-0118 carry no `Signed-off-by` yet; the author adds it before sending them upstream.
+0111-0114 and 0116-0118 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -133,13 +133,13 @@ column names the source; see that tree's history for the individual authors.
 | `0108` | arm64: dts: qcom: baldur: throttle on the board temperature like Android | Joonhoe Kim | this project | local (board DT) | `21a147ededcac540` |
 | `0109` | drm/panel: nt36523: baldur: add 90 Hz and 164 Hz modes | joonhoekim | this project | local (panel modes) | `78d95ed7c8c0aec7` |
 | `0110` | drm/msm/dpu: baldur: lower the refresh rate in the kernel when idle | joonhoekim | this project | local, not intended for upstream | `754925f03dd026ce` |
-| `0111` | media: iris: vpu4x: size the decoder OPB line buffer for 10-bit output | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `60f0f363b5542ed9` |
-| `0112` | media: iris: don't wait for the threaded IRQ handler under core->lock | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `e7c29a4c0e69ba15` |
-| `0113` | wifi: ath12k: keep the RX refill ring from running dry | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `0250a3b8b9b44fb9` |
-| `0114` | net: qrtr: ns: retry announcements the new node is not ready for yet | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `6826715ed1ed1eb2` |
-| `0116` | media: qcom: camss: hold the bandwidth vote while TITAN_TOP is powered | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission (0115 is a debugging aid kept out of the series) | `3e5a2e77a2018c0d` |
-| `0117` | arm64: dts: qcom: kaanapali: add CPU capacity-dmips-mhz | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `b5513590cb0a6f06` |
-| `0118` | cpuidle: psci-domain: add allow_cluster_off to refuse cluster idle states | Joonhoe Kim | this project | local workaround (stopgap: no cluster idle states in runtime idle on baldur, set by the config fragment's command line; the cause is not fixed); Signed-off-by to be added before any submission | `8b089af47dd9ac69` |
+| `0111` | media: iris: vpu4x: size the decoder OPB line buffer for 10-bit output | Joonhoe Kim | this project | upstream candidate | `4e1ca9889fbbc5ea` |
+| `0112` | media: iris: don't wait for the threaded IRQ handler under core->lock | Joonhoe Kim | this project | upstream candidate | `78062f604195b66c` |
+| `0113` | wifi: ath12k: keep the RX refill ring from running dry | Joonhoe Kim | this project | upstream candidate | `bc3540820508e116` |
+| `0114` | net: qrtr: ns: retry announcements the new node is not ready for yet | Joonhoe Kim | this project | upstream candidate | `e1a306db29173484` |
+| `0116` | media: qcom: camss: hold the bandwidth vote while TITAN_TOP is powered | Joonhoe Kim | this project | upstream candidate (0115 is a debugging aid kept out of the series) | `655255a88a4a1e6c` |
+| `0117` | arm64: dts: qcom: kaanapali: add CPU capacity-dmips-mhz | Joonhoe Kim | this project | upstream candidate | `cde3fbe0e37a205a` |
+| `0118` | cpuidle: psci-domain: add allow_cluster_off to refuse cluster idle states | Joonhoe Kim | this project | local workaround (stopgap: no cluster idle states in runtime idle on baldur, set by the config fragment's command line; the cause is not fixed) | `9c63e2de94b80582` |
 
 ## Out-of-tree
 
