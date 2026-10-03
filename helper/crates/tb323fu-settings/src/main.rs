@@ -152,12 +152,37 @@ fn info_long(g: &adw::PreferencesGroup, title: &str, toasts: &adw::ToastOverlay)
     LongInfo { row, full }
 }
 
-/// Touch first: the number changes with the -/+ buttons only. An editable
-/// entry took the focus on a tap (in Gaming Mode on SteamOS the on-screen
-/// keyboard opened and focus could not leave the field).
+/// GTK makes the -/+ buttons of a non-editable spin row insensitive, so the
+/// row stays editable. In SteamOS Gaming Mode a tap on the number opened the
+/// on-screen keyboard and focus could not leave the field: there the number
+/// itself takes no focus, and only the buttons change it.
 fn touch_spin(r: &adw::SpinRow) {
-    r.set_editable(false);
     r.set_focus_on_click(false);
+    if in_gamescope() {
+        if let Some(t) = descendant_text(r.upcast_ref()) {
+            t.set_focusable(false);
+            t.set_can_target(false);
+        }
+    }
+}
+
+fn in_gamescope() -> bool {
+    std::env::var_os("GAMESCOPE_WAYLAND_DISPLAY").is_some()
+        || std::env::var("XDG_CURRENT_DESKTOP").is_ok_and(|d| d.to_lowercase().contains("gamescope"))
+}
+
+fn descendant_text(w: &gtk::Widget) -> Option<gtk::Widget> {
+    let mut c = w.first_child();
+    while let Some(ch) = c {
+        if ch.is::<gtk::Text>() {
+            return Some(ch);
+        }
+        if let Some(t) = descendant_text(&ch) {
+            return Some(t);
+        }
+        c = ch.next_sibling();
+    }
+    None
 }
 
 fn spin(g: &adw::PreferencesGroup, title: &str, subtitle: &str, lo: f64, hi: f64, step: f64) -> adw::SpinRow {
@@ -606,7 +631,7 @@ impl Ui {
         };
         g.add(&details);
         let panel_group = group(&b, "Panel", "");
-        group_help(&panel_group, "As on Android: from 55 °C panel temperature the brightness is held at 70% until it cools below 52 °C. Turning this off asks for authentication.");
+        group_help(&panel_group, "As on Android: from 55 °C panel temperature the brightness is held at 70% until it cools below 52 °C.");
         let panel_limit = switch(&panel_group, "Dim When the Panel Is Hot", "70% brightness from 55 °C");
 
         // Performance
@@ -717,7 +742,7 @@ impl Ui {
         // Emergency key
         let (p_ek, b) = page_box();
         let g = group(&b, "", "Hold both volume keys to restart into Android.");
-        group_help(&g, "Works even when the desktop is frozen. Turning it off asks for authentication.");
+        group_help(&g, "Works even when the desktop is frozen.");
         let ek_enabled = switch(&g, "Restart into Android with Volume Keys", "");
         let ek_hold = spin(&g, "Hold Time (s)", "", 3.0, 30.0, 1.0);
 
