@@ -3,22 +3,86 @@ From: joonhoekim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:30:49 +0000
 Subject: [PATCH 48/56] leds: rgb: add Awinic AW22127 driver
 
-The TB323FU rear-camera RGB ring. The
-AW22127 runs effects on an internal MCU (program in its own flash); this
-sends the one-colour command the vendor stack uses, through the TASK1
-mailbox, and exposes it as one multicolor LED. Off holds it in reset.
+The TB323FU rear-camera RGB ring. The AW22127 runs effects on an
+internal MCU (program in its own flash). The driver sends it the
+"all LEDs one colour, in steps" command the vendor stack uses, through
+the TASK1 mailbox, and exposes the ring as one multicolor LED.
+
+Each step of the command carries a duration, a start and an end
+brightness and the colour; the MCU ramps within a step and loops over
+the steps. The colour goes in at full intensity and the LED brightness
+in the step levels, so the chip does the scaling and the hue holds at
+low brightness. A hardware pattern (pattern trigger, hw_pattern)
+becomes one step per tuple, so effects such as breathing run without
+host writes. Sending a command restarts the MCU, so a command equal to
+the running one is not sent again. Off holds the chip in reset.
 ---
- drivers/leds/rgb/Kconfig        |   8 ++
- drivers/leds/rgb/Makefile       |   1 +
- drivers/leds/rgb/leds-aw22127.c | 241 ++++++++++++++++++++++++++++++++
- 3 files changed, 250 insertions(+)
+ Documentation/leds/index.rst        |   1 +
+ Documentation/leds/leds-aw22127.rst |  34 +++
+ drivers/leds/rgb/Kconfig            |  13 ++
+ drivers/leds/rgb/Makefile           |   1 +
+ drivers/leds/rgb/leds-aw22127.c     | 327 ++++++++++++++++++++++++++++
+ 5 files changed, 376 insertions(+)
+ create mode 100644 Documentation/leds/leds-aw22127.rst
  create mode 100644 drivers/leds/rgb/leds-aw22127.c
 
+diff --git a/Documentation/leds/index.rst b/Documentation/leds/index.rst
+index 23fa9ff7a..cdb8da3d7 100644
+--- a/Documentation/leds/index.rst
++++ b/Documentation/leds/index.rst
+@@ -16,6 +16,7 @@ LEDs
+ 
+    uleds
+ 
++   leds-aw22127
+    leds-blinkm
+    leds-cht-wcove
+    leds-el15203000
+diff --git a/Documentation/leds/leds-aw22127.rst b/Documentation/leds/leds-aw22127.rst
+new file mode 100644
+index 000000000..61bf4d93b
+--- /dev/null
++++ b/Documentation/leds/leds-aw22127.rst
+@@ -0,0 +1,34 @@
++.. SPDX-License-Identifier: GPL-2.0
++
++=====================================
++Kernel driver for Awinic AW22127 LEDs
++=====================================
++
++The AW22127 runs its lighting effects on an internal MCU. The driver drives
++all LEDs as one multicolor LED: ``multi_intensity`` is the colour and
++``brightness`` scales it in the chip.
++
++Hardware pattern
++----------------
++
++With the ``pattern`` trigger, ``hw_pattern`` runs a brightness pattern on the
++MCU, without further writes from the host. It takes "brightness duration"
++pairs, as the software ``pattern`` does (see
++Documentation/devicetree/bindings/leds/leds-trigger-pattern.txt). Each pair is
++one step: it lasts ``duration`` milliseconds (1-65535) and ramps linearly from
++its brightness to the brightness of the next pair; the last pair ramps to the
++first. Up to 16 pairs.
++
++The pattern repeats until it is cleared, so ``repeat`` must be -1. The colour
++is the ``multi_intensity`` at the time ``hw_pattern`` is written; a later
++``brightness`` or ``multi_intensity`` write replaces the pattern with a steady
++colour.
++
++Breathing with a 3 second cycle::
++
++    echo pattern > trigger
++    echo "0 1500 255 1500" > hw_pattern
++
++Fade in over 0.5 s, hold 1 s, fade out over 1 s, stay off for 0.5 s::
++
++    echo "0 500 255 1000 255 1000 0 500" > hw_pattern
 diff --git a/drivers/leds/rgb/Kconfig b/drivers/leds/rgb/Kconfig
-index 6e9ab5f60..5d3be57ee 100644
+index 6e9ab5f60..ac7da0e6e 100644
 --- a/drivers/leds/rgb/Kconfig
 +++ b/drivers/leds/rgb/Kconfig
-@@ -2,6 +2,14 @@
+@@ -2,6 +2,19 @@
  
  if LEDS_CLASS_MULTICOLOR
  
@@ -29,6 +93,11 @@ index 6e9ab5f60..5d3be57ee 100644
 +	help
 +	  Say Y to enable support for the Awinic AW22127 RGB LED matrix
 +	  driver, as a single multicolor LED (one colour on all LEDs).
++	  Hardware patterns (pattern trigger, hw_pattern) run on the
++	  chip's MCU.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called leds-aw22127.
 +
  config LEDS_GROUP_MULTICOLOR
  	tristate "LEDs group multi-color support"
@@ -44,23 +113,22 @@ index cc0f2df66..be346bd03 100644
 +obj-$(CONFIG_LEDS_AW22127)		+= leds-aw22127.o
 diff --git a/drivers/leds/rgb/leds-aw22127.c b/drivers/leds/rgb/leds-aw22127.c
 new file mode 100644
-index 000000000..564508129
+index 000000000..c70ecc06b
 --- /dev/null
 +++ b/drivers/leds/rgb/leds-aw22127.c
-@@ -0,0 +1,241 @@
+@@ -0,0 +1,327 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
-+ * Awinic AW22127 RGB LED driver (static colour).
++ * Awinic AW22127 RGB LED driver
 + *
 + * The AW22127 is an LED matrix driver with a small MCU running a program
 + * kept in the chip's own flash. Lighting effects are commands to that MCU:
 + * a byte stream fed through the TASK1 mailbox (REG_MCUCTR = 0x07, then one
-+ * REG_TASK1 write per byte) and started with REG_TASK0. The command below
-+ * sets every LED to one colour; it is the one the Lenovo Legion Tab Y700
-+ * (5th gen) vendor stack uses for its "all on" colours, with the colour in
-+ * the last three bytes. Register protocol from Awinic's GPL leds-aw22xxx.c.
++ * REG_TASK1 write per byte) and started with REG_TASK0. Register protocol
++ * from Awinic's GPL leds-aw22xxx.c; command layout from the effect files of
++ * the Lenovo Legion Tab Y700 (5th gen) vendor stack.
 + *
-+ * Exposed as one multicolor LED; off holds the chip in reset.
++ * All LEDs are exposed as one multicolor LED; off holds the chip in reset.
 + */
 +
 +#include <linux/delay.h>
@@ -71,6 +139,7 @@ index 000000000..564508129
 +#include <linux/mutex.h>
 +#include <linux/of.h>
 +#include <linux/regmap.h>
++#include <linux/unaligned.h>
 +
 +#define AW22127_REG_CHIPID	0x00
 +#define AW22127_REG_SRST	0x01
@@ -87,16 +156,29 @@ index 000000000..564508129
 +#define AW22127_GCR_CHIPEN	BIT(0)
 +#define AW22127_MCUCTR_MAILBOX	0x07
 +
-+/* "all LEDs one colour": the vendor's factory_all_on_*.bin, colour last */
-+static const u8 aw22127_static_cmd[] = {
++/*
++ * "All LEDs one colour, in steps": this header, then per step the duration
++ * in ms (big endian), the brightness at its start and at its end, and R, G,
++ * B. The MCU ramps linearly within a step and loops over the steps.
++ */
++static const u8 aw22127_cmd_hdr[] = {
 +	0x00, 0x80, 0x01, 0x01, 0x07, 0x00, 0x00, 0x01, 0x01, 0x00,
-+	0x00, 0x00, 0x01, 0x09, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
++	0x00, 0x00, 0x01, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 +	0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-+	0x01, 0xf4,		/* fade-in, ms */
-+	0xff, 0xff,		/* global brightness */
-+	0x00, 0x00, 0x00,	/* R, G, B */
 +};
-+#define AW22127_CMD_R	(ARRAY_SIZE(aw22127_static_cmd) - 3)
++
++#define AW22127_CMD_NSTEPS	14
++#define AW22127_STEP_LEN	7
++#define AW22127_MAX_STEPS	16
++#define AW22127_CMD_MAX		(sizeof(aw22127_cmd_hdr) + \
++				 AW22127_MAX_STEPS * AW22127_STEP_LEN)
++#define AW22127_STATIC_MS	500
++
++struct aw22127_step {
++	u16 ms;
++	u8 from;
++	u8 to;
++};
 +
 +struct aw22127 {
 +	struct device *dev;
@@ -104,8 +186,10 @@ index 000000000..564508129
 +	struct gpio_desc *reset;
 +	struct led_classdev_mc mc;
 +	struct mc_subled subled[3];
-+	struct mutex lock;
++	struct mutex lock;	/* the chip, on, cmd */
 +	bool on;
++	u8 cmd[AW22127_CMD_MAX];
++	size_t cmd_len;
 +};
 +
 +static const struct regmap_config aw22127_regmap = {
@@ -132,7 +216,8 @@ index 000000000..564508129
 +	ret = ret ?: regmap_write(rm, AW22127_REG_GCR, AW22127_GCR_CHIPEN);
 +	if (ret)
 +		return ret;
-+	usleep_range(2000, 3000);
++	if (!aw->on)
++		usleep_range(2000, 3000);
 +
 +	ret = regmap_write(rm, AW22127_REG_PST, 0);
 +	ret = ret ?: regmap_write(rm, AW22127_REG_TASK0, 0x01);
@@ -151,9 +236,12 @@ index 000000000..564508129
 +	return ret;
 +}
 +
-+static int aw22127_off(struct aw22127 *aw)
++static void aw22127_off(struct aw22127 *aw)
 +{
 +	struct regmap *rm = aw->regmap;
++
++	if (!aw->on)
++		return;
 +
 +	regmap_write(rm, AW22127_REG_PAGE, 0);
 +	regmap_write(rm, AW22127_REG_TASK0, 0);
@@ -161,43 +249,109 @@ index 000000000..564508129
 +	regmap_write(rm, AW22127_REG_GCR, 0);
 +	regmap_write(rm, AW22127_REG_SRST, AW22127_SRST_RESET);
 +	aw22127_power(aw, false);
++	aw->on = false;
++}
++
++static int aw22127_run(struct aw22127 *aw, const struct aw22127_step *steps,
++		       unsigned int nsteps)
++{
++	u8 cmd[AW22127_CMD_MAX];
++	u8 *p = cmd + sizeof(aw22127_cmd_hdr);
++	size_t len = sizeof(aw22127_cmd_hdr) + nsteps * AW22127_STEP_LEN;
++	unsigned int i;
++	int ret;
++
++	memcpy(cmd, aw22127_cmd_hdr, sizeof(aw22127_cmd_hdr));
++	cmd[AW22127_CMD_NSTEPS] = nsteps;
++	for (i = 0; i < nsteps; i++, p += AW22127_STEP_LEN) {
++		put_unaligned_be16(steps[i].ms, p);
++		p[2] = steps[i].from;
++		p[3] = steps[i].to;
++		p[4] = aw->subled[0].intensity;
++		p[5] = aw->subled[1].intensity;
++		p[6] = aw->subled[2].intensity;
++	}
++
++	if (aw->on && len == aw->cmd_len && !memcmp(cmd, aw->cmd, len))
++		return 0;
++
++	if (!aw->on)
++		aw22127_power(aw, true);
++	ret = aw22127_play(aw, cmd, len);
++	if (ret) {
++		aw22127_power(aw, false);
++		aw->on = false;
++		aw->cmd_len = 0;
++		return ret;
++	}
++	aw->on = true;
++	memcpy(aw->cmd, cmd, len);
++	aw->cmd_len = len;
 +
 +	return 0;
++}
++
++static struct aw22127 *cdev_to_aw22127(struct led_classdev *cdev)
++{
++	return container_of(lcdev_to_mccdev(cdev), struct aw22127, mc);
 +}
 +
 +static int aw22127_brightness_set(struct led_classdev *cdev,
 +				  enum led_brightness brightness)
 +{
-+	struct led_classdev_mc *mc = lcdev_to_mccdev(cdev);
-+	struct aw22127 *aw = container_of(mc, struct aw22127, mc);
-+	u8 cmd[ARRAY_SIZE(aw22127_static_cmd)];
++	struct aw22127 *aw = cdev_to_aw22127(cdev);
++	struct aw22127_step step = {
++		.ms = AW22127_STATIC_MS,
++		.from = brightness,
++		.to = brightness,
++	};
 +	int ret = 0;
 +
 +	mutex_lock(&aw->lock);
-+
-+	if (!brightness) {
-+		if (aw->on)
-+			ret = aw22127_off(aw);
-+		aw->on = false;
-+		goto out;
-+	}
-+
-+	led_mc_calc_color_components(mc, brightness);
-+	memcpy(cmd, aw22127_static_cmd, sizeof(cmd));
-+	cmd[AW22127_CMD_R] = aw->subled[0].brightness;
-+	cmd[AW22127_CMD_R + 1] = aw->subled[1].brightness;
-+	cmd[AW22127_CMD_R + 2] = aw->subled[2].brightness;
-+
-+	if (!aw->on)
-+		aw22127_power(aw, true);
-+	ret = aw22127_play(aw, cmd, sizeof(cmd));
-+	aw->on = !ret;
-+	if (ret)
-+		aw22127_power(aw, false);
-+out:
++	if (brightness)
++		ret = aw22127_run(aw, &step, 1);
++	else
++		aw22127_off(aw);
 +	mutex_unlock(&aw->lock);
 +
 +	return ret;
++}
++
++static int aw22127_pattern_set(struct led_classdev *cdev,
++			       struct led_pattern *pattern, u32 len, int repeat)
++{
++	struct aw22127 *aw = cdev_to_aw22127(cdev);
++	struct aw22127_step steps[AW22127_MAX_STEPS];
++	unsigned int i;
++	int ret;
++
++	if (repeat != -1 || !len || len > AW22127_MAX_STEPS)
++		return -EINVAL;
++
++	for (i = 0; i < len; i++) {
++		if (!pattern[i].delta_t || pattern[i].delta_t > U16_MAX)
++			return -EINVAL;
++		steps[i].ms = pattern[i].delta_t;
++		steps[i].from = pattern[i].brightness;
++		steps[i].to = pattern[(i + 1) % len].brightness;
++	}
++
++	mutex_lock(&aw->lock);
++	ret = aw22127_run(aw, steps, len);
++	mutex_unlock(&aw->lock);
++
++	return ret;
++}
++
++static int aw22127_pattern_clear(struct led_classdev *cdev)
++{
++	struct aw22127 *aw = cdev_to_aw22127(cdev);
++
++	mutex_lock(&aw->lock);
++	aw22127_off(aw);
++	mutex_unlock(&aw->lock);
++
++	return 0;
 +}
 +
 +static int aw22127_probe(struct i2c_client *client)
@@ -242,6 +396,8 @@ index 000000000..564508129
 +	aw->mc.num_colors = ARRAY_SIZE(aw->subled);
 +	aw->mc.led_cdev.max_brightness = 255;
 +	aw->mc.led_cdev.brightness_set_blocking = aw22127_brightness_set;
++	aw->mc.led_cdev.pattern_set = aw22127_pattern_set;
++	aw->mc.led_cdev.pattern_clear = aw22127_pattern_clear;
 +
 +	init.fwnode = dev_fwnode(dev);
 +	init.devicename = "aw22127";
@@ -264,8 +420,7 @@ index 000000000..564508129
 +		struct aw22127 *aw = container_of(mc, struct aw22127, mc);
 +
 +		mutex_lock(&aw->lock);
-+		if (aw->on)
-+			aw22127_off(aw);
++		aw22127_off(aw);
 +		mutex_unlock(&aw->lock);
 +	}
 +}

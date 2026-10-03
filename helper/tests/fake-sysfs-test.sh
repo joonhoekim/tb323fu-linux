@@ -150,6 +150,15 @@ mk $BL/bl_power 4; sleep 0.5; check "screen off: breathing stops at full brightn
 mk $BL/bl_power 0
 $C ledring pulse '#00ff00' 1 && sleep 0.1 && check "pulse shows its colour" $L/multi_intensity "0 255 0"
 sleep 0.6; check "after the pulse: back to the ring colour" $L/multi_intensity "16 32 48"
+# a kernel with hardware patterns: breathing runs on the chip
+mk $L/trigger "[none] pattern"; mk $L/hw_pattern ""
+$C ledring speed 2000 && sleep 0.3
+check "hw breathing: pattern trigger" $L/trigger pattern
+check "hw breathing: eight-point cycle" $L/hw_pattern "3 250 7 250 18 250 29 250 33 250 29 250 18 250 7 250"
+check "hw breathing: colour" $L/multi_intensity "16 32 48"
+$C ledring solid && sleep 0.3 && check "solid: pattern trigger cleared" $L/trigger none
+check "solid after hw breathing: brightness" $L/brightness 33
+rm -f $R$L/trigger $R$L/hw_pattern
 $C ledring charge-override on >/dev/null
 $C ledring off && check "LED ring off" $L/brightness 0
 

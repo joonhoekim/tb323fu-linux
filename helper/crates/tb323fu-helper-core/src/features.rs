@@ -342,6 +342,48 @@ pub fn breathe_level(max: u32, t_ms: u64, period_ms: u32) -> u32 {
     ((max as f64 * level).round() as u32).max(1)
 }
 
+/// `hw_pattern` tuples for one breathing cycle: eight points of
+/// [`breathe_level`], the LED chip ramps between them.
+pub fn breathe_pattern(max: u32, period_ms: u32) -> String {
+    let dt = (period_ms / 8).clamp(1, 65535);
+    (0..8u32).map(|k| format!("{} {dt}", breathe_level(max, (k * dt) as u64, dt * 8))).collect::<Vec<_>>().join(" ")
+}
+
+/// The kernel offers the LED pattern trigger for the ring (needed for
+/// [`ledring_hw_breathe`]; the driver must also take hardware patterns).
+pub fn ledring_hw_pattern_available() -> bool {
+    sys::read_opt(&ledring_dir().join("trigger")).is_some_and(|t| t.split_whitespace().any(|w| w.trim_matches(['[', ']']) == "pattern"))
+}
+
+/// Breathing run by the LED chip itself: colour, pattern trigger,
+/// `hw_pattern`. The colour is latched when `hw_pattern` is written. Errors
+/// (and leaves no trigger) when the driver has no hardware patterns.
+pub fn ledring_hw_breathe(color: [u32; 3], max: u32, period_ms: u32) -> Res<()> {
+    let d = ledring_dir();
+    let e = |e| werr("LED ring", e);
+    sys::write(&d.join("trigger"), "none").map_err(e)?;
+    sys::write(&d.join("multi_intensity"), &format!("{} {} {}", color[0], color[1], color[2])).map_err(e)?;
+    sys::write(&d.join("trigger"), "pattern").map_err(e)?;
+    let res = if d.join("hw_pattern").exists() {
+        sys::write(&d.join("hw_pattern"), &breathe_pattern(max, period_ms)).map_err(e)
+    } else {
+        Err("LED ring: no hardware patterns in this kernel".into())
+    };
+    if res.is_err() {
+        let _ = sys::write(&d.join("trigger"), "none");
+    }
+    res
+}
+
+/// Stop a hardware pattern (the ring goes off).
+pub fn ledring_trigger_clear() -> Res<()> {
+    let t = ledring_dir().join("trigger");
+    if !t.exists() {
+        return Ok(());
+    }
+    sys::write(&t, "none").map_err(|e| werr("LED ring", e))
+}
+
 // ---------------------------------------------------------------- idle refresh
 
 pub fn refresh_param(name: &str) -> PathBuf {
@@ -923,6 +965,8 @@ mod tests {
         assert_eq!(breathe_level(200, 0, 4000), 16);
         assert_eq!(breathe_level(200, 2000, 4000), 200);
         assert_eq!(breathe_level(5, 0, 4000), 1);
+        assert_eq!(breathe_pattern(33, 2000), "3 250 7 250 18 250 29 250 33 250 29 250 18 250 7 250");
+        assert_eq!(breathe_pattern(255, 4).split(' ').nth(1), Some("1"));
     }
     #[test]
     fn policy_names() {

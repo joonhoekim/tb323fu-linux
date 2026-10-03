@@ -70,14 +70,14 @@ column names the source; see that tree's history for the individual authors.
 | `0045` | media: i2c: add Samsung S5KJNS and GalaxyCore GC08A8 sensor drivers | joonhoekim | this project | local | `81b1eb36b303f423` |
 | `0046` | clk: qcom: gdsc: keep the clock controller active while a GDSC is on | joonhoekim | this project | local | `d4558bee2c14e249` |
 | `0047` | media: i2c: dw9719: add Giantec GT9764, optional vio supply | joonhoekim | this project | local | `f18c081a941a47d0` |
-| `0048` | leds: rgb: add Awinic AW22127 driver | joonhoekim | this project | local | `324050349617a56f` |
+| `0048` | leds: rgb: add Awinic AW22127 driver | joonhoekim | this project | local | `7b8b8425d6aa2d79` |
 | `0049` | PCI: qcom: don't advertise a hot-plug slot on the Root Port | joonhoekim | this project | local | `52b07f4d961447bc` |
 | `0050` | drm/msm/dsi: phy: runtime suspend the PHY over system sleep | joonhoekim | this project | local | `c590cf05bcfac08e` |
 | `0051` | drm/msm/dp: add kaanapali (DP0 descriptor) | joonhoekim | this project | local | `d330b85b114b644b` |
 | `0052` | drm/msm/dpu: add the SSPP rec0/rec1 blocks to the snapshot | joonhoekim | this project | local | `e5db396f09712be3` |
 | `0053` | input: nt36536: make the pen a tablet libinput accepts | joonhoekim | this project | local | `be8f34f155cef71c` |
 | `0054` | arm64: dts: qcom: add Lenovo Legion Tab Y700 gen5 (TB323FU, baldur) board DTs | joonhoekim | this project | local | `36465acde4d25341` |
-| `0055` | arm64: configs: add the baldur config fragments | joonhoekim | this project | local | `7f671cda50be4092` |
+| `0055` | arm64: configs: add the baldur config fragments | joonhoekim | this project | local | `f4d19275bce5e513` |
 | `0056` | PCI: qcom: parse iommu-map with the target #iommu-cells | joonhoekim | this project | local; superseded by linux-next (`qcom_pcie_config_sid_1_9_0`) | `2b19a0f18b871aac` |
 | `0057` | drm/msm/dp: retrain the link on a quick replug while streaming | joonhoekim | this project | local | `f04dc08d8a8e1e8b` |
 | `0058` | wifi: ath12k: don't wake the device over MHI from the panic notifier | joonhoekim | this project | local | `22f3f256562a2773` |
