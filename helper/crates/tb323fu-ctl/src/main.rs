@@ -35,7 +35,9 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
   gpu wifi-low-latency on|off    Wi-Fi power saving off in the performance profile
   haptics [strength PERCENT|test left|right|both]
                                  vibration strength for every application (0..100), a short test buzz
-  usb [wake on|off|dev on|off]
+  usb [wake on|off|dev on|off|charger-wake on|off]
+                                 USB device wakeup, developer USB access, wake when a charger is plugged in or out;
+                                 without arguments also the USB-C port roles
   emergency-key [on|off|hold SECONDS]
   diagnostics [export]
   boot [list|next NAME|clear|default NAME|reboot NAME|rescan]
@@ -691,6 +693,7 @@ fn run(args: &[String]) -> i32 {
             (None, _) => c.show(&["Usb"]),
             (Some("wake"), Some(b)) => c.call("Usb", "SetWake", &(b,)),
             (Some("dev"), Some(b)) => c.call("Usb", "SetDevMode", &(b,)),
+            (Some("charger-wake"), Some(b)) => c.call("Usb", "SetChargerWake", &(b,)),
             _ => usage(),
         },
         "emergency-key" => match rest.first().copied() {

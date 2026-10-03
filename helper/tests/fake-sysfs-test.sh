@@ -73,6 +73,10 @@ cat > $R/usr/sbin/iw <<EOF
 case "\$3" in get) echo "Power save: \$(cat $R/iw-ps)";; set) echo "\$5" > $R/iw-ps;; esac
 EOF
 chmod +x $R/usr/sbin/iw
+# wakeup sources of the power supplies; a USB-C port with a partner
+mk $B/power/wakeup enabled; mk $U/power/wakeup enabled
+mk /sys/class/typec/port0/data_role "host [device]"; mk /sys/class/typec/port0/power_role "source [sink]"
+mkdir -p $R/sys/class/typec/port0-partner
 # vibration motors (event nodes are plain files here: each FF_GAIN write appends an input_event)
 for n in 5 6; do mk /sys/class/input/event$n/device/name aw86927-haptics; mkdir -p $R/dev/input; : > $R/dev/input/event$n; done
 # wait until a file has the value (the 5 s poller)
@@ -211,6 +215,10 @@ $C haptics strength 150 2>/dev/null && bad "strength 150 accepted" || ok "streng
 $C --json haptics | grep -q '"left"' && ok "motors listed" || bad "motors"
 
 $C usb wake on && check "usb wake" /sys/bus/platform/devices/a600000.usb/power/wakeup enabled
+$C usb charger-wake off && check "charger wake off (battery)" $B/power/wakeup disabled
+check "charger wake off (UCSI source)" $U/power/wakeup disabled
+$C usb charger-wake on && check "charger wake on" $U/power/wakeup enabled
+$C --json usb | grep -q '"port0"' && ok "USB-C ports listed" || bad "USB-C ports"
 $C usb dev off && check "dev mode off unbinds" /sys/kernel/config/usb_gadget/g1/UDC ""
 $C usb dev on && check "dev mode on binds" /sys/kernel/config/usb_gadget/g1/UDC a600000.usb
 

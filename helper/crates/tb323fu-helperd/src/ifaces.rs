@@ -754,9 +754,9 @@ pub struct Usb(pub Arc<Shared>);
 
 impl Snapshot for Usb {
     const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Usb";
-    const PROPS: &'static [&'static str] = &["WakeEnabled", "DevMode"];
+    const PROPS: &'static [&'static str] = &["WakeEnabled", "DevMode", "ChargerWake", "Ports"];
     fn snapshot(&self) -> String {
-        format!("{:?} {:?}", f::usb_wake(), f::dev_mode())
+        format!("{:?} {:?} {:?} {:?}", f::usb_wake(), f::dev_mode(), f::charger_wake(), f::typec_ports())
     }
 }
 
@@ -769,6 +769,24 @@ impl Usb {
     #[zbus(property)]
     fn dev_mode(&self) -> bool {
         f::dev_mode().unwrap_or(false)
+    }
+    /// plugging or unplugging a charger wakes the tablet
+    #[zbus(property)]
+    fn charger_wake(&self) -> bool {
+        f::charger_wake().unwrap_or(false)
+    }
+    /// USB-C ports: (port, data role, power role, partner attached)
+    #[zbus(property)]
+    fn ports(&self) -> Vec<(String, String, String, bool)> {
+        f::typec_ports()
+    }
+    async fn set_charger_wake(&self, on: bool, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "usb-wake", self.0.no_polkit).await?;
+        f::set_charger_wake(on).map_err(failed)?;
+        self.0.update(|c| c.usb.charger_wake = Some(on));
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
     }
     async fn set_wake(&self, on: bool, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
         #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {

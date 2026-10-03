@@ -69,6 +69,7 @@ strength = 100           # vibration strength 0..100 % (force-feedback gain of b
 [usb]
 wake = false             # USB host wakeup from suspend (off by default on this board)
 # dev_mode = true        # USB gadget network + serial console; omit to keep the boot state
+# charger_wake = false   # plugging or unplugging a charger wakes the tablet; omit to keep the kernel's setting (on)
 
 [kernel]                 # kernel updates (docs/helper.md "Kernel updates")
 channel = "stable"       # "stable": the newest release; "testing": the newest release or pre-release

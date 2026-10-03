@@ -450,6 +450,9 @@ fn apply_startup(s: &Shared) {
     if f::usb_wake().is_some() {
         let _ = f::set_usb_wake(c.usb.wake);
     }
+    if let (Some(on), Some(_)) = (c.usb.charger_wake, f::charger_wake()) {
+        let _ = f::set_charger_wake(on);
+    }
     if let Some(on) = c.usb.dev_mode {
         if f::gadget().is_some() {
             let _ = f::set_dev_mode(on);
@@ -482,7 +485,7 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
     let has_ledring = f::ledring_dir().exists();
     let has_refresh = f::refresh_available();
     let has_gpu = f::gpu_dir().exists() || perf::cpu_limits_available();
-    let has_usb = f::usb_wake().is_some() || f::gadget().is_some();
+    let has_usb = f::usb_wake().is_some() || f::gadget().is_some() || f::charger_wake().is_some();
     let has_boot = !tb323fu_helper_core::boot::partitions().is_empty();
     let has_thermal = f::thermal().is_some() || perf::thermal_profile_available();
     let has_kernel = tb323fu_helper_core::kernel::find_device().is_ok();
@@ -574,6 +577,11 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
         let want = shared.cfg().usb.wake;
         if f::usb_wake().is_some_and(|w| w != want) {
             let _ = f::set_usb_wake(want);
+        }
+        if let Some(cw) = shared.cfg().usb.charger_wake {
+            if f::charger_wake().is_some_and(|w| w != cw) {
+                let _ = f::set_charger_wake(cw);
+            }
         }
         if has_battery {
             let before = last.get(P_BATTERY).cloned();

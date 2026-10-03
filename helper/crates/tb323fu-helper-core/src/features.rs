@@ -460,6 +460,49 @@ pub fn set_usb_wake(on: bool) -> Res<()> {
     sys::write(&usb_wake_file(), if on { "enabled" } else { "disabled" }).map_err(|e| werr("USB wakeup", e))
 }
 
+/// Wakeup files of the power supplies (battery manager, USB, UCSI sources):
+/// a charger plugged in or out wakes the tablet through them.
+pub fn charger_wake_files() -> Vec<PathBuf> {
+    let base = sys::path("/sys/class/power_supply");
+    sys::list_dir(&base).into_iter().map(|n| base.join(n).join("power/wakeup")).filter(|p| p.exists()).collect()
+}
+
+/// Charger plug wakes the tablet (any power supply may wake it).
+pub fn charger_wake() -> Option<bool> {
+    let f = charger_wake_files();
+    if f.is_empty() {
+        return None;
+    }
+    Some(f.iter().any(|p| sys::read_opt(p).as_deref() == Some("enabled")))
+}
+
+pub fn set_charger_wake(on: bool) -> Res<()> {
+    let files = charger_wake_files();
+    if files.is_empty() {
+        return Err("no power supply wakeup sources".into());
+    }
+    for p in files {
+        sys::write(&p, if on { "enabled" } else { "disabled" }).map_err(|e| werr("charger wakeup", e))?;
+    }
+    Ok(())
+}
+
+/// USB-C ports: (port, data role, power role, partner attached), roles as
+/// the selected word of the typec class ("device", "sink", ...).
+pub fn typec_ports() -> Vec<(String, String, String, bool)> {
+    let base = sys::path("/sys/class/typec");
+    let names = sys::list_dir(&base);
+    names
+        .iter()
+        .filter(|n| n.starts_with("port") && !n.contains('-'))
+        .map(|n| {
+            let d = base.join(n);
+            let sel = |f: &str| sys::read_opt(&d.join(f)).and_then(|s| sys::selected(&s)).unwrap_or_default();
+            (n.clone(), sel("data_role"), sel("power_role"), names.iter().any(|m| *m == format!("{n}-partner")))
+        })
+        .collect()
+}
+
 /// The configfs gadget (first one) and the UDC it can bind to.
 pub fn gadget() -> Option<(PathBuf, String)> {
     let base = sys::path("/sys/kernel/config/usb_gadget");

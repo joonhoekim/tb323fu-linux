@@ -209,6 +209,9 @@ pub struct Usb {
     pub wake: bool,
     /// USB gadget (network + serial console): `None` = leave as booted
     pub dev_mode: Option<bool>,
+    /// plugging or unplugging a charger wakes the tablet (power-supply
+    /// wakeup sources): `None` = leave the kernel's setting (on)
+    pub charger_wake: Option<bool>,
 }
 
 impl Default for Battery {
