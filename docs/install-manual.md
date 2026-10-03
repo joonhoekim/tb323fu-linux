@@ -8,7 +8,7 @@ on the PC and a root on the internal storage.
 > **For a first install, use the guide for your PC instead:** [Installing Linux](install.md) picks the page
 > (Windows, Linux or macOS); they run one script that does steps 1–7 below.
 
-> **The first releases are pre-releases** (`kernel-t38`, `helper-v0.2.0`). A kernel release is a kernel `Image` (with all
+> **The first releases are pre-releases** (`kernel-t38`, `helper-v0.3.0`). A kernel release is a kernel `Image` (with all
 > its modules inside) and a repack tool — never a ready-made `boot.img` ([why](#why-there-is-no-ready-made-bootimg)); you
 > pack it into your own stock boot image (step 3a) or build the kernel yourself (3b), and put together a root filesystem
 > with the scripts in this repository. This page was **reconstructed from the development records** of one
