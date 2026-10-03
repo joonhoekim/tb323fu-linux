@@ -15,6 +15,9 @@
 # Needs: dbus-run-session, python3, curl.
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
+V0=$(sed -n 's/^version = "\(.*\)"$/\1/p' "$here/../Cargo.toml" | head -1)   # the helper under test
+V1=${V0%.*}.$((${V0##*.} + 1))-test                                         # the release it updates to
+V2=${V0%.*}.$((${V0##*.} + 2))-test; V3=${V0%.*}.$((${V0##*.} + 3))-test
 repo=$(cd "$here/../.." && pwd)
 BIN=$(cd "${1:-target/release}" && pwd)
 R=$(mktemp -d /tmp/tb323fu-hupd.XXXXXX)
@@ -69,27 +72,27 @@ release() { # VERSION OUT WRAPPER-BODY
 	$H assets "$2" --stage "$S" --version "$1" --any-arch --commit test > /dev/null
 }
 
-# the installed helper 0.2.0 (install.sh, /usr/local), and files that are not the helper's
+# the installed helper $V0 (install.sh, /usr/local), and files that are not the helper's
 mkdir -p "$R/etc/tb323fu" "$R/var/cache/tb323fu-kernel"
 DESTDIR=$R PREFIX=/usr/local BUILD_DIR=$BIN sh "$here/../install.sh" > /dev/null
 mk /usr/local/bin/other-tool "not the helper's"
 mk /etc/systemd/system/other.service "[Unit]"
 mk /usr/share/polkit-1/actions/other.policy "<policyconfig/>"
 cfg
-release 0.2.1-test "$R/rel" "TB323FU_TEST_VERSION=0.2.1-test exec $BIN/tb323fu-helperd \"\$@\"" &&
+release $V1 "$R/rel" "TB323FU_TEST_VERSION=$V1 exec $BIN/tb323fu-helperd \"\$@\"" &&
 	$H check "$R/rel" > "$R/chk" && ok "helper-release.py assets + check: $(cat "$R/chk")" || { bad "helper-release.py"; cat "$R/chk"; }
-gzip -dc "$R/rel/tb323fu-helper-0.2.1-test-aarch64.tar.gz" | tar -t | grep -q '^root/usr/share/polkit-1/actions/io.github.joonhoekim.opendevicehelper.policy$' &&
+gzip -dc "$R/rel/tb323fu-helper-$V1-aarch64.tar.gz" | tar -t | grep -q '^root/usr/share/polkit-1/actions/io.github.joonhoekim.opendevicehelper.policy$' &&
 	ok "  the tarball carries the polkit policy (install.sh's tree)" || bad "  tarball contents"
 cp "$R/rel/SHA256SUMS" "$R/sums.bak"
-printf 'deb\n' > "$R/rel/tb323fu-helper_0.2.1-test_arm64.deb"   # an extra asset (packages) is ignored
-( cd "$R/rel" && sha256sum tb323fu-helper-0.2.1-test-aarch64.tar.gz tb323fu-helper_0.2.1-test_arm64.deb > SHA256SUMS )
-printf '## helper 0.2.1-test\n- self-update test\n' > "$R/notes.md"
-$K fake-api "$API" --repo o/r --helper 0.2.1-test --dir "$R/rel" --notes "$R/notes.md" > /dev/null && ok "fake-api: helper release with assets" || bad "fake-api"
+printf 'deb\n' > "$R/rel/tb323fu-helper_${V1}_arm64.deb"   # an extra asset (packages) is ignored
+( cd "$R/rel" && sha256sum tb323fu-helper-$V1-aarch64.tar.gz tb323fu-helper_${V1}_arm64.deb > SHA256SUMS )
+printf '## helper %s\n- self-update test\n' "$V1" > "$R/notes.md"
+$K fake-api "$API" --repo o/r --helper $V1 --dir "$R/rel" --notes "$R/notes.md" > /dev/null && ok "fake-api: helper release with assets" || bad "fake-api"
 
 start
-[ "$(ver)" = 0.2.0 ] && ok "running 0.2.0 from the fake root" || { bad "start: $(ver)"; tail "$R/daemon.log"; }
+[ "$(ver)" = $V0 ] && ok "running $V0 from the fake root" || { bad "start: $(ver)"; tail "$R/daemon.log"; }
 $C helper | grep -q "^updates    self-update from GitHub Releases" && ok "status: self-update (no package owns the helper)" || { bad "status"; $C helper; }
-$C helper check | grep -q "helper 0.2.1-test available (tb323fu-ctl helper update)" && ok "check: 0.2.1-test available" || { bad "check"; $C helper check; }
+$C helper check | grep -q "helper $V1 available (tb323fu-ctl helper update)" && ok "check: $V1 available" || { bad "check"; $C helper check; }
 $C helper notes | grep -q "self-update test" && ok "notes" || bad "notes"
 $C --json helper | grep -q '"Installable": true' && ok "  Installable" || bad "  Installable"
 
@@ -114,53 +117,53 @@ cfg 'require_signature = true'; $C reload > /dev/null 2>&1
 $C helper download 2>&1 | grep -q "SHA256SUMS.minisig" && ok "require_signature: refused without SHA256SUMS.minisig" || bad "unsigned accepted"
 cfg; $C reload > /dev/null 2>&1
 
-$C helper download | grep -q "helper 0.2.1-test downloaded and checked" && ok "download + check (SHA256SUMS, digest, MANIFEST, every file)" || { bad "download"; cat "$R/var/cache/tb323fu-kernel/fetch.log"; }
+$C helper download | grep -q "helper $V1 downloaded and checked" && ok "download + check (SHA256SUMS, digest, MANIFEST, every file)" || { bad "download"; cat "$R/var/cache/tb323fu-kernel/fetch.log"; }
 $C --json helper | grep -q '"State": "ready"' && ok "  state ready" || bad "  state ready"
 
 # min_platform in the notes
 printf '## x\n<!-- tb323fu: min_platform=9.9 -->\n' > "$R/notes-min.md"
-$K fake-api "$API" --repo o/r --helper 0.2.1-test --dir "$R/rel" --notes "$R/notes-min.md" > /dev/null
+$K fake-api "$API" --repo o/r --helper $V1 --dir "$R/rel" --notes "$R/notes-min.md" > /dev/null
 mk /usr/share/tb323fu/platform-version 0.2.0
 $C helper check > /dev/null
 $C helper download > /dev/null
 $C helper update 2>&1 | grep -q "needs tb323fu-platform 9.9" && ok "min_platform not met: install refused" || bad "min_platform"
-[ "$(ver)" = 0.2.0 ] && ok "  still 0.2.0" || bad "  version changed"
-$K fake-api "$API" --repo o/r --helper 0.2.1-test --dir "$R/rel" --notes "$R/notes.md" > /dev/null
+[ "$(ver)" = $V0 ] && ok "  still $V0" || bad "  version changed"
+$K fake-api "$API" --repo o/r --helper $V1 --dir "$R/rel" --notes "$R/notes.md" > /dev/null
 $C helper check > /dev/null
 
 # update, health check
 before_other=$(sha256sum "$R/usr/local/bin/other-tool" "$R/etc/systemd/system/other.service" "$R/usr/share/polkit-1/actions/other.policy")
-$C helper update > "$R/out" 2>&1 && grep -q "helper 0.2.1-test is running" "$R/out" && ok "update: installed, restarted, health check passed" || { bad "update"; cat "$R/out"; tail -20 "$R/daemon.log"; cat "$R$HD/update.log"; }
-[ "$(ver)" = 0.2.1-test ] && ok "  Version 0.2.1-test" || bad "  version $(ver)"
-cmp -s "$R$D" "$R/stage-0.2.1-test$D" && cmp -s "$R/usr/local/bin/tb323fu-ctl" "$R/stage-0.2.1-test/usr/local/bin/tb323fu-ctl" && ok "  files = the release tree" || bad "  files"
+$C helper update > "$R/out" 2>&1 && grep -q "helper $V1 is running" "$R/out" && ok "update: installed, restarted, health check passed" || { bad "update"; cat "$R/out"; tail -20 "$R/daemon.log"; cat "$R$HD/update.log"; }
+[ "$(ver)" = $V1 ] && ok "  Version $V1" || bad "  version $(ver)"
+cmp -s "$R$D" "$R/stage-$V1$D" && cmp -s "$R/usr/local/bin/tb323fu-ctl" "$R/stage-$V1/usr/local/bin/tb323fu-ctl" && ok "  files = the release tree" || bad "  files"
 [ "$before_other" = "$(sha256sum "$R/usr/local/bin/other-tool" "$R/etc/systemd/system/other.service" "$R/usr/share/polkit-1/actions/other.policy")" ] && ok "  files outside the manifest untouched" || bad "  other files changed"
-grep -q '^version=0.2.0$' "$R$HD/prev/MANIFEST" && cmp -s "$R$HD/prev/root$D" "$BIN/tb323fu-helperd" && ok "  previous version kept ($HD/prev, version 0.2.0)" || bad "  prev"
-grep -q '^version=0.2.1-test$' "$R$HD/current.manifest" && ok "  current.manifest" || bad "  current.manifest"
+grep -q "^version=$V0$" "$R$HD/prev/MANIFEST" && cmp -s "$R$HD/prev/root$D" "$BIN/tb323fu-helperd" && ok "  previous version kept ($HD/prev, version $V0)" || bad "  prev"
+grep -q "^version=$V1$" "$R$HD/current.manifest" && ok "  current.manifest" || bad "  current.manifest"
 [ -z "$(find "$R" -name '*.tb323fu-new')" ] && ok "  no staged leftovers" || bad "  leftovers"
-$C helper | grep -q "^previous   0.2.0" && $C helper | grep -q "^last       update 0.2.0 -> 0.2.1-test: ok" && ok "  status: previous and last update" || { bad "  status"; $C helper; }
+$C helper | grep -q "^previous   $V0" && $C helper | grep -q "^last       update $V0 -> $V1: ok" && ok "  status: previous and last update" || { bad "  status"; $C helper; }
 
 # rollback
-$C helper rollback > "$R/out" 2>&1 && grep -q "helper 0.2.0 is running" "$R/out" && ok "rollback: back on 0.2.0" || { bad "rollback"; cat "$R/out"; cat "$R$HD/update.log"; }
-[ "$(ver)" = 0.2.0 ] && cmp -s "$R$D" "$BIN/tb323fu-helperd" && ok "  Version 0.2.0, the original daemon file" || bad "  after rollback"
-grep -q '^version=0.2.1-test$' "$R$HD/prev/MANIFEST" && ok "  prev now holds 0.2.1-test (rollback is reversible)" || bad "  prev after rollback"
+$C helper rollback > "$R/out" 2>&1 && grep -q "helper $V0 is running" "$R/out" && ok "rollback: back on $V0" || { bad "rollback"; cat "$R/out"; cat "$R$HD/update.log"; }
+[ "$(ver)" = $V0 ] && cmp -s "$R$D" "$BIN/tb323fu-helperd" && ok "  Version $V0, the original daemon file" || bad "  after rollback"
+grep -q "^version=$V1$" "$R$HD/prev/MANIFEST" && ok "  prev now holds $V1 (rollback is reversible)" || bad "  prev after rollback"
 
 # a release whose daemon does not start: the health check fails, the old one comes back
-release 0.2.2-test "$R/rel2" "exit 1"
-$K fake-api "$API" --repo o/r --helper 0.2.2-test --dir "$R/rel2" > /dev/null
+release $V2 "$R/rel2" "exit 1"
+$K fake-api "$API" --repo o/r --helper $V2 --dir "$R/rel2" > /dev/null
 $C helper update > "$R/out" 2>&1; rc=$?
 [ $rc != 0 ] && grep -q "rolled-back" "$R/out" && ok "broken release: update reports rolled-back" || { bad "broken release"; cat "$R/out"; }
-[ "$(ver)" = 0.2.0 ] && cmp -s "$R$D" "$BIN/tb323fu-helperd" && ok "  back on 0.2.0, the original daemon file" || { bad "  not restored: $(ver)"; cat "$R$HD/update.log"; }
-$C --json helper | grep -q '"reason": "no answer as helper 0.2.2-test' && ok "  LastUpdate says why" || { bad "  reason"; $C helper; }
-grep -q '^version=0.2.1-test$' "$R$HD/prev/MANIFEST" && ok "  prev unchanged by the failed update" || bad "  prev changed"
+[ "$(ver)" = $V0 ] && cmp -s "$R$D" "$BIN/tb323fu-helperd" && ok "  back on $V0, the original daemon file" || { bad "  not restored: $(ver)"; cat "$R$HD/update.log"; }
+$C --json helper | grep -q "\"reason\": \"no answer as helper $V2" && ok "  LastUpdate says why" || { bad "  reason"; $C helper; }
+grep -q "^version=$V1$" "$R$HD/prev/MANIFEST" && ok "  prev unchanged by the failed update" || bad "  prev changed"
 
 # paths outside the allow-list
-release 0.2.3-test "$R/rel3" "exit 0"
-mkdir -p "$R/stage-0.2.3-test/etc/cron.d"; echo x > "$R/stage-0.2.3-test/etc/cron.d/x"
-$H assets "$R/rel3b" --stage "$R/stage-0.2.3-test" --version 0.2.3-test --any-arch 2>&1 | grep -q "may not install" && ok "helper-release.py refuses a path outside the allow-list" || bad "builder allow-list"
-python3 - "$R/rel3" <<'EOF'
+release $V3 "$R/rel3" "exit 0"
+mkdir -p "$R/stage-$V3/etc/cron.d"; echo x > "$R/stage-$V3/etc/cron.d/x"
+$H assets "$R/rel3b" --stage "$R/stage-$V3" --version $V3 --any-arch 2>&1 | grep -q "may not install" && ok "helper-release.py refuses a path outside the allow-list" || bad "builder allow-list"
+python3 - "$R/rel3" "$V3" <<'EOF'
 import gzip, hashlib, io, os, sys, tarfile
 d = sys.argv[1]
-n = "tb323fu-helper-0.2.3-test-aarch64.tar.gz"
+n = f"tb323fu-helper-{sys.argv[2]}-aarch64.tar.gz"
 src = tarfile.open(os.path.join(d, n), "r:gz")
 out = io.BytesIO()
 with tarfile.open(fileobj=out, mode="w", format=tarfile.USTAR_FORMAT) as t:
@@ -177,9 +180,9 @@ h = hashlib.sha256(open(os.path.join(d, n), "rb").read()).hexdigest()
 open(os.path.join(d, "SHA256SUMS"), "w").write(f"{h}  {n}\n")
 EOF
 $H check "$R/rel3" > /dev/null 2>&1 && bad "check accepted /etc/cron.d" || ok "helper-release.py check refuses it"
-$K fake-api "$API" --repo o/r --helper 0.2.3-test --dir "$R/rel3" > /dev/null
+$K fake-api "$API" --repo o/r --helper $V3 --dir "$R/rel3" > /dev/null
 $C helper check > /dev/null
-$C helper download 0.2.3-test 2>&1 | grep -q "/etc/cron.d/x, which a helper release may not install" && ok "the daemon refuses it at download" || bad "daemon allow-list"
+$C helper download $V3 2>&1 | grep -q "/etc/cron.d/x, which a helper release may not install" && ok "the daemon refuses it at download" || bad "daemon allow-list"
 [ ! -e "$R/etc/cron.d/x" ] && ok "  nothing written there" || bad "  /etc/cron.d/x written"
 
 [ $fail = 0 ] && echo "ALL PASSED" || { echo "SOME FAILED"; tail -30 "$R/daemon.log"; }

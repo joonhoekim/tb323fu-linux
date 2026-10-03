@@ -1,6 +1,6 @@
 # Open Device Helper changelog
 
-## 0.3.0 — unreleased
+## 0.3.0 — 2026-10-04
 
 - **The helper updates itself** from `helper-vX.Y.Z` releases on GitHub Releases (the same channel and checks as
   kernel updates): `tb323fu-ctl helper check | download | install | update | rollback`, About → Helper Updates in
@@ -9,6 +9,8 @@
   within 30 s. Only where nobody else owns the helper: when dpkg, pacman, rpm or NixOS installed it, the helper
   says what to do instead (the commands it showed before pointed at repositories that do not exist).
 - `tools/helper-release.py` makes and checks the release asset set; `install.sh` takes `BUILD_DIR`.
+- **tb323fu-platform:** `back-to-android` is installed with `#!/bin/sh`. It started with `#!/bin/busybox sh`, so on
+  a root without busybox (Ubuntu) "Restart into Android" and the volume-key way back failed.
 
 ## 0.2.0 — 2026-10-03
 
