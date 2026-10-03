@@ -12,6 +12,9 @@
 # /etc/android-boot.sha256  per device, optional: hash of YOUR Android boot
 #                         image (never commit it). Without it init reads the
 #                         root's /etc/tb323fu/android-boot.sha256
+# /etc/usb-shell          only with build.sh -u (development images): empty
+#                         marker; init then starts a root shell without
+#                         password on ttyGS0 and telnet on usb0
 # /dev/console            char 5:1 -- without it init has no stdin/stdout
 # /font.psf               third-party: console-setup Lat15-Terminus28x14
 #                         (readable on 1904x3040; the kernel's fonts are small)

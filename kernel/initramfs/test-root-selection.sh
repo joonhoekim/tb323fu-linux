@@ -396,5 +396,22 @@ got=$(tr '\n' ' ' < "$T/log" | sed 's/ $//')
 [ "$got" = "$want" ] && ok "deps first, whole names only, no deps" || { bad "modload: got '$got'"; cat "$T/out"; }
 rm -rf "$T"
 done
+# usb shell (top of init): off unless the image has /etc/usb-shell (build.sh -u);
+# tb323fu.usbshell=0|1 on the command line overrides the image
+for SH in "$@"; do
+echo "== $SH: usb shell"
+grep -q '^# >>> usb shell' "$INIT" && grep -q '^# <<< usb shell' "$INIT" || { bad "no usb shell markers in $INIT"; continue; }
+for c in "0||release image" "1|marker|development image (-u)" "1||tb323fu.usbshell=1|release image, usbshell=1" 	"0|marker|tb323fu.usbshell=0|development image, usbshell=0" "0||xtb323fu.usbshell=1|a longer word is not the knob" 	"1||baldur.end=hold tb323fu.usbshell=1|knob last on the line"; do
+	want=${c%%|*}; r=${c#*|}; mk=${r%%|*}; r=${r#*|}; cl=${r%|*}; [ "$cl" = "$r" ] && cl=; desc=${r##*|}
+	T=$(mktemp -d /tmp/tb323fu-usbshell.XXXXXX); mkdir -p "$T/etc"
+	[ -n "$mk" ] && : > "$T/etc/usb-shell"
+	echo "console=tty1 $cl" > "$T/cmdline"
+	{ sed -n '/^# >>> usb shell/,/^# <<< usb shell/p' "$INIT" | sed -e "s#/etc/usb-shell#$T/etc/usb-shell#" -e "s#/proc/cmdline#$T/cmdline#"
+	  echo 'echo "$usbshell"'; } > "$T/run.sh"
+	got=$($SH "$T/run.sh" 2>&1)
+	[ "$got" = "$want" ] && ok "$desc -> $want" || bad "$desc: want $want, got '$got'"
+	rm -rf "$T"
+done
+done
 echo "$((runs - fails))/$runs passed"
 [ $fails -eq 0 ]

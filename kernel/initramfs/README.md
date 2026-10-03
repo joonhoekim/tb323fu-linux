@@ -7,7 +7,7 @@ is self-contained: the bootloader starts the kernel, the kernel runs [`init`](in
 
 | File | What |
 |---|---|
-| [`init`](init) | `/init`: USB way in, emergency chord, the modules image, boot summary, root selection (MIT) |
+| [`init`](init) | `/init`: USB gadget (+ root shell in development images), emergency chord, the modules image, boot summary, root selection (MIT) |
 | [`build.sh`](build.sh) | assembles the cpio from this directory, a kernel build and its installed modules, a static busybox and your firmware |
 | [`spec.list`](spec.list) | annotated layout: every file in the image, where it comes from, why it is there |
 | [`gpu-probe.c`](gpu-probe.c) | optional helper for the summary (is the Adreno alive), GPL-2.0 |
@@ -39,8 +39,10 @@ Nothing third-party is stored here:
 
 ## What `init` does
 
-1. **USB way in**, first: a configfs gadget with a serial shell on `ttyGS0` and a network interface
-   (`usb0`, the tablet is `192.168.7.2`, telnet). A boot that goes wrong later stays reachable from a PC.
+1. **USB device mode**, first: a configfs gadget with a serial port (`ttyGS0`) and a network interface (`usb0`);
+   the roots use both (getty, `192.168.7.2`). In a **development image** (`build.sh -u`) `init` also puts a root shell
+   on both — `ttyGS0` and telnet to `192.168.7.2` — so a boot that goes wrong later stays reachable from a PC.
+   Release images have no USB shell; see [USB root shell](#usb-root-shell).
 2. **Emergency way back to Android**: volume up + down held for 10 s runs `back-to-android`, which copies the
    Android boot image from `boot_b` back into `boot_a` and reboots — only if `boot_b` matches the expected hash.
    The hash comes from the image (`/etc/android-boot.sha256`, `build.sh -a`) or, for images built without one
@@ -48,8 +50,8 @@ Nothing third-party is stored here:
    if it does not mount, of the next root that does) while it reads the boot selection. With neither, the chord does nothing in the initramfs
    and the panel says so.
 3. **Modules**: mounts the image's modules squashfs (below), then loads the remoteproc PAS driver (it attaches to
-   the charger/Type-C firmware the bootloader already runs) and the touch driver from it, after the USB shell is up,
-   so a bad attach still leaves a way in. The touch driver only when its firmware is in the image — otherwise the
+   the charger/Type-C firmware the bootloader already runs) and the touch driver from it, after the USB shell (if any)
+   is up, so a bad attach still leaves a way in. The touch driver only when its firmware is in the image — otherwise the
    root's udev loads it.
 4. **Boot summary** on the panel and in the kernel log (so it also lands in ramoops): kernel, command line,
    CPUs, thermal, block devices, SD card, USB, battery, DRM, then the latest kernel warnings.
@@ -155,8 +157,31 @@ is counted (`tries=`); its third start (after `max` = 2 starts that never got co
 write does not read back, `init` stays in the initramfs. Volume-up held: the start is not counted.
 `test-root-selection.sh` covers these cases too.
 
-Holding **volume-up** while the summary is shown keeps the initramfs (a shell on the USB serial port).
+Holding **volume-up** while the summary is shown keeps the initramfs (with the USB shell, if the image has one).
 If no root is usable, `init` also stays in the initramfs.
+
+### USB root shell
+
+The shell on `ttyGS0` and telnet on `usb0` take **no password**: whoever plugs in a cable while the initramfs runs
+(during every boot, and for as long as it stays there) is root, with access to every partition. So it is off unless
+you ask for it:
+
+| Image | USB shell |
+|---|---|
+| release images (GitHub Releases), `build.sh` without `-u` | **off** — the gadget is still set up (the roots' getty on `ttyGS0` and `usb0` networking work), but nothing listens in the initramfs |
+| `build.sh -u` (development) | on: `ttyGS0` (any serial terminal, e.g. `picocom /dev/ttyACM0`) and `telnet 192.168.7.2` (PC side `192.168.7.1/24`) |
+| `tb323fu.usbshell=1` / `tb323fu.usbshell=0` on the kernel command line | overrides the image either way |
+
+The command line is built into the kernel (`CONFIG_CMDLINE_FORCE`), so turning the shell on means building your own
+image: either the initramfs with `-u`, or the kernel with `tb323fu.usbshell=1` added to `CONFIG_CMDLINE`
+([`../config/baldur.fragment`](../config/baldur.fragment)). The boot summary's `usb` line says which it is.
+
+Without the shell, a boot that never reaches a root still has these ways out:
+
+- the **boot summary** on the panel (what was found, what failed, the latest kernel errors);
+- **volume up + down held 10 s**: back to Android ([above](#what-init-does), needs the Android image hash);
+- **EDL** (`05c6:9008`, tablet off: hold volume up and plug in USB) to write `boot_a` back from a PC — fastboot on
+  this bootloader is read-only; see [`docs/recovery.md`](../../docs/recovery.md).
 
 ### Command-line knobs
 

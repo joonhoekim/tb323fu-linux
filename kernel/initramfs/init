@@ -8,8 +8,9 @@
 # kernel cannot exec this file (ENOENT) and panics with "No working init found".
 #
 # What it does, in order:
-#   - a way in from a PC first: USB serial shell (ttyGS0) and USB network
-#     (usb0 192.168.7.2, telnet), so a boot that goes wrong stays reachable
+#   - USB device mode first: serial (ttyGS0) and network (usb0); in
+#     development images (build.sh -u) or with tb323fu.usbshell=1 also a root
+#     shell on both (no password), so a boot that goes wrong stays reachable
 #   - the emergency way back to Android (volume up + down held 10 s), when the
 #     image carries /etc/android-boot.sha256 or, failing that, the state
 #     root has /etc/tb323fu/android-boot.sha256 (release images carry no hash)
@@ -77,9 +78,19 @@ usb_gadget() {
 	echo "$udc" > $g/UDC
 }
 usb_gadget
-# A shell on the serial function, respawned; telnet on the network one.
-( while :; do [ -e /dev/ttyGS0 ] && setsid sh -c 'exec sh -i </dev/ttyGS0 >/dev/ttyGS0 2>&1'; sleep 1; done ) &
-ifconfig usb0 192.168.7.2 netmask 255.255.255.0 up 2>/dev/null && telnetd -l /bin/sh 2>/dev/null
+# The root shell takes no password: anyone with a cable gets root. Only in
+# images built with build.sh -u; tb323fu.usbshell=0|1 overrides the image.
+# >>> usb shell (kernel/initramfs/test-root-selection.sh runs this part offline)
+usbshell=0; [ -e /etc/usb-shell ] && usbshell=1
+case " $(cat /proc/cmdline) " in
+*" tb323fu.usbshell=1 "*) usbshell=1 ;;
+*" tb323fu.usbshell=0 "*) usbshell=0 ;;
+esac
+# <<< usb shell
+if [ "$usbshell" = 1 ]; then
+	( while :; do [ -e /dev/ttyGS0 ] && setsid sh -c 'exec sh -i </dev/ttyGS0 >/dev/ttyGS0 2>&1'; sleep 1; done ) &
+	ifconfig usb0 192.168.7.2 netmask 255.255.255.0 up 2>/dev/null && telnetd -l /bin/sh 2>/dev/null
+fi
 
 # Emergency way back to Android without a PC: hold volume UP and volume DOWN
 # together for 10 s. The expected hash of the Android image in boot_b comes from
@@ -142,8 +153,8 @@ modload() {
 
 # SoCCP: the charger firmware the bootloader already runs. The PAS driver
 # attaches to it (no firmware load) and its glink edge brings up pmic-glink:
-# battery, USB supply, Type-C. Loaded only after the serial shell is up, so a
-# bad attach still leaves a way in.
+# battery, USB supply, Type-C. Loaded only after the USB shell (if any) is up,
+# so a bad attach still leaves a way in.
 for m in qcom_pil_info qcom_common qcom_sysmon qcom_q6v5 qcom_q6v5_pas; do
 	modload $m
 done
@@ -222,7 +233,10 @@ say "-- usb --"
 for u in /sys/class/udc/*; do
 	[ -e "$u" ] && say "  ${u##*/}: $(cat $u/state 2>/dev/null) $(cat $u/current_speed 2>/dev/null)"
 done
-[ -e /sys/kernel/config/usb_gadget/baldur/UDC ] && say "  gadget: acm (ttyGS0 shell) + ncm usb0 192.168.7.2 telnet"
+if [ -e /sys/kernel/config/usb_gadget/baldur/UDC ]; then
+	if [ "$usbshell" = 1 ]; then say "  gadget: acm + ncm, root shell on ttyGS0 and telnet 192.168.7.2 (no password)"
+	else say "  gadget: acm + ncm, no USB shell (tb323fu.usbshell=1 or build.sh -u enables it)"; fi
+fi
 say "-- power (soccp: $(cat /sys/class/remoteproc/remoteproc*/state 2>/dev/null)) --"
 b=/sys/class/power_supply/qcom-battmgr-bat
 [ -e $b ] && say "  battery $(cat $b/capacity 2>/dev/null)% $(cat $b/status 2>/dev/null), $(cat $b/voltage_now 2>/dev/null) uV, $(cat $b/current_now 2>/dev/null) uA, $(cat $b/temp 2>/dev/null) dC"

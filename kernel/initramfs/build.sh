@@ -4,7 +4,7 @@
 # built in, CONFIG_INITRAMFS_SOURCE) from this directory, a kernel build and a
 # few third-party files that are not stored in this repository.
 #
-#   kernel/initramfs/build.sh -k KBUILD_OUT -b BUSYBOX [-m MODULES_DIR] [-f FIRMWARE_ROOT] [options] OUT.cpio.gz
+#   kernel/initramfs/build.sh -k KBUILD_OUT -b BUSYBOX [-m MODULES_DIR] [-f FIRMWARE_ROOT] [-u] [options] OUT.cpio.gz
 #
 #   -k  kernel build directory (make O=...): usr/gen_init_cpio and (without
 #       -m) the early modules come from it (build the modules first: make modules)
@@ -42,18 +42,24 @@
 #       or cc on an aarch64 host). keyhold is required, gpu-probe optional.
 #   -l  also write the gen_init_cpio list here (absolute paths into the
 #       staging dir), for tools/build-boot.sh -i
+#   -u  development image: a root shell WITHOUT PASSWORD on the USB serial
+#       port (ttyGS0) and telnet on USB networking (192.168.7.2) from early
+#       boot on, and whenever init stays in the initramfs. Anyone with a cable
+#       gets root. Without -u (release images) the USB gadget is still set up,
+#       but no shell; tb323fu.usbshell=1 or =0 on the kernel command line
+#       overrides the image either way.
 #
 # Nothing downloaded here; nothing proprietary is ever written into this repo.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$here/../.." && pwd)
-kout= busybox= moddir= fwroot= regdb=/lib/firmware android= font= cc= list=
-while getopts k:b:m:f:r:a:F:c:l: o; do case $o in
+kout= busybox= moddir= fwroot= regdb=/lib/firmware android= font= cc= list= usbshell=
+while getopts k:b:m:f:r:a:F:c:l:u o; do case $o in
 	k) kout=$OPTARG ;; b) busybox=$OPTARG ;; m) moddir=$OPTARG ;; f) fwroot=$OPTARG ;; r) regdb=$OPTARG ;;
-	a) android=$OPTARG ;; F) font=$OPTARG ;; c) cc=$OPTARG ;; l) list=$OPTARG ;;
-	*) sed -n '4,44p' "$0"; exit 2 ;; esac; done
+	a) android=$OPTARG ;; F) font=$OPTARG ;; c) cc=$OPTARG ;; l) list=$OPTARG ;; u) usbshell=1 ;;
+	*) sed -n '4,51p' "$0"; exit 2 ;; esac; done
 shift $((OPTIND - 1)); out=${1:?output .cpio.gz}
-[ -n "$kout" ] && [ -n "$busybox" ] || { sed -n '4,44p' "$0"; exit 2; }
+[ -n "$kout" ] && [ -n "$busybox" ] || { sed -n '4,51p' "$0"; exit 2; }
 if [ -z "$cc" ]; then
 	if [ "$(uname -m)" = aarch64 ]; then cc=cc; else cc=aarch64-linux-gnu-gcc; fi
 fi
@@ -116,6 +122,7 @@ else
 fi
 cp "$regdb/regulatory.db" "$regdb/regulatory.db.p7s" "$st/fw/"
 [ -n "$android" ] && cut -c1-64 "$android" > "$st/android-boot.sha256"
+[ -n "$usbshell" ] && : > "$st/usb-shell"
 
 # gen_init_cpio list: see spec.list for the annotated layout
 L="$st/initramfs.list"
@@ -128,6 +135,7 @@ L="$st/initramfs.list"
 	[ -f "$st/gpu-probe" ] && echo "file /bin/gpu-probe $st/gpu-probe 0755 0 0"
 	echo "dir /etc 0755 0 0"
 	[ -f "$st/android-boot.sha256" ] && echo "file /etc/android-boot.sha256 $st/android-boot.sha256 0644 0 0"
+	[ -f "$st/usb-shell" ] && echo "file /etc/usb-shell $st/usb-shell 0644 0 0"
 	echo "dir /dev 0755 0 0"
 	echo "nod /dev/console 0600 0 0 c 5 1"
 	echo "file /font.psf $st/font.psf 0644 0 0"
@@ -146,7 +154,7 @@ if [ ! -x "$gic" ] && [ -f "$kout/source/usr/gen_init_cpio.c" ]; then
 fi
 [ -x "$gic" ] || { echo "no $kout/usr/gen_init_cpio (build the kernel once, or cc -o it from usr/gen_init_cpio.c)" >&2; exit 1; }
 "$gic" "$L" | gzip -9 > "$out"
-echo "initramfs: $out ($(stat -c %s "$out") bytes)"
+echo "initramfs: $out ($(stat -c %s "$out") bytes, USB root shell: $([ -n "$usbshell" ] && echo on || echo off))"
 if [ -n "$list" ]; then
 	# keep the staging dir for the list's absolute paths
 	keep="${list%.list}.d"; rm -rf "$keep"; cp -a "$st" "$keep"
