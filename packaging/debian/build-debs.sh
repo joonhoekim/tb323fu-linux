@@ -113,7 +113,7 @@ copyright tb323fu-helper GPL-3.0-or-later
 control tb323fu-helper "$ARCH" "dbus, polkitd | policykit-1, systemd, curl" "tb323fu-platform" \
 	"TB323FU device helper (charge limit, refresh, torch, LED ring, GPU, ...)" \
 	"tb323fu-helperd owns the device knobs behind one system D-Bus service
-(io.github.joonhoekim.tb323fu.Helper) with polkit checks; tb323fu-ctl is its CLI.
+(io.github.joonhoekim.OpenDeviceHelper1) with polkit checks; tb323fu-ctl is its CLI.
 Settings: /etc/tb323fu/helper.toml."
 script tb323fu-helper postinst 'if [ "$1" = configure ]; then
 	systemctl daemon-reload 2>/dev/null || true

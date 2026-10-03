@@ -8,7 +8,7 @@ rustPlatform.buildRustPackage {
   nativeBuildInputs = [ pkg-config wrapGAppsHook4 ];
   buildInputs = [ gtk4 libadwaita ];
   postInstall = ''
-    id=io.github.joonhoekim.tb323fu.Settings
+    id=io.github.joonhoekim.OpenDeviceHelper
     install -Dm644 data/$id.desktop $out/share/applications/$id.desktop
     install -Dm644 data/$id.svg $out/share/icons/hicolor/scalable/apps/$id.svg
     install -Dm644 data/$id.metainfo.xml $out/share/metainfo/$id.metainfo.xml

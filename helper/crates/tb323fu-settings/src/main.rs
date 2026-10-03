@@ -23,7 +23,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::Duration;
 
-const APP_ID: &str = "io.github.joonhoekim.tb323fu.Settings";
+const APP_ID: &str = "io.github.joonhoekim.OpenDeviceHelper";
 const REPO: &str = "https://github.com/joonhoekim/tb323fu-linux";
 /// D-Bus ids and the labels shown for them (same order).
 const REFRESH_POLICIES: [&str; 3] = ["off", "auto", "manual"];
@@ -724,7 +724,7 @@ impl Ui {
         let scroller = gtk::ScrolledWindow::builder().hscrollbar_policy(gtk::PolicyType::Never).child(&sidebar).build();
         let menu = gio::Menu::new();
         menu.append(Some("Keyboard Shortcuts"), Some("app.shortcuts"));
-        menu.append(Some("About Tablet Settings"), Some("app.about"));
+        menu.append(Some("About Open Device Helper"), Some("app.about"));
         let menu_btn = gtk::MenuButton::builder().icon_name("open-menu-symbolic").menu_model(&menu).primary(true).build();
         menu_btn.set_tooltip_text(Some("Main Menu"));
         let side_header = adw::HeaderBar::new();
@@ -762,7 +762,7 @@ impl Ui {
         toasts.set_child(Some(&stack));
         let window = adw::ApplicationWindow::builder()
             .application(app)
-            .title("Tablet Settings")
+            .title("Open Device Helper")
             .default_width(900)
             .default_height(760)
             .content(&toasts)
@@ -1212,7 +1212,7 @@ impl Ui {
 
     fn about(self: &Rc<Self>) {
         let d = adw::AboutDialog::builder()
-            .application_name("Tablet Settings")
+            .application_name("Open Device Helper")
             .application_icon(APP_ID)
             .version(env!("CARGO_PKG_VERSION"))
             .developer_name("Joonhoe Kim")

@@ -6,8 +6,8 @@ users from mistaking someone else's build for the official one; it does not rest
 to do with the code.
 
 "The project name" below means `tb323fu-linux` and the names of its components as published here
-(TB323FU helper, Tablet Settings, the `tb323fu-*` packages). "The icons" means the site icon and the
-Tablet Settings icon.
+(Open Device Helper, the `tb323fu-*` packages). "The icons" means the site icon and the
+Open Device Helper icon.
 
 ## What you may do
 

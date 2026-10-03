@@ -2,11 +2,11 @@
 # Copyright (C) 2026 Joonhoe Kim
 [Desktop Entry]
 Type=Application
-Name=Tablet Settings
-GenericName=TB323FU tablet settings
+Name=Open Device Helper
+GenericName=Device settings
 Comment=Charge limit, refresh rate, performance, torch, LED ring and Android switching for the Legion Tab Gen 5
 Exec=tb323fu-settings
-Icon=io.github.joonhoekim.tb323fu.Settings
+Icon=io.github.joonhoekim.OpenDeviceHelper
 Terminal=false
 Categories=Settings;HardwareSettings;
 Keywords=battery;charge;refresh;gpu;torch;led;android;tablet;

@@ -301,7 +301,7 @@ max=2
 
 ### 3.6 D-Bus, polkit, CLI, UI
 
-New object `/io/github/joonhoekim/tb323fu/Helper/Kernel`, interface `…Helper.Kernel`:
+New object `/io/github/joonhoekim/OpenDeviceHelper1/Kernel`, interface `…Helper.Kernel`:
 
 | | |
 |---|---|

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Joonhoe Kim
 [D-BUS Service]
-Name=io.github.joonhoekim.tb323fu.Helper
+Name=io.github.joonhoekim.OpenDeviceHelper1
 Exec=/bin/false
 User=root
 SystemdService=tb323fu-helperd.service

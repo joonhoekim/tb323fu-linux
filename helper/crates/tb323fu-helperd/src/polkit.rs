@@ -8,7 +8,7 @@ use zbus::fdo;
 use zbus::message::Header;
 use zbus::zvariant::Value;
 
-pub const PREFIX: &str = "io.github.joonhoekim.tb323fu.helper.";
+pub const PREFIX: &str = "io.github.joonhoekim.opendevicehelper.";
 
 pub async fn check(conn: &zbus::Connection, hdr: &Header<'_>, action: &str, no_polkit: bool) -> fdo::Result<()> {
     if no_polkit {

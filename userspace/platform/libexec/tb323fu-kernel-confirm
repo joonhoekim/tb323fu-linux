@@ -129,6 +129,6 @@ else
 	fi
 fi
 # tell the helper, if it runs (optional)
-busctl --system call io.github.joonhoekim.tb323fu.Helper /io/github/joonhoekim/tb323fu/Helper/Kernel \
-	io.github.joonhoekim.tb323fu.Helper.Kernel Refresh > /dev/null 2>&1 || true
+busctl --system call io.github.joonhoekim.OpenDeviceHelper1 /io/github/joonhoekim/OpenDeviceHelper1/Kernel \
+	io.github.joonhoekim.OpenDeviceHelper1.Kernel Refresh > /dev/null 2>&1 || true
 done_ 0

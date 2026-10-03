@@ -23,7 +23,7 @@ the kernel does not assume a particular distribution or desktop.
 | install Linux after rooting | [Installing Linux](docs/install.md) (firmware, boot image, root partition, first boot, multiboot; each step marked verified / from records / untested) and the guided [install script prototype](tools/install/README.md) |
 | build or review the kernel | [kernel/](kernel/README.md), [PROVENANCE.md](kernel/PROVENANCE.md), [initramfs](kernel/initramfs/README.md) |
 | put together a root filesystem | [platform files](userspace/platform/README.md), [firmware](firmware/README.md), [`rootfs/`](rootfs/) builders |
-| use the tablet settings (charge limit, refresh rate, multiboot) | [Device helper](docs/helper.md) |
+| use the tablet settings (charge limit, refresh rate, multiboot) | [Open Device Helper](docs/helper.md) |
 
 ## Layout
 
@@ -46,7 +46,7 @@ Every file's SPDX header takes precedence; files without one are covered by [`RE
 
 | Part | License |
 |---|---|
-| helper (daemon, CLI, helper core, Tablet Settings app and their data files) | `GPL-3.0-or-later` |
+| helper (daemon, CLI, helper core, Open Device Helper app and their data files) | `GPL-3.0-or-later` |
 | kernel patches and config fragments | `GPL-2.0-only`, as the kernel; imported patches keep their original authors and `Signed-off-by` lines (see `kernel/PROVENANCE.md`) |
 | board device trees (`kernel/dts/`) | `BSD-3-Clause`, as upstream qcom device trees |
 | out-of-tree `aw882xx` driver | `GPL-2.0` (AWINIC's headers kept) |

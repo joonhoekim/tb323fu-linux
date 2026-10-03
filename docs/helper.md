@@ -1,6 +1,7 @@
-# Device helper
+# Open Device Helper
 
-`tb323fu-helper` owns the TB323FU's user-facing knobs — charge limit and bypass, restart into Android, torch, RGB-ring
+Open Device Helper (`tb323fu-helper` in this repository; the name is not tied to one device so the parts that are
+not TB323FU-specific can move to other ports later) owns the TB323FU's user-facing knobs — charge limit and bypass, restart into Android, torch, RGB-ring
 charge indicator, idle refresh policy, GPU limits, USB wakeup, emergency key settings, multiboot selection, kernel updates,
 diagnostics — and exposes them over **D-Bus** to a CLI, a GNOME quick-settings tile and a settings app.
 It needs only systemd, D-Bus and polkit, and works without any particular desktop. Code and build instructions:
@@ -44,7 +45,7 @@ GNOME and apt.
   - **Charge Limit:** a heading with 60% / 80% / 100%; a limit set in the app (e.g. 75%) shows in the heading (`Charge Limit · 75%`). Below it, Bypass Charging.
   - **Refresh policy:** Adaptive, Fixed (N Hz), Always 120 Hz.
   - **Torch:** on/off with a brightness slider.
-  - **Tablet Settings…:** opens the settings app.
+  - **Open Device Helper…:** opens the settings app.
   - **Errors:** one notification per failed call (no D-Bus names); a cancelled authentication shows nothing.
   - Auto Brightness stays a separate GSettings tile.
 - **Settings app** (Rust, gtk-rs, GTK4 + libadwaita, `tb323fu-settings [--page NAME]`): pages Battery (limit, bypass, state, power, charger contract and measured input), Display (refresh policy, timing presets or custom idle times), Performance (GPU profile and limits, temperatures from `Thermal`), Torch & LED Ring, USB, Emergency Key, Systems (multiboot: restart into / next / default from a row's menu, opened by tapping the row; the subtitle always names the partition, then any problem in short, e.g. `baldur-root-sd · No sound or Wi-Fi`), Android, Diagnostics (export) and About (versions, firmware, About dialog with copyable debug info). Short values stay on one line, long ones (kernel, hashes, paths) sit under the row title with a copy button; the split view collapses into list → page navigation below 860 sp. The property poll runs on a worker thread, so a slow daemon answer (a Boot rescan mounts SD roots; the daemon runs it on a blocking thread too) never freezes the window. Adwaita fits GNOME; on other desktops it still runs as a plain app.
@@ -218,7 +219,7 @@ speaker limits stay in layer 1.
 
 ## D-Bus API
 
-System bus name **`io.github.joonhoekim.tb323fu.Helper`**, one object per feature under `/io/github/joonhoekim/tb323fu/Helper/…`.
+System bus name **`io.github.joonhoekim.OpenDeviceHelper1`**, one object per feature under `/io/github/joonhoekim/OpenDeviceHelper1/…`.
 Standard `org.freedesktop.DBus.Properties` for properties (with `PropertiesChanged`), plus methods below.
 
 <details>
@@ -226,7 +227,7 @@ Standard `org.freedesktop.DBus.Properties` for properties (with `PropertiesChang
 
 | Object / interface | Properties | Methods | Signals | polkit action (default for the active local user) |
 |---|---|---|---|---|
-| `/…/Battery` · `io.github.joonhoekim.tb323fu.Helper.Battery` | `ChargeLimit` (u, %), `Bypass` (b: limit ≤ capacity with external power → battery idle, current ≈ 0), `Status` (s, raw kernel), `State` (s: `charging` / `discharging` / `bypass` / `full` / `not-charging`, derived from status + current + limit + the Bypass switch: the firmware keeps saying "Charging" while the battery is held, so with Bypass on, external power and \|current\| ≤ 300 mA it is `bypass` (185 mA seen in bypass on a 65 W charger); while the current is still larger — just switched on, or the charger cannot carry the load — it stays `charging` / `discharging`; without the switch, "Charging" at or above the limit with \|current\| ≤ 300 mA is `bypass` too, shown as "Held at Limit"), `Capacity` (u), `CurrentMa` (i), `VoltageMv` (u), `TemperatureC` (d), `Health` (s), `CycleCount` (i, −1 unknown), `DesignCapacityMah` (i, −1 unknown), `ChargerType` (s: UCSI `usb_type`, e.g. `C`, `PD`; `USB` without UCSI, `none`), `ChargerContract` (s: the UCSI contract, e.g. `PD 9.0 V 3.00 A`; the firmware reports 0 for PD/PPS chargers, then the measured input marked `in`: `PPS · 9.2 V in · ~40 W`; `unknown` / `none`), `ChargerAdapter` (s: adapter the battery manager detected — `SDP`, `DCP`, `CDP`, `PD`, `PD_PPS`, … — `""` unknown), `InputVoltageMv` (u), `InputCurrentMa` (u: measured charger input from the battmgr USB supply, 0 unplugged) | `SetChargeLimit(u)`, `SetBypass(b)` | `Changed()` | `…charge-limit` — allow (`yes`) |
+| `/…/Battery` · `io.github.joonhoekim.OpenDeviceHelper1.Battery` | `ChargeLimit` (u, %), `Bypass` (b: limit ≤ capacity with external power → battery idle, current ≈ 0), `Status` (s, raw kernel), `State` (s: `charging` / `discharging` / `bypass` / `full` / `not-charging`, derived from status + current + limit + the Bypass switch: the firmware keeps saying "Charging" while the battery is held, so with Bypass on, external power and \|current\| ≤ 300 mA it is `bypass` (185 mA seen in bypass on a 65 W charger); while the current is still larger — just switched on, or the charger cannot carry the load — it stays `charging` / `discharging`; without the switch, "Charging" at or above the limit with \|current\| ≤ 300 mA is `bypass` too, shown as "Held at Limit"), `Capacity` (u), `CurrentMa` (i), `VoltageMv` (u), `TemperatureC` (d), `Health` (s), `CycleCount` (i, −1 unknown), `DesignCapacityMah` (i, −1 unknown), `ChargerType` (s: UCSI `usb_type`, e.g. `C`, `PD`; `USB` without UCSI, `none`), `ChargerContract` (s: the UCSI contract, e.g. `PD 9.0 V 3.00 A`; the firmware reports 0 for PD/PPS chargers, then the measured input marked `in`: `PPS · 9.2 V in · ~40 W`; `unknown` / `none`), `ChargerAdapter` (s: adapter the battery manager detected — `SDP`, `DCP`, `CDP`, `PD`, `PD_PPS`, … — `""` unknown), `InputVoltageMv` (u), `InputCurrentMa` (u: measured charger input from the battmgr USB supply, 0 unplugged) | `SetChargeLimit(u)`, `SetBypass(b)` | `Changed()` | `…charge-limit` — allow (`yes`) |
 | `/…/Android` · `…Android` | `Available` (b: hash file present and `boot_b` recorded), `ImageSha256` (s), `RequireAuth` (b) | `SwitchToAndroid()`, `SetRequireAuth(b)` (`…admin`) | `SwitchingToAndroid()` | `…android-switch` — allow (`yes`); `…android-switch-auth` — `auth_admin_keep`. The daemon checks the second one only when `android.require_auth = true` in the config (default `false`) |
 | `/…/Torch` · `…Torch` | `On` (b), `Level` (u), `MaxLevel` (u) | `Set(b)`, `SetLevel(u)` | — | `…torch` — allow |
 | `/…/LedRing` · `…LedRing` | `Mode` (s: `charge` / `off`), `Brightness` (u), `LowPercent` (u) | `SetMode(s)`, `SetBrightness(u)`, `SetLowPercent(u)` | — | `…led-ring` — allow |
@@ -255,10 +256,10 @@ Files (paths for a normal FHS distribution):
 |---|---|
 | daemon | `/usr/libexec/tb323fu/tb323fu-helperd` (packages; `/usr/local/libexec/` for a manual install) |
 | CLI | `/usr/bin/tb323fu-ctl` |
-| systemd unit | `/usr/lib/systemd/system/tb323fu-helperd.service` (`Type=dbus`, `BusName=io.github.joonhoekim.tb323fu.Helper`, `WantedBy=multi-user.target`, hardening: `ProtectSystem=strict`, `ReadWritePaths=/etc/tb323fu /sys`) |
-| D-Bus policy | `/usr/share/dbus-1/system.d/io.github.joonhoekim.tb323fu.Helper.conf` (own: root; send: everyone; polkit decides) |
-| D-Bus activation | `/usr/share/dbus-1/system-services/io.github.joonhoekim.tb323fu.Helper.service` (`SystemdService=`) |
-| polkit | `/usr/share/polkit-1/actions/io.github.joonhoekim.tb323fu.helper.policy` |
+| systemd unit | `/usr/lib/systemd/system/tb323fu-helperd.service` (`Type=dbus`, `BusName=io.github.joonhoekim.OpenDeviceHelper1`, `WantedBy=multi-user.target`, hardening: `ProtectSystem=strict`, `ReadWritePaths=/etc/tb323fu /sys`) |
+| D-Bus policy | `/usr/share/dbus-1/system.d/io.github.joonhoekim.OpenDeviceHelper1.conf` (own: root; send: everyone; polkit decides) |
+| D-Bus activation | `/usr/share/dbus-1/system-services/io.github.joonhoekim.OpenDeviceHelper1.service` (`SystemdService=`) |
+| polkit | `/usr/share/polkit-1/actions/io.github.joonhoekim.opendevicehelper.policy` |
 | kernel download | `/usr/libexec/tb323fu/tb323fu-kernel-fetch` + `/usr/lib/systemd/system/tb323fu-kernel-fetch.service` (oneshot, started by the daemon only: `DynamicUser=yes`, `CacheDirectory=tb323fu-kernel`, network, nothing else writable, optional credential `tb323fu-github-token`; needs `curl`) |
 | kernel signing keys | none shipped (signatures are optional: `require_signature`); administrators who want them put keys in `/etc/tb323fu/keys/kernel-*.pub` or `public_keys`. `install.sh` removes the key of the earlier signed-index channel |
 | kernel confirmation | `tb323fu-kernel-confirm.service` + `/usr/libexec/tb323fu/tb323fu-kernel-confirm` — in the **platform** package (layer 1), enabled with the other platform units |

@@ -6,8 +6,8 @@ use std::collections::HashMap;
 use zbus::blocking::Connection;
 use zbus::zvariant::{OwnedValue, Value};
 
-const BUS: &str = "io.github.joonhoekim.tb323fu.Helper";
-const ROOT: &str = "/io/github/joonhoekim/tb323fu/Helper";
+const BUS: &str = "io.github.joonhoekim.OpenDeviceHelper1";
+const ROOT: &str = "/io/github/joonhoekim/OpenDeviceHelper1";
 const OBJECTS: [&str; 12] = ["Battery", "Android", "Torch", "LedRing", "Refresh", "Gpu", "Usb", "EmergencyKey", "Diagnostics", "Boot", "Thermal", "Kernel"];
 
 const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND

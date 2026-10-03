@@ -44,7 +44,7 @@ use zbus::message::Header;
 use zbus::object_server::SignalEmitter;
 use zbus::zvariant::OwnedFd;
 
-pub const P_KERNEL: &str = "/io/github/joonhoekim/tb323fu/Helper/Kernel";
+pub const P_KERNEL: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Kernel";
 const FETCH_UNIT: &str = "tb323fu-kernel-fetch.service";
 const DAY: u64 = 86400;
 /// A local file: an Image, Image.gz or a whole boot image (96 MiB).
@@ -520,7 +520,7 @@ impl Inner {
 }
 
 impl Snapshot for Kernel {
-    const IFACE: &'static str = "io.github.joonhoekim.tb323fu.Helper.Kernel";
+    const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Kernel";
     const PROPS: &'static [&'static str] = &["Running", "RunningBuild", "SharedModules", "Channel", "Source", "Available", "Downloaded", "State",
         "Progress", "Trial", "TrialChannel", "TrialLabel", "Tries", "MaxTries", "KeepPending", "Good", "GoodLabel", "LastFailed", "LastCheck",
         "IndexExpired", "AutoCheck", "RequireSignature", "HelperLatest", "HelperUpdateCommand", "Message"];
@@ -558,7 +558,7 @@ impl Kernel {
     }
 }
 
-#[interface(name = "io.github.joonhoekim.tb323fu.Helper.Kernel")]
+#[interface(name = "io.github.joonhoekim.OpenDeviceHelper1.Kernel")]
 impl Kernel {
     /// `uname -r`
     #[zbus(property)]

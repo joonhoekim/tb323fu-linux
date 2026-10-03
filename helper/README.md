@@ -1,4 +1,4 @@
-# tb323fu-helper
+# tb323fu-helper (Open Device Helper)
 
 `tb323fu-helperd` (system D-Bus service) and `tb323fu-ctl` (CLI) for the device-specific features of the
 Lenovo Legion Tab Gen 5 / Y700 5th Gen (TB323FU): battery charge limit and bypass, battery/charger details,
@@ -71,7 +71,7 @@ disabling the emergency key, `android require-auth`, `reload`, and for kernel up
 and changing the channel or the daily check (looking for, downloading and keeping a kernel need none); installing a
 kernel from a file asks for the administrator's password every time (`auth_admin`, see docs/helper.md).
 Switching to Android can be made to ask for authentication with `tb323fu-ctl android require-auth on`. Actions are in
-`data/io.github.joonhoekim.tb323fu.helper.policy`.
+`data/io.github.joonhoekim.opendevicehelper.policy`.
 
 ## Tests
 

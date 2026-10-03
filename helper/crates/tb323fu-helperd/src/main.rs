@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Joonhoe Kim
-//! tb323fu-helperd: system D-Bus service (`io.github.joonhoekim.tb323fu.Helper`)
+//! tb323fu-helperd: system D-Bus service (`io.github.joonhoekim.OpenDeviceHelper1`)
 //! for the device-specific features of the Lenovo TB323FU. See docs/helper.md.
 //!
 //!   tb323fu-helperd [--session] [--no-polkit]
@@ -21,7 +21,7 @@ use tb323fu_helper_core::config::{config_path, Config};
 use tb323fu_helper_core::features as f;
 use zbus::object_server::SignalEmitter;
 
-pub const BUS: &str = "io.github.joonhoekim.tb323fu.Helper";
+pub const BUS: &str = "io.github.joonhoekim.OpenDeviceHelper1";
 
 pub struct Shared {
     cfg: Mutex<Config>,

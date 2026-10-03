@@ -48,7 +48,7 @@ export default function Home() {
     { name: "firmware/", file: "firmware/README.md", text: "Manifest and an extraction script — firmware comes from your own tablet, none is stored." },
     { name: "rootfs/", file: "docs/distros.md", text: "Optional builders for root filesystems on the multiboot partitions." },
     { name: "userspace/", file: "userspace/platform/README.md", text: "Distribution-neutral platform files: udev, systemd units, audio, sensors, emergency key." },
-    { name: "helper/", file: "helper/README.md", text: "Device helper daemon, CLI and settings app for the tablet's own knobs." },
+    { name: "helper/", file: "helper/README.md", text: "Open Device Helper: daemon, CLI and settings app for the tablet's own knobs." },
     { name: "packaging/", text: "Debian, Arch and Nix recipes." },
   ];
 

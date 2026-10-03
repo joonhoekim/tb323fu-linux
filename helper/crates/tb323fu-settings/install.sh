@@ -7,7 +7,7 @@ set -e
 PREFIX=${PREFIX:-/usr/local}
 D=${DESTDIR:-}
 here=$(cd "$(dirname "$0")" && pwd)
-id=io.github.joonhoekim.tb323fu.Settings
+id=io.github.joonhoekim.OpenDeviceHelper
 files="$PREFIX/bin/tb323fu-settings
 $PREFIX/share/applications/$id.desktop
 $PREFIX/share/icons/hicolor/scalable/apps/$id.svg
@@ -17,6 +17,9 @@ if [ "${1:-}" = --uninstall ]; then
 	echo "removed tb323fu-settings from $D$PREFIX"
 	exit 0
 fi
+# the app ID before the helper became Open Device Helper (10-03)
+old=io.github.joonhoekim.tb323fu.Settings
+rm -f "$D$PREFIX/share/applications/$old.desktop" "$D$PREFIX/share/icons/hicolor/scalable/apps/$old.svg" "$D$PREFIX/share/metainfo/$old.metainfo.xml"
 install -Dm755 "$here/target/release/tb323fu-settings" "$D$PREFIX/bin/tb323fu-settings"
 install -Dm644 "$here/data/$id.desktop" "$D$PREFIX/share/applications/$id.desktop"
 install -Dm644 "$here/data/$id.svg" "$D$PREFIX/share/icons/hicolor/scalable/apps/$id.svg"

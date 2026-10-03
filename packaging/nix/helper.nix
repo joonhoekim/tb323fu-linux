@@ -16,9 +16,9 @@ rustPlatform.buildRustPackage {
     install -Dm755 data/tb323fu-kernel-fetch $out/libexec/tb323fu-kernel-fetch
     sed "s|@LIBEXECDIR@|$out/libexec|" data/tb323fu-kernel-fetch.service > unit
     install -Dm644 unit $out/lib/systemd/system/tb323fu-kernel-fetch.service
-    install -Dm644 data/io.github.joonhoekim.tb323fu.Helper.conf $out/share/dbus-1/system.d/io.github.joonhoekim.tb323fu.Helper.conf
-    install -Dm644 data/io.github.joonhoekim.tb323fu.Helper.service $out/share/dbus-1/system-services/io.github.joonhoekim.tb323fu.Helper.service
-    install -Dm644 data/io.github.joonhoekim.tb323fu.helper.policy $out/share/polkit-1/actions/io.github.joonhoekim.tb323fu.helper.policy
+    install -Dm644 data/io.github.joonhoekim.OpenDeviceHelper1.conf $out/share/dbus-1/system.d/io.github.joonhoekim.OpenDeviceHelper1.conf
+    install -Dm644 data/io.github.joonhoekim.OpenDeviceHelper1.service $out/share/dbus-1/system-services/io.github.joonhoekim.OpenDeviceHelper1.service
+    install -Dm644 data/io.github.joonhoekim.opendevicehelper.policy $out/share/polkit-1/actions/io.github.joonhoekim.opendevicehelper.policy
     install -Dm644 data/helper.toml.example $out/share/doc/tb323fu-helper/helper.toml.example
   '';
   meta = with lib; {

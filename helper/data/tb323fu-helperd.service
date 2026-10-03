@@ -7,7 +7,7 @@ After=systemd-udev-trigger.service systemd-pstore.service
 
 [Service]
 Type=dbus
-BusName=io.github.joonhoekim.tb323fu.Helper
+BusName=io.github.joonhoekim.OpenDeviceHelper1
 ExecStart=@LIBEXECDIR@/tb323fu-helperd
 Restart=on-failure
 RestartSec=2

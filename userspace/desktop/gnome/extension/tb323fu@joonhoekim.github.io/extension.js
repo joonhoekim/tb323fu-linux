@@ -15,10 +15,10 @@ import {Slider} from 'resource:///org/gnome/shell/ui/slider.js';
 import {QuickMenuToggle, SystemIndicator} from 'resource:///org/gnome/shell/ui/quickSettings.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
-const BUS = 'io.github.joonhoekim.tb323fu.Helper';
-const ROOT = '/io/github/joonhoekim/tb323fu/Helper';
+const BUS = 'io.github.joonhoekim.OpenDeviceHelper1';
+const ROOT = '/io/github/joonhoekim/OpenDeviceHelper1';
 const OBJ = name => ({path: `${ROOT}/${name}`, iface: `${BUS}.${name}`});
-const SETTINGS_DESKTOP_ID = 'io.github.joonhoekim.tb323fu.Settings.desktop';
+const SETTINGS_DESKTOP_ID = 'io.github.joonhoekim.OpenDeviceHelper.desktop';
 
 // Labels for the daemon's ids (the settings app uses the same words).
 const STATE_LABELS = {
@@ -165,7 +165,7 @@ function launchSettings() {
     if (app)
         app.launch([], global.create_app_launch_context(0, -1));
     else
-        notify('Tablet Settings', 'The settings app is not installed');
+        notify('Open Device Helper', 'The settings app is not installed');
 }
 
 const TabletToggle = GObject.registerClass(
@@ -239,7 +239,7 @@ class TabletToggle extends QuickMenuToggle {
 
         // GPU, USB wake, idle timing, Android switch: in the settings app
         this._inner.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        this._settings = new PopupMenu.PopupMenuItem('Tablet Settings…');
+        this._settings = new PopupMenu.PopupMenuItem('Open Device Helper…');
         this._settings.connect('activate', () => launchSettings());
         this._inner.addMenuItem(this._settings);
 

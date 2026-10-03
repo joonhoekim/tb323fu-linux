@@ -444,7 +444,7 @@ tb323fu-ctl boot default tb323fu-ubuntu  # persistent
 tb323fu-ctl boot reboot tb323fu-nixos    # set next and reboot
 ```
 
-or the **Systems** page of Tablet Settings, or an on-screen menu at boot (create `/etc/tb323fu/boot-menu` on
+or the **Systems** page of Open Device Helper, or an on-screen menu at boot (create `/etc/tb323fu/boot-menu` on
 the state root, normally `baldur-root`; volume up = next, 5 s idle = boot). See [helper.md](helper.md#multiboot) and
 [kernel/initramfs/README.md](../kernel/initramfs/README.md#root-partitions-and-multiboot).
 

@@ -2,17 +2,17 @@
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!-- Copyright (C) 2026 Joonhoe Kim -->
 <component type="desktop-application">
-  <id>io.github.joonhoekim.tb323fu.Settings</id>
+  <id>io.github.joonhoekim.OpenDeviceHelper</id>
   <metadata_license>MIT</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
-  <name>Tablet Settings</name>
+  <name>Open Device Helper</name>
   <summary>Device settings for the Lenovo Legion Tab Gen 5 (TB323FU) on Linux</summary>
   <description>
     <p>A front-end for the tb323fu-helperd service: charge limit and bypass charging, battery and charger details,
     the in-kernel idle refresh rate, GPU profile and limits, torch and LED ring, USB wake and developer mode,
     the emergency key, switching back to Android, diagnostics export and version information.</p>
   </description>
-  <launchable type="desktop-id">io.github.joonhoekim.tb323fu.Settings.desktop</launchable>
+  <launchable type="desktop-id">io.github.joonhoekim.OpenDeviceHelper.desktop</launchable>
   <url type="homepage">https://github.com/joonhoekim/tb323fu-linux</url>
   <developer id="io.github.joonhoekim">
     <name>Joonhoe Kim</name>

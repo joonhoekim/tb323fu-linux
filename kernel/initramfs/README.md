@@ -145,7 +145,7 @@ instead: NixOS stage 2 (started without a NixOS stage 1) mounts `/proc`, `/sys`,
 </details>
 
 The helper sets these files for you: `tb323fu-ctl boot list|next NAME|default NAME|reboot NAME`, or the
-"Systems" page of Tablet Settings (see [../../docs/helper.md](../../docs/helper.md)).
+"Systems" page of Open Device Helper (see [../../docs/helper.md](../../docs/helper.md)).
 
 **Kernel trial.** A kernel the helper installed is on trial until a system confirms it (90 s after it came up, or
 Keep for the testing channel; [docs/helper.md](../../docs/helper.md#kernel-updates)). While reading the selection,

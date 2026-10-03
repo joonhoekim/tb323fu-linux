@@ -7,8 +7,8 @@ use std::collections::HashMap;
 use zbus::blocking::Connection;
 use zbus::zvariant::{OwnedValue, Value};
 
-pub const BUS: &str = "io.github.joonhoekim.tb323fu.Helper";
-pub const ROOT: &str = "/io/github/joonhoekim/tb323fu/Helper";
+pub const BUS: &str = "io.github.joonhoekim.OpenDeviceHelper1";
+pub const ROOT: &str = "/io/github/joonhoekim/OpenDeviceHelper1";
 
 pub type Props = HashMap<String, OwnedValue>;
 

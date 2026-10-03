@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Joonhoe Kim
-//! The D-Bus objects of `io.github.joonhoekim.tb323fu.Helper` (see
+//! The D-Bus objects of `io.github.joonhoekim.OpenDeviceHelper1` (see
 //! docs/helper.md for the contract). Property getters read the device live;
 //! setters check polkit, write the device, persist the setting and emit
 //! PropertiesChanged (with the changed properties invalidated).
@@ -19,18 +19,18 @@ use zbus::message::Header;
 use zbus::names::InterfaceName;
 use zbus::object_server::SignalEmitter;
 
-pub const ROOT: &str = "/io/github/joonhoekim/tb323fu/Helper";
-pub const P_BATTERY: &str = "/io/github/joonhoekim/tb323fu/Helper/Battery";
-pub const P_ANDROID: &str = "/io/github/joonhoekim/tb323fu/Helper/Android";
-pub const P_TORCH: &str = "/io/github/joonhoekim/tb323fu/Helper/Torch";
-pub const P_LEDRING: &str = "/io/github/joonhoekim/tb323fu/Helper/LedRing";
-pub const P_REFRESH: &str = "/io/github/joonhoekim/tb323fu/Helper/Refresh";
-pub const P_GPU: &str = "/io/github/joonhoekim/tb323fu/Helper/Gpu";
-pub const P_USB: &str = "/io/github/joonhoekim/tb323fu/Helper/Usb";
-pub const P_EMERGENCY: &str = "/io/github/joonhoekim/tb323fu/Helper/EmergencyKey";
-pub const P_DIAG: &str = "/io/github/joonhoekim/tb323fu/Helper/Diagnostics";
-pub const P_BOOT: &str = "/io/github/joonhoekim/tb323fu/Helper/Boot";
-pub const P_THERMAL: &str = "/io/github/joonhoekim/tb323fu/Helper/Thermal";
+pub const ROOT: &str = "/io/github/joonhoekim/OpenDeviceHelper1";
+pub const P_BATTERY: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Battery";
+pub const P_ANDROID: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Android";
+pub const P_TORCH: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Torch";
+pub const P_LEDRING: &str = "/io/github/joonhoekim/OpenDeviceHelper1/LedRing";
+pub const P_REFRESH: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Refresh";
+pub const P_GPU: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Gpu";
+pub const P_USB: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Usb";
+pub const P_EMERGENCY: &str = "/io/github/joonhoekim/OpenDeviceHelper1/EmergencyKey";
+pub const P_DIAG: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Diagnostics";
+pub const P_BOOT: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Boot";
+pub const P_THERMAL: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Thermal";
 
 fn failed(e: String) -> fdo::Error {
     fdo::Error::Failed(e)
@@ -58,7 +58,7 @@ pub trait Snapshot {
 pub struct Battery(pub Arc<Shared>);
 
 impl Snapshot for Battery {
-    const IFACE: &'static str = "io.github.joonhoekim.tb323fu.Helper.Battery";
+    const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Battery";
     const PROPS: &'static [&'static str] = &["ChargeLimit", "Bypass", "Status", "State", "Capacity", "CurrentMa", "VoltageMv",
         "TemperatureC", "Health", "CycleCount", "DesignCapacityMah", "ChargerType", "ChargerContract", "ChargerAdapter", "InputVoltageMv", "InputCurrentMa"];
     fn snapshot(&self) -> String {
@@ -71,7 +71,7 @@ impl Snapshot for Battery {
     }
 }
 
-#[interface(name = "io.github.joonhoekim.tb323fu.Helper.Battery")]
+#[interface(name = "io.github.joonhoekim.OpenDeviceHelper1.Battery")]
 impl Battery {
     #[zbus(property)]
     fn charge_limit(&self) -> u32 {
@@ -191,14 +191,14 @@ impl Battery {
 pub struct Android(pub Arc<Shared>);
 
 impl Snapshot for Android {
-    const IFACE: &'static str = "io.github.joonhoekim.tb323fu.Helper.Android";
+    const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Android";
     const PROPS: &'static [&'static str] = &["Available", "ImageSha256", "RequireAuth"];
     fn snapshot(&self) -> String {
         format!("{:?} {:?} {}", f::android_hash(), f::back_to_android_tool(), self.0.cfg().android.require_auth)
     }
 }
 
-#[interface(name = "io.github.joonhoekim.tb323fu.Helper.Android")]
+#[interface(name = "io.github.joonhoekim.OpenDeviceHelper1.Android")]
 impl Android {
     #[zbus(property)]
     fn available(&self) -> bool {
@@ -246,14 +246,14 @@ impl Android {
 pub struct Torch(pub Arc<Shared>);
 
 impl Snapshot for Torch {
-    const IFACE: &'static str = "io.github.joonhoekim.tb323fu.Helper.Torch";
+    const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Torch";
     const PROPS: &'static [&'static str] = &["On", "Level", "MaxLevel"];
     fn snapshot(&self) -> String {
         format!("{:?} {}", f::torch_state().ok(), self.0.cfg().torch.level)
     }
 }
 
-#[interface(name = "io.github.joonhoekim.tb323fu.Helper.Torch")]
+#[interface(name = "io.github.joonhoekim.OpenDeviceHelper1.Torch")]
 impl Torch {
     #[zbus(property)]
     fn on(&self) -> bool {
@@ -297,14 +297,14 @@ impl Torch {
 pub struct LedRing(pub Arc<Shared>);
 
 impl Snapshot for LedRing {
-    const IFACE: &'static str = "io.github.joonhoekim.tb323fu.Helper.LedRing";
+    const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.LedRing";
     const PROPS: &'static [&'static str] = &["Mode", "Brightness", "LowPercent"];
     fn snapshot(&self) -> String {
         format!("{:?}", self.0.cfg().ledring)
     }
 }
 
-#[interface(name = "io.github.joonhoekim.tb323fu.Helper.LedRing")]
+#[interface(name = "io.github.joonhoekim.OpenDeviceHelper1.LedRing")]
 impl LedRing {
     #[zbus(property)]
     fn mode(&self) -> String {
@@ -359,7 +359,7 @@ impl LedRing {
 pub struct Refresh(pub Arc<Shared>);
 
 impl Snapshot for Refresh {
-    const IFACE: &'static str = "io.github.joonhoekim.tb323fu.Helper.Refresh";
+    const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Refresh";
     const PROPS: &'static [&'static str] = &["Policy", "Rate", "IdleMs60", "IdleMs30", "MinHz", "InputWakes", "LiveRate"];
     fn snapshot(&self) -> String {
         format!("{:?}", ["policy", "hz", "ms60", "ms30", "min_hz", "input"].map(f::refresh_get))
@@ -367,7 +367,7 @@ impl Snapshot for Refresh {
     }
 }
 
-#[interface(name = "io.github.joonhoekim.tb323fu.Helper.Refresh")]
+#[interface(name = "io.github.joonhoekim.OpenDeviceHelper1.Refresh")]
 impl Refresh {
     #[zbus(property)]
     fn policy(&self) -> String {
@@ -457,14 +457,14 @@ fn apply_idle(s: &Shared, ms60: u32, ms30: u32) -> fdo::Result<()> {
 pub struct Gpu(pub Arc<Shared>);
 
 impl Snapshot for Gpu {
-    const IFACE: &'static str = "io.github.joonhoekim.tb323fu.Helper.Gpu";
+    const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Gpu";
     const PROPS: &'static [&'static str] = &["Profile", "FollowPowerProfiles", "Floors"];
     fn snapshot(&self) -> String {
         format!("{:?} {}", self.0.cfg().gpu, self.0.gpu_profile())
     }
 }
 
-#[interface(name = "io.github.joonhoekim.tb323fu.Helper.Gpu")]
+#[interface(name = "io.github.joonhoekim.OpenDeviceHelper1.Gpu")]
 impl Gpu {
     /// The profile whose limits are in effect.
     #[zbus(property)]
@@ -524,14 +524,14 @@ impl Gpu {
 pub struct Usb(pub Arc<Shared>);
 
 impl Snapshot for Usb {
-    const IFACE: &'static str = "io.github.joonhoekim.tb323fu.Helper.Usb";
+    const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Usb";
     const PROPS: &'static [&'static str] = &["WakeEnabled", "DevMode"];
     fn snapshot(&self) -> String {
         format!("{:?} {:?}", f::usb_wake(), f::dev_mode())
     }
 }
 
-#[interface(name = "io.github.joonhoekim.tb323fu.Helper.Usb")]
+#[interface(name = "io.github.joonhoekim.OpenDeviceHelper1.Usb")]
 impl Usb {
     #[zbus(property)]
     fn wake_enabled(&self) -> bool {
@@ -565,14 +565,14 @@ impl Usb {
 pub struct EmergencyKey(pub Arc<Shared>);
 
 impl Snapshot for EmergencyKey {
-    const IFACE: &'static str = "io.github.joonhoekim.tb323fu.Helper.EmergencyKey";
+    const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.EmergencyKey";
     const PROPS: &'static [&'static str] = &["Enabled", "HoldSeconds"];
     fn snapshot(&self) -> String {
         format!("{:?}", f::emergency_get())
     }
 }
 
-#[interface(name = "io.github.joonhoekim.tb323fu.Helper.EmergencyKey")]
+#[interface(name = "io.github.joonhoekim.OpenDeviceHelper1.EmergencyKey")]
 impl EmergencyKey {
     #[zbus(property)]
     fn enabled(&self) -> bool {
@@ -604,14 +604,14 @@ impl EmergencyKey {
 pub struct Diagnostics(pub Arc<Shared>);
 
 impl Snapshot for Diagnostics {
-    const IFACE: &'static str = "io.github.joonhoekim.tb323fu.Helper.Diagnostics";
+    const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Diagnostics";
     const PROPS: &'static [&'static str] = &["CrashRecords", "LastBootClean"];
     fn snapshot(&self) -> String {
         format!("{} {}", f::pstore_files().len(), f::last_boot_clean())
     }
 }
 
-#[interface(name = "io.github.joonhoekim.tb323fu.Helper.Diagnostics")]
+#[interface(name = "io.github.joonhoekim.OpenDeviceHelper1.Diagnostics")]
 impl Diagnostics {
     #[zbus(property)]
     fn crash_records(&self) -> u32 {
@@ -632,7 +632,7 @@ impl Diagnostics {
 
 pub struct Helper(pub Arc<Shared>);
 
-#[interface(name = "io.github.joonhoekim.tb323fu.Helper")]
+#[interface(name = "io.github.joonhoekim.OpenDeviceHelper1")]
 impl Helper {
     #[zbus(property)]
     fn version(&self) -> String {
@@ -716,7 +716,7 @@ impl Boot {
 }
 
 impl Snapshot for Boot {
-    const IFACE: &'static str = "io.github.joonhoekim.tb323fu.Helper.Boot";
+    const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Boot";
     const PROPS: &'static [&'static str] = &["Roots", "Default", "Next", "Current", "RootHealth"];
     fn snapshot(&self) -> String {
         let c = self.cache();
@@ -724,7 +724,7 @@ impl Snapshot for Boot {
     }
 }
 
-#[interface(name = "io.github.joonhoekim.tb323fu.Helper.Boot")]
+#[interface(name = "io.github.joonhoekim.OpenDeviceHelper1.Boot")]
 impl Boot {
     /// (partition name, os-release PRETTY_NAME, present, init kind: systemd / nixos / none)
     #[zbus(property)]
@@ -816,7 +816,7 @@ fn or_nan(t: &Option<f::Thermal>, g: impl Fn(&f::Thermal) -> f64) -> f64 {
 }
 
 impl Snapshot for Thermal {
-    const IFACE: &'static str = "io.github.joonhoekim.tb323fu.Helper.Thermal";
+    const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Thermal";
     const PROPS: &'static [&'static str] = &["Surface", "CpuMax", "GpuMax", "Throttling", "Zones"];
     fn snapshot(&self) -> String {
         // whole degrees: a signal per degree of change, not per sample
@@ -827,7 +827,7 @@ impl Snapshot for Thermal {
     }
 }
 
-#[interface(name = "io.github.joonhoekim.tb323fu.Helper.Thermal")]
+#[interface(name = "io.github.joonhoekim.OpenDeviceHelper1.Thermal")]
 impl Thermal {
     /// Skin (else quiet) sensor, °C; NaN when absent.
     #[zbus(property)]

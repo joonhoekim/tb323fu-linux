@@ -34,8 +34,8 @@ B=$here/target/release
 files() {
 	echo "$LIBEXECDIR/tb323fu-helperd $BINDIR/tb323fu-ctl $UNITDIR/tb323fu-helperd.service"
 	echo "$LIBEXECDIR/tb323fu-kernel-fetch $UNITDIR/tb323fu-kernel-fetch.service"
-	echo "$DBUSCONF/io.github.joonhoekim.tb323fu.Helper.conf $DBUSSVC/io.github.joonhoekim.tb323fu.Helper.service"
-	echo "$POLKIT/io.github.joonhoekim.tb323fu.helper.policy"
+	echo "$DBUSCONF/io.github.joonhoekim.OpenDeviceHelper1.conf $DBUSSVC/io.github.joonhoekim.OpenDeviceHelper1.service"
+	echo "$POLKIT/io.github.joonhoekim.opendevicehelper.policy"
 }
 
 if [ "${1:-}" = --uninstall ]; then
@@ -59,9 +59,11 @@ install -Dm644 "$here/data/.unit" "$DESTDIR$UNITDIR/tb323fu-kernel-fetch.service
 rm -f "$here/data/.unit"
 # the signed-index channel (before GitHub Releases) trusted this key; nothing does now
 rm -f "$DESTDIR$KEYDIR/kernel-A5D2DA7287637413.pub"
-install -Dm644 "$here/data/io.github.joonhoekim.tb323fu.Helper.conf" "$DESTDIR$DBUSCONF/io.github.joonhoekim.tb323fu.Helper.conf"
-install -Dm644 "$here/data/io.github.joonhoekim.tb323fu.Helper.service" "$DESTDIR$DBUSSVC/io.github.joonhoekim.tb323fu.Helper.service"
-install -Dm644 "$here/data/io.github.joonhoekim.tb323fu.helper.policy" "$DESTDIR$POLKIT/io.github.joonhoekim.tb323fu.helper.policy"
+# the D-Bus and polkit names before the helper became Open Device Helper (10-03)
+rm -f "$DESTDIR$DBUSCONF/io.github.joonhoekim.tb323fu.Helper.conf" "$DESTDIR$DBUSSVC/io.github.joonhoekim.tb323fu.Helper.service" 	"$DESTDIR$POLKIT/io.github.joonhoekim.tb323fu.helper.policy"
+install -Dm644 "$here/data/io.github.joonhoekim.OpenDeviceHelper1.conf" "$DESTDIR$DBUSCONF/io.github.joonhoekim.OpenDeviceHelper1.conf"
+install -Dm644 "$here/data/io.github.joonhoekim.OpenDeviceHelper1.service" "$DESTDIR$DBUSSVC/io.github.joonhoekim.OpenDeviceHelper1.service"
+install -Dm644 "$here/data/io.github.joonhoekim.opendevicehelper.policy" "$DESTDIR$POLKIT/io.github.joonhoekim.opendevicehelper.policy"
 install -Dm644 "$here/data/helper.toml.example" "$DESTDIR$PREFIX/share/doc/tb323fu-helper/helper.toml.example"
 if [ -z "$DESTDIR" ]; then
 	sync
