@@ -19,9 +19,13 @@ require_auth = false     # ask for authentication before "restart into Android"
 level = 96               # torch brightness 1..max_brightness (never the flash strobe)
 
 [ledring]
-mode = "charge"          # "charge" (amber charging, green full/held, red when low) or "off"
+mode = "charge"          # "charge" (amber charging, green full/held, red when low), "solid", "breathe" or "off"
 brightness = 40          # 0..255
 low_percent = 15
+color = "#3c78ff"        # colour of solid and breathe
+speed = 4000             # breathing cycle, ms (1000..20000); breathing stops while the screen is off
+charge_override = true   # in solid/breathe, the charge colours take over while charging, full or held, or low
+notify = false           # the GNOME extension pulses the ring for desktop notifications
 
 [refresh]                # kernel msm.idle_refresh_*; omit to keep the kernel's values
 # policy = "auto"        # off | manual | auto

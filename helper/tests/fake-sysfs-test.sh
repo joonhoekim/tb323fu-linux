@@ -134,6 +134,19 @@ $C torch off && check "torch off" /sys/class/leds/white:flash/brightness 0
 sleep 0.5
 check "LED ring amber while charging" $L/multi_intensity "255 90 0"
 check "LED ring brightness (migrated)" $L/brightness 33
+$C ledring color '#102030' && $C ledring solid && sleep 0.3 && check "solid while charging: charge colour takes over" $L/multi_intensity "255 90 0"
+$C ledring charge-override off && sleep 0.3 && check "solid: own colour" $L/multi_intensity "16 32 48"
+check "solid: full brightness" $L/brightness 33
+$C ledring color red 2>/dev/null && bad "colour 'red' accepted" || ok "colour 'red' refused"
+$C ledring speed 1000 && $C ledring breathe && sleep 0.2
+bs=""; for i in 1 2 3 4; do bs="$bs $(cat $R$L/brightness)"; sleep 0.13; done
+[ $(echo $bs | tr " " "
+" | sort -u | wc -l) -gt 1 ] && ok "breathing changes the brightness ($bs)" || bad "breathing ($bs)"
+mk $BL/bl_power 4; sleep 0.5; check "screen off: breathing stops at full brightness" $L/brightness 33
+mk $BL/bl_power 0
+$C ledring pulse '#00ff00' 1 && sleep 0.1 && check "pulse shows its colour" $L/multi_intensity "0 255 0"
+sleep 0.6; check "after the pulse: back to the ring colour" $L/multi_intensity "16 32 48"
+$C ledring charge-override on >/dev/null
 $C ledring off && check "LED ring off" $L/brightness 0
 
 $C refresh manual 60 && check "manual policy" $P/idle_refresh_policy 1

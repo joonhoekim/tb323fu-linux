@@ -308,11 +308,38 @@ pub fn ledring_apply(color: Option<[u32; 3]>, brightness: u32) -> Res<()> {
     let d = ledring_dir();
     match color {
         None => sys::write(&d.join("brightness"), "0").map_err(|e| werr("LED ring", e)),
+        // brightness first: the LED core re-applies the old brightness after a
+        // multi_intensity write and loses a brightness written right after it
         Some(c) => {
-            sys::write(&d.join("multi_intensity"), &format!("{} {} {}", c[0], c[1], c[2])).map_err(|e| werr("LED ring", e))?;
-            sys::write(&d.join("brightness"), &brightness.min(255).to_string()).map_err(|e| werr("LED ring", e))
+            sys::write(&d.join("brightness"), &brightness.min(255).to_string()).map_err(|e| werr("LED ring", e))?;
+            sys::write(&d.join("multi_intensity"), &format!("{} {} {}", c[0], c[1], c[2])).map_err(|e| werr("LED ring", e))
         }
     }
+}
+
+pub const LED_MODES: [&str; 4] = ["off", "charge", "solid", "breathe"];
+
+/// "#rrggbb" -> [r, g, b].
+pub fn parse_color(s: &str) -> Res<[u32; 3]> {
+    let h = s.strip_prefix('#').unwrap_or(s);
+    if h.len() != 6 || !h.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err("colour must be #rrggbb".into());
+    }
+    let v = |i: usize| u32::from_str_radix(&h[i..i + 2], 16).unwrap_or(0);
+    Ok([v(0), v(2), v(4)])
+}
+
+/// Only the brightness (the colour stays).
+pub fn ledring_brightness(v: u32) -> Res<()> {
+    sys::write(&ledring_dir().join("brightness"), &v.min(255).to_string()).map_err(|e| werr("LED ring", e))
+}
+
+/// Breathing: brightness at `t_ms` into a cycle of `period_ms` (8..100 % of
+/// `max`, never 0 so the colour stays latched).
+pub fn breathe_level(max: u32, t_ms: u64, period_ms: u32) -> u32 {
+    let x = (t_ms % period_ms.max(1) as u64) as f64 / period_ms.max(1) as f64;
+    let level = 0.08 + 0.92 * (0.5 - 0.5 * (2.0 * std::f64::consts::PI * x).cos());
+    ((max as f64 * level).round() as u32).max(1)
 }
 
 // ---------------------------------------------------------------- idle refresh
@@ -843,6 +870,16 @@ mod tests {
         assert!(thermal().is_none());
         std::env::remove_var("TB323FU_SYSFS_ROOT");
         let _ = std::fs::remove_dir_all(&r);
+    }
+    #[test]
+    fn led_effects() {
+        assert_eq!(parse_color("#ff5a00"), Ok([255, 90, 0]));
+        assert_eq!(parse_color("00a0FF"), Ok([0, 160, 255]));
+        assert!(parse_color("#ff5a0").is_err());
+        assert!(parse_color("#gg0000").is_err());
+        assert_eq!(breathe_level(200, 0, 4000), 16);
+        assert_eq!(breathe_level(200, 2000, 4000), 200);
+        assert_eq!(breathe_level(5, 0, 4000), 1);
     }
     #[test]
     fn policy_names() {

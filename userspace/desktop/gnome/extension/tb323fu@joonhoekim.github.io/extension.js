@@ -257,6 +257,14 @@ class TabletToggle extends QuickMenuToggle {
                 this._fitHeight();
         });
 
+        // LED ring pulse on desktop notifications, when LedRing.NotifyPulse is on
+        this._notifSettings = new Gio.Settings({schema_id: 'org.gnome.desktop.notifications'});
+        this._srcIds = [];
+        this._lastPulse = 0;
+        this._trayId = Main.messageTray.connect('source-added', (_t, source) => this._watchSource(source));
+        for (const s of Main.messageTray.getSources())
+            this._watchSource(s);
+
         this._sync();
     }
 
@@ -267,6 +275,27 @@ class TabletToggle extends QuickMenuToggle {
         const {scaleFactor} = St.ThemeContext.get_for_stage(global.stage);
         const px = Math.max(160, Math.floor(wa.height / scaleFactor * 0.45));
         this._scroll.style = `max-height: ${px}px;`;
+    }
+
+    _watchSource(source) {
+        if (source === notifySource)
+            return;
+        const id = source.connect('notification-added', () => this._pulse());
+        this._srcIds.push([source, id]);
+        source.connect('destroy', () => {
+            this._srcIds = this._srcIds.filter(([s]) => s !== source);
+        });
+    }
+
+    _pulse() {
+        const led = this._helper.props.LedRing;
+        if (!this._helper.has('LedRing') || !led?.NotifyPulse || !this._notifSettings.get_boolean('show-banners'))
+            return;
+        const now = GLib.get_monotonic_time();
+        if (now - this._lastPulse < 2000000)
+            return;
+        this._lastPulse = now;
+        this._helper.call('LedRing', 'Pulse', 'su', ['', 2]);
     }
 
     _sendLevel() {
@@ -336,6 +365,10 @@ class TabletToggle extends QuickMenuToggle {
     }
 
     destroy() {
+        Main.messageTray.disconnect(this._trayId);
+        for (const [s, id] of this._srcIds)
+            s.disconnect(id);
+        this._srcIds = [];
         this._helper.destroy();
         super.destroy();
     }

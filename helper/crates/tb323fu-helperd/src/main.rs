@@ -11,6 +11,7 @@
 mod diag;
 mod ifaces;
 mod kernel;
+mod led;
 mod nm;
 mod polkit;
 
@@ -53,7 +54,7 @@ pub struct Shared {
     pub no_polkit: bool,
     pub features: Vec<String>,
     pub firmware: Mutex<Option<std::collections::BTreeMap<String, String>>>,
-    last_led: Mutex<Option<Option<[u32; 3]>>>,
+    pub led: led::Led,
     last_gpu: Mutex<Option<(String, [u32; 2])>>,
     ppd_profile: Mutex<Option<String>>,
     pub rt: Mutex<Runtime>,
@@ -395,24 +396,10 @@ impl Shared {
         self.wifi_tick(conn, force).await;
     }
 
-    /// Charge indicator on the RGB ring (only writes on a colour change).
+    /// Redraw the LED ring now (its thread redraws by itself otherwise).
     pub fn ledring_tick(&self, force: bool) {
-        if !f::ledring_dir().exists() {
-            return;
-        }
-        let cfg = self.cfg();
-        let (c, bypass) = (cfg.ledring, cfg.battery.bypass);
-        let color = if c.mode == "charge" {
-            f::battery_info().ok().and_then(|i| f::ledring_color(&i, c.low_percent, bypass))
-        } else {
-            None
-        };
-        let mut last = self.last_led.lock().unwrap();
-        if force || last.as_ref() != Some(&color) {
-            if let Err(e) = f::ledring_apply(color, c.brightness) {
-                eprintln!("tb323fu-helperd: {e}");
-            }
-            *last = Some(color);
+        if force {
+            self.led.kick();
         }
     }
 }
@@ -514,7 +501,7 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
         no_polkit,
         features,
         firmware: Mutex::new(None),
-        last_led: Mutex::new(None),
+        led: led::Led::default(),
         last_gpu: Mutex::new(None),
         ppd_profile: Mutex::new(None),
         rt: Mutex::new(Runtime::default()),
@@ -523,6 +510,9 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
         shared.update(|_| {}); // write the defaults (+ migrated legacy values) once
     }
     apply_startup(&shared);
+    if has_ledring {
+        led::spawn(shared.clone());
+    }
 
     let b = if session { zbus::connection::Builder::session()? } else { zbus::connection::Builder::system()? };
     let mut b = b.serve_at(ROOT, Helper(shared.clone()))?;
@@ -577,7 +567,6 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
     // written by someone else, ...). 5 s is enough for all of these.
     let mut last: HashMap<&'static str, String> = HashMap::new();
     loop {
-        shared.ledring_tick(false);
         shared.profile_tick(&conn, false).await;
         shared.panel_tick();
         shared.haptics_tick();

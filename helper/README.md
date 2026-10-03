@@ -32,7 +32,8 @@ tb323fu-ctl bypass on                # hold the battery where it is while on ext
 tb323fu-ctl battery recharge-gap 5   # charging resumes 5 % below the limit
 tb323fu-ctl battery full-by 07:00 mon tue wed thu fri   # 100 % by 7:00 on weekdays, then back to the limit
 tb323fu-ctl torch on | off | level 60
-tb323fu-ctl ledring charge | off | brightness 40 | low 15
+tb323fu-ctl ledring charge | solid | breathe | off | brightness 40 | low 15
+tb323fu-ctl ledring color "#3c78ff" | speed 4000 | charge-override on | notify on | pulse "#00ff00" 3
 tb323fu-ctl refresh auto | off | manual 60 | preset power-saver|balanced|smooth | idle 1000 5000
 tb323fu-ctl gpu profile power-saver | follow on | limits balanced 160 1200   # the performance profile
 tb323fu-ctl gpu cpu-limits power-saver 384 2496 768 2880   # CPU little min/max, big min/max (MHz)

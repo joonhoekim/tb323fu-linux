@@ -22,7 +22,11 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
   android [--yes]                show, or with --yes restart into Android now
   android require-auth on|off    ask for authentication before switching (admin)
   torch [on|off|toggle|level N]
-  ledring [charge|off|brightness N|low PERCENT]
+  ledring [charge|solid|breathe|off|brightness N|low PERCENT]
+  ledring color #RRGGBB|speed MS|charge-override on|off|notify on|off
+                                 colour and breathing cycle (1000..20000 ms) of solid/breathe; charge colours
+                                 take over while charging or low; pulse on desktop notifications (GNOME extension)
+  ledring pulse [#RRGGBB] [COUNT]  blink the ring (scripts, notifications)
   refresh [auto|off|manual [HZ]|idle MS60 MS30|preset power-saver|balanced|smooth]
   gpu [profile NAME|follow on|off|limits PROFILE MIN_MHZ MAX_MHZ|boost on|off]
                                  the performance profile (power-saver, balanced, performance); also `perf`
@@ -592,7 +596,28 @@ fn run(args: &[String]) -> i32 {
         },
         "ledring" => match rest.first().copied() {
             None => c.show(&["LedRing"]),
-            Some(m @ ("charge" | "off")) => c.call("LedRing", "SetMode", &(m,)),
+            Some(m @ ("charge" | "off" | "solid" | "breathe")) => c.call("LedRing", "SetMode", &(m,)),
+            Some("color") => match rest.get(1) {
+                Some(col) => c.call("LedRing", "SetColor", &(*col,)),
+                None => usage(),
+            },
+            Some("speed") => match num(rest.get(1)) {
+                Some(n) => c.call("LedRing", "SetSpeed", &(n,)),
+                None => usage(),
+            },
+            Some("charge-override") => match onoff(rest.get(1)) {
+                Some(b) => c.call("LedRing", "SetChargeOverride", &(b,)),
+                None => usage(),
+            },
+            Some("notify") => match onoff(rest.get(1)) {
+                Some(b) => c.call("LedRing", "SetNotifyPulse", &(b,)),
+                None => usage(),
+            },
+            Some("pulse") => {
+                let col = rest.get(1).filter(|s| s.starts_with('#')).copied().unwrap_or("");
+                let n = rest.iter().skip(1).find_map(|s| s.parse::<u32>().ok()).unwrap_or(2);
+                c.call("LedRing", "Pulse", &(col, n))
+            }
             Some("brightness") => match num(rest.get(1)) {
                 Some(n) => c.call("LedRing", "SetBrightness", &(n,)),
                 None => usage(),

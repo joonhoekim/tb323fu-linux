@@ -363,7 +363,7 @@ pub struct LedRing(pub Arc<Shared>);
 
 impl Snapshot for LedRing {
     const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.LedRing";
-    const PROPS: &'static [&'static str] = &["Mode", "Brightness", "LowPercent"];
+    const PROPS: &'static [&'static str] = &["Mode", "Brightness", "LowPercent", "Color", "Speed", "ChargeOverride", "NotifyPulse"];
     fn snapshot(&self) -> String {
         format!("{:?}", self.0.cfg().ledring)
     }
@@ -383,12 +383,79 @@ impl LedRing {
     fn low_percent(&self) -> u32 {
         self.0.cfg().ledring.low_percent
     }
+    /// "#rrggbb" of solid and breathe
+    #[zbus(property)]
+    fn color(&self) -> String {
+        self.0.cfg().ledring.color
+    }
+    /// breathing cycle, ms
+    #[zbus(property)]
+    fn speed(&self) -> u32 {
+        self.0.cfg().ledring.speed
+    }
+    #[zbus(property)]
+    fn charge_override(&self) -> bool {
+        self.0.cfg().ledring.charge_override
+    }
+    /// front-ends pulse the ring for desktop notifications
+    #[zbus(property)]
+    fn notify_pulse(&self) -> bool {
+        self.0.cfg().ledring.notify
+    }
+
+    async fn set_color(&self, color: String, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "led-ring", self.0.no_polkit).await?;
+        let c = f::parse_color(&color).map_err(invalid)?;
+        self.0.update(|cf| cf.ledring.color = format!("#{:02x}{:02x}{:02x}", c[0], c[1], c[2]));
+        self.0.ledring_tick(true);
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+    /// Breathing cycle, 1000..20000 ms.
+    async fn set_speed(&self, ms: u32, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "led-ring", self.0.no_polkit).await?;
+        if !(1000..=20000).contains(&ms) {
+            return Err(invalid("speed must be 1000..20000 ms".into()));
+        }
+        self.0.update(|c| c.ledring.speed = ms);
+        self.0.ledring_tick(true);
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+    async fn set_charge_override(&self, on: bool, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "led-ring", self.0.no_polkit).await?;
+        self.0.update(|c| c.ledring.charge_override = on);
+        self.0.ledring_tick(true);
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+    async fn set_notify_pulse(&self, on: bool, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "led-ring", self.0.no_polkit).await?;
+        self.0.update(|c| c.ledring.notify = on);
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+    /// Blink `count` times (1..10) in `color` ("#rrggbb", "" = the ring's
+    /// colour), then back to the mode: for notifications and scripts.
+    async fn pulse(&self, color: String, count: u32, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "led-ring", self.0.no_polkit).await?;
+        if !(1..=10).contains(&count) {
+            return Err(invalid("count must be 1..10".into()));
+        }
+        let c = if color.is_empty() { self.0.cfg().ledring.color } else { color };
+        self.0.led.pulse(f::parse_color(&c).map_err(invalid)?, count);
+        Ok(())
+    }
 
     async fn set_mode(&self, mode: String, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
         #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
         polkit::check(conn, &hdr, "led-ring", self.0.no_polkit).await?;
-        if mode != "charge" && mode != "off" {
-            return Err(invalid("mode must be charge or off".into()));
+        if !f::LED_MODES.contains(&mode.as_str()) {
+            return Err(invalid("mode must be off, charge, solid or breathe".into()));
         }
         self.0.update(|c| c.ledring.mode = mode.clone());
         self.0.ledring_tick(true);

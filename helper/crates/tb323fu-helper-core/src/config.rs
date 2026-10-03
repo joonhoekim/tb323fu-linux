@@ -62,10 +62,19 @@ pub struct Torch {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct LedRing {
-    /// "charge" (charge-state indicator) or "off"
+    /// "charge" (charge-state indicator), "solid", "breathe" or "off"
     pub mode: String,
     pub brightness: u32,
     pub low_percent: u32,
+    /// colour of solid and breathe, "#rrggbb"
+    pub color: String,
+    /// breathing cycle, ms
+    pub speed: u32,
+    /// in solid and breathe, the charge colours take over while charging,
+    /// full or held, and when the battery is low
+    pub charge_override: bool,
+    /// front-ends pulse the ring for desktop notifications
+    pub notify: bool,
 }
 
 /// Idle refresh (kernel `msm.idle_refresh_*`): `None` = leave the kernel's value.
@@ -214,7 +223,15 @@ impl Default for Torch {
 }
 impl Default for LedRing {
     fn default() -> Self {
-        LedRing { mode: "charge".into(), brightness: 40, low_percent: 15 }
+        LedRing {
+            mode: "charge".into(),
+            brightness: 40,
+            low_percent: 15,
+            color: "#3c78ff".into(),
+            speed: 4000,
+            charge_override: true,
+            notify: false,
+        }
     }
 }
 impl Default for Gpu {
