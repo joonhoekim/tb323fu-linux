@@ -63,11 +63,12 @@ its data.
 - `adb` on the PC ([platform-tools](https://developer.android.com/tools/releases/platform-tools)).
 - A **Linux PC** for building the kernel (x86-64 is fine: the kernel cross-builds with `LLVM=1`). macOS or Windows:
   use a Linux VM or WSL2 [untested].
-- An **arm64 Linux host** for the root filesystem builders in [`rootfs/`](../rootfs/) — they refuse to run elsewhere
-  (`uname -m` must be `aarch64`). On the development tablet they ran on the tablet itself, under Linux. For a first
-  root you need another arm64 machine (a 64-bit Raspberry Pi OS, an Apple-silicon Mac running a Linux VM, an arm64
-  cloud VM) [untested]. An x86-64 Linux host with `qemu-user-static` and binfmt could run the builders' chroot steps
-  after removing that check [untested, not supported].
+- A **Linux host that runs arm64 programs** for the root filesystem builders in [`rootfs/`](../rootfs/): an arm64
+  machine (on the development tablet they ran on the tablet itself, under Linux), or an x86-64 Linux with
+  `qemu-user-binfmt` (arm64 programs through qemu; the builders check that it is registered) — **on Windows,
+  WSL2 with Ubuntu works**: `sudo apt install qemu-user-binfmt debootstrap libarchive-tools gpg curl e2fsprogs`.
+  Through qemu the Arch builder took about 4 min and the Ubuntu builder 18 min without a desktop on the development
+  PC (WSL2, Ubuntu 26.04) [verified: the builds; such a root has not been booted yet]; with GNOME expect much longer.
 - A **microSD card**, 64 GB or more (each root takes 10–30 GB; GNOME roots are on the larger side).
 - Battery above 50 %, a USB-C data cable.
 
@@ -299,9 +300,9 @@ sudo umount /mnt/t
 - `DEV_ACCESS=1` adds the developer way in (USB network `192.168.7.2`, root shell on the USB serial port, SSH root
   login). Useful for a first install; turn it off for daily use.
 
-**Without an arm64 host** [untested]: build the root into an image file on any arm64 machine you can borrow
-(`truncate -s 24G root.img && mkfs.ext4 -L tb323fu-ubuntu root.img && sudo mount -o loop root.img /mnt/t`, then the
-builder), and write the image into the partition — from a PC with a card reader, or from rooted Android the way the
+**Without a card reader on the build host** (for example WSL2, which cannot see the tablet's card): build the root
+into an image file (`truncate -s 24G root.img && mkfs.ext4 -L tb323fu-ubuntu root.img && sudo mount -o loop root.img
+/mnt/t`, then the builder [verified in WSL2 with qemu]), and write the image into the partition — from a PC with a card reader, or from rooted Android the way the
 development card got its first root [verified for a Debian image]:
 
 ```sh

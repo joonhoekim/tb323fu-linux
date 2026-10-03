@@ -75,9 +75,12 @@ ch() {
 		PATH=/usr/local/sbin:/usr/local/bin:/usr/bin LANG=C.UTF-8 /bin/bash -c "$*"
 }
 cleanup() {
+	# pacman-key leaves a gpg-agent running inside the target, holding it busy
+	[ -x "$T/usr/bin/gpgconf" ] && chroot "$T" /usr/bin/gpgconf --homedir /etc/pacman.d/gnupg --kill all 2>/dev/null || true
 	for m in run dev sys proc; do umount -R "$T/$m" 2>/dev/null || true; done
 	# restore the image's resolv.conf (a systemd-resolved link)
 	[ -e "$T/etc/resolv.conf.alarm" ] && mv -f "$T/etc/resolv.conf.alarm" "$T/etc/resolv.conf" || true
+	[ -e "$T/etc/pacman.conf" ] && sed -i '/^# tb323fu-build: off while building$/,+1d' "$T/etc/pacman.conf" || true
 }
 trap cleanup EXIT
 
@@ -94,6 +97,11 @@ if [ ! -x "$T/usr/bin/pacman" ]; then
 fi
 [ -e "$T/etc/resolv.conf.alarm" ] || mv "$T/etc/resolv.conf" "$T/etc/resolv.conf.alarm"
 cp -L /etc/resolv.conf "$T/etc/resolv.conf"
+# on another architecture through qemu-user (binfmt), pacman's download sandbox
+# cannot start (no Landlock, no switch to user alpm): off for the build only
+if [ "$(uname -m)" != aarch64 ] && ! grep -q '^DisableSandbox' "$T/etc/pacman.conf"; then
+	sed -i 's/^\[options\]$/&\n# tb323fu-build: off while building\nDisableSandbox/' "$T/etc/pacman.conf"
+fi
 
 # 2. keyring, drop the distribution kernel, update, packages
 ch "pacman-key --init >/dev/null && pacman-key --populate archlinuxarm >/dev/null"
@@ -114,8 +122,9 @@ if [ -n "$MODULES_FROM" ]; then   # own mode only; normally the boot image's mod
 	cp -a "$MODULES_FROM" "$T/usr/lib/modules/"
 	ch "depmod $k"
 fi
-( cd "$FIRMWARE_FROM" && tar cf - $(ls -d ath12k qcom qca novatek aw882xx_acf.bin 2>/dev/null) ) |
-	tar xpf - -C "$T/usr/lib/firmware"
+fw=$(cd "$FIRMWARE_FROM" && ls -d ath12k qcom qca novatek aw882xx_acf.bin 2>/dev/null) || true
+[ -n "$fw" ] || { echo "no device firmware (qcom/, ath12k/, ...) in $FIRMWARE_FROM: see docs/install.md step 1" >&2; exit 1; }
+( cd "$FIRMWARE_FROM" && tar cf - $fw ) | tar xpf - -C "$T/usr/lib/firmware"
 
 # 4. system configuration
 echo "PARTLABEL=$ROOT_PARTLABEL / ext4 defaults,noatime 0 1" > "$T/etc/fstab"

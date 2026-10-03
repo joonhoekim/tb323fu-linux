@@ -83,7 +83,14 @@ here=$(cd "$(dirname "$0")/../.." && pwd)
 say() { printf '== %s\n' "$*"; }
 
 mountpoint -q "$T" || { echo "$T is not a mount point"; exit 1; }
-[ "$(uname -m)" = aarch64 ] || { echo "run this on an arm64 host"; exit 1; }
+# arm64, or another architecture running arm64 programs through qemu-user
+# (binfmt with the F flag, e.g. Debian/Ubuntu's qemu-user-binfmt; WSL2 works)
+case $(uname -m) in
+aarch64) ;;
+*) b=/proc/sys/fs/binfmt_misc/qemu-aarch64
+	{ grep -qx enabled $b && grep -q '^flags:.*F' $b; } 2>/dev/null ||
+		{ echo "run this on an arm64 host, or install qemu-user-binfmt (arm64 programs through qemu)"; exit 1; } ;;
+esac
 
 # 1. the release image: SHA256SUMS pinned, parts checked, unpacked once
 mkdir -p "$WORK_DIR"; W=$WORK_DIR
