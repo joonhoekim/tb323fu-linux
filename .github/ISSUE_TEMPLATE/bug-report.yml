@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Before posting, remove device identifiers: serial number, IMEI, Wi-Fi network names, MAC addresses.
+        Before posting, remove anything that identifies your tablet or network: the S/N, mobile identifiers, Wi-Fi network names, MAC addresses.
         Check [Hardware status](https://github.com/joonhoekim/tb323fu-linux/blob/main/docs/hardware-status.md) first: known issues are listed there.
   - type: input
     id: kernel
