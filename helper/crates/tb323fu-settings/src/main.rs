@@ -466,6 +466,7 @@ struct KernelUi {
 
 const CHANNELS: [&str; 2] = ["stable", "testing"];
 const CHANNEL_LABELS: [&str; 2] = ["Stable", "Testing"];
+const CHANNEL_NOTES: [&str; 2] = ["Builds the project marked stable", "Every build that passed the device checks"];
 
 /// "kernel-t28" -> "t28" (the tag without the project prefix).
 fn short_tag(t: &str) -> &str {
@@ -625,7 +626,7 @@ impl Ui {
         let kn_sys_group = group(&b, "", "");
         let kn_sys_row = adw::ActionRow::builder().title("Trying a New Kernel").build();
         kn_sys_row.set_subtitle_lines(2);
-        kn_sys_row.add_prefix(&gtk::Image::from_icon_name("emblem-synchronizing-symbolic"));
+        kn_sys_row.add_prefix(&gtk::Image::from_icon_name("software-update-available-symbolic"));
         kn_sys_group.add(&kn_sys_row);
         kn_sys_group.set_visible(false);
         let boot_group = group(&b, "", "Restarting into one boots it once.");
@@ -682,7 +683,7 @@ impl Ui {
         kn_group.add(&kn_avail);
         let (kn_check, kn_check_btn) = button(&kn_group, "Last Check", "", "Check Now");
         let kn_channel = combo(&kn_group, "Channel", &CHANNEL_LABELS);
-        kn_channel.set_subtitle("Testing: every build that passed the device checks");
+        kn_channel.set_subtitle(CHANNEL_NOTES[0]);
         let kn_auto = switch(&kn_group, "Check Daily", "Never downloads by itself");
         let (_, kn_local_btn) = button(&kn_group, "Install Kernel from File", "An Image, Image.gz or boot image you built", "Choose…");
         let (kn_back, kn_back_btn) = button(&kn_group, "Previous Kernel", "", "Go Back…");
@@ -705,7 +706,7 @@ impl Ui {
             ("Emergency Key", "dialog-warning-symbolic", &["EmergencyKey"], &p_ek, None),
             ("Systems", "drive-multidisk-symbolic", &["Boot"], &p_boot, Some(&boot_banner)),
             ("Android", "system-reboot-symbolic", &["Android"], &p_and, None),
-            ("Diagnostics", "utilities-system-monitor-symbolic", &["Diagnostics"], &p_diag, None),
+            ("Diagnostics", "preferences-system-details-symbolic", &["Diagnostics"], &p_diag, None),
             ("About", "help-about-symbolic", &[""], &p_about, Some(&kn_banner)),
         ];
         let mut pages = Vec::new();
@@ -1585,6 +1586,7 @@ impl Ui {
         });
         let ui = self.clone();
         self.kn.channel.connect_selected_notify(move |r| {
+            r.set_subtitle(CHANNEL_NOTES[r.selected() as usize % CHANNEL_NOTES.len()]);
             if !ui.updating.get() {
                 let c = CHANNELS[r.selected() as usize % CHANNELS.len()];
                 ui.call_simple("Kernel", "SetChannel", (c.to_string(),));
@@ -1694,6 +1696,7 @@ impl Ui {
             l.set_wrap_mode(gtk::pango::WrapMode::WordChar);
             l.set_xalign(0.0);
             l.set_selectable(true);
+            l.set_focusable(false);
             if dim {
                 l.add_css_class("dim-label");
             }
@@ -2122,10 +2125,11 @@ impl Ui {
     }
 }
 
-const USAGE: &str = "usage: tb323fu-settings [--help] [--version] [--page NAME]
+const USAGE: &str = "usage: tb323fu-settings [--help] [--version] [--page NAME] [--maximized]
 
   --page NAME   open on this page (battery, display, performance, lights, usb,
                 emergency-key, systems, android, diagnostics, about)
+  --maximized   open the window maximized
 
 GTK4/libadwaita settings for the Lenovo Legion Tab Gen 5 (TB323FU).
 Needs the tb323fu-helperd service on the system bus.";
@@ -2152,6 +2156,7 @@ fn main() -> glib::ExitCode {
         },
         None => None,
     };
+    let maximized = args.iter().any(|a| a == "--maximized");
     let app = adw::Application::builder().application_id(APP_ID).build();
     app.connect_startup(|app| {
         let css = gtk::CssProvider::new();
@@ -2171,6 +2176,9 @@ fn main() -> glib::ExitCode {
         }
         let ui = Ui::new(app);
         ui.selected.set(page);
+        if maximized {
+            ui.window.maximize();
+        }
         let about = gio::SimpleAction::new("about", None);
         let u = ui.clone();
         about.connect_activate(move |_, _| u.about());
