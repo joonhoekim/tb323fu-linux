@@ -26,6 +26,11 @@
   </supports>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.2.0" date="2026-10-03">
+      <description>
+        <p>Kernel updates from the project's releases and from a file, with automatic rollback; performance profiles with CPU and GPU limits, CPU boost and thermal profiles; panel heat protection; charging schedule; LED ring colours and breathing; vibration strength; wake on charger plug. Renamed to Open Device Helper.</p>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-10-01"/>
   </releases>
 </component>

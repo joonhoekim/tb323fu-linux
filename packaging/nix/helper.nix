@@ -2,7 +2,7 @@
 { lib, rustPlatform, src }:
 rustPlatform.buildRustPackage {
   pname = "tb323fu-helper";
-  version = "0.1.0";
+  version = "0.2.0";
   # only the helper tree, so edits elsewhere in the repository do not rebuild it
   src = builtins.path { path = "${src}/helper"; name = "tb323fu-helper-src"; };
   cargoLock.lockFile = "${src}/helper/Cargo.lock";

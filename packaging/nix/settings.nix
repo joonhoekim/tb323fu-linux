@@ -2,7 +2,7 @@
 { lib, rustPlatform, pkg-config, wrapGAppsHook4, gtk4, libadwaita, src }:
 rustPlatform.buildRustPackage {
   pname = "tb323fu-settings";
-  version = "0.1.0";
+  version = "0.2.0";
   src = builtins.path { path = "${src}/helper/crates/tb323fu-settings"; name = "tb323fu-settings-src"; };
   cargoLock.lockFile = "${src}/helper/crates/tb323fu-settings/Cargo.lock";
   nativeBuildInputs = [ pkg-config wrapGAppsHook4 ];
