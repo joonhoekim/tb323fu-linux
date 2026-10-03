@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: MIT
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/joonhoekim/tb323fu-linux#where-to-start
+    about: Install guide, hardware status, recovery and the helper.
+  - name: Security problem
+    url: https://github.com/joonhoekim/tb323fu-linux/security/advisories/new
+    about: Report vulnerabilities privately (see SECURITY.md).

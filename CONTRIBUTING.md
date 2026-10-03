@@ -29,5 +29,5 @@ they have read it, tested it on the device where it matters, and certify the DCO
 
 ## Names
 
-Forks and modified builds have to use their own name, icons, IDs, signing key and update URL;
+Forks and modified builds have to use their own name, icons, IDs, update source and any signing key;
 see [TRADEMARKS.md](TRADEMARKS.md).

@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MIT
+name: Feature request
+description: Something the kernel, the helper or the documentation should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What and why
+      description: What you want to do and what is missing. For hardware controls, say how Android exposes it if you know.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Links, the vendor sysfs node or driver, related issues.

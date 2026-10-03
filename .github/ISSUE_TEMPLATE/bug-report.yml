@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: MIT
+name: Bug or hardware report
+description: Something does not work (or works) on your tablet
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before posting, remove device identifiers: serial number, IMEI, Wi-Fi network names, MAC addresses.
+        Check [Hardware status](https://github.com/joonhoekim/tb323fu-linux/blob/main/docs/hardware-status.md) first: known issues are listed there.
+  - type: input
+    id: kernel
+    attributes:
+      label: Kernel
+      description: "`uname -r`, and the release tag if it came from a release (for example kernel-t40)"
+    validations:
+      required: true
+  - type: input
+    id: root
+    attributes:
+      label: Root filesystem
+      description: "Distribution and version, and which partition it boots from (for example Debian 13 on baldur-root)"
+    validations:
+      required: true
+  - type: input
+    id: helper
+    attributes:
+      label: Open Device Helper version
+      description: "`tb323fu-ctl versions`, or \"not installed\""
+  - type: input
+    id: firmware
+    attributes:
+      label: Android firmware
+      description: "Region (PRC / ROW) and the Android build the firmware was extracted from"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you saw. Logs (`journalctl -b`, `dmesg`) as text, not screenshots.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: "Attach the export from `tb323fu-ctl diagnostics export` (or Diagnostics → Export in the app). It is sanitized, but look through it before attaching."
