@@ -3,6 +3,11 @@
 # baldur-root-sd, tb323fu-*) are other systems, not removable media: the
 # desktop must not automount them (they stay visible in the file manager).
 # An automounted root also blocked the helper's read-only probe of it.
+# Android's and the firmware's partitions on the internal storage (modem,
+# bluetooth, dsp, persist, ...) are hidden from the desktop altogether:
+# mounting or formatting one from a file manager can break the modem, Wi-Fi
+# or Android. lsblk and mount still see them.
 SUBSYSTEM!="block", GOTO="tb323fu_roots_end"
-ENV{ID_PART_ENTRY_NAME}=="baldur-root|baldur-root-sd|tb323fu-*", ENV{UDISKS_AUTO}="0"
+ENV{ID_PART_ENTRY_NAME}=="baldur-root|baldur-root-sd|tb323fu-*", ENV{UDISKS_AUTO}="0", GOTO="tb323fu_roots_end"
+ENV{DEVTYPE}=="partition", ENV{ID_PATH}=="*.ufs-*", ENV{UDISKS_IGNORE}="1"
 LABEL="tb323fu_roots_end"
