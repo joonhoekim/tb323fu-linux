@@ -9,7 +9,7 @@ Background: [helper.md "Kernel updates"](helper.md#kernel-updates) (what the hel
 [kernel-updates-design.md](notes/kernel-updates-design.md).
 
 > **Status.** The helper side — `install-local`, the GitHub Releases channel, trial boot, Keep and rollback — is
-> **[verified]** on the development tablet (2026-10-03, with development kernels and a test release; the app's file chooser is built but not yet tried by a person). The build
+> **[verified]** on the development tablet (2026-10-03, with development kernels and a test pre-release; the app's file chooser and update screens were used by a person). The build
 > commands are the ones in [install.md 3b](install.md#3b-build-it-yourself) **[from records]**.
 
 ## 1. Build
@@ -51,8 +51,11 @@ asks before installing). What happens:
 
 `tb323fu-ctl kernel` shows the trial (`trial … "speaker fix" (a local file, start 1 of 2)`), and `tb323fu-ctl kernel
 rollback --reboot` goes back at any time before or after confirming. A kernel that stops **before** its initramfs
-runs (no boot log on the panel at all) cannot be caught by the trial: then it is fastboot (volume down + power,
-`fastboot flash boot_a linux-good.img` from a PC) or EDL — see [recovery.md](recovery.md). A kernel that boots but
+runs (no boot log on the panel at all) cannot be caught by the trial — its starts are never counted, and fastboot
+is read-only on this bootloader: the way back is EDL, writing `boot_a` from a PC — see
+[recovery.md](recovery.md#linux-does-not-boot). Do not force-restart such a kernel over and over (repeated failures
+can make the bootloader switch to slot `_b`, which does not boot). This happened on the development tablet on
+2026-10-03: a test kernel with pseudo-NMI enabled hung before its initramfs on every start. A kernel that boots but
 breaks something is caught as long as you do not press Keep.
 
 Installing from a file asks for the administrator's password **every time** (polkit `auth_admin`): nothing but you

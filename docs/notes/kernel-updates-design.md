@@ -673,7 +673,7 @@ Not testable safely: a kernel that dies before `/init` (documented manual recove
   could they give an automatic fallback for kernels that die before `/init`? Slot `_b` is not a working
   Android slot here, so this needs study before anyone touches it.
   **Decided (2026-10-02): not used.** The fallback is the initramfs' trial counter; a kernel that dies before
-  `/init` needs fastboot or EDL (3.5).
+  `/init` is never counted and needs EDL (fastboot is read-only on this bootloader; 3.5). Seen 10-03: a dev kernel (t33, pseudo-NMI) hung before the initramfs on every start.
 - **Q5 — `overlay` mode**: worth building now, or wait until someone needs DKMS?
 - **Q6 — where `kernel-state` and the saved images live on SD-only setups** (no `baldur-root`): **decided
   (2026-10-02): on the state root** — the first present of `baldur-root`, `baldur-root-sd`, then the

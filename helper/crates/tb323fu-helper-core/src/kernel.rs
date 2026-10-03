@@ -903,7 +903,7 @@ pub fn install(dev: &Device, android_hash: &str, run: &Running, state: &Path, c:
         let _ = st.save(state);
         return Err(match back {
             Ok(()) => format!("{e}; boot_a holds the previous kernel again"),
-            Err(e2) => format!("{e}; restoring linux-good.img failed too ({e2}) -- do NOT restart; use fastboot or EDL (docs/recovery.md)"),
+            Err(e2) => format!("{e}; restoring linux-good.img failed too ({e2}) -- do NOT restart; restore boot_a over EDL (docs/recovery.md)"),
         });
     }
     let how = if c.keep { "kept when you press Keep" } else { "kept once a system has run 90 s with it" };

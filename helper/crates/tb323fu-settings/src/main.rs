@@ -1709,7 +1709,7 @@ impl Ui {
             line(&format!("⚠ {w}"), false);
         }
         line("Not from the project's releases: nothing checks who built it. It is tried like an update — if it does not bring a \
-            system up twice, the previous kernel comes back. A kernel that stops before its own start-up screen needs fastboot or EDL.", true);
+            system up twice, the previous kernel comes back. A kernel that hangs before its start-up screen is not counted and can only be undone over EDL (see the recovery guide).", true);
         let auto = gtk::CheckButton::with_label("Keep it by itself once a system has run 90 seconds");
         body.append(&auto);
         let sw = gtk::ScrolledWindow::builder().hscrollbar_policy(gtk::PolicyType::Never).max_content_height(420)
