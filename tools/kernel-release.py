@@ -56,7 +56,9 @@ KERNEL = re.compile(r"^Image-tb323fu-t(\d+)(\.gz)?$")
 def banner(raw):
     """(release, /proc/version line). An Image carries the banner twice: a
     placeholder from init/version.o with an empty build number ("# SMP ")
-    and the real one ("#7 SMP ..."); the numbered one wins."""
+    and the real one ("#7 SMP ..."); the numbered one wins, the longer one
+    when both are numbered (a fixed KBUILD_BUILD_VERSION numbers the
+    placeholder too, which has no date)."""
     found = []
     i = raw.find(b"Linux version ")
     while i >= 0:
@@ -69,7 +71,7 @@ def banner(raw):
     if not found:
         sys.exit("no 'Linux version' banner in the kernel")
     numbered = [f for f in found if re.search(r" #\d", f[1])]
-    return (numbered or found)[0]
+    return max(numbered, key=lambda f: len(f[1])) if numbered else found[0]
 
 
 def raw_image(data):
