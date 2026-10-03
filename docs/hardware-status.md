@@ -71,7 +71,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Camera streaming with the screen off | ✅ | measured | restarting a capture with the display off used to hang the system; fixed by patch 0116 (repeated starts with the display off pass) |
 | Torch | ✅ | observed | also from the helper's quick settings |
 | Flash strobe | ❓ | probe only | |
-| RGB ring light | ✅ | observed | |
+| RGB ring light | ✅ | observed | known limitation: each colour or brightness change restarts the chip's MCU, so the ring goes dark for about 45 ms (the command written over the 100 kHz I2C bus) before the new colour |
 | Haptics (2 motors) | ✅ | observed | |
 | Volume and power keys | ✅ | observed | power key suspends and resumes (seen in SteamOS) |
 | Emergency key (volume up + down, 10 s → back to Android) | ✅ | measured + observed | Android restore starts 10 s after the keys are detected and Android boots (1/1); switching back to Linux from Android works |

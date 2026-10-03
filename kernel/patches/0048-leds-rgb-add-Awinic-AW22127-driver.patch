@@ -18,11 +18,11 @@ host writes. Sending a command restarts the MCU, so a command equal to
 the running one is not sent again. Off holds the chip in reset.
 ---
  Documentation/leds/index.rst        |   1 +
- Documentation/leds/leds-aw22127.rst |  34 +++
+ Documentation/leds/leds-aw22127.rst |  42 +++
  drivers/leds/rgb/Kconfig            |  13 ++
  drivers/leds/rgb/Makefile           |   1 +
  drivers/leds/rgb/leds-aw22127.c     | 327 ++++++++++++++++++++++++++++
- 5 files changed, 376 insertions(+)
+ 5 files changed, 384 insertions(+)
  create mode 100644 Documentation/leds/leds-aw22127.rst
  create mode 100644 drivers/leds/rgb/leds-aw22127.c
 
@@ -43,7 +43,7 @@ new file mode 100644
 index 000000000..61bf4d93b
 --- /dev/null
 +++ b/Documentation/leds/leds-aw22127.rst
-@@ -0,0 +1,34 @@
+@@ -0,0 +1,42 @@
 +.. SPDX-License-Identifier: GPL-2.0
 +
 +=====================================
@@ -65,10 +65,10 @@ index 000000000..61bf4d93b
 +its brightness to the brightness of the next pair; the last pair ramps to the
 +first. Up to 16 pairs.
 +
-+The pattern repeats until it is cleared, so ``repeat`` must be -1. The colour
-+is the ``multi_intensity`` at the time ``hw_pattern`` is written; a later
-+``brightness`` or ``multi_intensity`` write replaces the pattern with a steady
-+colour.
++The pattern repeats until it is cleared; a positive ``repeat`` is refused, as
++the MCU cannot stop after a count. The colour is the ``multi_intensity`` at the
++time ``hw_pattern`` is written; a later ``brightness`` or ``multi_intensity``
++write replaces the pattern with a steady colour.
 +
 +Breathing with a 3 second cycle::
 +
@@ -78,6 +78,14 @@ index 000000000..61bf4d93b
 +Fade in over 0.5 s, hold 1 s, fade out over 1 s, stay off for 0.5 s::
 +
 +    echo "0 500 255 1000 255 1000 0 500" > hw_pattern
++
++Limitations
++-----------
++
++Each change of colour or brightness is a new command, and the MCU is reset to
++take it: the LEDs go dark while the command is written (about 45 ms on a
++100 kHz bus) and then show the new colour. No command that changes a running
++program is known.
 diff --git a/drivers/leds/rgb/Kconfig b/drivers/leds/rgb/Kconfig
 index 6e9ab5f60..ac7da0e6e 100644
 --- a/drivers/leds/rgb/Kconfig
@@ -325,7 +333,7 @@ index 000000000..c70ecc06b
 +	unsigned int i;
 +	int ret;
 +
-+	if (repeat != -1 || !len || len > AW22127_MAX_STEPS)
++	if (repeat > 0 || !len || len > AW22127_MAX_STEPS)
 +		return -EINVAL;
 +
 +	for (i = 0; i < len; i++) {
