@@ -398,6 +398,19 @@ pub fn usb_wake_file() -> PathBuf {
     sys::path("/sys/bus/platform/devices/a600000.usb/power/wakeup")
 }
 
+fn cpu_boost_file() -> PathBuf {
+    sys::path("/sys/devices/system/cpu/cpufreq/boost")
+}
+
+/// cpufreq boost, `None` when the cpufreq driver has no boost frequencies.
+pub fn cpu_boost() -> Option<bool> {
+    sys::read_opt(&cpu_boost_file()).map(|s| s == "1")
+}
+
+pub fn set_cpu_boost(on: bool) -> Res<()> {
+    sys::write(&cpu_boost_file(), if on { "1" } else { "0" }).map_err(|e| werr("CPU boost", e))
+}
+
 pub fn usb_wake() -> Option<bool> {
     sys::read_opt(&usb_wake_file()).map(|s| s == "enabled")
 }

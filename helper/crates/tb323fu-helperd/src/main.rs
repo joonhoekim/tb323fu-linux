@@ -144,6 +144,11 @@ fn apply_startup(s: &Shared) {
             }
         }
     }
+    if f::cpu_boost().is_some() {
+        if let Err(e) = f::set_cpu_boost(c.cpu.boost) {
+            eprintln!("tb323fu-helperd: {e}");
+        }
+    }
     if f::usb_wake().is_some() {
         let _ = f::set_usb_wake(c.usb.wake);
     }

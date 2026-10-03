@@ -21,7 +21,7 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
   torch [on|off|toggle|level N]
   ledring [charge|off|brightness N|low PERCENT]
   refresh [auto|off|manual [HZ]|idle MS60 MS30|preset power-saver|balanced|smooth]
-  gpu [profile NAME|follow on|off|limits PROFILE MIN_MHZ MAX_MHZ]
+  gpu [profile NAME|follow on|off|limits PROFILE MIN_MHZ MAX_MHZ|boost on|off]
   usb [wake on|off|dev on|off]
   emergency-key [on|off|hold SECONDS]
   diagnostics [export]
@@ -601,6 +601,10 @@ fn run(args: &[String]) -> i32 {
             Some("limits") => match (rest.get(1), num(rest.get(2)), num(rest.get(3))) {
                 (Some(p), Some(lo), Some(hi)) => c.call("Gpu", "SetLimits", &(*p, lo, hi)),
                 _ => usage(),
+            },
+            Some("boost") => match onoff(rest.get(1)) {
+                Some(b) => c.call("Gpu", "SetCpuBoost", &(b,)),
+                None => usage(),
             },
             _ => usage(),
         },

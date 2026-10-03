@@ -25,6 +25,9 @@ low_percent = 15
 # ms60 = 1000            # idle ms before 60 Hz (auto)
 # ms30 = 5000            # idle ms before 30 Hz (auto)
 
+[cpu]
+boost = true   # cpufreq boost: the fast cores up to 4.6 GHz (as Android); warmer under load
+
 [gpu]
 follow_power_profiles = true   # use power-profiles-daemon's profile when it runs
 profile = "balanced"           # used when not following

@@ -458,9 +458,9 @@ pub struct Gpu(pub Arc<Shared>);
 
 impl Snapshot for Gpu {
     const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Gpu";
-    const PROPS: &'static [&'static str] = &["Profile", "FollowPowerProfiles", "Floors"];
+    const PROPS: &'static [&'static str] = &["Profile", "FollowPowerProfiles", "Floors", "CpuBoost"];
     fn snapshot(&self) -> String {
-        format!("{:?} {}", self.0.cfg().gpu, self.0.gpu_profile())
+        format!("{:?} {} {:?}", self.0.cfg().gpu, self.0.gpu_profile(), f::cpu_boost())
     }
 }
 
@@ -478,6 +478,24 @@ impl Gpu {
     #[zbus(property)]
     fn floors(&self) -> HashMap<String, (u32, u32)> {
         self.0.cfg().gpu.floors.into_iter().map(|(k, v)| (k, (v[0], v[1]))).collect()
+    }
+
+    /// cpufreq boost (the fast cores' top frequencies); false also when the
+    /// kernel offers none
+    #[zbus(property)]
+    fn cpu_boost(&self) -> bool {
+        f::cpu_boost().unwrap_or(false)
+    }
+    async fn set_cpu_boost(&self, on: bool, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "gpu", self.0.no_polkit).await?;
+        if f::cpu_boost().is_none() {
+            return Err(fdo::Error::NotSupported("this kernel has no CPU boost frequencies".into()));
+        }
+        f::set_cpu_boost(on).map_err(failed)?;
+        self.0.update(|c| c.cpu.boost = on);
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
     }
 
     /// Use this profile's limits and stop following power-profiles-daemon.

@@ -22,6 +22,7 @@ pub struct Config {
     pub ledring: LedRing,
     pub refresh: Refresh,
     pub gpu: Gpu,
+    pub cpu: Cpu,
     pub usb: Usb,
     pub kernel: Kernel,
 }
@@ -77,6 +78,20 @@ pub struct Gpu {
     pub profile: String,
     /// profile -> [min_mhz, max_mhz]
     pub floors: BTreeMap<String, [u32; 2]>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct Cpu {
+    /// cpufreq boost: the fast cores' top frequencies (4.512 and 4.608 GHz on
+    /// the TB323FU, which Android uses); applied at every start
+    pub boost: bool,
+}
+
+impl Default for Cpu {
+    fn default() -> Self {
+        Cpu { boost: true }
+    }
 }
 
 /// Kernel updates (docs/notes/kernel-updates-design.md).
@@ -161,6 +176,7 @@ impl Default for Config {
             ledring: LedRing::default(),
             refresh: Refresh::default(),
             gpu: Gpu::default(),
+            cpu: Cpu::default(),
             usb: Usb::default(),
             kernel: Kernel::default(),
         }

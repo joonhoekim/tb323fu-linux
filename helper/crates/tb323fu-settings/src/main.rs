@@ -382,6 +382,7 @@ struct Ui {
     gpu_groups: [adw::PreferencesGroup; 2],
     gpu_profile: adw::ComboRow,
     gpu_follow: adw::SwitchRow,
+    cpu_boost: adw::SwitchRow,
     gpu_limits: Vec<(&'static str, adw::ExpanderRow, adw::SpinRow, adw::SpinRow)>,
     gpu_seen: RefCell<Vec<(String, u32, u32)>>,
     // Thermal (on the Performance page)
@@ -543,6 +544,8 @@ impl Ui {
 
         // Performance
         let (p_gpu, b) = page_box();
+        let g = group(&b, "CPU", "");
+        let cpu_boost = switch(&g, "CPU Boost", "Fast cores up to 4.6 GHz; warmer under load");
         let g = group(&b, "GPU", "");
         let gpu_group = g.clone();
         let gpu_profile = combo(&g, "GPU Profile", &GPU_PROFILE_LABELS);
@@ -815,6 +818,7 @@ impl Ui {
             gpu_groups,
             gpu_profile,
             gpu_follow,
+            cpu_boost,
             gpu_limits,
             gpu_seen: RefCell::new(Vec::new()),
             th_group,
@@ -1083,6 +1087,7 @@ impl Ui {
             }
         });
         self.switch_sends(&self.gpu_follow, "Gpu", "SetFollowPowerProfiles");
+        self.switch_sends(&self.cpu_boost, "Gpu", "SetCpuBoost");
         for (i, b) in gpu_buttons.into_iter().enumerate() {
             let (_, _, lo, hi) = &self.gpu_limits[i];
             // keep minimum <= maximum while editing
@@ -2025,6 +2030,7 @@ impl Ui {
         set_combo(&self.gpu_profile, &GPU_PROFILES, dbus::s(p, "Profile"));
         let follow = dbus::b(p, "FollowPowerProfiles");
         set_switch(&self.gpu_follow, follow);
+        set_switch(&self.cpu_boost, dbus::b(p, "CpuBoost"));
         let following = follow == Some(true);
         self.gpu_profile.set_sensitive(!following);
         let sub = if following { "Set by the power mode" } else { "" };
