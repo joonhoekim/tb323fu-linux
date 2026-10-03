@@ -22,8 +22,9 @@ the kernel does not assume a particular distribution or desktop.
 | understand how the tablet was set up for dual boot | [Rooting and dual boot setup](docs/rooting.md) (host setup per OS, backup, LTBox, KernelSU, switching) and [Recovery](docs/recovery.md) |
 | install Linux after rooting | [Installing Linux](docs/install.md) (firmware, boot image, root partition, first boot, multiboot; each step marked verified / from records / untested) and the guided [install script prototype](tools/install/README.md) |
 | build or review the kernel | [kernel/](kernel/README.md), [PROVENANCE.md](kernel/PROVENANCE.md), [initramfs](kernel/initramfs/README.md) |
-| put together a root filesystem | [platform files](userspace/platform/README.md), [firmware](firmware/README.md), [`rootfs/`](rootfs/) builders |
-| use the tablet settings (charge limit, refresh rate, multiboot) | [Open Device Helper](docs/helper.md) |
+| put together a root filesystem | [platform files](userspace/platform/README.md), [firmware](firmware/README.md), [`rootfs/`](rootfs/) builders (arm64 host, or x86-64 Linux with qemu-user-binfmt — WSL2 with Ubuntu works, see [install](docs/install.md
+| use the tablet settings | [Open Device Helper](docs/helper.md): charge limit, "full by" charging schedule and bypass, refresh rate and panel heat protection, performance profiles with CPU/GPU limits and CPU boost, thermal profiles, low-latency Wi-Fi, LED ring effects and colours, vibration strength, charger wake, multiboot, and kernel updates from this repository's releases (testing / stable channel, tried on the next start and rolled back if it does not come up) or from a file |
+| know the open problems | [Known issues](docs/hardware-status.md#known-issues): a rare idle crash, avoided for now by not using the CPU cluster idle states (patch 0118, a workaround, not a fix); the LED ring goes dark for about 45 ms on each colour change; 165 / 144 Hz, DisplayPort MST, GNSS |
 
 ## Layout
 
@@ -55,7 +56,7 @@ Every file's SPDX header takes precedence; files without one are covered by [`RE
 | documentation text and screenshots | `CC-BY-SA-4.0`; code snippets and commands in the documentation are also available under `MIT` |
 
 Firmware is not redistributed, and neither are Valve's Steam client, the SteamOS-ARM image or distribution base images: the builders download them on your machine.
-The project name, icons, signing keys and update URL are covered by the [name and trademark policy](TRADEMARKS.md); forks and modified builds use their own.
+The project name, icons, update source and any signing keys are covered by the [name and trademark policy](TRADEMARKS.md); forks and modified builds use their own.
 Contributions are taken under the license of the file they change, with a DCO sign-off ([CONTRIBUTING.md](CONTRIBUTING.md)).
 This is an independent community project, not affiliated with Lenovo, Qualcomm or Valve; their names are used only to identify the device and the software it works with.
 

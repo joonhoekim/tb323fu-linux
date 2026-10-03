@@ -71,7 +71,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Camera streaming with the screen off | ✅ | measured | restarting a capture with the display off used to hang the system; fixed by patch 0116 (repeated starts with the display off pass) |
 | Torch | ✅ | observed | also from the helper's quick settings |
 | Flash strobe | ❓ | probe only | |
-| RGB ring light | ✅ | observed | known limitation: each colour or brightness change restarts the chip's MCU, so the ring goes dark for about 45 ms (the command written over the 100 kHz I2C bus) before the new colour |
+| RGB ring light | 🟡 | observed + measured | the charge indicator works (observed). Solid colours and breathing were wrong before the driver fix of 2026-10-03 (colours scaled down at low brightness, breathing restarted every step); with the fix the chip runs the breathing itself (`hw_pattern`), but a person has not yet judged the result. Known limitation: each colour or brightness change restarts the chip's MCU, so the ring goes dark for about 45 ms (the command written over the 100 kHz I2C bus) before the new colour |
 | Haptics (2 motors) | ✅ | observed | |
 | Volume and power keys | ✅ | observed | power key suspends and resumes (seen in SteamOS) |
 | Emergency key (volume up + down, 10 s → back to Android) | ✅ | measured + observed | Android restore starts 10 s after the keys are detected and Android boots (1/1); switching back to Linux from Android works |
@@ -98,7 +98,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Charge limit, bypass charging | ✅ | measured + observed | bypass cuts the battery current (9 A → 185 mA) and it comes back when turned off; the kernel `status` stays "Charging", so the helper derives its State from the current ("Bypass" at ≤ 300 mA; logic tested, not yet re-checked on the charger) |
 | Suspend (s2idle) and resume | 🟡 | measured | works (9 of 9 RTC cycles: Wi-Fi, sensors, sound, USB and video decode back each time); a rare crash without an error message (also seen outside suspend, when idle or under load) is still under investigation |
 | Deep sleep (CX / DDR power collapse) | ✅ | measured | |
-| Idle crash stopgap: no CPU cluster idle states | 🟡 | measured | **a workaround, not a fix.** Since patch 0118 the CPU cluster idle states are not used in runtime idle by default (`cpuidle_psci_domain.allow_cluster_off=0` on the built-in command line; switch at run time with `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off`, 1 = allowed). With them refused, a test kernel ran 3 h idle without a crash, against 2 crashes in 78 min with them allowed; display-off power was the same (658 / 659 / 621 mW allowed / refused / allowed). The cause (a race around cluster off/on, or firmware) is not fixed. s2idle still uses the cluster states (the system state needs them). The kernel with 0118 itself has not yet run on the device |
+| Idle crash stopgap: no CPU cluster idle states | 🟡 | measured | **a workaround, not a fix.** Since patch 0118 the CPU cluster idle states are not used in runtime idle by default (`cpuidle_psci_domain.allow_cluster_off=0` on the built-in command line; switch at run time with `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off`, 1 = allowed). With them refused, a test kernel ran 3 h idle without a crash, against 2 crashes in 78 min with them allowed; display-off power was the same (658 / 659 / 621 mW allowed / refused / allowed). The cause (a race around cluster off/on, or firmware) is not fixed. s2idle still uses the cluster states (the system state needs them). A development kernel with 0118 runs on the test tablet since 2026-10-03 (cluster-off requests refused as expected); a long idle count with it is still to be made |
 | Wake sources | ✅ | measured | power key, RTC; USB wake off by default |
 
 ## USB, storage, other
@@ -116,7 +116,8 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Firewall (nftables, iptables-nft, firewalld) | ✅ | measured | firewalld including IPv6 reverse-path filtering, NixOS's default firewall; legacy iptables tables are not built |
 | Audio DSP (ADSP) | ✅ | measured | |
 | Compute DSP / NPU | ❓ | probe only | |
-| CPU frequency scaling | ✅ | probe only | maximum frequencies not compared with Android |
+| CPU frequency scaling, boost | ✅ | measured | 6 cores up to 3.63 GHz and 2 up to 4.61 GHz (boost), the same maximum frequencies as Android; the helper sets limits per performance profile and can turn boost off |
+| CPU capacity, energy-aware scheduling | ✅ | measured | patch 0117 gives the scheduler the two core sizes (`cpu_capacity` 799 / 1024; before it all eight read 1024, so a busy single thread stayed on a small core) and energy-aware scheduling turns on. Geekbench 6 without pinning: single-core 3590 / multi-core 11016 on a development kernel with 0117 and 0118 (before 0117: 2288 / 10359); Android's published results for this tablet are about 3655 / 10758 |
 | Switching between Android and Linux | ✅ | measured + observed | about 40 s |
 | Boot time | ✅ | measured | about 6 s from kernel start to the desktop (Debian, automatic login); 7–15 s on the other distributions |
 
@@ -142,6 +143,8 @@ In rough order of value. Rows above marked user-reported, ❓ or 🟡, and rows 
 |---|---|---|
 | 164 Hz in long sessions, SteamOS orientation and UI size, touch on Fedora and NixOS | 10+ minutes in Gaming Mode with underrun counters; first taps on each desktop | eyes, hands |
 | Bluetooth HFP | headset call profile, microphone loopback | ears, voice |
+| RGB ring colours and breathing after the driver fix | each palette colour and breathing set from the helper, watched | eyes |
+| Idle stability with patch 0118 | hours of idle and display-off time counted, crashes per hour compared with the 78-minute baseline | no (scripted) |
 | AV1 in applications | newer GStreamer / FFmpeg on Arch, Fedora or NixOS, compared bit-exact with a software decoder | no (scripted) |
 | 144 Hz | another vertical-porch variant, underruns and touch | eyes, hands |
 | From the spec sheet | battery design capacity, OpenCL, heavy Vulkan, full-resolution (50 MP) rear capture, touch report rate (up to 480 Hz), HBM (800 nit) and HDR, 8K and film-grain video | mostly no; touch rate needs a finger |

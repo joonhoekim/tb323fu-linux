@@ -106,10 +106,10 @@ The bootloader on this tablet cannot be made to pass our device tree or command 
 
 ## The kernel on the development tablet
 
-The kernel running on the development tablet (config: `config/reference.config`) is this series (0001-0116, no 0115) **plus test-only changes that are not part of the series**:
+The kernel running on the development tablet (config: `config/reference.config`) is this series (0001-0118, no 0115) **plus test-only changes that are not part of the series**:
 
 - a knob exposing experimental panel modes (vendor 144/165 Hz and a 143 Hz variant; only 90 and 164 Hz are in the series, 0109),
-- an idle-state flight recorder for crash analysis, and a knob that refuses the CPU cluster idle state,
+- an idle-state flight recorder for crash analysis, and a knob that adds a delay in the cluster idle path (to test the race theory of the idle crash),
 - modem (MPSS) device tree nodes, and remoteproc knobs used to investigate GNSS (the tablet appears to have no usable GNSS antenna),
 - a q6apm change that polls for the audio framework instead of a fixed 5 s wait (an upstream candidate, not yet in the series).
 

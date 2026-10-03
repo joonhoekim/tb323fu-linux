@@ -12,8 +12,8 @@ const ORDER: StatusKey[] = ["works", "partial", "broken", "unverified", "na"];
 /** The README's status warning (the first "> **Status: ...**" blockquote), as plain text. */
 function readmeStatus(): { head: string; body: string } {
   const fallback = {
-    head: "Work in progress — not ready for installation.",
-    body: "There are no release images yet and no install guide. Everything here is published so the kernel work can be reviewed and reused.",
+    head: "Work in progress — not ready for everyday use.",
+    body: "There are no release images yet; the install guide has not been followed end to end by anyone else. Everything here is published so the kernel work can be reviewed and reused.",
   };
   try {
     const text = fs.readFileSync(path.join(REPO_ROOT, "README.md"), "utf8");
