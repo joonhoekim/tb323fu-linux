@@ -3,9 +3,13 @@
 How to get from a rooted TB323FU (Android with KernelSU, see [Rooting and dual boot setup](rooting.md)) to mainline
 Linux booting from its own partition, with Android kept as the way back.
 
-> **No release has been published yet.** A release will be a kernel `Image` (with all its modules inside) and a repack tool — never
-> a ready-made `boot.img` ([why](#why-there-is-no-ready-made-bootimg)); until then you build the kernel yourself (step 3)
-> and put together a root filesystem with the scripts in this repository. This guide was **reconstructed from the development records** of one
+> **On Windows? Start here: [Installing on Windows](install-windows.md)** — one Ubuntu (WSL2) terminal and one guided
+> script, from a rooted tablet to Ubuntu with GNOME on the microSD card. This page is the reference behind it.
+
+> **The first releases are pre-releases** (`kernel-t38`, `helper-v0.2.0`). A kernel release is a kernel `Image` (with all
+> its modules inside) and a repack tool — never a ready-made `boot.img` ([why](#why-there-is-no-ready-made-bootimg)); you
+> pack it into your own stock boot image (step 3a) or build the kernel yourself (3b), and put together a root filesystem
+> with the scripts in this repository. This guide was **reconstructed from the development records** of one
 > tablet; the individual steps were done on that tablet, but the guide as a whole has **not been re-run end to end**
 > by someone following it. Read it once completely before starting.
 
@@ -17,8 +21,9 @@ Every step carries one of these labels:
 | **[from records]** | done on the development tablet, but the exact commands here are reconstructed from notes and were not re-run in this form |
 | **[untested]** | not done on any tablet; follows from how the tools work |
 
-There is also a guided script, [`tools/install/`](../tools/install/README.md), that walks through the same steps
-interactively. It is a **prototype, untested on real hardware**.
+The guided script [`tools/install/install.sh`](../tools/install/README.md) does steps 1–7 for the most common case
+(Ubuntu with GNOME on the microSD card, partitioned from Android) on Windows (WSL2) or Linux. Its PC-side steps were
+run in WSL2; it has **not yet been run against a tablet**.
 
 ## What you end up with
 
