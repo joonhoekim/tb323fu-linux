@@ -13,21 +13,25 @@ Licenses
 
 Each file's SPDX-License-Identifier line takes precedence. Files without one
 are covered by REUSE.toml or, failing that, by the MIT license in LICENSE.
+REUSE.toml also states the licensing of the kernel patches and of the vendor
+driver below as a whole (`reuse lint` passes).
 The full texts of all licenses used are in LICENSES/.
 
   Component                                         License
   ------------------------------------------------  ----------------------------
   helper/ (daemon, CLI, helper core, settings app,  GPL-3.0-or-later
-    their D-Bus, polkit and systemd files)
+    their D-Bus, polkit and systemd files; the
+    AppStream metainfo file is MIT, as AppStream
+    requires for metadata)
   kernel/patches/, kernel/config/                   GPL-2.0-only (as the kernel;
                                                     imported patches keep the
                                                     licenses of their files)
   kernel/dts/ (board device trees, written by this  BSD-3-Clause (as upstream
     project) and the same files in patches 0054,     qcom device trees)
     0064, 0078, 0095, 0108
-  kernel/out-of-tree/aw882xx/                       GPL-2.0 (AWINIC, vendor
-                                                    headers kept)
-  kernel/initramfs/gpu-probe.c                      GPL-2.0
+  kernel/out-of-tree/aw882xx/                       GPL-2.0-only (AWINIC,
+                                                    vendor headers kept)
+  kernel/initramfs/gpu-probe.c                      GPL-2.0-only
   userspace/desktop/gnome/extension/                GPL-2.0-or-later (as GNOME
                                                     Shell)
   userspace/platform/ ALSA UCM2 files               BSD-3-Clause (as

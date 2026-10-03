@@ -12,7 +12,7 @@ out-of-tree module of this project.
 | Upstream of this copy | Awinic's GPL driver as carried in [rockchip-linux/kernel](https://github.com/rockchip-linux/kernel) branch `develop-6.1`, `sound/soc/codecs/aw882xx/`, at commit `1feee0d9c0b20750eef52b06b9211a4a3a353895` |
 | Driver version | `v1.15.0` (`AW882XX_DRIVER_VERSION` in `aw882xx.c`; the Android kernel on the tablet runs a later Awinic release, v2.0.0, whose source is not public) |
 | Authors | AWINIC Technology Co., Ltd. (copyright 2019–2020, see each file's header) |
-| License | `GPL-2.0` — every file keeps its original SPDX line and copyright header. The SPDX lines say `GPL-2.0` (the deprecated name of `GPL-2.0-only`), while the notice text in the C files says "version 2 of the License, or (at your option) any later version"; both are Awinic's, kept as they are |
+| License | `GPL-2.0-only` (`REUSE.toml`) — every file keeps its original SPDX line and copyright header. The SPDX lines say `GPL-2.0` (the deprecated name of `GPL-2.0-only`), while the notice text in the C files says "version 2 of the License, or (at your option) any later version"; both are Awinic's, kept as they are |
 
 The register tables for other Awinic PIDs (1852, 2013, …) are part of the vendor driver and were kept as
 they are.

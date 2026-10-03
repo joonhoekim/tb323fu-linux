@@ -147,7 +147,7 @@ Sources built as external modules (not part of the patch series).
 
 | Directory | What | Origin | License |
 |---|---|---|---|
-| [`out-of-tree/aw882xx/`](out-of-tree/aw882xx/) | Awinic smart amplifier driver `snd-soc-aw882xx` (speakers, chip ID `0x2308`), vendor driver `v1.15.0` with 7.x API fixes marked `y705` | AWINIC Technology Co., Ltd.; copy from [rockchip-linux/kernel](https://github.com/rockchip-linux/kernel) `develop-6.1` `sound/soc/codecs/aw882xx/` at `1feee0d9c0b20750eef52b06b9211a4a3a353895` | `GPL-2.0` (original headers kept; the C files' notice text adds "or any later version", see its README) |
+| [`out-of-tree/aw882xx/`](out-of-tree/aw882xx/) | Awinic smart amplifier driver `snd-soc-aw882xx` (speakers, chip ID `0x2308`), vendor driver `v1.15.0` with 7.x API fixes marked `tb323fu:` | AWINIC Technology Co., Ltd.; copy from [rockchip-linux/kernel](https://github.com/rockchip-linux/kernel) `develop-6.1` `sound/soc/codecs/aw882xx/` at `1feee0d9c0b20750eef52b06b9211a4a3a353895` | `GPL-2.0` (original headers kept; the C files' notice text adds "or any later version", see its README) |
 
 The amplifier's run-time parameter file `aw882xx_acf.bin` is vendor data and is not included (see
 [`firmware/`](../firmware/)).

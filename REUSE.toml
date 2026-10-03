@@ -1,8 +1,38 @@
 # SPDX-License-Identifier: MIT
 # Licensing of files that cannot carry an SPDX header (https://reuse.software/spec/).
-# A file's own SPDX line, where it has one, still wins. Everything not matched here
-# and without a header is MIT (LICENSE). See NOTICE for the component map.
+# A file's own SPDX line, where it has one, still wins (except where precedence is
+# "override"). When several tables match a file, the last one applies. See NOTICE
+# for the component map.
 version = 1
+
+# Copyright of the project-written files (NOTICE: held by Joonhoe Kim unless a file
+# names other holders), added to whatever the file says. Imported code is
+# overridden further down.
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Joonhoe Kim and contributors"
+
+# Data and configuration files without room for a header.
+[[annotations]]
+path = [
+  ".gitattributes",
+  ".gitignore",
+  ".public-scan.allow",
+  "**/.gitkeep",
+  "android/switch-to-linux/module.prop",
+  "firmware/manifest.tsv",
+  "flake.lock",
+  "kernel/initramfs/spec.list",
+  "site/app/icon.svg",
+  "site/package.json",
+  "site/pnpm-lock.yaml",
+  "site/pnpm-workspace.yaml",
+  "site/tsconfig.json",
+]
+precedence = "closest"
+SPDX-FileCopyrightText = "2026 Joonhoe Kim and contributors"
+SPDX-License-Identifier = "MIT"
 
 # Documentation prose. Code snippets and commands in it are also available under MIT.
 [[annotations]]
@@ -18,16 +48,42 @@ precedence = "closest"
 SPDX-FileCopyrightText = "2026 Joonhoe Kim"
 SPDX-License-Identifier = "CC-BY-SA-4.0"
 
-# Helper data without room for a header (lock files, public keys).
+# Helper data without room for a header (lock files).
 [[annotations]]
-path = ["helper/Cargo.lock", "helper/crates/tb323fu-settings/Cargo.lock", "helper/data/keys/**", "helper/.gitignore"]
+path = ["helper/Cargo.lock", "helper/crates/tb323fu-settings/Cargo.lock", "helper/.gitignore"]
 precedence = "closest"
 SPDX-FileCopyrightText = "2026 Joonhoe Kim"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
-# Vendor driver build files (no header in the original).
+# GNOME Shell extension metadata (JSON has no comments).
 [[annotations]]
-path = ["kernel/out-of-tree/aw882xx/Kconfig", "kernel/out-of-tree/aw882xx/Makefile"]
+path = "userspace/desktop/gnome/extension/tb323fu@joonhoekim.github.io/metadata.json"
 precedence = "closest"
-SPDX-FileCopyrightText = "AWINIC Technology Co., Ltd."
+SPDX-FileCopyrightText = "2026 Joonhoe Kim"
+SPDX-License-Identifier = "GPL-2.0-or-later"
+
+# GPU probe of the initramfs: its header says "GPL-2.0", the deprecated SPDX name of GPL-2.0-only.
+[[annotations]]
+path = "kernel/initramfs/gpu-probe.c"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Joonhoe Kim"
+SPDX-License-Identifier = "GPL-2.0-only"
+
+# Vendor speaker amplifier driver (AWINIC). The headers say "GPL-2.0", the deprecated
+# SPDX name of GPL-2.0-only; they are kept as in the original. Local changes are marked
+# "tb323fu:" in the source.
+[[annotations]]
+path = ["kernel/out-of-tree/aw882xx/*.c", "kernel/out-of-tree/aw882xx/*.h", "kernel/out-of-tree/aw882xx/Kconfig", "kernel/out-of-tree/aw882xx/Makefile"]
+precedence = "override"
+SPDX-FileCopyrightText = ["AWINIC Technology Co., Ltd.", "2026 Joonhoe Kim"]
+SPDX-License-Identifier = "GPL-2.0-only"
+
+# Kernel patches. reuse would read the SPDX lines of the patched files inside the diffs
+# as the patch's own; a patch is a derivative of the kernel and carries its authors in
+# From:/Signed-off-by: (origins in kernel/PROVENANCE.md). Patched files keep their own
+# licenses once applied.
+[[annotations]]
+path = "kernel/patches/**"
+precedence = "override"
+SPDX-FileCopyrightText = "The authors named in each patch (From:, Signed-off-by:; see kernel/PROVENANCE.md)"
 SPDX-License-Identifier = "GPL-2.0-only"

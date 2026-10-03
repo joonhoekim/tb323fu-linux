@@ -4,8 +4,9 @@
 #    LED (pattern trigger, group feedbackd), which would fight the helper's
 #    RGB ring charge indicator and torch over the same LEDs;
 #  - the two aw86927 haptic drivers are added as feedbackd's vibra device.
-# The rest is the packaged file unchanged (feedbackd, LGPL-2.1+).
-#  SPDX-License-Identifier: LGPL-2.1+
+# The rest is the packaged file unchanged (feedbackd, LGPL-2.1-or-later).
+#  SPDX-FileCopyrightText: The feedbackd authors
+#  SPDX-License-Identifier: LGPL-2.1-or-later
 #
 #  This file is part of feedbackd.
 

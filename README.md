@@ -42,7 +42,7 @@ the kernel does not assume a particular distribution or desktop.
 
 ## License
 
-Every file's SPDX header takes precedence; files without one are covered by [`REUSE.toml`](REUSE.toml), otherwise by the MIT [`LICENSE`](LICENSE).
+Every file's SPDX header takes precedence; files without one are covered by [`REUSE.toml`](REUSE.toml), otherwise by the MIT [`LICENSE`](LICENSE). The repository passes `reuse lint` ([REUSE](https://reuse.software/) 3.3).
 [`NOTICE`](NOTICE) has the full map, the copyright holders and the third-party code; the license texts are in [`LICENSES/`](LICENSES/).
 
 | Part | License |
@@ -50,7 +50,7 @@ Every file's SPDX header takes precedence; files without one are covered by [`RE
 | helper (daemon, CLI, helper core, Open Device Helper app and their data files) | `GPL-3.0-or-later` |
 | kernel patches and config fragments | `GPL-2.0-only`, as the kernel; imported patches keep their original authors and `Signed-off-by` lines (see `kernel/PROVENANCE.md`) |
 | board device trees (`kernel/dts/`) | `BSD-3-Clause`, as upstream qcom device trees |
-| out-of-tree `aw882xx` driver | `GPL-2.0` (AWINIC's headers kept) |
+| out-of-tree `aw882xx` driver | `GPL-2.0-only` (AWINIC's headers kept; they use the older identifier `GPL-2.0`) |
 | GNOME Shell extension | `GPL-2.0-or-later`, as GNOME Shell |
 | platform files, root filesystem builders, tools, packaging, site code | `MIT` (a few platform files follow their upstream: UCM2 `BSD-3-Clause`, libcamera tuning `CC0-1.0`, feedbackd rule `LGPL-2.1-or-later`) |
 | documentation text and screenshots | `CC-BY-SA-4.0`; code snippets and commands in the documentation are also available under `MIT` |

@@ -26,7 +26,7 @@ them with `install.sh`; the Debian, Arch and Nix packages in `packaging/` carry 
 | `73-tb323fu-usb-nowake.rules` | USB wakeup off by default: with it on, a USB 2 hub wakes the tablet right after suspending (the helper can turn it on) |
 | `81-tb323fu-sensors.rules` | SSC sensor types and the accelerometer mount matrix for iio-sensor-proxy, and start the proxy for this device |
 | `91-tb323fu-audio.rules` | speaker route and safe amplifier attenuation as soon as the sound card appears |
-| `udev-override/90-feedbackd.rules` → `/etc/udev/rules.d` | replaces feedbackd's packaged rules: drops its LED rules (they would take over the torch and RGB ring), adds the two haptic motors as vibra devices (LGPL-2.1+, from feedbackd) |
+| `udev-override/90-feedbackd.rules` → `/etc/udev/rules.d` | replaces feedbackd's packaged rules: drops its LED rules (they would take over the torch and RGB ring), adds the two haptic motors as vibra devices (LGPL-2.1-or-later, from feedbackd) |
 
 ### systemd → `/usr/lib/systemd/…`
 
