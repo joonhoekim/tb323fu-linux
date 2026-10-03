@@ -69,6 +69,7 @@ if [ -z "$DESTDIR" ]; then
 	sync
 	systemctl daemon-reload
 	systemctl reload dbus 2>/dev/null || true
-	systemctl enable --now tb323fu-helperd.service
+	systemctl enable tb323fu-helperd.service
+	systemctl restart tb323fu-helperd.service
 	echo "installed; tb323fu-ctl status"
 fi
