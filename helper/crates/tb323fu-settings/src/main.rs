@@ -34,11 +34,17 @@ const TIMINGS: [(&str, &str, u32, u32); 3] =
     [("power-saver", "Power Saver", 500, 2000), ("balanced", "Balanced", 1000, 5000), ("smooth", "Smooth", 3000, 15000)];
 const GPU_PROFILES: [&str; 3] = ["power-saver", "balanced", "performance"];
 const GPU_PROFILE_LABELS: [&str; 3] = ["Power Saver", "Balanced", "Performance"];
+const THERMAL_PROFILES: [&str; 3] = ["quiet", "default", "performance"];
+const THERMAL_LABELS: [&str; 3] = ["Quiet", "Default", "Performance"];
+const LED_MODES: [&str; 4] = ["off", "charge", "solid", "breathe"];
+const LED_MODE_LABELS: [&str; 4] = ["Off", "Charge Indicator", "Solid Colour", "Breathing"];
+const DAYS: [&str; 7] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+const DAY_LETTERS: [&str; 7] = ["M", "T", "W", "T", "F", "S", "S"];
 /// Every object the helper can export (for "N of M available").
-const KNOWN_FEATURES: usize = 12;
+const KNOWN_FEATURES: usize = 13;
 const DEBOUNCE: Duration = Duration::from_millis(400);
 /// The objects refresh() polls (the root object is polled first).
-const OBJECTS: [&str; 12] = ["Battery", "Refresh", "Gpu", "Torch", "LedRing", "Usb", "EmergencyKey", "Android", "Diagnostics", "Boot", "Thermal", "Kernel"];
+const OBJECTS: [&str; 13] = ["Battery", "Refresh", "Gpu", "Torch", "LedRing", "Haptics", "Usb", "EmergencyKey", "Android", "Diagnostics", "Boot", "Thermal", "Kernel"];
 
 const CSS: &str = "
 .tag { font-size: smaller; font-weight: bold; padding: 2px 8px; border-radius: 999px;
@@ -368,6 +374,11 @@ struct Ui {
     bat_design: gtk::Label,
     bat_charger: gtk::Label,
     bat_input: gtk::Label,
+    bat_gap: adw::SpinRow,
+    bat_fullby: adw::ExpanderRow,
+    bat_fb_hour: adw::SpinRow,
+    bat_fb_min: adw::SpinRow,
+    bat_fb_days: Vec<gtk::ToggleButton>,
     // Refresh
     ref_group: adw::PreferencesGroup,
     ref_policy: adw::ComboRow,
@@ -378,13 +389,20 @@ struct Ui {
     ref_s30: adw::SpinRow,
     ref_min: gtk::Label,
     ref_input: gtk::Label,
-    // Gpu
-    gpu_groups: [adw::PreferencesGroup; 2],
+    panel_group: adw::PreferencesGroup,
+    panel_limit: adw::SwitchRow,
+    // Performance (the Gpu object is the performance profile)
+    gpu_groups: [adw::PreferencesGroup; 3],
     gpu_profile: adw::ComboRow,
     gpu_follow: adw::SwitchRow,
+    perf_wifi: adw::SwitchRow,
     cpu_boost: adw::SwitchRow,
-    gpu_limits: Vec<(&'static str, adw::ExpanderRow, adw::SpinRow, adw::SpinRow)>,
-    gpu_seen: RefCell<Vec<(String, u32, u32)>>,
+    limits: Vec<LimitRows>,
+    limits_seen: RefCell<(Vec<(String, u32, u32)>, Vec<(String, [u32; 4])>)>,
+    th_prof_group: adw::PreferencesGroup,
+    th_profile: adw::ComboRow,
+    th_follow: adw::SwitchRow,
+    th_bypass: adw::SwitchRow,
     // Thermal (on the Performance page)
     th_group: adw::PreferencesGroup,
     th_surface: gtk::Label,
@@ -398,12 +416,23 @@ struct Ui {
     torch_on: adw::SwitchRow,
     torch_level: adw::SpinRow,
     led_group: adw::PreferencesGroup,
-    led_charge: adw::SwitchRow,
+    led_mode: adw::ComboRow,
+    led_color_row: adw::ActionRow,
+    led_color: gtk::ColorDialogButton,
+    led_speed: adw::SpinRow,
+    led_override: adw::SwitchRow,
     led_bright: adw::SpinRow,
     led_low: adw::SpinRow,
+    led_notify: adw::SwitchRow,
+    // Haptics
+    hap_group: adw::PreferencesGroup,
+    hap_strength: adw::SpinRow,
     // Usb
     usb_wake: adw::SwitchRow,
+    usb_charger: adw::SwitchRow,
     usb_dev: adw::SwitchRow,
+    usb_ports_group: adw::PreferencesGroup,
+    usb_ports_rows: RefCell<Vec<adw::ActionRow>>,
     // Emergency key
     ek_enabled: adw::SwitchRow,
     ek_hold: adw::SpinRow,
@@ -436,6 +465,14 @@ struct Ui {
     about_debug: RefCell<String>,
     // Kernel updates (About; a trial line on Systems)
     kn: KernelUi,
+}
+
+/// Limits of one performance profile: GPU min/max and CPU little/big min/max.
+struct LimitRows {
+    profile: &'static str,
+    exp: adw::ExpanderRow,
+    gpu: [adw::SpinRow; 2],
+    cpu: [adw::SpinRow; 4],
 }
 
 /// The kernel-update widgets: status, the available release with one action
@@ -493,7 +530,34 @@ impl Ui {
         let (p_bat, b) = page_box();
         let g = group(&b, "Charging", "");
         let bat_limit = spin(&g, "Charge Limit (%)", "80% keeps the battery healthier", 20.0, 100.0, 5.0);
+        let bat_gap = spin(&g, "Recharge Gap (%)", "", 3.0, 20.0, 1.0);
         let bat_bypass = switch(&g, "Bypass Charging", "Run from the charger, battery idle");
+        let g = group(&b, "Scheduled Charging", "");
+        group_help(&g, "The limit goes up to 100% early enough to be full at this time, estimated from the charge left and the charger. Two hours later, or when you unplug after it, the limit comes back.");
+        let bat_fullby = adw::ExpanderRow::builder().title("Charge to 100% by").show_enable_switch(true).enable_expansion(false).build();
+        let bat_fb_hour = adw::SpinRow::with_range(0.0, 23.0, 1.0);
+        bat_fb_hour.set_title("Hour");
+        let bat_fb_min = adw::SpinRow::with_range(0.0, 55.0, 5.0);
+        bat_fb_min.set_title("Minute");
+        touch_spin(&bat_fb_hour);
+        touch_spin(&bat_fb_min);
+        bat_fullby.add_row(&bat_fb_hour);
+        bat_fullby.add_row(&bat_fb_min);
+        let days_row = adw::ActionRow::builder().title("Days").build();
+        let days_box = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+        days_box.set_valign(gtk::Align::Center);
+        let mut bat_fb_days = Vec::new();
+        for (d, l) in DAYS.iter().zip(DAY_LETTERS) {
+            let t = gtk::ToggleButton::with_label(l);
+            t.add_css_class("circular");
+            t.set_tooltip_text(Some(&capitalize(d)));
+            t.update_property(&[gtk::accessible::Property::Label(&capitalize(d))]);
+            days_box.append(&t);
+            bat_fb_days.push(t);
+        }
+        days_row.add_suffix(&days_box);
+        bat_fullby.add_row(&days_row);
+        g.add(&bat_fullby);
         let g = group(&b, "Status", "");
         let bat_state = info(&g, "State");
         let bat_cap = info(&g, "Charge");
@@ -541,30 +605,48 @@ impl Ui {
             l
         };
         g.add(&details);
+        let panel_group = group(&b, "Panel", "");
+        group_help(&panel_group, "As on Android: from 55 °C panel temperature the brightness is held at 70% until it cools below 52 °C. Turning this off asks for authentication.");
+        let panel_limit = switch(&panel_group, "Dim When the Panel Is Hot", "70% brightness from 55 °C");
 
         // Performance
         let (p_gpu, b) = page_box();
+        let g = group(&b, "Profile", "Sets the CPU and GPU limits below.");
+        group_help(&g, "Power Saver, Balanced and Performance each have their own CPU and GPU limits. Following the power mode takes the desktop's choice (it offers Power Saver and Balanced on this tablet). The thermal profile and Wi-Fi power saving can follow the profile too.");
+        let gpu_group = g.clone();
+        let gpu_profile = combo(&g, "Profile", &GPU_PROFILE_LABELS);
+        let gpu_follow = switch(&g, "Follow Power Mode", "");
+        let perf_wifi = switch(&g, "Low-Latency Wi-Fi in Performance", "Wi-Fi power saving off");
+        let th_prof_group = group(&b, "Thermal", "");
+        group_help(&th_prof_group, "When the back of the tablet gets warm the kernel lowers the CPU and GPU clocks step by step (43–50 °C). Quiet starts 3 °C earlier; Performance 8 °C later (never above 58 °C), so long games keep their speed but the back and the battery get warmer. Performance ends by itself if a battery reaches 45 °C. The chips' own protection limits never change.");
+        let th_profile = combo(&th_prof_group, "Thermal Profile", &THERMAL_LABELS);
+        let th_follow = switch(&th_prof_group, "Follow the Profile", "Power Saver: Quiet · Performance: Performance");
+        let th_bypass = switch(&th_prof_group, "Bypass Charging in Performance", "Keeps the battery cooler on a charger");
         let g = group(&b, "CPU", "");
         let cpu_boost = switch(&g, "CPU Boost", "Fast cores up to 4.6 GHz; warmer under load");
-        let g = group(&b, "GPU", "");
-        let gpu_group = g.clone();
-        let gpu_profile = combo(&g, "GPU Profile", &GPU_PROFILE_LABELS);
-        let gpu_follow = switch(&g, "Follow Power Mode", "");
+        let cpu_group = g.clone();
         let g = group(&b, "Frequency Limits", "");
-        let gpu_groups = [gpu_group, g.clone()];
-        group_help(&g, "Lowest and highest GPU clock for each profile. Changes take effect when you press Apply.");
-        let mut gpu_limits = Vec::new();
+        let gpu_groups = [gpu_group, g.clone(), cpu_group];
+        group_help(&g, "Lowest and highest CPU and GPU clocks for each profile. The top of the CPU range keeps CPU Boost. Changes take effect when you press Apply.");
+        let mut limits = Vec::new();
         let mut gpu_buttons = Vec::new();
         for (p, label) in GPU_PROFILES.into_iter().zip(GPU_PROFILE_LABELS) {
             let exp = adw::ExpanderRow::builder().title(label).subtitle("…").build();
-            let lo = adw::SpinRow::with_range(100.0, 2000.0, 1.0);
-            lo.set_title("Minimum (MHz)");
-            let hi = adw::SpinRow::with_range(100.0, 2000.0, 1.0);
-            hi.set_title("Maximum (MHz)");
-            touch_spin(&lo);
-            touch_spin(&hi);
-            exp.add_row(&lo);
-            exp.add_row(&hi);
+            let mk = |title: &str, lo: f64, hi: f64, step: f64| {
+                let r = adw::SpinRow::with_range(lo, hi, step);
+                r.set_title(title);
+                touch_spin(&r);
+                exp.add_row(&r);
+                r
+            };
+            let lo = mk("GPU Minimum (MHz)", 100.0, 2000.0, 1.0);
+            let hi = mk("GPU Maximum (MHz)", 100.0, 2000.0, 1.0);
+            let cpu = [
+                mk("Efficiency Cores Minimum (MHz)", 300.0, 2000.0, 100.0),
+                mk("Efficiency Cores Maximum (MHz)", 300.0, 5000.0, 100.0),
+                mk("Fast Cores Minimum (MHz)", 300.0, 2900.0, 100.0),
+                mk("Fast Cores Maximum (MHz)", 300.0, 5000.0, 100.0),
+            ];
             let apply = adw::ActionRow::builder().title("Apply Limits").build();
             let bt = gtk::Button::with_label("Apply");
             bt.set_valign(gtk::Align::Center);
@@ -574,7 +656,7 @@ impl Ui {
             apply.set_activatable_widget(Some(&bt));
             exp.add_row(&apply);
             g.add(&exp);
-            gpu_limits.push((p, exp, lo, hi));
+            limits.push(LimitRows { profile: p, exp, gpu: [lo, hi], cpu });
             gpu_buttons.push(bt);
         }
         let th_group = group(&b, "Temperature", "");
@@ -593,15 +675,41 @@ impl Ui {
         let torch_on = switch(&torch_group, "Torch", "");
         let torch_level = spin(&torch_group, "Brightness", "", 1.0, 255.0, 1.0);
         let led_group = group(&b, "LED Ring", "");
-        group_help(&led_group, "The RGB ring on the back: amber while charging, green when full or held at the limit, red when low.");
-        let led_charge = switch(&led_group, "Charge Indicator", "");
+        group_help(&led_group, "The RGB ring on the back. Charge indicator: amber while charging, green when full or held at the limit, red when low. Breathing pauses while the screen is off.");
+        let led_mode = combo(&led_group, "Mode", &LED_MODE_LABELS);
+        let led_color = gtk::ColorDialogButton::new(Some(gtk::ColorDialog::builder().with_alpha(false).title("LED Ring Colour").build()));
+        led_color.set_valign(gtk::Align::Center);
+        let led_color_row = adw::ActionRow::builder().title("Colour").build();
+        led_color_row.add_suffix(&led_color);
+        led_color_row.set_activatable_widget(Some(&led_color));
+        led_group.add(&led_color_row);
+        let led_speed = spin(&led_group, "Breathing Cycle (s)", "", 1.0, 20.0, 0.5);
+        led_speed.set_digits(1);
+        let led_override = switch(&led_group, "Charge Colours Take Over", "While charging, held at the limit or low");
         let led_bright = spin(&led_group, "Brightness", "", 1.0, 255.0, 1.0);
         let led_low = spin(&led_group, "Red Below (%)", "", 5.0, 50.0, 1.0);
+        let led_notify = switch(&led_group, "Pulse for Notifications", "Needs the Tablet quick settings extension");
+        let (_, led_pulse) = button(&led_group, "Try a Pulse", "", "Pulse");
+        let hap_group = group(&b, "Vibration", "");
+        group_help(&hap_group, "The strength applies to everything that vibrates: the on-screen keyboard, games, notifications.");
+        let hap_strength = spin(&hap_group, "Strength (%)", "", 0.0, 100.0, 10.0);
+        let hap_row = adw::ActionRow::builder().title("Test").build();
+        let mut hap_buttons = Vec::new();
+        for (m, l) in [("left", "Left"), ("right", "Right")] {
+            let bt = gtk::Button::with_label(l);
+            bt.set_valign(gtk::Align::Center);
+            bt.update_property(&[gtk::accessible::Property::Label(&format!("Test the {m} motor"))]);
+            hap_row.add_suffix(&bt);
+            hap_buttons.push((m, bt));
+        }
+        hap_group.add(&hap_row);
 
         // USB
         let (p_usb, b) = page_box();
         let g = group(&b, "Wake", "");
         let usb_wake = switch(&g, "Wake from USB Devices", "Keyboard or mouse on USB-C wakes it");
+        let usb_charger = switch(&g, "Wake When a Charger Is Plugged In", "Or unplugged");
+        let usb_ports_group = group(&b, "USB-C Ports", "");
         let g = group(&b, "Development", "Network link and root console over the USB cable.");
         group_help(&g, "Only turn this on for development: anyone with a cable gets a root console. Turning it on asks for authentication.");
         let usb_dev = switch(&g, "USB Developer Mode", "");
@@ -703,9 +811,9 @@ impl Ui {
         sidebar.set_selection_mode(gtk::SelectionMode::Single);
         let defs: [(&str, &str, &'static [&'static str], &gtk::ScrolledWindow, Option<&adw::Banner>); 10] = [
             ("Battery", "battery-good-symbolic", &["Battery"], &p_bat, None),
-            ("Display", "video-display-symbolic", &["Refresh"], &p_ref, None),
+            ("Display", "video-display-symbolic", &["Refresh", "Thermal"], &p_ref, None),
             ("Performance", "power-profile-balanced-symbolic", &["Gpu", "Thermal"], &p_gpu, None),
-            ("Torch & LED Ring", "display-brightness-symbolic", &["Torch", "LedRing"], &p_led, None),
+            ("Lights & Vibration", "display-brightness-symbolic", &["Torch", "LedRing", "Haptics"], &p_led, None),
             ("USB", "media-removable-symbolic", &["Usb"], &p_usb, None),
             ("Emergency Key", "dialog-warning-symbolic", &["EmergencyKey"], &p_ek, None),
             ("Systems", "drive-multidisk-symbolic", &["Boot"], &p_boot, Some(&boot_banner)),
@@ -806,6 +914,11 @@ impl Ui {
             bat_design,
             bat_charger,
             bat_input,
+            bat_gap,
+            bat_fullby,
+            bat_fb_hour,
+            bat_fb_min,
+            bat_fb_days,
             ref_group,
             ref_policy,
             ref_rate,
@@ -815,12 +928,19 @@ impl Ui {
             ref_s30,
             ref_min,
             ref_input,
+            panel_group,
+            panel_limit,
             gpu_groups,
             gpu_profile,
             gpu_follow,
+            perf_wifi,
             cpu_boost,
-            gpu_limits,
-            gpu_seen: RefCell::new(Vec::new()),
+            limits,
+            limits_seen: RefCell::new((Vec::new(), Vec::new())),
+            th_prof_group,
+            th_profile,
+            th_follow,
+            th_bypass,
             th_group,
             th_surface,
             th_cpu,
@@ -832,11 +952,21 @@ impl Ui {
             torch_on,
             torch_level,
             led_group,
-            led_charge,
+            led_mode,
+            led_color_row,
+            led_color,
+            led_speed,
+            led_override,
             led_bright,
             led_low,
+            led_notify,
+            hap_group,
+            hap_strength,
             usb_wake,
+            usb_charger,
             usb_dev,
+            usb_ports_group,
+            usb_ports_rows: RefCell::new(Vec::new()),
             ek_enabled,
             ek_hold,
             and_avail,
@@ -885,6 +1015,7 @@ impl Ui {
             },
         });
         ui.connect(gpu_buttons, rescan, diag_open, retry);
+        ui.connect_more(led_pulse, hap_buttons);
         ui.connect_kernel(kn_back_btn);
         ui
     }
@@ -1005,6 +1136,69 @@ impl Ui {
         d.present(Some(&self.window));
     }
 
+    /// Ask before a risky choice; the object stays busy while the dialog is
+    /// open. `cancel` puts the widget back.
+    #[allow(clippy::too_many_arguments)]
+    fn confirm(self: &Rc<Self>, obj: &'static str, heading: &str, body: &str, verb: &str, go: impl Fn(&Rc<Ui>) + 'static,
+        cancel: impl Fn(&Rc<Ui>) + 'static) {
+        self.hold(obj);
+        let d = adw::AlertDialog::new(Some(heading), Some(body));
+        d.add_response("cancel", "Cancel");
+        d.add_response("go", verb);
+        d.set_response_appearance("go", adw::ResponseAppearance::Destructive);
+        d.set_default_response(Some("cancel"));
+        d.set_close_response("cancel");
+        let ui = self.clone();
+        d.connect_response(None, move |_, resp| {
+            ui.release(obj);
+            if resp == "go" { go(&ui) } else { cancel(&ui) }
+        });
+        d.present(Some(&self.window));
+    }
+
+    /// Pulse and vibration test buttons.
+    fn connect_more(self: &Rc<Self>, led_pulse: gtk::Button, hap: Vec<(&'static str, gtk::Button)>) {
+        let ui = self.clone();
+        led_pulse.connect_clicked(move |_| ui.call_simple("LedRing", "Pulse", (String::new(), 2u32)));
+        for (m, b) in hap {
+            let ui = self.clone();
+            b.connect_clicked(move |b| {
+                b.set_sensitive(false);
+                let b2 = b.clone();
+                ui.call_then("Haptics", "Test", (m.to_string(),), move |_, _| b2.set_sensitive(true));
+            });
+        }
+    }
+
+    /// Send the "full by" time and days (debounced): "" when switched off,
+    /// no days when all seven are on.
+    fn send_full_by(self: &Rc<Self>) {
+        if self.updating.get() {
+            return;
+        }
+        let on = self.bat_fullby.enables_expansion();
+        let time = if on { format!("{:02}:{:02}", self.bat_fb_hour.value() as u32, self.bat_fb_min.value() as u32) } else { String::new() };
+        let mut days: Vec<String> = DAYS.iter().zip(&self.bat_fb_days).filter(|(_, t)| t.is_active()).map(|(d, _)| d.to_string()).collect();
+        if days.len() == DAYS.len() {
+            days.clear();
+        }
+        if on && days.is_empty() && self.bat_fb_days.iter().all(|t| !t.is_active()) {
+            return; // no day chosen yet
+        }
+        self.debounce("fullby", "Battery", move |ui| ui.call_simple("Battery", "SetFullBy", (time, days)));
+    }
+
+    /// Show the LED rows that apply to the mode.
+    fn sync_led_rows(&self) {
+        let m = LED_MODES[self.led_mode.selected() as usize % LED_MODES.len()];
+        let own = m == "solid" || m == "breathe";
+        self.led_color_row.set_visible(own);
+        self.led_speed.set_visible(m == "breathe");
+        self.led_override.set_visible(own);
+        self.led_low.set_visible(m == "charge" || (own && self.led_override.is_active()));
+        self.led_bright.set_visible(m != "off");
+    }
+
     fn connect(self: &Rc<Self>, gpu_buttons: Vec<gtk::Button>, rescan: gtk::Button, diag_open: gtk::Button, retry: gtk::Button) {
         // Navigation
         // The selected row decides the page, so the highlight always matches
@@ -1088,32 +1282,112 @@ impl Ui {
         });
         self.switch_sends(&self.gpu_follow, "Gpu", "SetFollowPowerProfiles");
         self.switch_sends(&self.cpu_boost, "Gpu", "SetCpuBoost");
+        self.switch_sends(&self.perf_wifi, "Gpu", "SetWifiLowLatency");
         for (i, b) in gpu_buttons.into_iter().enumerate() {
-            let (_, _, lo, hi) = &self.gpu_limits[i];
+            let l = &self.limits[i];
             // keep minimum <= maximum while editing
-            let hi2 = hi.clone();
-            lo.connect_value_notify(move |lo| hi2.adjustment().set_lower(lo.value()));
-            let lo2 = lo.clone();
-            hi.connect_value_notify(move |hi| lo2.adjustment().set_upper(hi.value()));
+            // (the daemon refuses CPU floors above the first thermal step)
+            for (lo, hi, cap) in [(&l.gpu[0], &l.gpu[1], 2000.0), (&l.cpu[0], &l.cpu[1], 1996.0), (&l.cpu[2], &l.cpu[3], 2880.0)] {
+                let hi2 = hi.clone();
+                lo.connect_value_notify(move |lo| hi2.adjustment().set_lower(lo.value()));
+                let lo2 = lo.clone();
+                hi.connect_value_notify(move |hi| lo2.adjustment().set_upper(hi.value().min(cap)));
+            }
             let ui = self.clone();
             b.connect_clicked(move |_| {
-                let (p, _, lo, hi) = &ui.gpu_limits[i];
-                ui.call_simple("Gpu", "SetLimits", (p.to_string(), lo.value() as u32, hi.value() as u32));
+                let l = &ui.limits[i];
+                let v = |r: &adw::SpinRow| r.value().round() as u32;
+                ui.call_simple("Gpu", "SetLimits", (l.profile.to_string(), v(&l.gpu[0]), v(&l.gpu[1])));
+                if l.cpu[0].is_visible() {
+                    ui.call_simple("Gpu", "SetCpuLimits", (l.profile.to_string(), v(&l.cpu[0]), v(&l.cpu[1]), v(&l.cpu[2]), v(&l.cpu[3])));
+                }
             });
         }
+
+        // Thermal
+        let ui = self.clone();
+        self.th_profile.connect_selected_notify(move |r| {
+            if ui.updating.get() {
+                return;
+            }
+            let p = THERMAL_PROFILES[r.selected() as usize % THERMAL_PROFILES.len()];
+            if p != "performance" {
+                ui.call_simple("Thermal", "SetProfile", (p.to_string(),));
+                return;
+            }
+            ui.confirm("Thermal", "Let the Tablet Run Hotter?",
+                "Clocks stay high 8 °C longer: the back and the battery get noticeably warmer. It ends by itself if a battery reaches 45 °C.",
+                "Run Hotter", |ui| ui.call_simple("Thermal", "SetProfile", ("performance".to_string(),)), |ui| ui.refresh());
+        });
+        self.switch_sends(&self.th_follow, "Thermal", "SetFollowPerformance");
+        self.switch_sends(&self.th_bypass, "Thermal", "SetPerformanceBypass");
+        let ui = self.clone();
+        self.panel_limit.connect_active_notify(move |r| {
+            if ui.updating.get() {
+                return;
+            }
+            if r.is_active() {
+                ui.call_simple("Thermal", "SetPanelLimit", (true,));
+                return;
+            }
+            ui.confirm_switch(r, "Thermal", "Turn Off Panel Heat Protection?",
+                "The panel then stays at full brightness when it is hot, which ages it faster.",
+                "Turn Off", |ui| ui.call_simple("Thermal", "SetPanelLimit", (false,)));
+        });
 
         // Torch / LED
         self.switch_sends(&self.torch_on, "Torch", "Set");
         self.spin_sends(&self.torch_level, "torch", "Torch", "SetLevel");
         let ui = self.clone();
-        self.led_charge.connect_active_notify(move |r| {
+        self.led_mode.connect_selected_notify(move |r| {
             if !ui.updating.get() {
-                let m = if r.is_active() { "charge" } else { "off" };
+                let m = LED_MODES[r.selected() as usize % LED_MODES.len()];
                 ui.call_simple("LedRing", "SetMode", (m.to_string(),));
+                ui.sync_led_rows();
             }
         });
+        let ui = self.clone();
+        self.led_color.connect_rgba_notify(move |b| {
+            if ui.updating.get() {
+                return;
+            }
+            let c = b.rgba();
+            let hex = format!("#{:02x}{:02x}{:02x}", (c.red() * 255.0).round() as u8, (c.green() * 255.0).round() as u8, (c.blue() * 255.0).round() as u8);
+            ui.debounce("ledc", "LedRing", move |ui| ui.call_simple("LedRing", "SetColor", (hex,)));
+        });
+        let ui = self.clone();
+        self.led_speed.connect_value_notify(move |r| {
+            if ui.updating.get() {
+                return;
+            }
+            let ms = (r.value() * 1000.0).round() as u32;
+            ui.debounce("leds", "LedRing", move |ui| ui.call_simple("LedRing", "SetSpeed", (ms,)));
+        });
+        let ui = self.clone();
+        self.led_override.connect_active_notify(move |r| {
+            if !ui.updating.get() {
+                ui.call_simple("LedRing", "SetChargeOverride", (r.is_active(),));
+                ui.sync_led_rows();
+            }
+        });
+        self.switch_sends(&self.led_notify, "LedRing", "SetNotifyPulse");
         self.spin_sends(&self.led_bright, "ledb", "LedRing", "SetBrightness");
         self.spin_sends(&self.led_low, "ledlow", "LedRing", "SetLowPercent");
+        self.spin_sends(&self.hap_strength, "hap", "Haptics", "SetStrength");
+
+        // Battery: recharge gap, full by
+        self.spin_sends(&self.bat_gap, "gap", "Battery", "SetRechargeGap");
+        let ui = self.clone();
+        self.bat_fullby.connect_enable_expansion_notify(move |_| ui.send_full_by());
+        for r in [&self.bat_fb_hour, &self.bat_fb_min] {
+            let ui = self.clone();
+            r.connect_value_notify(move |_| ui.send_full_by());
+        }
+        for t in &self.bat_fb_days {
+            let ui = self.clone();
+            t.connect_toggled(move |_| ui.send_full_by());
+        }
+        self.switch_sends(&self.usb_charger, "Usb", "SetChargerWake");
 
         // USB
         self.switch_sends(&self.usb_wake, "Usb", "SetWake");
@@ -1306,6 +1580,7 @@ impl Ui {
         if let Some(b) = p("Battery") {
             self.update_battery(b);
         }
+        self.ref_group.set_visible(present("Refresh"));
         if let Some(r) = p("Refresh") {
             self.update_refresh(r);
         }
@@ -1316,6 +1591,8 @@ impl Ui {
             self.update_gpu(g);
         }
         self.th_group.set_visible(present("Thermal"));
+        self.panel_group.set_visible(present("Thermal"));
+        self.th_prof_group.set_visible(present("Thermal"));
         if let Some(t) = p("Thermal") {
             self.update_thermal(t);
         }
@@ -1331,13 +1608,17 @@ impl Ui {
         }
         self.led_group.set_visible(present("LedRing"));
         if let Some(l) = p("LedRing") {
-            set_switch(&self.led_charge, dbus::s(l, "Mode").map(|m| m == "charge"));
-            set_spin(&self.led_bright, dbus::u(l, "Brightness").map(f64::from));
-            set_spin(&self.led_low, dbus::u(l, "LowPercent").map(f64::from));
+            self.update_led(l);
+        }
+        self.hap_group.set_visible(present("Haptics"));
+        if let Some(h) = p("Haptics") {
+            set_spin(&self.hap_strength, dbus::u(h, "Strength").map(f64::from));
         }
         if let Some(u) = p("Usb") {
             set_switch(&self.usb_wake, dbus::b(u, "WakeEnabled"));
             set_switch(&self.usb_dev, dbus::b(u, "DevMode"));
+            set_switch(&self.usb_charger, dbus::b(u, "ChargerWake"));
+            self.update_ports(&dbus::ports(u, "Ports"));
         }
         if let Some(e) = p("EmergencyKey") {
             set_switch(&self.ek_enabled, dbus::b(e, "Enabled"));
@@ -1920,6 +2201,47 @@ impl Ui {
 
     fn update_battery(&self, p: &Props) {
         set_spin(&self.bat_limit, dbus::u(p, "ChargeLimit").map(f64::from));
+        let gap = dbus::u(p, "RechargeGap");
+        set_spin(&self.bat_gap, gap.map(f64::from));
+        let sub = match (dbus::u(p, "ChargeLimit"), gap) {
+            (Some(l), Some(g)) => format!("Charging resumes below {}%", l.saturating_sub(g)),
+            _ => String::new(),
+        };
+        if self.bat_gap.subtitle().as_deref().unwrap_or("") != sub {
+            self.bat_gap.set_subtitle(&sub);
+        }
+        let full_by = dbus::s(p, "FullBy").unwrap_or_default();
+        let days = dbus::strs(p, "FullByDays");
+        if self.bat_fullby.enables_expansion() != !full_by.is_empty() {
+            self.bat_fullby.set_enable_expansion(!full_by.is_empty());
+        }
+        if let Some((h, m)) = full_by.split_once(':').and_then(|(h, m)| Some((h.parse::<f64>().ok()?, m.parse::<f64>().ok()?))) {
+            set_spin(&self.bat_fb_hour, Some(h));
+            set_spin(&self.bat_fb_min, Some(m));
+        } else if full_by.is_empty() && !self.busy("Battery") && self.bat_fb_hour.value() == 0.0 {
+            set_spin(&self.bat_fb_hour, Some(7.0));
+        }
+        for (d, t) in DAYS.iter().zip(&self.bat_fb_days) {
+            let on = days.is_empty() || days.iter().any(|x| x == d);
+            if t.is_active() != on {
+                t.set_active(on);
+            }
+        }
+        let when = match days.len() {
+            0 => "every day".to_string(),
+            5 if !days.iter().any(|d| d == "sat" || d == "sun") => "weekdays".to_string(),
+            _ => days.iter().map(|d| capitalize(d)).collect::<Vec<_>>().join(", "),
+        };
+        let sub = if dbus::b(p, "FullByActive") == Some(true) {
+            "Charging to 100% now".to_string()
+        } else if full_by.is_empty() {
+            "Off".to_string()
+        } else {
+            format!("{full_by}, {when}")
+        };
+        if self.bat_fullby.subtitle().as_str() != sub {
+            self.bat_fullby.set_subtitle(&sub);
+        }
         let bypass = dbus::b(p, "Bypass");
         set_switch(&self.bat_bypass, bypass);
         let state = dbus::s(p, "State").unwrap_or_default();
@@ -1954,7 +2276,11 @@ impl Ui {
         });
         set_text(&self.bat_volt, &mv.map(|v| format!("{:.2} V", v as f64 / 1000.0)).unwrap_or_else(|| "Unknown".into()));
         set_text(&self.bat_temp, &degrees(dbus::f(p, "TemperatureC")));
-        set_text(&self.bat_health, &dbus::s(p, "Health").map(|h| capitalize(&h)).unwrap_or_else(|| "Unknown".into()));
+        let health = dbus::s(p, "Health").map(|h| capitalize(&h)).unwrap_or_else(|| "Unknown".into());
+        set_text(&self.bat_health, &match dbus::i(p, "StateOfHealth").filter(|s| *s >= 0) {
+            Some(s) => format!("{health} · {s}% of new"),
+            None => health,
+        });
         // unknown values (-1) hide their row instead of saying "unknown"
         for (l, v, unit) in [(&self.bat_cycles, dbus::i(p, "CycleCount"), ""), (&self.bat_design, dbus::i(p, "DesignCapacityMah"), " mAh")] {
             let known = v.is_some_and(|x| x >= 0);
@@ -2037,24 +2363,115 @@ impl Ui {
         if self.gpu_profile.subtitle().as_deref().unwrap_or("") != sub {
             self.gpu_profile.set_subtitle(sub);
         }
+        self.perf_wifi.set_visible(dbus::b(p, "WifiAvailable") == Some(true));
+        set_switch(&self.perf_wifi, dbus::b(p, "WifiLowLatency"));
         let floors = dbus::dict_suu(p, "Floors");
+        let cpu = dbus::dict_s4u(p, "CpuLimits");
+        let range = dbus::dict_suu(p, "CpuRange");
         // only when the daemon's values change: never undo an edit before Apply
-        if *self.gpu_seen.borrow() == floors {
+        if *self.limits_seen.borrow() == (floors.clone(), cpu.clone()) {
             return;
         }
-        for (name, exp, lo, hi) in &self.gpu_limits {
-            if let Some((_, a, b)) = floors.iter().find(|(n, _, _)| n == name) {
-                exp.set_subtitle(&format!("{a}–{b} MHz"));
-                lo.adjustment().set_upper(2000.0);
-                hi.adjustment().set_lower(100.0);
-                hi.set_value(*b as f64);
-                lo.set_value(*a as f64);
+        let ghz = |m: u32| format!("{:.1}", m as f64 / 1000.0);
+        for l in &self.limits {
+            let mut sub = Vec::new();
+            if let Some((_, a, b)) = floors.iter().find(|(n, _, _)| n == l.profile) {
+                sub.push(format!("GPU {a}–{b} MHz"));
+                l.gpu[0].adjustment().set_upper(2000.0);
+                l.gpu[1].adjustment().set_lower(100.0);
+                l.gpu[1].set_value(*b as f64);
+                l.gpu[0].set_value(*a as f64);
+            }
+            let c = cpu.iter().find(|(n, _)| n == l.profile).map(|x| x.1);
+            for r in &l.cpu {
+                r.set_visible(c.is_some());
+            }
+            if let Some(c) = c {
+                sub.push(format!("CPU ≤ {} / {} GHz", ghz(c[1]), ghz(c[3])));
+                for (k, cl) in ["little", "big"].iter().enumerate() {
+                    let (lo, hi) = range.iter().find(|(n, _, _)| n == cl).map(|x| (x.1 as f64, x.2 as f64)).unwrap_or((300.0, 5000.0));
+                    let cap: f64 = if *cl == "big" { 2880.0 } else { 1996.0 };
+                    let (mn, mx) = (&l.cpu[2 * k], &l.cpu[2 * k + 1]);
+                    mn.adjustment().set_lower(lo);
+                    mn.adjustment().set_upper(cap.min(hi));
+                    mx.adjustment().set_lower(lo);
+                    mx.adjustment().set_upper(hi);
+                    mx.set_value(c[2 * k + 1] as f64);
+                    mn.set_value(c[2 * k] as f64);
+                }
+            }
+            l.exp.set_subtitle(&sub.join(" · "));
+        }
+        *self.limits_seen.borrow_mut() = (floors, cpu);
+    }
+
+    fn update_led(&self, l: &Props) {
+        set_combo(&self.led_mode, &LED_MODES, dbus::s(l, "Mode"));
+        set_spin(&self.led_bright, dbus::u(l, "Brightness").map(f64::from));
+        set_spin(&self.led_low, dbus::u(l, "LowPercent").map(f64::from));
+        set_spin(&self.led_speed, dbus::u(l, "Speed").map(|ms| ms as f64 / 1000.0));
+        set_switch(&self.led_override, dbus::b(l, "ChargeOverride"));
+        set_switch(&self.led_notify, dbus::b(l, "NotifyPulse"));
+        if let Some(c) = dbus::s(l, "Color").and_then(|s| gtk::gdk::RGBA::parse(s.as_str()).ok()) {
+            if self.led_color.rgba() != c {
+                self.led_color.set_rgba(&c);
             }
         }
-        *self.gpu_seen.borrow_mut() = floors;
+        self.sync_led_rows();
+    }
+
+    /// One row per USB-C port: what is attached and which way power flows.
+    fn update_ports(&self, ports: &[(String, String, String, bool)]) {
+        let mut rows = self.usb_ports_rows.borrow_mut();
+        while rows.len() > ports.len() {
+            if let Some(r) = rows.pop() {
+                self.usb_ports_group.remove(&r);
+            }
+        }
+        while rows.len() < ports.len() {
+            let r = adw::ActionRow::new();
+            self.usb_ports_group.add(&r);
+            rows.push(r);
+        }
+        for (r, (name, data, power, partner)) in rows.iter().zip(ports) {
+            let n: u32 = name.trim_start_matches("port").parse().unwrap_or(0);
+            r.set_title(&format!("Port {}", n + 1));
+            let sub = if !partner {
+                "Nothing connected".to_string()
+            } else {
+                let d = if data == "host" { "USB devices attached" } else { "Connected to a computer or charger" };
+                let pw = if power == "source" { "supplying power" } else { "receiving power" };
+                format!("{d} · {pw}")
+            };
+            if r.subtitle().as_deref() != Some(sub.as_str()) {
+                r.set_subtitle(&sub);
+            }
+        }
+        self.usb_ports_group.set_visible(!ports.is_empty());
     }
 
     fn update_thermal(&self, p: &Props) {
+        let profiles = dbus::strs(p, "Profiles");
+        self.th_prof_group.set_visible(!profiles.is_empty());
+        let follow = dbus::b(p, "FollowPerformance");
+        set_combo(&self.th_profile, &THERMAL_PROFILES, dbus::s(p, "Profile"));
+        set_switch(&self.th_follow, follow);
+        set_switch(&self.th_bypass, dbus::b(p, "PerformanceBypass"));
+        self.th_profile.set_sensitive(follow != Some(true));
+        let trips = dbus::doubles(p, "Trips");
+        let sub = match (trips.first(), trips.last(), follow) {
+            (_, _, Some(true)) => "Set by the profile".to_string(),
+            (Some(a), Some(b), _) => format!("Slows down from {a:.0} °C, in steps up to {b:.0} °C"),
+            _ => String::new(),
+        };
+        if self.th_profile.subtitle().as_deref().unwrap_or("") != sub {
+            self.th_profile.set_subtitle(&sub);
+        }
+        set_switch(&self.panel_limit, dbus::b(p, "PanelLimit"));
+        let sub = if dbus::b(p, "PanelLimited") == Some(true) { "Dimmed now: the panel is hot" } else { "70% brightness from 55 °C" };
+        if self.panel_limit.subtitle().as_deref().unwrap_or("") != sub {
+            self.panel_limit.set_subtitle(sub);
+        }
         set_text(&self.th_surface, &degrees(dbus::f(p, "Surface")));
         set_text(&self.th_cpu, &degrees(dbus::f(p, "CpuMax")));
         set_text(&self.th_gpu, &degrees(dbus::f(p, "GpuMax")));

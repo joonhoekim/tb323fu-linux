@@ -1,8 +1,8 @@
 # Open Device Helper
 
 Open Device Helper (`tb323fu-helper` in this repository; the name is not tied to one device so the parts that are
-not TB323FU-specific can move to other ports later) owns the TB323FU's user-facing knobs — charge limit and bypass, restart into Android, torch, RGB-ring
-charge indicator, idle refresh policy, GPU limits, USB wakeup, emergency key settings, multiboot selection, kernel updates,
+not TB323FU-specific can move to other ports later) owns the TB323FU's user-facing knobs — charge limit, bypass and charging schedule, restart into Android, torch, RGB-ring
+lighting, vibration strength, idle refresh policy, the performance profile (CPU/GPU limits, thermal profile, panel heat limit), USB wakeup, emergency key settings, multiboot selection, kernel updates,
 diagnostics — and exposes them over **D-Bus** to a CLI, a GNOME quick-settings tile and a settings app.
 It needs only systemd, D-Bus and polkit, and works without any particular desktop. Code and build instructions:
 [`helper/`](../helper/README.md).
@@ -48,7 +48,7 @@ GNOME and apt.
   - **Open Device Helper…:** opens the settings app.
   - **Errors:** one notification per failed call (no D-Bus names); a cancelled authentication shows nothing.
   - Auto Brightness stays a separate GSettings tile.
-- **Settings app** (Rust, gtk-rs, GTK4 + libadwaita, `tb323fu-settings [--page NAME]`): pages Battery (limit, bypass, state, power, charger contract and measured input), Display (refresh policy, timing presets or custom idle times), Performance (GPU profile and limits, temperatures from `Thermal`), Torch & LED Ring, USB, Emergency Key, Systems (multiboot: restart into / next / default from a row's menu, opened by tapping the row; the subtitle always names the partition, then any problem in short, e.g. `baldur-root-sd · No sound or Wi-Fi`), Android, Diagnostics (export) and About (versions, firmware, About dialog with copyable debug info). Short values stay on one line, long ones (kernel, hashes, paths) sit under the row title with a copy button; the split view collapses into list → page navigation below 860 sp. The property poll runs on a worker thread, so a slow daemon answer (a Boot rescan mounts SD roots; the daemon runs it on a blocking thread too) never freezes the window. Adwaita fits GNOME; on other desktops it still runs as a plain app.
+- **Settings app** (Rust, gtk-rs, GTK4 + libadwaita, `tb323fu-settings [--page NAME]`): pages Battery (limit, recharge gap, bypass, "charge to 100 % by" schedule, state, power, health, charger contract and measured input), Display (refresh policy, timing presets or custom idle times, panel heat protection), Performance (profile with CPU and GPU limits per profile, low-latency Wi-Fi, thermal profile, CPU boost, temperatures from `Thermal`), Lights & Vibration (torch, LED ring mode, colour, breathing, notification pulse, vibration strength and test), USB (wake sources, USB-C port roles, developer mode), Emergency Key, Systems (multiboot: restart into / next / default from a row's menu, opened by tapping the row; the subtitle always names the partition, then any problem in short, e.g. `baldur-root-sd · No sound or Wi-Fi`), Android, Diagnostics (export) and About (versions, firmware, About dialog with copyable debug info). Short values stay on one line, long ones (kernel, hashes, paths) sit under the row title with a copy button; the split view collapses into list → page navigation below 860 sp. The property poll runs on a worker thread, so a slow daemon answer (a Boot rescan mounts SD roots; the daemon runs it on a blocking thread too) never freezes the window. Adwaita fits GNOME; on other desktops it still runs as a plain app.
 - **KDE Plasma applet** (later): QML plasmoid over the same D-Bus API.
 
 ## Multiboot

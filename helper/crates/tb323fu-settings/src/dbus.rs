@@ -103,9 +103,25 @@ pub fn setting_name(method: &str) -> &'static str {
         "SetPolicy" => "Refresh rate",
         "SetRate" => "Fixed rate",
         "SetIdle" | "ApplyPreset" => "Refresh timing",
-        "SetProfile" => "GPU profile",
+        "SetProfile" => "Profile",
         "SetFollowPowerProfiles" => "Follow power mode",
         "SetLimits" => "GPU limits",
+        "SetCpuLimits" => "CPU limits",
+        "SetCpuBoost" => "CPU boost",
+        "SetWifiLowLatency" => "Wi-Fi power saving",
+        "SetFollowPerformance" => "Thermal profile",
+        "SetPerformanceBypass" => "Bypass in performance",
+        "SetPanelLimit" => "Panel heat protection",
+        "SetRechargeGap" => "Recharge gap",
+        "SetFullBy" => "Full charge by",
+        "SetColor" => "LED ring colour",
+        "SetSpeed" => "Breathing speed",
+        "SetChargeOverride" => "Charge colours",
+        "SetNotifyPulse" => "Notification pulse",
+        "Pulse" => "LED ring",
+        "SetStrength" => "Vibration strength",
+        "Test" => "Vibration test",
+        "SetChargerWake" => "Charger wake",
         "Set" => "Torch",
         "SetLevel" => "Torch brightness",
         "SetMode" => "Charge indicator",
@@ -320,4 +336,53 @@ pub fn releases(p: &Props, k: &str) -> Vec<(String, String, String, u32)> {
         }
     }
     out
+}
+
+/// a{s(uuuu)} as (key, [a, b, c, d]), sorted by key.
+pub fn dict_s4u(p: &Props, k: &str) -> Vec<(String, [u32; 4])> {
+    let mut out = Vec::new();
+    if let Some(Value::Dict(d)) = val(p, k) {
+        for (kk, vv) in d.iter() {
+            let v = match vv {
+                Value::Value(b) => &**b,
+                o => o,
+            };
+            if let (Some(a), Value::Structure(st)) = (str_of(kk), v) {
+                let f: Vec<u32> = st.fields().iter().filter_map(|x| if let Value::U32(n) = x { Some(*n) } else { None }).collect();
+                if let [a0, a1, a2, a3] = f[..] {
+                    out.push((a, [a0, a1, a2, a3]));
+                }
+            }
+        }
+    }
+    out.sort();
+    out
+}
+
+/// a(sssb): Usb.Ports (port, data role, power role, partner attached).
+pub fn ports(p: &Props, k: &str) -> Vec<(String, String, String, bool)> {
+    let mut out = Vec::new();
+    if let Some(Value::Array(a)) = val(p, k) {
+        for v in a.iter() {
+            let v = match v {
+                Value::Value(b) => &**b,
+                other => other,
+            };
+            if let Value::Structure(st) = v {
+                let f = st.fields();
+                if let (4, Some(n), Some(d), Some(pw)) = (f.len(), f.first().and_then(str_of), f.get(1).and_then(str_of), f.get(2).and_then(str_of)) {
+                    out.push((n, d, pw, matches!(f.get(3), Some(Value::Bool(true)))));
+                }
+            }
+        }
+    }
+    out
+}
+
+/// ad as a list.
+pub fn doubles(p: &Props, k: &str) -> Vec<f64> {
+    match val(p, k) {
+        Some(Value::Array(a)) => a.iter().filter_map(|v| if let Value::F64(x) = v { Some(*x) } else { None }).collect(),
+        _ => Vec::new(),
+    }
 }

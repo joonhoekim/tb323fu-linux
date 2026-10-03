@@ -3,7 +3,9 @@
 `tb323fu-helperd` (system D-Bus service) and `tb323fu-ctl` (CLI) for the device-specific features of the
 Lenovo Legion Tab Gen 5 / Y700 5th Gen (TB323FU): battery charge limit and bypass, battery/charger details,
 restart into Android, flashlight, RGB-ring charge indicator, idle refresh policy, GPU limits per power profile,
-USB wakeup and developer USB access, the emergency key combination, and a diagnostics export.
+USB wakeup and developer USB access, the emergency key combination, a diagnostics export, and the performance
+profile (CPU/GPU limits, board-temperature profile, panel heat limit, Wi-Fi power saving), vibration strength, LED ring
+effects and a "full by" charging schedule.
 Design and API contract: [docs/helper.md](../docs/helper.md).
 
 The GTK settings app is in [`crates/tb323fu-settings/`](#settings-app-tb323fu-settings); the GNOME quick-settings tile is in
@@ -59,7 +61,7 @@ Settings are stored in `/etc/tb323fu/helper.toml` (see `data/helper.toml.example
 A GTK4/libadwaita front-end in `crates/tb323fu-settings/` — a separate Cargo workspace, so the daemon and CLI above
 build without GTK development libraries. It reads everything from `tb323fu-helperd` (property poll every 2 s) and
 changes settings through its methods; polkit decides what needs authentication, not the app. Pages: Battery, Display
-(refresh rate), Performance (GPU, temperatures), Torch & LED ring, USB, Emergency key, Systems, Android, Diagnostics, About (with kernel updates). Pages whose
+(refresh rate, panel heat protection), Performance (profile, CPU/GPU limits, thermal profile, temperatures), Lights & Vibration, USB, Emergency key, Systems, Android, Diagnostics, About (with kernel updates). Pages whose
 object the daemon does not export are hidden; without the daemon the app shows a status page.
 
 ```sh
