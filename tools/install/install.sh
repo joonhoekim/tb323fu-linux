@@ -586,6 +586,10 @@ EOF
 	rm -f "$WORK/.gh-auth"
 	[ $DRY = 1 ] && return 0
 	downloads_ok || { check_sums "$WORK/kernel" "$(kernel_files)"; warn "the downloads do not check out; delete $WORK/kernel and $WORK/debs and run this step again"; return 1; }
+	local f keep; keep=$(deb_files)
+	for f in "$WORK"/debs/tb323fu-*.deb; do
+		if [ -e "$f" ] && ! grep -qx "$(basename "$f")" <<<"$keep"; then run rm -f "$f"; fi
+	done
 	say "checked: $WORK/kernel/$(kernel_files); packages: $(deb_files | tr '\n' ' ')"
 }
 
