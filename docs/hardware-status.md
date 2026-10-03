@@ -3,7 +3,7 @@
 Lenovo Legion Tab Gen 5 / Legion Y700 5th Gen (TB323FU), mainline Linux 7.3-rc4 plus this project's patch series.
 Tested mostly with Debian 13 and GNOME 48 on the device, and booted with five other distributions ([distros.md](distros.md));
 the kernel itself does not depend on any of them.
-Last updated 2026-10-01.
+Last updated 2026-10-03.
 
 ## How to read this page
 
@@ -98,6 +98,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Charge limit, bypass charging | ✅ | measured + observed | bypass cuts the battery current (9 A → 185 mA) and it comes back when turned off; the kernel `status` stays "Charging", so the helper derives its State from the current ("Bypass" at ≤ 300 mA; logic tested, not yet re-checked on the charger) |
 | Suspend (s2idle) and resume | 🟡 | measured | works (9 of 9 RTC cycles: Wi-Fi, sensors, sound, USB and video decode back each time); a rare crash without an error message (also seen outside suspend, when idle or under load) is still under investigation |
 | Deep sleep (CX / DDR power collapse) | ✅ | measured | |
+| Idle crash stopgap: no CPU cluster idle states | 🟡 | measured | **a workaround, not a fix.** Since patch 0118 the CPU cluster idle states are not used in runtime idle by default (`cpuidle_psci_domain.allow_cluster_off=0` on the built-in command line; switch at run time with `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off`, 1 = allowed). With them refused, a test kernel ran 3 h idle without a crash, against 2 crashes in 78 min with them allowed; display-off power was the same (658 / 659 / 621 mW allowed / refused / allowed). The cause (a race around cluster off/on, or firmware) is not fixed. s2idle still uses the cluster states (the system state needs them). The kernel with 0118 itself has not yet run on the device |
 | Wake sources | ✅ | measured | power key, RTC; USB wake off by default |
 
 ## USB, storage, other
@@ -121,7 +122,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 
 ## Known issues
 
-- **Rare crash without an error message**, around idle states (in and outside suspend); under investigation.
+- **Rare crash without an error message**, around idle states (in and outside suspend); under investigation. Outside suspend it goes away when the CPU cluster idle states are not used, so since patch 0118 they are off by default in runtime idle — a stopgap that avoids the symptom, not a fix (knob: `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off`).
 - **165 Hz / 144 Hz**: the vendor timings underrun the display controller. 164 Hz (120 Hz horizontal timing) is offered instead; 144 Hz needs a different timing.
 - **No DisplayPort MST** yet: monitors that need MST for "extend" only mirror.
 - **GNSS**: no satellites on Linux, and no GPS fix on Android either — treated as not usable on this device.

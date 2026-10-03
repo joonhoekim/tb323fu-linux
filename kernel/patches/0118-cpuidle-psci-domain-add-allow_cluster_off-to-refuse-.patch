@@ -1,0 +1,110 @@
+From 75564addf5c1555e002cbd21dccc426d82208587 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Sat, 3 Oct 2026 10:24:37 +0000
+Subject: [PATCH] cpuidle: psci-domain: add allow_cluster_off to refuse cluster
+ idle states
+
+On the Lenovo TB323FU (SM8850) the tablet still resets now and then
+while it sits idle, with the system domain state already kept for
+system suspend only: CPUs of cluster0 enter PSCI CPU_SUSPEND and never
+return, and the losses line up with cluster0 being turned off and on by
+the last CPU of the cluster going idle.
+
+With a test change that made psci_pd_power_off() return -EBUSY for the
+cluster domains, the tablet ran 3 hours idle without a crash (562364
+refused cluster0 power-offs), against two crashes in 78 minutes with the
+cluster states allowed. At that rate of about 1.5 crashes per hour, 3
+crash-free hours would happen by chance about 1% of the time. Power with
+the display off, cluster states allowed / refused / allowed: 658 / 659 /
+621 mW, within the measurement noise of about 20 mW.
+
+Add a module parameter, allow_cluster_off, default Y (the current
+behaviour). When it is N, psci_pd_power_off() refuses the idle states of
+cluster domains in runtime idle. A cluster domain is one whose
+subdomains have no subdomains of their own, i.e. the parent of CPU
+domains; the CPU domains and the system domain above the clusters are
+not affected. s2idle still uses the cluster states, because the system
+domain state (CX and DDR collapse) can only be entered once the clusters
+are off. The parameter can be changed at run time through
+/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off.
+
+The baldur config fragment sets cpuidle_psci_domain.allow_cluster_off=0
+on the built-in command line.
+
+This is a workaround: it avoids the symptom by not entering the cluster
+states in runtime idle, the cause is not fixed. It is not known whether
+the cause is a race around cluster off/on in the OSI idle path or a
+defect in the firmware (PSCI implementation or hypervisor). s2idle still
+enters the cluster states and is not covered by the measurement above.
+---
+ arch/arm64/configs/baldur.fragment    |  2 +-
+ drivers/cpuidle/cpuidle-psci-domain.c | 21 +++++++++++++++++++++
+ 2 files changed, 22 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/configs/baldur.fragment b/arch/arm64/configs/baldur.fragment
+index 958e0631a..085144002 100644
+--- a/arch/arm64/configs/baldur.fragment
++++ b/arch/arm64/configs/baldur.fragment
+@@ -33,7 +33,7 @@ CONFIG_ARM64_BUILTIN_FDT_NAME="qcom/kaanapali-lenovo-baldur.dtb"
+ # 끝의 qcom_scm.download_mode=full: SCM 이 프로브된 뒤로는 깨끗하지 않은
+ # 재시작(패닉)이 XBL 크래시 덤프 모드로 가고, 덤프 수집기가 ramoops 콘솔을 UFS 의
+ # rawdump 파티션에 적는다. 그 복사본은 뒤따르는 전원 차단과 EDL 을 견딘다.
+-CONFIG_CMDLINE="icc-rpmh.qos_disable=1 icc_rpmh.qos_disable=1 fw_devlink.sync_state=timeout fbcon=font:TER16x32 panic=10 oops=panic console=tty1 keep_bootcon qcom_scm.download_mode=full baldur.end=hold consoleblank=120 no_console_suspend mem_sleep_default=s2idle"
++CONFIG_CMDLINE="icc-rpmh.qos_disable=1 icc_rpmh.qos_disable=1 fw_devlink.sync_state=timeout fbcon=font:TER16x32 panic=10 oops=panic console=tty1 keep_bootcon qcom_scm.download_mode=full baldur.end=hold consoleblank=120 no_console_suspend mem_sleep_default=s2idle cpuidle_psci_domain.allow_cluster_off=0"
+ CONFIG_CMDLINE_FORCE=y
+ 
+ # 3단계 userspace 도 안에. initramfs.cpio.gz 를 만드는 법은 tb323fu-linux 의 kernel/initramfs/ 참고.
+diff --git a/drivers/cpuidle/cpuidle-psci-domain.c b/drivers/cpuidle/cpuidle-psci-domain.c
+index bf5968d5d..b4f779e90 100644
+--- a/drivers/cpuidle/cpuidle-psci-domain.c
++++ b/drivers/cpuidle/cpuidle-psci-domain.c
+@@ -12,6 +12,7 @@
+ #include <linux/cpu.h>
+ #include <linux/device.h>
+ #include <linux/kernel.h>
++#include <linux/moduleparam.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_domain.h>
+@@ -19,6 +20,7 @@
+ #include <linux/psci.h>
+ #include <linux/slab.h>
+ #include <linux/string.h>
++#include <linux/suspend.h>
+ 
+ #include "cpuidle-psci.h"
+ #include "dt_idle_genpd.h"
+@@ -30,11 +32,30 @@ struct psci_pd_provider {
+ 
+ static LIST_HEAD(psci_pd_providers);
+ 
++static bool allow_cluster_off = true;
++module_param(allow_cluster_off, bool, 0644);
++MODULE_PARM_DESC(allow_cluster_off,
++		 "Use the idle states of cluster domains (parents of CPU domains) in runtime idle (default: Y)");
++
++static bool psci_pd_is_cluster(struct generic_pm_domain *pd)
++{
++	struct gpd_link *link;
++
++	link = list_first_entry_or_null(&pd->parent_links, struct gpd_link,
++					parent_node);
++	return link && list_empty(&link->child->parent_links);
++}
++
+ static int psci_pd_power_off(struct generic_pm_domain *pd)
+ {
+ 	struct genpd_power_state *state = &pd->states[pd->state_idx];
+ 	u32 *pd_state;
+ 
++	/* s2idle needs the cluster states to reach the system domain state. */
++	if (!READ_ONCE(allow_cluster_off) && !idle_should_enter_s2idle() &&
++	    psci_pd_is_cluster(pd))
++		return -EBUSY;
++
+ 	if (!state->data)
+ 		return 0;
+ 
+-- 
+2.43.0
+

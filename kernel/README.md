@@ -14,7 +14,7 @@ A patch series on top of a fixed upstream base. There is no kernel fork: clone t
 ```sh
 git clone --depth 1 -b v7.3-rc4 https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux-tb323fu
 cd linux-tb323fu
-git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0117, in order (no 0115)
+git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0118, in order (no 0115)
 ```
 
 ## Configuration
@@ -82,7 +82,7 @@ The bootloader on this tablet cannot be made to pass our device tree or command 
   ```
   icc-rpmh.qos_disable=1 icc_rpmh.qos_disable=1 fw_devlink.sync_state=timeout fbcon=font:TER16x32 panic=10 oops=panic
   console=tty1 keep_bootcon qcom_scm.download_mode=full baldur.end=hold consoleblank=120 no_console_suspend
-  mem_sleep_default=s2idle baldur.diag=0
+  mem_sleep_default=s2idle cpuidle_psci_domain.allow_cluster_off=0 baldur.diag=0
   ```
 
   <details>
@@ -100,6 +100,7 @@ The bootloader on this tablet cannot be made to pass our device tree or command 
   | `consoleblank=120` | blank the text console after 2 minutes |
   | `no_console_suspend` | keep the console alive across suspend (debugging) |
   | `mem_sleep_default=s2idle` | the only system sleep state this platform supports |
+  | `cpuidle_psci_domain.allow_cluster_off=0` | **stopgap, not a fix** (patch 0118): no CPU cluster idle states in runtime idle, which avoids the rare idle crash (3 h without a crash vs 2 in 78 min, same display-off power); s2idle still uses them. `1` = upstream behaviour; can be switched at run time in `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off` |
 
   </details>
 
@@ -112,7 +113,7 @@ The kernel running on the development tablet (config: `config/reference.config`)
 - modem (MPSS) device tree nodes, and remoteproc knobs used to investigate GNSS (the tablet appears to have no usable GNSS antenna),
 - a q6apm change that polls for the audio framework instead of a fixed 5 s wait (an upstream candidate, not yet in the series).
 
-Default knobs in the series: the idle refresh rate policy is automatic (`msm.idle_refresh_policy=2`, patch 0110).
+Default knobs in the series: the idle refresh rate policy is automatic (`msm.idle_refresh_policy=2`, patch 0110); the CPU cluster idle states are refused in runtime idle (`cpuidle_psci_domain.allow_cluster_off=0` on the built-in command line, patch 0118) — a stopgap that avoids the idle crash, not a fix of its cause; set `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off` to 1 to use them again.
 All of it is built from one tree (no out-of-tree rebuilds of in-tree drivers any more); the only out-of-tree module is the aw882xx speaker amplifier driver, installed in `/lib/modules/<version>/extra/` (source and build: [out-of-tree/aw882xx](out-of-tree/aw882xx/)).
 
 ## Licensing

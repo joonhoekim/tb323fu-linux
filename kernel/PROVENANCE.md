@@ -19,7 +19,7 @@ column names the source; see that tree's history for the individual authors.
 ## Patches
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114, 0116 and 0117 carry no `Signed-off-by` yet; the author adds it before sending them upstream.
+0111-0114 and 0116-0118 carry no `Signed-off-by` yet; the author adds it before sending them upstream.
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -139,6 +139,7 @@ column names the source; see that tree's history for the individual authors.
 | `0114` | net: qrtr: ns: retry announcements the new node is not ready for yet | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `6826715ed1ed1eb2` |
 | `0116` | media: qcom: camss: hold the bandwidth vote while TITAN_TOP is powered | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission (0115 is a debugging aid kept out of the series) | `3e5a2e77a2018c0d` |
 | `0117` | arm64: dts: qcom: kaanapali: add CPU capacity-dmips-mhz | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `b5513590cb0a6f06` |
+| `0118` | cpuidle: psci-domain: add allow_cluster_off to refuse cluster idle states | Joonhoe Kim | this project | local workaround (stopgap: no cluster idle states in runtime idle on baldur, set by the config fragment's command line; the cause is not fixed); Signed-off-by to be added before any submission | `8b089af47dd9ac69` |
 
 ## Out-of-tree
 
