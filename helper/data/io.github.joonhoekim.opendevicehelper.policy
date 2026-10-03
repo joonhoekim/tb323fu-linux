@@ -179,4 +179,13 @@
     <message>Authentication is required to change the kernel update settings</message>
     <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
   </action>
+
+  <!-- helper self-update (docs/helper.md "Helper updates"): install a helper release or go
+       back to the version before it; checking and downloading use kernel-check and
+       kernel-download -->
+  <action id="io.github.joonhoekim.opendevicehelper.helper-update">
+    <description>Update Open Device Helper</description>
+    <message>Authentication is required to update Open Device Helper</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
 </policyconfig>

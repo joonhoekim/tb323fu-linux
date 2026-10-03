@@ -10,6 +10,7 @@ pub mod bootimg;
 pub mod config;
 pub mod features;
 pub mod haptics;
+pub mod helperupdate;
 pub mod kernel;
 pub mod perf;
 pub mod schedule;

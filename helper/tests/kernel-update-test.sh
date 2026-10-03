@@ -129,7 +129,7 @@ $C kernel | grep -q "from github:o/r" && ok "  status names the source" || bad "
 $C kernel | grep -q "nothing newer" && ok "  nothing available before a check" || bad "  available before a check"
 $C kernel check | grep -q "kernel-t28 available: tb323fu-linux t28" && ok "check (stable): t28 available, not the t29 pre-release" || { bad "check"; $C kernel check; cat "$R/var/cache/tb323fu-kernel/fetch.log"; }
 $C --json kernel | grep -q '"kernel-t28"' && ok "  Available lists it" || bad "  Available"
-$C kernel | grep -q "helper     9.9.0 available: sudo apt update" && ok "  newer helper noticed (helper-v9.9.0 release, Debian command)" || bad "  helper notice"
+$C kernel | grep -q "helper     9.9.0 available: tb323fu-ctl helper update" && ok "  newer helper noticed (helper-v9.9.0 release; no package owns this helper)" || bad "  helper notice"
 $C kernel notes kernel-t28 | grep -q "the speaker fix" && ok "notes = the release body" || bad "notes"
 $C kernel install kernel-t28 2>&1 | grep -q "not downloaded" && ok "install before download refused" || bad "install before download"
 $C kernel download kernel-t28 | grep -q "downloaded and checked" && ok "download + check (SHA256SUMS, digest, banner)" || { bad "download"; cat "$R/var/cache/tb323fu-kernel/fetch.log"; }

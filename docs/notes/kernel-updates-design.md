@@ -564,17 +564,33 @@ limit) — the bundle can instead be attached to the release as an asset (`*.sig
 
 ## 4. Helper self-update
 
-The helper stays a normal package; it never replaces its own binaries on systems with a package manager.
-It **notifies**: a GitHub Release tagged `helper-vX.Y.Z` (not a pre-release) in the kernel source's repository
-(since 3.8; first: the signed index's `helper.latest`); `Helper.Version` older than that shows a row in About with the command for this system (chosen from `os-release` `ID`/`ID_LIKE`).
+**Decided (maintainer, 2026-10-03):** the helper updates **itself through GitHub Releases only** — no apt or
+pacman repositories, no COPR. The earlier plan of this section (the helper stays a package everywhere; apt and
+pacman repositories with an OpenPGP key, COPR, a minisign-signed tarball for SteamOS only) is dropped: none of
+those channels existed, so the update commands the helper showed did not work anywhere, and the repositories
+would have brought back a signing key that 3.8 removed.
 
-| System | Channel | Notes |
-|---|---|---|
-| Debian, Ubuntu | apt repository on GitHub Pages (`apt-ftparchive` or `reprepro`, arm64), `deb [signed-by=/usr/share/keyrings/tb323fu.gpg] https://joonhoekim.github.io/tb323fu-linux/apt stable main`; `.deb` files also attached to GitHub Releases | needs an OpenPGP key for the repository (apt cannot use minisign); `tb323fu-platform` installs the keyring |
-| Arch Linux ARM | a pacman repository `[tb323fu]` (signed `repo-add` database, packages on Releases/Pages), plus the PKGBUILD in the AUR | same OpenPGP key |
-| Fedora | COPR project (aarch64 chroots), built from a spec in `packaging/` | COPR signs with its own key |
-| NixOS | the flake: `nix flake update tb323fu-linux` + `nixos-rebuild` | the notification shows that command |
-| SteamOS and other image-based systems | no package path. `tb323fu-ctl self-update` (explicit, admin auth) downloads a minisign-signed tarball (same key as the kernel channel), installs into `/var/lib/tb323fu/helper/` with units in `/etc/systemd/system` | system image updates do not remove it (`/etc`, `/var` persist); documented as best effort |
+As built (0.3.0; the user-facing description is [docs/helper.md "Helper updates"](../helper.md#helper-updates)):
+
+- A `helper-vX.Y.Z` release carries `tb323fu-helper-X.Y.Z-aarch64.tar.gz` (`MANIFEST` + `root/<path>`, the
+  `PREFIX=/usr/local` tree of `install.sh`, the settings app and the GNOME extension) and `SHA256SUMS`; other
+  assets (Debian packages) are ignored. `tools/helper-release.py` makes and checks the set; it is built on the
+  Debian 13 root (the oldest glibc), and `MANIFEST` records `min_glibc`.
+- Who owns the running daemon decides (`dpkg-query -S`, `pacman -Qo`, `rpm -qf`, `/etc/NIXOS`, `/nix/store`), not
+  `os-release`: owned → notify only, with that system's way; nobody → self-update.
+- Same channel and checks as kernels (fetch unit, `SHA256SUMS`, GitHub digest, optional minisign), plus a fixed
+  allow-list of install paths, so a release can never write anything else (layer 1 never).
+- The swap runs outside the daemon's sandbox in a transient unit (the daemon binary with `--apply`): snapshot of
+  every touched path, per-file atomic renames, daemon-reload, D-Bus reload, restart, health check (new `Version`
+  on the bus within 30 s, polkit knows the actions), automatic restore of the snapshot otherwise; `Rollback`
+  re-applies the kept snapshot. polkit `helper-update` (`auth_admin_keep`, as a kernel install).
+- Not an overlay (versions under `/var/lib` with unit drop-ins, or a systemd-sysext image): the files go
+  where `install.sh` puts them, so a self-updated system looks exactly like a manual install of that version, and
+  a later `install.sh` or package simply replaces them.
+- D-Bus rule: additive changes only within `OpenDeviceHelper1`; a breaking change gets `OpenDeviceHelper2`.
+- Open: attestation-based verification (3.9) should be required for helper updates before kernels; releases built
+  by CI; a `min_updater` line if the tarball format ever changes; the helper of another root in a multiboot setup is
+  not updated with this one.
 
 `min_helper` / `min_platform` in a kernel manifest let the helper refuse (with a clear message) a kernel that
 needs newer layer-1 files than the root has — e.g. a kernel that renames a sysfs knob the UCM or udev rules

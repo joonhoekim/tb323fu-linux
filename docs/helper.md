@@ -18,9 +18,10 @@ What it does not do:
 
 - **Booting never depends on the helper.** Everything needed to boot and to have working audio, input, sensors and
   the emergency way back to Android stays in plain files and services (layer 1 below).
-- No self-updater for the helper and no package-manager calls: each distribution's packaging updates it (the helper
-  only says when a newer version is published). **Kernels** are different: they are updated through the helper,
-  from the project's GitHub Releases or a file you built ([Kernel updates](#kernel-updates)).
+- No package-manager calls. The helper updates itself from the project's GitHub Releases only where nobody else
+  owns it (an `install.sh` install); where a package manager or NixOS installed it, it only says what to do
+  ([Helper updates](#helper-updates)). **Kernels** are updated through the helper too, from the same releases or a
+  file you built ([Kernel updates](#kernel-updates)).
 - No new hardware drivers; the helper only drives interfaces the kernel already exposes.
 
 ## Layers
@@ -173,14 +174,112 @@ CLI: `tb323fu-ctl kernel [status] | check | notes TAG | download TAG | install T
 inspect PATH | install-local PATH [--trial|--keep] [--name NAME] [--reboot] [--yes] | keep | rollback [--reboot] |
 channel stable|testing | auto-check on|off | helper-notify on|off | dismiss`. Settings app: **About** → Kernel Updates
 (status, "Kernel tNN available" with Notes and Download → Install… → Restart Now, Check Now, channel, daily check,
-Install Kernel from File…, Go Back while a kernel is on trial, a newer helper with its update command), a banner for
+Install Kernel from File…, Go Back while a kernel is on trial), a banner for
 Keep or after an automatic rollback; **Systems** shows a line while a kernel is on trial.
 
 Settings (`[kernel]` in `helper.toml`): `channel` (`stable`), `source` (`github:joonhoekim/tb323fu-linux`),
 `api_url` (`https://api.github.com`; another URL — `http://`, `file://` — only for a local test stand-in made with
 `kernel-release.py fake-api`), `auto_check` (`true`; checks only, never downloads), `helper_notify` (`true`: a
-`helper-vX.Y.Z` release newer than this helper shows in About and `tb323fu-ctl kernel`, with the command for this
-system from `os-release`), `require_signature` (`false`), `public_keys` (`[]`).
+`helper-vX.Y.Z` release newer than this helper shows in About and `tb323fu-ctl kernel`, with what updates the helper
+on this system — see [Helper updates](#helper-updates)), `require_signature` (`false`; kernel and helper releases),
+`public_keys` (`[]`).
+
+## Helper updates
+
+The helper (daemon, CLI, settings app, GNOME extension and their data files) updates **itself** from the same
+GitHub Releases as the kernel: a release tagged `helper-vX.Y.Z` in `kernel.source`. There are no apt or pacman
+repositories. Where a package manager or NixOS installed the helper, it does not replace itself and only says
+what to do (below).
+
+**What a release is.**
+
+| Asset | |
+|---|---|
+| `tb323fu-helper-X.Y.Z-aarch64.tar.gz` | `MANIFEST` and `root/<path>`: exactly what `helper/install.sh`, `crates/tb323fu-settings/install.sh` and the GNOME extension install with `PREFIX=/usr/local` |
+| `SHA256SUMS` | `sha256sum` of every file of the release |
+| `SHA256SUMS.minisig` | optional, only for helpers with `require_signature` |
+| the release body | the notes (Markdown); a line `<!-- tb323fu: min_kernel=tNN min_platform=X -->` states what the helper needs |
+| anything else | ignored (for example the Debian packages of the same version) |
+
+`MANIFEST` (`format=1`) names the version, `arch=aarch64`, `prefix=/usr/local`, `min_glibc` (the newest
+`GLIBC_x.y` symbol the binaries use), the commit, and one `file SHA256 MODE SIZE PATH` line per file. The helper
+accepts only these paths — the files `install.sh` installs, nothing else (`ALLOWED_FILES`/`ALLOWED_DIRS` in
+`helperupdate.rs`): `/usr/local/libexec/tb323fu-{helperd,kernel-fetch}`, `/usr/local/bin/tb323fu-{ctl,settings}`,
+`/etc/systemd/system/tb323fu-{helperd,kernel-fetch}.service`, the D-Bus policy and activation file, the polkit
+policy, the settings app's `.desktop`/icon/metainfo, `/usr/local/share/doc/tb323fu-helper/` and the extension's
+directory under `/usr/local/share/gnome-shell/extensions/`. Layer-1 platform files are never part of it. Releases are
+made with [`tools/helper-release.py`](../tools/helper-release.py) (`assets`, `check`) from a release build **on the
+oldest supported system** — the Debian 13 (trixie, glibc 2.41) root of the tablet — because binaries built against
+a newer glibc do not start on an older one; the helper also refuses a release whose `min_glibc` is newer than the
+system's (`getconf GNU_LIBC_VERSION`).
+
+**Who updates the helper.** Decided by who owns the running daemon binary (and the polkit and D-Bus files in
+`/usr/share`), not by the distribution's name:
+
+| Owner | `Method` | What happens |
+|---|---|---|
+| none (`install.sh`, the Fedora and SteamOS builders) | `self` | self-update |
+| `dpkg-query -S` names a package | `dpkg` | refused; "install the new version's .deb files (`apt install ./tb323fu-helper_*.deb`)" |
+| `pacman -Qo` | `pacman` | refused; build `packaging/arch/PKGBUILD` and `pacman -U` it |
+| `rpm -qf` | `rpm` | refused; update the package |
+| `/etc/NIXOS` or a `/nix/store` path | `nix` | refused; `nix flake update tb323fu-linux && sudo nixos-rebuild switch` |
+
+A self-update over an install at `/usr` that nobody owns puts the new version in `/usr/local` (and the unit in
+`/etc/systemd/system`, which overrides the one in `/usr/lib`); the `/usr` copy stays underneath.
+
+**The flow.**
+
+1. **Check**: the same release list as kernel updates (one request through `tb323fu-kernel-fetch.service`; the
+   daily check covers both). `Available` is the newest `helper-v` release (not a pre-release) newer than this
+   helper, shown while `kernel.helper_notify` is on.
+2. **Download** (allowed without a password): `SHA256SUMS` and the tarball through the fetch unit; the daemon
+   checks size, SHA-256 against `SHA256SUMS` and GitHub's digest, the signature when required, then unpacks it
+   (plain ustar, regular files only, safe names) into `/var/lib/tb323fu/helper/staged/<version>/tree` and checks
+   `MANIFEST`: version = tag, arch, prefix, allowed paths, the daemon, CLI and unit present, every file's size
+   and hash, nothing unlisted.
+3. **Install** (polkit `helper-update`, `auth_admin_keep` like a kernel install): refused when a package manager
+   or NixOS owns the helper, when the release is not newer, when `min_kernel` (the running kernel's `tNN`; a
+   development kernel passes), `min_platform` (`platform-version`) or `min_glibc` is not met. The tree is checked
+   again, then the daemon starts **this binary** as `tb323fu-helperd --apply …` in a transient unit
+   (`systemd-run --unit=tb323fu-helper-update`), outside the daemon's sandbox and outliving its restart:
+   - a snapshot of every path the release names (and every file the previous self-update installed) into
+     `/var/lib/tb323fu/helper/backup/` — missing paths are recorded as absent; a directory or symlink in the way
+     stops the update before anything changes;
+   - each new file is written next to its target (`*.tb323fu-new`), then all are renamed over their targets
+     (each file changes atomically); files of the previous self-update that the new release no longer has are
+     removed;
+   - `systemctl daemon-reload`, D-Bus `ReloadConfig`, `systemctl restart tb323fu-helperd`;
+   - **health check**: within 30 s the restarted daemon answers on the system bus with the new `Version`, and
+     polkit knows the helper's actions (the policy file loaded — a malformed policy blocks every call);
+   - passed: the snapshot becomes `/var/lib/tb323fu/helper/prev/`; failed: the snapshot goes back the same way,
+     the old daemon is restarted, `update-state` says `rolled-back` and why.
+4. **Rollback** (`helper-update`): the same process with `prev/` as the source, so a rollback can be rolled back.
+   An update cut off half-way (power loss) shows `State` `interrupted`; Rollback then uses the snapshot of that update.
+
+The settings app needs a restart to show its new version, and the GNOME extension's new code loads at the next
+login (Wayland). State: `/var/lib/tb323fu/helper/` (`staged/`, `current.manifest`, `prev/`, `update-state`,
+`update.log`); the transient unit's log is `journalctl -u tb323fu-helper-update`.
+
+**Trust.** The same as for kernel releases: whoever can publish releases in `kernel.source` decides what runs as
+root on the tablets that update. `SHA256SUMS` and GitHub's digest catch damaged downloads, not a changed release;
+`require_signature` (minisign, optional) applies to helper releases too. What it rests on: two-factor
+authentication on the publishing account, a tag ruleset for `helper-v*` and `kernel-*` (only the maintainer
+creates, nobody updates or deletes) and immutable releases once the repository is public
+([design 3.8](notes/kernel-updates-design.md#38-channel-github-releases-2026-10-03)). Build attestations
+verified by the helper are plan 2 ([design 3.9](notes/kernel-updates-design.md#39-plan-2-releases-built-by-github-actions-with-artifact-attestations));
+a helper that updates itself changes its own verifier, so it should require them before the kernel channel does.
+
+**Compatibility.** Front-ends of one version talk to daemons of another (the app and the extension may be
+newer or older than the daemon). Rule for the D-Bus API: **within `io.github.joonhoekim.OpenDeviceHelper1`
+changes are additive only** — new objects, properties, methods and signals; existing names, argument types and
+meanings stay. A change that breaks this gets a new name (`OpenDeviceHelper2`), served next to the old one while
+front-ends move. Front-ends treat a missing object or property as "not supported" (the app hides the row; the
+CLI says the helper is older).
+
+CLI: `tb323fu-ctl helper [status] | check | notes [VERSION] | download [VERSION] | install [VERSION] |
+update [VERSION] | rollback` (`update`, `install` and `rollback` wait for the restarted helper and print the
+result). Settings app: **About** → Helper Updates (status, "Helper X Available" with Notes and Download →
+Update…, or the command when a package manager updates the helper; Go Back… to the previous version).
 
 ## Persistence
 
@@ -250,7 +349,7 @@ Standard `org.freedesktop.DBus.Properties` for properties (with `PropertiesChang
 <summary>Objects, properties, methods and polkit actions</summary>
 
 **When the helper asks for a password** (10-03): only where a mistake is hard to undo or opens the device to
-others — writing a kernel to `boot_a` (install, rollback, install from a file every time), the USB developer mode
+others — writing a kernel to `boot_a` (install, rollback, install from a file every time), replacing the helper itself (update, rollback), the USB developer mode
 (a root console for anyone with a cable), and the Android-switch authentication setting itself. Everything else,
 including the performance thermal profile (its ceiling is fixed in code and the app warns first), turning off the
 panel protection or the emergency key, the default system and the update channel, is allowed for the active local
@@ -271,6 +370,7 @@ user. Administrators can tighten this with polkit rules.
 | `/…/Thermal` · `…Thermal` | `Surface` (d, °C: skin NTC, else quiet), `CpuMax` (d: hottest `cpu-*`/`cpullc-*` tsens zone), `GpuMax` (d: hottest `gpuss-*`), `Throttling` (b: a `cpufreq-*`/`devfreq-*` cooling device above state 0), `Zones` (a{sd}: board sensors by zone type without `-thermal`: skin, quiet, batt, batt2, usb, usb2-conn, lcm, wlan, ddr, ufs, xo, rear-cam, fcam, wls); NaN = absent , `Profile` (s: `quiet` / `default` / `performance` as the trips are now, `custom` when they match none, "" without the zone), `Profiles` (as, empty when the kernel has no writable quiet-thermal steps), `TripOffset` (i, °C), `Trips` (ad: the board steps now, °C), `FollowPerformance` (b: power-saver → quiet, balanced → default, performance → performance), `PerformanceBypass` (b), `PanelLimit` (b), `PanelLimited` (b: the backlight is held now) | `SetProfile(s)` (also stops following; refused while too hot), `SetFollowPerformance(b)`, `SetPerformanceBypass(b)`, `SetPanelLimit(b)` | `ProfileFallback(s reason)` | `…thermal` — allow (quiet, default, following, bypass, panel protection on); `…thermal-performance` — allow (performance, following while the performance profile is in effect, panel protection off; the app warns first, the 58 °C ceiling is fixed in code) |
 | `/…/Haptics` · `…Haptics` | `Strength` (u, 0..100 %), `Motors` (as: `left`, `right`) | `SetStrength(u)`, `Test(s motor)` (`left` / `right` / `both`: a 0.3 s buzz at the current strength) | — | `…haptics` — allow |
 | `/…/Kernel` · `…Kernel` (when `boot_a` and `boot_b` exist) | `Running` (s: `uname -r`), `RunningBuild` (s: `/proc/version`), `SharedModules` (b: `/lib/modules/<release>` is the boot image's squashfs), `Channel` (s), `Source` (s: `github:OWNER/REPO`), `Available` (a(sssu): tag, release title, release page URL, serial — the channel's release when newer than the running kernel), `Downloaded` (as: verified, ready to install), `State` (s: `idle` / `checking` / `downloading` / `verifying` / `ready` / `installing` / `pending-reboot` / `trial` / `rolled-back`, also `rolling-back` / `keeping` / `dismissing` while those run), `Progress` (u, % of a download), `Trial` (s), `TrialChannel` (s: `stable` / `testing` / `local`), `TrialLabel` (s), `Tries` (u), `MaxTries` (u), `KeepPending` (b: the running kernel is a trial that waits for Keep), `Good` (s: release of `linux-good.img`), `GoodLabel` (s), `LastFailed` (s), `LastCheck` (t, unix time), `IndexExpired` (b: always false since the GitHub Releases channel; kept for older clients), `AutoCheck` (b), `RequireSignature` (b), `HelperLatest` (s: a newer `helper-vX.Y.Z` release, "" none), `HelperUpdateCommand` (s), `Message` (s: the last operation's result) | `Check() → s`, `Download(s tag) → s`, `Install(s tag, b reboot) → s`, `InspectLocal(h file) → (s release, s banner, s format, b shared_modules, as warnings)`, `InstallLocal(h file, s name, b auto_confirm, b reboot) → s` (a file descriptor the caller opened), `Rollback(b reboot) → s`, `Keep() → s`, `Dismiss() → s`, `Notes(s tag) → s`, `SetChannel(s)`, `SetAutoCheck(b)`, `SetHelperNotify(b)`, `Refresh()` (re-read `kernel-state`; no authorization). The long methods answer when done | `Finished(s operation, b ok, s message)` | `…kernel-check` (also Dismiss, InspectLocal), `…kernel-download`, `…kernel-keep` — allow; `…kernel-channel` (also SetAutoCheck, SetHelperNotify) — allow; `…kernel-install`, `…kernel-rollback` — `auth_admin_keep`; `…kernel-install-local` — `auth_admin` (every time) |
+| `/…/HelperUpdate` · `…HelperUpdate` (always; since 0.3.0) | `Version` (s), `Available` (s: the newest `helper-vX.Y.Z` release newer than this helper, "" none or `kernel.helper_notify` off), `Installable` (b: it carries the asset set and this helper may replace itself), `Method` (s: `self` / `dpkg` / `pacman` / `rpm` / `nix`), `UpdateCommand` (s), `Reason` (s: why not `self`, ""), `Downloaded` (s: a newer version downloaded and checked), `Previous` (s: what Rollback puts back), `State` (s: `idle` / `checking` / `downloading` / `verifying` / `ready` / `installing` / `interrupted`, also `rolling-back`), `Progress` (u, %), `LastUpdate` (a{ss}: `result` — `installing` / `ok` / `rolled-back` / `failed` —, `kind`, `from`, `to`, `time`, `reason`), `Message` (s), `LastCheck` (t) | `Check() → s`, `Download(s version) → s`, `Install(s version) → s` (returns once the transient unit runs; the helper restarts), `Rollback() → s`, `Notes(s version) → s` ("" = the newest release) | `Finished(s operation, b ok, s message)` | `…kernel-check` (Check), `…kernel-download` (Download) — allow; `…helper-update` (Install, Rollback) — `auth_admin_keep` |
 | `/…` · `…Helper` | `Version` (s), `Features` (as), `Kernel` (s), `SeriesTag` (s: patch-series identity if the kernel exposes it, else unknown), `Firmware` (a{ss}: file → sha256 match state vs the manifest) | `Reload()` | — | `…admin` — `auth_admin` |
 
 </details>
@@ -293,6 +393,7 @@ Files (paths for a normal FHS distribution):
 | D-Bus activation | `/usr/share/dbus-1/system-services/io.github.joonhoekim.OpenDeviceHelper1.service` (`SystemdService=`) |
 | polkit | `/usr/share/polkit-1/actions/io.github.joonhoekim.opendevicehelper.policy` |
 | kernel download | `/usr/libexec/tb323fu/tb323fu-kernel-fetch` + `/usr/lib/systemd/system/tb323fu-kernel-fetch.service` (oneshot, started by the daemon only: `DynamicUser=yes`, `CacheDirectory=tb323fu-kernel`, network, nothing else writable, optional credential `tb323fu-github-token`; needs `curl`) |
+| helper self-update | no files of its own: the daemon binary itself (`--apply`) in a transient unit `tb323fu-helper-update.service`; state in `/var/lib/tb323fu/helper/` |
 | kernel signing keys | none shipped (signatures are optional: `require_signature`); administrators who want them put keys in `/etc/tb323fu/keys/kernel-*.pub` or `public_keys`. `install.sh` removes the key of the earlier signed-index channel |
 | kernel confirmation | `tb323fu-kernel-confirm.service` + `/usr/libexec/tb323fu/tb323fu-kernel-confirm` — in the **platform** package (layer 1), enabled with the other platform units |
 | GNOME extension | `/usr/share/gnome-shell/extensions/tb323fu@joonhoekim.github.io/` (separate package) |
@@ -329,6 +430,7 @@ Without the device
 - Run the daemon against a **fake sysfs root** (`TB323FU_SYSFS_ROOT=/tmp/fake-sys` with the relevant files) on a private D-Bus (`dbus-run-session`): property reads, setters write the right values, capability detection hides objects whose files are missing, persistence round-trips, polkit denials return the right D-Bus error (with a test policy).
 - CLI golden-output tests against the same fake daemon.
 - Kernel updates (`tests/kernel-update-test.sh`, `dbus-run-session`, needs python3, curl, minisign): releases prepared with `tools/kernel-release.py assets` and published on a local stand-in of the GitHub API (`kernel-release.py fake-api`, `file://`); stable picks the release, testing the pre-release; check → notes (the release body) → download → install (the repacked `boot_a` must equal `tools/boot-repack-kernel.py`'s image byte for byte, `linux-good.img` = the old image) → a "restart" on the new kernel → trial, Keep → linux-good; refusals: low battery, `boot_b` not the recorded image, install before download, a staged file changed after the download, reinstall of the running release, a damaged download (SHA256SUMS); `require_signature`: no signature, no key, another key, then a good one; a kernel from a file: inspect (shared modules or not, a boot image, not a kernel), `install-local` without `--yes` and no terminal, `--trial` (Keep, label) and `--keep`, refused while on trial; rollback. `cargo test` covers the same in the library (install/confirm/rollback on files, a read-back mismatch restores `linux-good.img`), and `cargo test -- --ignored real_images` compares the Rust repack with the Python tool's on real images.
+- Helper updates (`tests/helper-update-test.sh`, `dbus-run-session`, needs python3, curl): `install.sh` into a fake root as the installed 0.2.0, releases made with `tools/helper-release.py` (`--stage`, the daemon a wrapper that reports another version) on the `file://` stand-in, the daemon started from the fake root and restarted by a script; check, notes, owned by dpkg (a fake `dpkg-query`) and NixOS (`/etc/NIXOS`): refused with the hint, a damaged download, `require_signature`, `min_platform`, update (files = the release tree, files outside the manifest untouched, `prev/` kept), rollback (and `prev/` then holds the newer version), a release whose daemon does not start (automatic rollback, the reason in `LastUpdate`), a path outside the allow-list (refused by `helper-release.py assets` and `check` and by the daemon at download). `cargo test` covers the manifest, the tar reader, unpack checks, snapshot/apply/back with symlinks and damaged sources, and owner detection.
 - The initramfs side (`kernel/initramfs/test-root-selection.sh`: start counting, rollback on the third start, a `linux-good.img` that does not match its record, a failing `boot_a` write, volume-up), the confirm script (`userspace/platform/test-kernel-confirm.sh`) and Android's choice (`android/test-state-root.sh`) run offline too.
 
 On the device

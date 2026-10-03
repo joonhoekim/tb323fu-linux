@@ -21,6 +21,10 @@ tb323fu-ctl status
 sudo ./install.sh --uninstall  # settings in /etc/tb323fu are kept
 ```
 
+Updates: an `install.sh` install updates itself from GitHub Releases (`tb323fu-ctl helper update`, or About in the
+settings app; [docs/helper.md](../docs/helper.md#helper-updates)); release sets are made with
+[`tools/helper-release.py`](../tools/helper-release.py) on the oldest supported system (Debian 13).
+
 Packaging: `PREFIX=/usr DESTDIR=$pkgdir ./install.sh` installs into `/usr/libexec`, `/usr/bin`,
 `/usr/lib/systemd/system`, `/usr/share/dbus-1/{system.d,system-services}`, `/usr/share/polkit-1/actions`
 without touching the running system.
@@ -51,6 +55,7 @@ tb323fu-ctl kernel                   # kernel updates: running, trial, last good
 tb323fu-ctl kernel update --reboot   # check, download, install (admin) and restart; or check / download TAG / install TAG
 tb323fu-ctl kernel keep              # keep a testing-channel kernel; rollback [--reboot] writes the last good one back
 tb323fu-ctl kernel install-local ~/Image.gz --name "my build"   # a kernel you built: same trial and rollback (admin, every time)
+tb323fu-ctl helper update            # a newer helper from GitHub Releases (admin); helper rollback goes back
 tb323fu-ctl --json status
 ```
 
@@ -77,7 +82,7 @@ The daemon runs as root; polkit decides per call. Everyday controls are allowed 
 session without a password (charge limit, bypass, Android switch, flashlight, LED ring, refresh, performance profile,
 cooler thermal profiles, USB wakeup, emergency-key settings, diagnostics). Authentication is asked for developer USB access,
 the performance thermal profile and switching the panel heat protection off (once per session),
-disabling the emergency key, `android require-auth`, `reload`, and for kernel updates: installing, going back,
+disabling the emergency key, `android require-auth`, `reload`, updating the helper or going back to its previous version, and for kernel updates: installing, going back,
 and changing the channel or the daily check (looking for, downloading and keeping a kernel need none); installing a
 kernel from a file asks for the administrator's password every time (`auth_admin`, see docs/helper.md).
 Switching to Android can be made to ask for authentication with `tb323fu-ctl android require-auth on`. Actions are in
@@ -89,6 +94,7 @@ Switching to Android can be made to ask for authentication with `tb323fu-ctl and
 cargo test --release
 dbus-run-session -- sh tests/fake-sysfs-test.sh target/release   # daemon on a private bus against a fake device tree
 dbus-run-session -- sh tests/kernel-update-test.sh target/release  # kernel updates end to end (python3, curl, minisign)
+dbus-run-session -- sh tests/helper-update-test.sh target/release  # helper self-update end to end (python3, curl)
 ```
 
 `TB323FU_SYSFS_ROOT` points every device path at a fake tree, `TB323FU_CONFIG` the settings file, and

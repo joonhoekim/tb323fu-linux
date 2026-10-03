@@ -36,6 +36,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
+use tb323fu_helper_core::helperupdate::{self as hu, HelperRelease};
 use tb323fu_helper_core::kernel::{self as k, KernelState, Release};
 use tb323fu_helper_core::{boot, features as f, sys};
 use zbus::fdo;
@@ -60,6 +61,8 @@ struct St {
     ks: KernelState,
     /// the last release list of the configured source, and the newest helper in it
     releases: Option<(Vec<Release>, Option<String>)>,
+    /// the helper releases of the same list (self-update)
+    helpers: Vec<HelperRelease>,
     last_check: u64,
     /// installed in this boot, waiting for a restart
     pending: String,
@@ -78,10 +81,10 @@ pub struct Kernel(pub Arc<Inner>);
 fn stage() -> PathBuf {
     sys::path(k::STAGE_DIR)
 }
-fn cache() -> PathBuf {
+pub(crate) fn cache() -> PathBuf {
     sys::path(k::CACHE_DIR)
 }
-fn read_limited(p: &Path, max: u64) -> Result<Vec<u8>, String> {
+pub(crate) fn read_limited(p: &Path, max: u64) -> Result<Vec<u8>, String> {
     use std::io::Read;
     let mut v = Vec::new();
     fs::File::open(p).and_then(|f| f.take(max + 1).read_to_end(&mut v)).map_err(|e| format!("{}: {e}", p.display()))?;
@@ -90,10 +93,10 @@ fn read_limited(p: &Path, max: u64) -> Result<Vec<u8>, String> {
     }
     Ok(v)
 }
-fn read_text(p: &Path) -> Result<String, String> {
+pub(crate) fn read_text(p: &Path) -> Result<String, String> {
     String::from_utf8(read_limited(p, 64 << 10)?).map_err(|_| format!("{}: not text", p.display()))
 }
-fn write_file(p: &Path, d: &[u8]) -> Result<(), String> {
+pub(crate) fn write_file(p: &Path, d: &[u8]) -> Result<(), String> {
     if let Some(dir) = p.parent() {
         fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     }
@@ -126,25 +129,9 @@ fn clean_label(s: &str) -> String {
     s.chars().filter(|c| !c.is_control()).take(64).collect::<String>().trim().to_string()
 }
 
-/// The command that updates the helper on this system (os-release ID/ID_LIKE).
+/// What updates the helper on this system (who installed it).
 pub fn helper_update_command() -> String {
-    let osr = fs::read_to_string(sys::path("/etc/os-release")).or_else(|_| fs::read_to_string(sys::path("/usr/lib/os-release"))).unwrap_or_default();
-    let get = |k: &str| osr.lines().find_map(|l| l.strip_prefix(&format!("{k}="))).unwrap_or("").trim_matches('"').to_string();
-    let ids = format!("{} {}", get("ID"), get("ID_LIKE"));
-    let has = |x: &str| ids.split_whitespace().any(|w| w == x);
-    if has("nixos") {
-        "nix flake update tb323fu-linux && sudo nixos-rebuild switch".into()
-    } else if has("steamos") {
-        "sudo tb323fu-ctl self-update (not available yet: see docs/helper.md)".into()
-    } else if has("debian") || has("ubuntu") {
-        "sudo apt update && sudo apt install tb323fu-helper".into()
-    } else if has("arch") {
-        "sudo pacman -Syu tb323fu-helper".into()
-    } else if has("fedora") {
-        "sudo dnf upgrade tb323fu-helper".into()
-    } else {
-        "see https://github.com/joonhoekim/tb323fu-linux/blob/main/docs/helper.md".into()
-    }
+    crate::selfupdate::owner().hint()
 }
 
 impl Inner {
@@ -159,7 +146,10 @@ impl Inner {
         {
             let mut s = inner.st();
             s.last_check = sys::read_opt(&stage().join("last-check")).and_then(|v| v.parse().ok()).unwrap_or(0);
-            s.releases = inner.stored_releases();
+            if let Some((r, h)) = inner.stored_releases() {
+                s.releases = Some(r);
+                s.helpers = h;
+            }
         }
         inner
     }
@@ -192,13 +182,25 @@ impl Inner {
     }
 
     /// The last release list on disk, when it came from the configured source.
-    fn stored_releases(&self) -> Option<(Vec<Release>, Option<String>)> {
+    fn stored_releases(&self) -> Option<((Vec<Release>, Option<String>), Vec<HelperRelease>)> {
         let src = self.source().ok()?;
         if read_text(&stage().join("releases.source")).ok()?.trim() != src.releases_url() {
             return None;
         }
         let d = read_limited(&stage().join("releases.json"), k::MAX_RELEASES_FILE).ok()?;
-        k::parse_releases(&d, &src).ok()
+        Some((k::parse_releases(&d, &src).ok()?, hu::parse_helper_releases(&d, &src).unwrap_or_default()))
+    }
+
+    pub fn helper_releases(&self) -> Vec<HelperRelease> {
+        self.st().helpers.clone()
+    }
+
+    pub fn last_check(&self) -> u64 {
+        self.st().last_check
+    }
+
+    pub fn kernel_serial(&self) -> u64 {
+        self.running_serial()
     }
 
     fn release(&self, tag: &str) -> Result<Release, String> {
@@ -291,7 +293,10 @@ impl Inner {
     /// Let the fetch unit download `items` (name, max bytes, URL, mode:
     /// "api" for the release list, "asset" for release files) into the cache
     /// directory. Blocking.
-    fn fetch(&self, items: &[(String, u64, String, &str)], progress_of: Option<(&str, u64)>) -> Result<(), String> {
+    pub fn fetch(&self, items: &[(String, u64, String, &str)], progress_of: Option<(&str, u64, &AtomicU32)>) -> Result<(), String> {
+        // one download list and one fetch unit for kernel and helper updates
+        static FETCH: Mutex<()> = Mutex::new(());
+        let _one = FETCH.lock().unwrap_or_else(|e| e.into_inner());
         for (name, _, url, _) in items {
             if !k::safe_name(name) || !k::url_ok(url) {
                 return Err(format!("refusing to fetch {name} from {url}"));
@@ -308,9 +313,9 @@ impl Inner {
         // progress: watch the partial file grow while the unit runs
         let done = std::sync::atomic::AtomicBool::new(false);
         let out = std::thread::scope(|sc| {
-            if let Some((name, size)) = progress_of {
+            if let Some((name, size, progress)) = progress_of {
                 let part = cache().join(format!("{name}.part"));
-                let (done, progress) = (&done, &self.progress);
+                let done = &done;
                 sc.spawn(move || {
                     while !done.load(Ordering::Relaxed) {
                         if let Ok(md) = fs::metadata(&part) {
@@ -338,33 +343,43 @@ impl Inner {
         Err(format!("download failed: {}", if why.is_empty() { "see journalctl -u tb323fu-kernel-fetch".into() } else { why }))
     }
 
-    /// Check: fetch the source's release list and pick the channel's
-    /// release. Blocking.
-    pub fn check(&self) -> Result<String, String> {
-        let cfg = self.sh.cfg().kernel;
+    /// Fetch the source's release list (kernels and helpers) and keep it. Blocking.
+    pub fn refresh_list(&self) -> Result<(), String> {
         let src = self.source()?;
         let url = src.releases_url();
         self.fetch(&[("releases.json".into(), k::MAX_RELEASES_FILE, url.clone(), "api")], None)?;
         let data = read_limited(&cache().join("releases.json"), k::MAX_RELEASES_FILE)?;
         let (rels, helper) = k::parse_releases(&data, &src)?;
+        let helpers = hu::parse_helper_releases(&data, &src)?;
         let now = k::now();
         write_file(&stage().join("releases.json"), &data)?;
         write_file(&stage().join("releases.source"), url.as_bytes())?;
         write_file(&stage().join("last-check"), now.to_string().as_bytes())?;
-        let pick = k::pick(&rels, &cfg.channel).cloned();
-        let n = rels.len();
-        {
-            let mut s = self.st();
-            s.releases = Some((rels, helper));
-            s.last_check = now;
-        }
+        let mut s = self.st();
+        s.releases = Some((rels, helper));
+        s.helpers = helpers;
+        s.last_check = now;
+        Ok(())
+    }
+
+    /// Check: fetch the source's release list and pick the channel's
+    /// release. Blocking.
+    pub fn check(&self) -> Result<String, String> {
+        let cfg = self.sh.cfg().kernel;
+        let src = self.source()?;
+        self.refresh_list()?;
+        let (pick, n) = {
+            let s = self.st();
+            let rels = s.releases.as_ref().map(|(r, _)| r.as_slice()).unwrap_or(&[]);
+            (k::pick(rels, &cfg.channel).cloned(), rels.len())
+        };
         let Some(r) = pick else {
             return Ok(format!("no {} kernel release in {} ({n} kernel releases found)", cfg.channel, src.name()));
         };
         if r.serial <= self.running_serial() {
             return Ok(format!("up to date ({} channel: {})", cfg.channel, r.tag));
         }
-        let note = match k::requirements(&r, env!("CARGO_PKG_VERSION"), k::platform_version().as_deref()) {
+        let note = match k::requirements(&r, crate::selfupdate::version(), k::platform_version().as_deref()) {
             Ok(()) => String::new(),
             Err(why) => format!(" ({why})"),
         };
@@ -372,7 +387,7 @@ impl Inner {
     }
 
     /// SHA256SUMS of a release (in `dir`), with its signature when required.
-    fn sums_in(&self, dir: &Path) -> Result<std::collections::BTreeMap<String, String>, String> {
+    pub fn sums_in(&self, dir: &Path) -> Result<std::collections::BTreeMap<String, String>, String> {
         let cfg = self.sh.cfg().kernel;
         let data = read_limited(&dir.join(k::SUMS_ASSET), k::MAX_SUMS_FILE)?;
         let sig = if cfg.require_signature { read_text(&dir.join(k::SIG_ASSET)).ok() } else { None };
@@ -389,7 +404,7 @@ impl Inner {
             items.push((k::SIG_ASSET.to_string(), 64 << 10, sig.url.clone(), "asset"));
         }
         items.push((r.kernel.name.clone(), r.kernel.size, r.kernel.url.clone(), "asset"));
-        self.fetch(&items, Some((&r.kernel.name, r.kernel.size)))?;
+        self.fetch(&items, Some((&r.kernel.name, r.kernel.size, &self.progress)))?;
         self.st().op = "verifying".into();
         let sums = self.sums_in(&cache())?;
         let data = read_limited(&cache().join(&r.kernel.name), k::MAX_KERNEL_FILE)?;
@@ -409,7 +424,7 @@ impl Inner {
     pub fn install(&self, tag: &str) -> Result<String, String> {
         let r = self.release(tag)?;
         let channel = self.sh.cfg().kernel.channel;
-        k::requirements(&r, env!("CARGO_PKG_VERSION"), k::platform_version().as_deref())?;
+        k::requirements(&r, crate::selfupdate::version(), k::platform_version().as_deref())?;
         if r.serial <= self.running_serial() {
             return Err(format!("{tag} is not newer than the running kernel"));
         }
@@ -677,7 +692,7 @@ impl Kernel {
         }
         let s = self.0.st();
         match &s.releases {
-            Some((_, Some(h))) if k::version_cmp(h, env!("CARGO_PKG_VERSION")).is_gt() => h.clone(),
+            Some((_, Some(h))) if k::version_cmp(h, crate::selfupdate::version()).is_gt() => h.clone(),
             _ => String::new(),
         }
     }

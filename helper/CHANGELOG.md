@@ -1,5 +1,15 @@
 # Open Device Helper changelog
 
+## 0.3.0 — unreleased
+
+- **The helper updates itself** from `helper-vX.Y.Z` releases on GitHub Releases (the same channel and checks as
+  kernel updates): `tb323fu-ctl helper check | download | install | update | rollback`, About → Helper Updates in
+  the settings app, a new D-Bus object `HelperUpdate`, polkit action `helper-update`. The swap runs in a transient
+  unit, keeps the previous version, restarts the helper and goes back by itself when the new one does not answer
+  within 30 s. Only where nobody else owns the helper: when dpkg, pacman, rpm or NixOS installed it, the helper
+  says what to do instead (the commands it showed before pointed at repositories that do not exist).
+- `tools/helper-release.py` makes and checks the release asset set; `install.sh` takes `BUILD_DIR`.
+
 ## 0.2.0 — 2026-10-03
 
 - Renamed from "Tablet Settings" to **Open Device Helper** (application and D-Bus IDs `io.github.joonhoekim.OpenDeviceHelper*`).
