@@ -38,6 +38,9 @@ const THERMAL_PROFILES: [&str; 3] = ["quiet", "default", "performance"];
 const THERMAL_LABELS: [&str; 3] = ["Quiet", "Default", "Performance"];
 const LED_MODES: [&str; 4] = ["off", "charge", "solid", "breathe"];
 const LED_MODE_LABELS: [&str; 4] = ["Off", "Charge Indicator", "Solid Colour", "Breathing"];
+/// Colours that look like themselves on the ring (dark ones read as off,
+/// brown as yellow).
+const LED_PALETTE: [(&str, &str); 9] = [("Red", "#ff0000"), ("Orange", "#ff6000"), ("Yellow", "#ffd000"), ("Green", "#00ff00"), ("Cyan", "#00ffff"), ("Blue", "#0000ff"), ("Purple", "#a000ff"), ("Pink", "#ff40a0"), ("White", "#ffffff")];
 const DAYS: [&str; 7] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 const DAY_LETTERS: [&str; 7] = ["M", "T", "W", "T", "F", "S", "S"];
 /// Every object the helper can export (for "N of M available").
@@ -49,6 +52,18 @@ const OBJECTS: [&str; 13] = ["Battery", "Refresh", "Gpu", "Torch", "LedRing", "H
 const CSS: &str = "
 .tag { font-size: smaller; font-weight: bold; padding: 2px 8px; border-radius: 999px;
        background-color: alpha(currentColor, 0.12); }
+.swatch { min-width: 28px; min-height: 28px; padding: 0; border-radius: 999px;
+          box-shadow: inset 0 0 0 1px alpha(black, 0.2); }
+.swatch:checked { box-shadow: inset 0 0 0 1px alpha(black, 0.2), 0 0 0 3px @accent_color; }
+.swatch-ff0000 { background: #ff0000; }
+.swatch-ff6000 { background: #ff6000; }
+.swatch-ffd000 { background: #ffd000; }
+.swatch-00ff00 { background: #00ff00; }
+.swatch-00ffff { background: #00ffff; }
+.swatch-0000ff { background: #0000ff; }
+.swatch-a000ff { background: #a000ff; }
+.swatch-ff40a0 { background: #ff40a0; }
+.swatch-ffffff { background: #ffffff; }
 ";
 
 // ---------------------------------------------------------------- widgets --
@@ -443,7 +458,7 @@ struct Ui {
     led_group: adw::PreferencesGroup,
     led_mode: adw::ComboRow,
     led_color_row: adw::ActionRow,
-    led_color: gtk::ColorDialogButton,
+    led_color: Vec<(&'static str, gtk::ToggleButton)>,
     led_speed: adw::SpinRow,
     led_override: adw::SwitchRow,
     led_bright: adw::SpinRow,
@@ -702,11 +717,22 @@ impl Ui {
         let led_group = group(&b, "LED Ring", "");
         group_help(&led_group, "The RGB ring on the back. Charge indicator: amber while charging, green when full or held at the limit, red when low. Breathing pauses while the screen is off.");
         let led_mode = combo(&led_group, "Mode", &LED_MODE_LABELS);
-        let led_color = gtk::ColorDialogButton::new(Some(gtk::ColorDialog::builder().with_alpha(false).title("LED Ring Colour").build()));
-        led_color.set_valign(gtk::Align::Center);
+        let swatches = gtk::FlowBox::builder().selection_mode(gtk::SelectionMode::None).max_children_per_line(9)
+            .min_children_per_line(5).column_spacing(6).row_spacing(6).valign(gtk::Align::Center).build();
+        let mut led_color: Vec<(&'static str, gtk::ToggleButton)> = Vec::new();
+        for (name, hex) in LED_PALETTE {
+            let t = gtk::ToggleButton::builder().tooltip_text(name).valign(gtk::Align::Center).build();
+            t.add_css_class("swatch");
+            t.add_css_class(&format!("swatch-{}", &hex[1..]));
+            t.update_property(&[gtk::accessible::Property::Label(name)]);
+            if let Some((_, first)) = led_color.first() {
+                t.set_group(Some(first));
+            }
+            swatches.insert(&t, -1);
+            led_color.push((hex, t));
+        }
         let led_color_row = adw::ActionRow::builder().title("Colour").build();
-        led_color_row.add_suffix(&led_color);
-        led_color_row.set_activatable_widget(Some(&led_color));
+        led_color_row.add_suffix(&swatches);
         led_group.add(&led_color_row);
         let led_speed = spin(&led_group, "Breathing Cycle (s)", "", 1.0, 20.0, 0.5);
         led_speed.set_digits(1);
@@ -1371,15 +1397,16 @@ impl Ui {
                 ui.sync_led_rows();
             }
         });
-        let ui = self.clone();
-        self.led_color.connect_rgba_notify(move |b| {
-            if ui.updating.get() {
-                return;
-            }
-            let c = b.rgba();
-            let hex = format!("#{:02x}{:02x}{:02x}", (c.red() * 255.0).round() as u8, (c.green() * 255.0).round() as u8, (c.blue() * 255.0).round() as u8);
-            ui.debounce("ledc", "LedRing", move |ui| ui.call_simple("LedRing", "SetColor", (hex,)));
-        });
+        for (hex, t) in &self.led_color {
+            let ui = self.clone();
+            let hex = *hex;
+            t.connect_toggled(move |t| {
+                if ui.updating.get() || !t.is_active() {
+                    return;
+                }
+                ui.debounce("ledc", "LedRing", move |ui| ui.call_simple("LedRing", "SetColor", (hex.to_string(),)));
+            });
+        }
         let ui = self.clone();
         self.led_speed.connect_value_notify(move |r| {
             if ui.updating.get() {
@@ -2437,9 +2464,12 @@ impl Ui {
         set_spin(&self.led_speed, dbus::u(l, "Speed").map(|ms| ms as f64 / 1000.0));
         set_switch(&self.led_override, dbus::b(l, "ChargeOverride"));
         set_switch(&self.led_notify, dbus::b(l, "NotifyPulse"));
-        if let Some(c) = dbus::s(l, "Color").and_then(|s| gtk::gdk::RGBA::parse(s.as_str()).ok()) {
-            if self.led_color.rgba() != c {
-                self.led_color.set_rgba(&c);
+        if let Some(c) = dbus::s(l, "Color") {
+            for (hex, t) in &self.led_color {
+                let on = hex.eq_ignore_ascii_case(&c);
+                if t.is_active() != on {
+                    t.set_active(on);
+                }
             }
         }
         self.sync_led_rows();
