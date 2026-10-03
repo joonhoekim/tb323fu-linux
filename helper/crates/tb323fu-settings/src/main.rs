@@ -14,6 +14,7 @@
 //! descriptions are one short sentence, longer help sits behind a "?" popover.
 
 mod dbus;
+mod md;
 
 use adw::prelude::*;
 use dbus::{Client, Props};
@@ -1757,21 +1758,30 @@ impl Ui {
         });
     }
 
-    /// The release notes (Markdown, the release body on GitHub), as text.
+    /// The release notes (Markdown, the release body on GitHub), rendered, in
+    /// a dialog that can be large (a bottom sheet on a narrow window).
     fn show_notes(self: &Rc<Self>, tag: &str) {
         let t = tag.to_string();
         self.call_then("Kernel", "Notes", (t.clone(),), move |ui, res| {
             let Ok(Some(text)) = res else { return };
-            let l = gtk::Label::new(Some(if text.is_empty() { "No release notes." } else { text.as_str() }));
-            l.set_wrap(true);
-            l.set_xalign(0.0);
-            l.set_yalign(0.0);
-            l.set_selectable(true);
-            let sw = gtk::ScrolledWindow::builder().hscrollbar_policy(gtk::PolicyType::Never).min_content_height(240)
-                .max_content_height(480).propagate_natural_height(true).child(&l).build();
-            let d = adw::AlertDialog::new(Some(&format!("Kernel {}", short_tag(&t))), None);
-            d.set_extra_child(Some(&sw));
-            d.add_response("ok", "Close");
+            let body = if text.trim().is_empty() {
+                let l = gtk::Label::new(Some("No release notes."));
+                l.add_css_class("dim-label");
+                let b = gtk::Box::new(gtk::Orientation::Vertical, 0);
+                b.append(&l);
+                b
+            } else {
+                md::render(&text)
+            };
+            body.set_margin_top(12);
+            body.set_margin_bottom(24);
+            body.set_margin_start(24);
+            body.set_margin_end(24);
+            let sw = gtk::ScrolledWindow::builder().hscrollbar_policy(gtk::PolicyType::Never).vexpand(true).child(&body).build();
+            let tv = adw::ToolbarView::new();
+            tv.add_top_bar(&adw::HeaderBar::new());
+            tv.set_content(Some(&sw));
+            let d = adw::Dialog::builder().title(format!("Kernel {}", short_tag(&t))).content_width(760).content_height(900).child(&tv).build();
             d.present(Some(&ui.window));
         });
     }
