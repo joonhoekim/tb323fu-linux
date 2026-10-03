@@ -4,10 +4,12 @@ From a rooted TB323FU to Ubuntu with GNOME on the microSD card, using one Ubuntu
 Everything happens in that terminal; the script tells you what it is doing, asks before each step and can be run again
 after any failure. [Installing Linux](install.md) is the reference with the individual commands.
 
-> **Status:** the script's PC-side steps (packages, downloads, repacking the kernel into a stock boot image) have been
-> run on Windows 11 with WSL2 Ubuntu 26.04. The steps that talk to the tablet use the same commands as
-> [install.md](install.md), which were done on the development tablet, but this page and the script as a whole
-> have **not yet been followed end to end on a tablet**. If something does not match what you see, stop and open an issue.
+> **Status:** followed end to end on 2026-10-04: Windows 11, WSL2 Ubuntu 26.04, a rooted TB323FU with an empty
+> 64 GB partition on the card, kernel release `kernel-t38`. Every step below ran, and the first start, Wi-Fi, the
+> speakers, both ways back to Android and the way back to Linux were checked on the tablet. That run found five bugs,
+> which are fixed: no sound card, Wi-Fi asking for no password, the way back to Android failing on Ubuntu, a
+> script that was not executable, and firmware files owned by the PC user. If something does not match what you
+> see, stop and open an issue.
 
 ## What you need
 
@@ -16,7 +18,8 @@ after any failure. [Installing Linux](install.md) is the reference with the indi
 - A **microSD card** of 64 GB or more in the tablet. **It will be wiped.**
 - A USB-C **data** cable, battery above 50 %.
 - About **30 GB free** on the Windows drive that holds WSL (normally C:).
-- About **2–3 hours**, most of it an unattended build on the PC.
+- About **1–2 hours**, most of it an unattended build on the PC (the test run took a little over an hour; the build
+  was 22 minutes of it).
 
 ## 1. Install Ubuntu on Windows (WSL2)
 
@@ -51,8 +54,8 @@ open Ubuntu again, so that it sees the new program.
 
 ## 3. Prepare the tablet
 
-1. Start the tablet in **Android**. (If it runs this project's Linux: Open Device Helper → **Android** → Switch to
-   Android.)
+1. Start the tablet in **Android**. (If it runs this project's Linux: Open Device Helper → **Android** → **Restart
+   into Android**.)
 2. **USB debugging:** Settings → About tablet → tap the build number seven times; then Developer options →
    **USB debugging** on.
 3. Connect it to the PC. On the tablet, allow USB debugging for this computer (tick **Always allow**).
@@ -89,15 +92,15 @@ where it stopped. `tools/install/install.sh STEP` runs one step again.
 
 | Step | What happens | What you do | Time |
 |---|---|---|---|
-| `host` | installs the Ubuntu packages it needs (`debootstrap`, `qemu-user-binfmt`, `gdisk`, …), checks that arm64 programs run through qemu, finds `adb.exe` | your Ubuntu password | 1–5 min |
+| `host` | installs the Ubuntu packages it needs (`debootstrap`, `qemu-user-binfmt`, `gdisk`, …), checks that arm64 programs run through qemu, finds `adb.exe` | your Ubuntu password | 1–10 min |
 | `tablet` | checks the tablet: TB323FU, slot `_a`, root for Shell, the microSD card, battery | answer the prompts on the tablet; confirm you have your EDL dump | 1 min |
 | `firmware` | copies the firmware Linux needs from Android's `/vendor` to the PC (nothing on the tablet changes) | — | 1 min |
 | `wayback` | makes sure `boot_b` holds your Android boot image (the way back), installs the **Switch to Linux** KernelSU module, saves the hash and your stock boot image | type `WRITE BOOT_B` only if `boot_b` needs the copy | 1 min |
 | `download` | the newest kernel release and the Ubuntu packages for the tablet from GitHub Releases, checked against `SHA256SUMS` | (browser download only without a GitHub login, see above) | 1–3 min |
 | `bootimg` | packs the release kernel into **your own** stock boot image ([why](install.md#why-there-is-no-ready-made-bootimg)) | — | seconds |
 | `sdcard` | builds a partition table on the PC and writes it to the card from Android: one partition `baldur-root-sd` (64 GB on a large card, else the whole card) | pick the size; type `ERASE` | 1 min |
-| `rootfs` | builds Ubuntu 26.04 with GNOME into an image file on the PC (arm64 through qemu), then shrinks and packs it | your user name for the tablet; a password for it (needed for `sudo`) | **1–2 h** |
-| `write` | copies the image to the tablet and writes it into the card's partition, then reads it back and compares | type `WRITE` | 10–20 min |
+| `rootfs` | builds Ubuntu 26.04 with GNOME into an image file on the PC (arm64 through qemu), then shrinks and packs it | your user name for the tablet; a password for it (needed for `sudo`, asked after the build) | **20–60 min** |
+| `write` | copies the image to the tablet and writes it into the card's partition, then reads it back and compares | type `WRITE` | 3–10 min |
 | `boot` | writes the Linux boot image to `boot_a` (checked; on a bad write it puts Android back first) and restarts into Linux | type `FLASH BOOT_A` | 1 min |
 | `firstboot` | prints what a good first start looks like and what to check | — | — |
 
@@ -105,8 +108,15 @@ The tablet is not needed during the `rootfs` build; it can stay connected.
 
 ## 6. First start and the way back
 
-The Lenovo logo, then a text summary on the panel, then Ubuntu. The first start takes longer (the root grows to fill
-the partition). GNOME logs you in automatically. In GNOME's Terminal:
+The Lenovo logo, then a text summary on the panel, then Ubuntu. The first start takes a little longer (the root grows
+to fill the partition); after that the desktop is up about 12 s after the kernel starts. GNOME logs you in automatically.
+
+**Wi-Fi:** top right → Wi-Fi → pick your network → a notification asks for the password. Until then the clock is
+wrong (Android keeps the real time in a place Linux cannot read); it sets itself once the network is up. The time
+zone comes from the PC you built on. A Wi-Fi icon with a `?` means the internet check failed; it usually clears
+within a minute.
+
+In GNOME's Terminal:
 
 ```sh
 uname -r                                # the release kernel

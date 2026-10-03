@@ -87,3 +87,10 @@ path = "kernel/patches/**"
 precedence = "override"
 SPDX-FileCopyrightText = "The authors named in each patch (From:, Signed-off-by:; see kernel/PROVENANCE.md)"
 SPDX-License-Identifier = "GPL-2.0-only"
+
+# The AudioReach topology built from firmware/audio/*.m4 (binary, no room for a header).
+[[annotations]]
+path = "firmware/audio/LENOVO-TB323FU-tplg.bin"
+precedence = "closest"
+SPDX-FileCopyrightText = ["Linaro Ltd", "2026 Joonhoe Kim"]
+SPDX-License-Identifier = "BSD-3-Clause"

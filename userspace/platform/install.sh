@@ -63,6 +63,7 @@ fi
 # back-to-android: the Linux side of the Android<->Linux switch (android/); the
 # emergency key and the helper run it
 install -D -m 755 "$here/../../android/back-to-android" "$DESTDIR$PREFIX/sbin/back-to-android"
+sed -i "1s|^#!/bin/busybox sh$|#!/bin/sh|" "$DESTDIR$PREFIX/sbin/back-to-android"   # roots need not have busybox
 fix "$DESTDIR$PREFIX/sbin/back-to-android"
 
 # audio, camera

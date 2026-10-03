@@ -25,7 +25,7 @@ stdenv.mkDerivation {
     done
     # back-to-android is also the initramfs' copy: it runs under busybox sh
     # (not busybox in buildInputs -- its find/xargs would shadow stdenv's)
-    substituteInPlace $out/sbin/back-to-android --replace-fail '#!/bin/busybox sh' '#!${busybox}/bin/busybox sh'
+    substituteInPlace $out/sbin/back-to-android --replace-fail '#!/bin/sh' '#!${busybox}/bin/busybox sh'
     patchShebangs $out/libexec $out/sbin $out/lib/systemd/system-sleep
     runHook postInstall
   '';

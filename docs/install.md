@@ -89,10 +89,12 @@ adb shell su -c 'sh /data/local/tmp/extract-on-device.sh /data/local/tmp/tb323fu
 adb shell su -c 'tar -C /data/local/tmp -cf /data/local/tmp/tb323fu-firmware.tar tb323fu-firmware'
 adb pull /data/local/tmp/tb323fu-firmware.tar
 mkdir -p fw && tar -C fw -xf tb323fu-firmware.tar     # → fw/tb323fu-firmware/lib/firmware/...
+# the audio topology is built in this repository, not taken from Android (firmware/audio/README.md)
+cp firmware/audio/LENOVO-TB323FU-tplg.bin fw/tb323fu-firmware/lib/firmware/qcom/kaanapali/
 ```
 
-The extraction was checked; the `tar` + `pull` transport is [from records] (the development PC copied it differently).
-A hash mismatch is a warning (another firmware version), a missing file an error.
+A hash mismatch is a warning (another firmware version), a missing file an error. Without the topology the root
+boots but has no sound card.
 
 ## 2. The way back: Android's boot image in `boot_b`
 

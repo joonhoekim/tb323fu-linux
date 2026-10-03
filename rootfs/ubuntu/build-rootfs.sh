@@ -9,6 +9,7 @@
 # Environment (all optional):
 #   ROOT_PARTLABEL=tb323fu-ubuntu   GPT name of the target partition (fstab)
 #   HOSTNAME_NEW=tb323fu-ubuntu     hostname of the new system
+#   TIMEZONE=                       e.g. Europe/Berlin; default: the build host's, else UTC
 #   DESKTOP=gnome                   gnome (minimal GNOME + GDM) or none
 #   MIRROR=http://ports.ubuntu.com/ubuntu-ports
 #   MODULES_FROM=                   empty (default): none -- the boot image carries its
@@ -35,6 +36,7 @@ T=${1:?usage: build-rootfs.sh TARGET_DIR [RELEASE]}
 REL=${2:-resolute}
 ROOT_PARTLABEL=${ROOT_PARTLABEL:-tb323fu-ubuntu}
 HOSTNAME_NEW=${HOSTNAME_NEW:-tb323fu-ubuntu}
+TIMEZONE=${TIMEZONE:-$(readlink /etc/localtime 2>/dev/null | sed -n "s|.*/zoneinfo/||p")}
 DESKTOP=${DESKTOP:-gnome}
 MIRROR=${MIRROR:-http://ports.ubuntu.com/ubuntu-ports}
 MODULES_FROM=${MODULES_FROM:-}
@@ -93,8 +95,8 @@ base="linux-firmware- systemd-resolved network-manager openssh-server sudo bluez
 	polkitd rmtfs tqftpserv qrtr-tools rfkill locales tzdata vim-tiny less \n	wpasupplicant wireless-regdb swh-plugins"
 case $DESKTOP in
 gnome) desk="gdm3 gnome-shell gnome-session gnome-control-center gnome-terminal nautilus \
-	gnome-text-editor gnome-shell-extension-prefs gnome-initial-setup- mesa-vulkan-drivers \
-	libgl1-mesa-dri plymouth plymouth-theme-spinner fonts-noto-core" ;;
+	gnome-text-editor gnome-shell-extension-prefs gnome-initial-setup- gnome-keyring \
+	libpam-gnome-keyring mesa-vulkan-drivers libgl1-mesa-dri plymouth plymouth-theme-spinner fonts-noto-core" ;;
 *) desk="" ;;
 esac
 say "installing packages"
@@ -133,6 +135,7 @@ mkdir -p "$T/etc/tb323fu"
 for f in bt-address android-boot.sha256 audio.conf emergency-key.conf; do
 	[ -e "$CONFIG_FROM/$f" ] && [ ! -e "$T/etc/tb323fu/$f" ] && cp -a "$CONFIG_FROM/$f" "$T/etc/tb323fu/$f"
 done
+chown -R 0:0 "$T/usr/lib/firmware" "$T/etc/tb323fu"   # copies from a user's PC keep its uid
 if [ -n "${DEBS_FROM:-}" ] && ls "$DEBS_FROM"/tb323fu-*.deb >/dev/null 2>&1; then
 	say "tb323fu packages"
 	mkdir -p "$T/tmp/tb323fu-debs"; cp "$DEBS_FROM"/tb323fu-*.deb "$T/tmp/tb323fu-debs/"
@@ -144,6 +147,7 @@ fi
 
 # 6. system configuration
 echo "$HOSTNAME_NEW" > "$T/etc/hostname"
+[ -e "$T/usr/share/zoneinfo/${TIMEZONE:-UTC}" ] && ln -sf "/usr/share/zoneinfo/${TIMEZONE:-UTC}" "$T/etc/localtime" && echo "${TIMEZONE:-UTC}" > "$T/etc/timezone"
 printf '127.0.0.1\tlocalhost\n127.0.1.1\t%s\n' "$HOSTNAME_NEW" > "$T/etc/hosts"
 printf 'PARTLABEL=%s\t/\text4\tdefaults,noatime\t0\t1\n' "$ROOT_PARTLABEL" > "$T/etc/fstab"
 ch sh -c 'sed -i "s/^# *en_US.UTF-8/en_US.UTF-8/" /etc/locale.gen && locale-gen >/dev/null'

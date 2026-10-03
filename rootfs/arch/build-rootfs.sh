@@ -136,6 +136,7 @@ mkdir -p "$T/etc/tb323fu"
 for f in bt-address android-boot.sha256 audio.conf emergency-key.conf; do
 	[ -e "$CONFIG_FROM/$f" ] && cp -a "$CONFIG_FROM/$f" "$T/etc/tb323fu/"
 done
+chown -R 0:0 "$T/usr/lib/firmware" "$T/etc/tb323fu"   # copies from a user's PC keep its uid
 ch "systemctl mask bootmac-bluetooth.service >/dev/null 2>&1 || true"
 
 # 5. users

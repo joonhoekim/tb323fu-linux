@@ -273,6 +273,7 @@ mkdir -p "$T/etc/tb323fu"
 for f in bt-address android-boot.sha256 audio.conf emergency-key.conf; do
 	[ -e "$CONFIG_FROM/$f" ] && [ ! -e "$T/etc/tb323fu/$f" ] && cp -a "$CONFIG_FROM/$f" "$T/etc/tb323fu/$f"
 done
+chown -R 0:0 "$T/usr/lib/firmware" "$T/etc/tb323fu"   # copies from a user's PC keep its uid
 ch env OPTIONAL="$iio_opt" CC=gcc sh $S/userspace/platform/install.sh >/dev/null
 ch systemctl enable tb323fu-gen-ids.service tb323fu-btaddr.service tb323fu-dsp.service \
 	tb323fu-audio.service tb323fu-usb-port.service tb323fu-emergency-key.service >/dev/null 2>&1

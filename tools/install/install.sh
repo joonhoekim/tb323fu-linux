@@ -328,7 +328,7 @@ step_tablet() {
 		*) cat <<'EOF'
 No tablet on adb. Check:
   - The tablet runs Android. If it runs this project's Linux: open Open Device Helper -> Android ->
-    Switch to Android (or the Android tile in the quick settings, or in a terminal
+    Restart into Android (or the Android tile in the quick settings, or in a terminal
     sudo back-to-android $(cat /etc/tb323fu/android-boot.sha256)); wait for Android to start.
   - USB debugging is on: Settings -> About tablet -> tap the build number 7 times; then
     Settings -> System -> Developer options -> USB debugging.
@@ -372,7 +372,7 @@ step_firmware() {
 	head_ "firmware: copy it from Android (1 min, nothing on the tablet changes)"
 	say "Linux needs the tablet's firmware (Wi-Fi, GPU, audio DSP, touch ...). It is not distributed;"
 	say "firmware/extract-on-device.sh copies the files listed in firmware/manifest.tsv from Android's /vendor."
-	if [ $DRY = 0 ] && [ -d "$FW/qcom" ] && [ "$explicit" = 0 ]; then say "already here: $FW"; return 0; fi
+	if [ $DRY = 0 ] && [ -d "$FW/qcom" ] && [ "$explicit" = 0 ]; then say "already here: $FW"; add_tplg; return 0; fi
 	yesno "copy the firmware now?" || return 1
 	local out rc
 	run adb push "$repo/firmware/manifest.tsv" "$repo/firmware/extract-on-device.sh" $T/ || return 1
@@ -385,7 +385,13 @@ step_firmware() {
 	run adb pull $T/tb323fu-firmware.tar "$WORK/fw/tb323fu-firmware.tar" || return 1
 	run tar -C "$WORK/fw" -xf "$WORK/fw/tb323fu-firmware.tar" || return 1
 	su_ "rm -rf $T/tb323fu-firmware $T/tb323fu-firmware.tar"
+	add_tplg
 	say "firmware: $FW"
+}
+add_tplg() {
+	say "audio topology (built in this repository, firmware/audio/README.md) -> $FW/qcom/kaanapali/"
+	run mkdir -p "$FW/qcom/kaanapali"
+	run cp "$repo/firmware/audio/LENOVO-TB323FU-tplg.bin" "$FW/qcom/kaanapali/"
 }
 
 module_installed() { su_ 'ksud module list 2>/dev/null' | grep -qi tb323fu-switch; }
@@ -408,14 +414,14 @@ EOF
 		undo "not needed; your EDL dump also has boot_a.img and boot_b.img"
 		confirm "WRITE BOOT_B" || return 1
 		say "  (android/install-module.sh asks once more: type yes)"
-		run "$repo/android/install-module.sh" prepare-boot-b || return 1
+		run bash "$repo/android/install-module.sh" prepare-boot-b || return 1
 		[ $DRY = 1 ] || bb=$(su_ 'sha256sum /dev/block/by-name/boot_b' | cut -c1-64)
 	else say "boot_b = boot_a: the way back is in place."; fi
 	[ $DRY = 1 ] && bb='<sha256 of boot_b>'
 	if [ $DRY = 1 ] || ! module_installed; then
 		say "The 'Switch to Linux' KernelSU module brings you from Android back to Linux later (active after"
 		say "Android's next start). It only writes boot_a, and only an image whose hash it checks."
-		yesno "install the module?" && { run "$repo/android/install-module.sh" install || return 1; }
+		yesno "install the module?" && { run bash "$repo/android/install-module.sh" install || return 1; }
 	else say "Switch to Linux module: installed."; fi
 	run mkdir -p "$WORK/config"
 	[ $DRY = 1 ] || printf '%s\n' "$bb" > "$WORK/config/android-boot.sha256"
@@ -819,7 +825,7 @@ step_boot() {
 	bb=$(su_ 'sha256sum /dev/block/by-name/boot_b' | cut -c1-64)
 	[ $DRY = 1 ] || [ "$bb" = "$hash" ] || { warn "boot_b no longer holds the recorded Android image -- run the wayback step"; return 1; }
 	say "Copying the image to the tablet and staging it for the Switch to Linux module (only /data/adb changes) ..."
-	run "$repo/android/install-module.sh" stage "$img" || return 1
+	run bash "$repo/android/install-module.sh" stage "$img" || return 1
 	cat <<EOF
 Now boot_a gets the Linux boot image; then the tablet restarts into Linux. Android stays in boot_b:
   back to Android: Open Device Helper -> Android, the Android tile in the quick settings,
@@ -847,7 +853,8 @@ step_firstboot() {
 1. Lenovo logo, then a text summary on the panel (kernel, CPUs, storage, battery) for a few seconds.
 2. "switching to root $ROOT_PARTLABEL ..." and Ubuntu starts. The first start takes longer: the root
    grows to fill its partition (tb323fu-growroot) and the card is slower than internal storage.
-3. GNOME logs you in automatically (user $(st_get dev_user || true)).
+3. GNOME logs you in automatically (user $(st_get dev_user || true)). Wi-Fi: top right -> Wi-Fi -> your network;
+   the clock is wrong until the network is up.
 
 Then, in GNOME's Terminal:
   uname -r                                  # the release kernel ($(st_get kernel_tag || true))

@@ -36,6 +36,8 @@ The full texts of all licenses used are in LICENSES/.
                                                     Shell)
   userspace/platform/ ALSA UCM2 files               BSD-3-Clause (as
                                                     alsa-ucm-conf)
+  firmware/audio/ (AudioReach topology: .m4       BSD-3-Clause (as
+    sources and the .bin built from them)           audioreach-topology)
   userspace/platform/ libcamera tuning files        CC0-1.0 (as libcamera)
   userspace/platform/udev-override/                 LGPL-2.1-or-later (from
     90-feedbackd.rules                              feedbackd)
@@ -67,6 +69,9 @@ Third-party code
   rockchip-linux/kernel (develop-6.1).
 - userspace/platform/udev-override/90-feedbackd.rules: adapted from feedbackd
   (LGPL-2.1-or-later).
+- firmware/audio/: built from linux-msm/audioreach-topology (Linaro,
+  BSD-3-Clause); subgraph-device-i2s-mfc-playback.m4 is its
+  subgraph-device-i2s-playback.m4 with an MFC added.
 - userspace/desktop/steam/steam-arm64: an independent reimplementation; the
   procedure follows ROCKNIX's "Install Steam" script (no code copied).
   https://github.com/ROCKNIX/distribution/blob/next/projects/ROCKNIX/packages/virtual/emulators/sources/Install%20Steam.sh
