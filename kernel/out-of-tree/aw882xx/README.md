@@ -19,7 +19,7 @@ they are.
 
 ## Changes in this copy
 
-All marked `y705` in the source:
+All marked `tb323fu` in the source:
 
 - `linux/of_gpio.h` is gone: the reset/IRQ lines are taken with `devm_gpiod_get_optional()` (the DT names
   `reset-gpio`/`irq-gpio` still match), `aw882xx_gpio_request()` is empty.

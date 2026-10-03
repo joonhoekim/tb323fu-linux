@@ -1571,7 +1571,7 @@ static struct class_attribute class_att_re_range =
 
 static struct class aw_cali_class = {
 	.name = "smartpa",
-	/* y705: struct class has no owner any more */
+	/* tb323fu: struct class has no owner any more */
 };
 
 static void aw_cali_class_attr_init(struct aw_device *aw_dev)

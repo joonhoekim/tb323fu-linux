@@ -63,7 +63,7 @@ static const char *const aw882xx_spin[] = {"spin_0", "spin_90",
  *
  ******************************************************/
 #ifdef AW_KERNEL_VER_OVER_4_19_1
-/* y705: helpers the 7.x ASoC core no longer provides under these names */
+/* tb323fu: helpers the 7.x ASoC core no longer provides under these names */
 static const struct snd_soc_component_driver soc_codec_dev_aw882xx;
 static struct snd_soc_component *aw_kcontrol_component(struct snd_kcontrol *kcontrol)
 {
@@ -79,7 +79,7 @@ static struct aw_componet_codec_ops aw_componet_codec_ops = {
 	.add_codec_controls = snd_soc_add_component_controls,
 	.unregister_codec = aw_unregister_component,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 3, 0)
-	/* 7.3: snd_soc_register_component() is a _Generic macro now (9-77) */
+	/* 7.3: snd_soc_register_component() is a _Generic macro now */
 	.register_codec = snd_soc_register_component_d,
 #else
 	.register_codec = snd_soc_register_component,
@@ -1866,7 +1866,7 @@ static int aw882xx_parse_gpio_dt(struct aw882xx *aw882xx,
 	}
 
 	/*
-	 * y705: of_get_named_gpio() is gone; take the lines as descriptors
+	 * tb323fu: of_get_named_gpio() is gone; take the lines as descriptors
 	 * ("reset-gpio" and "irq-gpio" still match, gpiolib accepts the
 	 * singular suffix) and keep the legacy numbers the rest uses.
 	 */
@@ -1918,7 +1918,7 @@ static struct aw882xx *aw882xx_malloc_init(struct i2c_client *i2c)
 
 static int aw882xx_gpio_request(struct aw882xx *aw882xx)
 {
-	/* y705: the descriptors were requested while parsing the DT */
+	/* tb323fu: the descriptors were requested while parsing the DT */
 	return 0;
 }
 
@@ -2717,7 +2717,7 @@ static const struct of_device_id aw882xx_dt_match[] = {
 	{ .compatible = "awinic,aw882xx_smartpa" },
 	{ },
 };
-/* y705: without it the module has only the i2c alias and never autoloads */
+/* tb323fu: without it the module has only the i2c alias and never autoloads */
 MODULE_DEVICE_TABLE(of, aw882xx_dt_match);
 
 static struct i2c_driver aw882xx_i2c_driver = {

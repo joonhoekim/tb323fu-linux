@@ -17,7 +17,7 @@
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
-#include <linux/gpio.h> /* y705: of_gpio.h is gone */
+#include <linux/gpio.h> /* tb323fu: of_gpio.h is gone */
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/firmware.h>

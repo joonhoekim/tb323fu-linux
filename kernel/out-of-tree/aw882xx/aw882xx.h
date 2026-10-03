@@ -74,7 +74,7 @@ enum aw882xx_int_type {
 
 #if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
 #define AW_KERNEL_VER_OVER_5_4_0
-/* y705: the VFS_internal namespace no longer exists */
+/* tb323fu: the VFS_internal namespace no longer exists */
 #endif
 
 #if KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE

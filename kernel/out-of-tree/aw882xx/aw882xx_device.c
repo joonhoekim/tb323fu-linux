@@ -19,7 +19,7 @@
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
-#include <linux/gpio.h> /* y705: of_gpio.h is gone */
+#include <linux/gpio.h> /* tb323fu: of_gpio.h is gone */
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/firmware.h>
@@ -364,7 +364,7 @@ static void aw_dev_reg_dump(struct aw_device *aw_dev)
 		if (aw_dev->ops.aw_check_rd_access(i)) {
 			aw_dev->ops.aw_i2c_read(aw_dev, i, &reg_val);
 			/*
-			 * y705 (9-80): debug, not info. PipeWire opens the PCM
+			 * tb323fu: debug, not info. PipeWire opens the PCM
 			 * at login before the I2S clock runs, every start retry
 			 * fails the PLL check, and each dumped ~120 lines.
 			 */

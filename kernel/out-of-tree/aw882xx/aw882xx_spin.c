@@ -15,7 +15,7 @@
 #include <linux/i2c.h>
 #include <sound/core.h>
 #include <sound/soc.h>
-#include <linux/gpio.h> /* y705: of_gpio.h is gone */
+#include <linux/gpio.h> /* tb323fu: of_gpio.h is gone */
 #include <linux/device.h>
 #include <linux/firmware.h>
 #include <linux/of.h>

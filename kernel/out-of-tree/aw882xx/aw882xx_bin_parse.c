@@ -14,7 +14,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/i2c.h>
-#include <linux/gpio.h> /* y705: of_gpio.h is gone */
+#include <linux/gpio.h> /* tb323fu: of_gpio.h is gone */
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/firmware.h>
