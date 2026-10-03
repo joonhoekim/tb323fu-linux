@@ -71,7 +71,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Camera streaming with the screen off | ✅ | measured | restarting a capture with the display off used to hang the system; fixed by patch 0116 (repeated starts with the display off pass) |
 | Torch | ✅ | observed | also from the helper's quick settings |
 | Flash strobe | ❓ | probe only | |
-| RGB ring light | 🟡 | observed + measured | the charge indicator works (observed). Solid colours and breathing were wrong before the driver fix of 2026-10-03 (colours scaled down at low brightness, breathing restarted every step); with the fix the chip runs the breathing itself (`hw_pattern`), but a person has not yet judged the result. Known limitation: each colour or brightness change restarts the chip's MCU, so the ring goes dark for about 45 ms (the command written over the 100 kHz I2C bus) before the new colour |
+| RGB ring light | ✅ | observed + measured | charge indicator, solid colours (a nine-colour palette in the helper; colours are gamma-corrected because the LEDs are linear) and breathing run by the chip itself (`hw_pattern`) watched on 2026-10-03. Known limitation: every brightness or colour change goes dark for about 45 ms while the chip's program restarts (no update command found in the vendor material) |
 | Haptics (2 motors) | ✅ | observed | |
 | Volume and power keys | ✅ | observed | power key suspends and resumes (seen in SteamOS) |
 | Emergency key (volume up + down, 10 s → back to Android) | ✅ | measured + observed | Android restore starts 10 s after the keys are detected and Android boots (1/1); switching back to Linux from Android works |
@@ -143,7 +143,6 @@ In rough order of value. Rows above marked user-reported, ❓ or 🟡, and rows 
 |---|---|---|
 | 164 Hz in long sessions, SteamOS orientation and UI size, touch on Fedora and NixOS | 10+ minutes in Gaming Mode with underrun counters; first taps on each desktop | eyes, hands |
 | Bluetooth HFP | headset call profile, microphone loopback | ears, voice |
-| RGB ring colours and breathing after the driver fix | each palette colour and breathing set from the helper, watched | eyes |
 | Idle stability with patch 0118 | hours of idle and display-off time counted, crashes per hour compared with the 78-minute baseline | no (scripted) |
 | AV1 in applications | newer GStreamer / FFmpeg on Arch, Fedora or NixOS, compared bit-exact with a software decoder | no (scripted) |
 | 144 Hz | another vertical-porch variant, underruns and touch | eyes, hands |
