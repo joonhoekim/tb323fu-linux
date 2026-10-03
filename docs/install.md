@@ -285,13 +285,17 @@ sudo mount /dev/sdX2 /mnt/t
 sudo env ROOT_PARTLABEL=tb323fu-ubuntu \
     FIRMWARE_FROM="$PWD/fw/tb323fu-firmware/lib/firmware" \
     CONFIG_FROM="$PWD/tb323fu-config" \
-    DESKTOP=gnome DEV_USER=<your user> \
+    DESKTOP=gnome DEV_USER=<your user> DEBS_FROM="$PWD/debs" \
     sh tb323fu-linux/rootfs/ubuntu/build-rootfs.sh /mnt/t
 sudo umount /mnt/t
 ```
 
-- Each builder lists its options at the top (Ubuntu: `DEBS_FROM` for the tb323fu packages built with
-  [`packaging/debian/build-debs.sh`](../packaging/); Arch: `PKGS_FROM`; Fedora and SteamOS build or copy the platform
+- **Platform packages for Ubuntu:** download the `tb323fu-*.deb` files and `SHA256SUMS` of the newest
+  `helper-v…` release from the repository's [Releases](https://github.com/joonhoekim/tb323fu-linux/releases) into
+  `debs/`, check them (`cd debs && sha256sum -c SHA256SUMS`) and pass the directory as `DEBS_FROM=` (in WSL2, copy
+  them from your Windows Downloads folder under `/mnt/c`). [`packaging/debian/build-debs.sh`](../packaging/) builds the same
+  packages on an arm64 machine.
+- Each builder lists its options at the top (Ubuntu: `DEBS_FROM`; Arch: `PKGS_FROM`; Fedora and SteamOS build or copy the platform
   files themselves; NixOS uses `flake.nix`). Without the platform packages the root boots, but audio routing, sensors,
   the emergency key and the helper are missing.
 - `ROOT_PARTLABEL` must equal the partition's GPT name: it is written into `/etc/fstab` as `PARTLABEL=…`.
