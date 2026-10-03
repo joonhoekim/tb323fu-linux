@@ -4,6 +4,7 @@
 # install.sh -- install tb323fu-helperd and tb323fu-ctl (after `cargo build --release`).
 #   ./install.sh [--uninstall]
 #   PREFIX=/usr DESTDIR=/tmp/pkg ./install.sh          # packaging
+#   BUILD_DIR=target/debug ./install.sh                # binaries from another build directory
 # Defaults: PREFIX=/usr/local, LIBEXECDIR=$PREFIX/libexec, units and D-Bus /
 # polkit files under $PREFIX/lib, $PREFIX/share (systemd, dbus and polkit read
 # /usr/local/... only for some of these -- see below).
@@ -29,7 +30,7 @@ POLKIT=${POLKIT:-/usr/share/polkit-1/actions}
 # project key of the signed-index channel is removed on install)
 KEYDIR=${KEYDIR:-$PREFIX/share/tb323fu/keys}
 here=$(cd "$(dirname "$0")" && pwd)
-B=$here/target/release
+B=${BUILD_DIR:-$here/target/release}
 
 files() {
 	echo "$LIBEXECDIR/tb323fu-helperd $BINDIR/tb323fu-ctl $UNITDIR/tb323fu-helperd.service"

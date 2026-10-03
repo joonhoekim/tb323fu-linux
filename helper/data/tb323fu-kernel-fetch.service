@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Joonhoe Kim
-# Started by tb323fu-helperd (Kernel.Check / Kernel.Download), never by itself:
+# Started by tb323fu-helperd (Kernel.Check / Download, HelperUpdate.Check / Download), never by itself:
 # downloads the files the daemon listed in /run/tb323fu/kernel-fetch.list into
 # /var/cache/tb323fu-kernel (GitHub Releases through the REST API). The daemon
 # has no network access of its own and checks everything this leaves there
 # (SHA256SUMS, sizes, the kernel banner) before using it.
 [Unit]
-Description=Download a TB323FU kernel release for tb323fu-helperd
+Description=Download a TB323FU kernel or helper release for tb323fu-helperd
 Documentation=https://github.com/joonhoekim/tb323fu-linux/blob/main/docs/helper.md
 Wants=network-online.target
 After=network-online.target

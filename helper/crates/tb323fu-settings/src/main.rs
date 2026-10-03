@@ -47,7 +47,7 @@ const DAY_LETTERS: [&str; 7] = ["M", "T", "W", "T", "F", "S", "S"];
 const KNOWN_FEATURES: usize = 13;
 const DEBOUNCE: Duration = Duration::from_millis(400);
 /// The objects refresh() polls (the root object is polled first).
-const OBJECTS: [&str; 13] = ["Battery", "Refresh", "Gpu", "Torch", "LedRing", "Haptics", "Usb", "EmergencyKey", "Android", "Diagnostics", "Boot", "Thermal", "Kernel"];
+const OBJECTS: [&str; 14] = ["Battery", "Refresh", "Gpu", "Torch", "LedRing", "Haptics", "Usb", "EmergencyKey", "Android", "Diagnostics", "Boot", "Thermal", "Kernel", "HelperUpdate"];
 
 const CSS: &str = "
 .tag { font-size: smaller; font-weight: bold; padding: 2px 8px; border-radius: 999px;
@@ -505,6 +505,8 @@ struct Ui {
     about_debug: RefCell<String>,
     // Kernel updates (About; a trial line on Systems)
     kn: KernelUi,
+    // Helper updates (About)
+    hu: HelperUi,
 }
 
 /// Limits of one performance profile: GPU min/max and CPU little/big min/max.
@@ -530,7 +532,6 @@ struct KernelUi {
     channel: adw::ComboRow,
     auto: adw::SwitchRow,
     back: adw::ActionRow,
-    helper: LongInfo,
     banner: adw::Banner,
     /// what the banner button does: "keep" or "dismiss"
     banner_kind: RefCell<&'static str>,
@@ -541,6 +542,23 @@ struct KernelUi {
     local: gtk::Button,
     sys_group: adw::PreferencesGroup,
     sys_row: adw::ActionRow,
+}
+
+/// The helper-update widgets (About): status, the newer release with Notes and one
+/// action (Download -> Update…), the command when a package manager updates the
+/// helper, Go Back to the version before the last update.
+struct HelperUi {
+    group: adw::PreferencesGroup,
+    state: gtk::Label,
+    avail: adw::ActionRow,
+    notes: gtk::Button,
+    action: gtk::Button,
+    command: LongInfo,
+    back: adw::ActionRow,
+    back_btn: gtk::Button,
+    /// what the action button does now: (verb, version)
+    next: RefCell<(&'static str, String)>,
+    busy: Cell<bool>,
 }
 
 const CHANNELS: [&str; 2] = ["stable", "testing"];
@@ -852,9 +870,29 @@ impl Ui {
         let (kn_back, kn_back_btn) = button(&kn_group, "Previous Kernel", "", "Go Back…");
         kn_back_btn.add_css_class("destructive-action");
         kn_back.set_visible(false);
-        let kn_helper = info_long(&kn_group, "Helper Update", &toasts);
-        kn_helper.row.set_visible(false);
         let kn_banner = adw::Banner::new("");
+        let hu_group = group(&b, "Helper Updates", "New versions of Open Device Helper from the project's GitHub releases.");
+        group_help(&hu_group, "The helper restarts with the new version. If it does not answer within 30 seconds, the version before \
+            comes back by itself. Restart this app to use its new version; the GNOME extension's new version loads at the next login.");
+        let hu_state = info(&hu_group, "Status");
+        let hu_avail = adw::ActionRow::builder().title("New Version").build();
+        hu_avail.set_subtitle_lines(1);
+        let hu_notes = gtk::Button::with_label("Notes");
+        hu_notes.set_valign(gtk::Align::Center);
+        hu_notes.add_css_class("flat");
+        let hu_action = gtk::Button::with_label("Download");
+        hu_action.set_valign(gtk::Align::Center);
+        hu_action.add_css_class("suggested-action");
+        hu_avail.add_suffix(&hu_notes);
+        hu_avail.add_suffix(&hu_action);
+        hu_avail.set_visible(false);
+        hu_group.add(&hu_avail);
+        let hu_command = info_long(&hu_group, "New Version", &toasts);
+        hu_command.row.set_visible(false);
+        let (hu_back, hu_back_btn) = button(&hu_group, "Previous Version", "", "Go Back…");
+        hu_back_btn.add_css_class("destructive-action");
+        hu_back.set_visible(false);
+        hu_group.set_visible(false);
 
         // Navigation
         let sidebar = gtk::ListBox::new();
@@ -1055,7 +1093,6 @@ impl Ui {
                 channel: kn_channel,
                 auto: kn_auto,
                 back: kn_back,
-                helper: kn_helper,
                 banner: kn_banner,
                 banner_kind: RefCell::new(""),
                 next: RefCell::new(("", String::new())),
@@ -1064,10 +1101,23 @@ impl Ui {
                 sys_group: kn_sys_group,
                 sys_row: kn_sys_row,
             },
+            hu: HelperUi {
+                group: hu_group,
+                state: hu_state,
+                avail: hu_avail,
+                notes: hu_notes,
+                action: hu_action,
+                command: hu_command,
+                back: hu_back,
+                back_btn: hu_back_btn,
+                next: RefCell::new(("", String::new())),
+                busy: Cell::new(false),
+            },
         });
         ui.connect(gpu_buttons, rescan, diag_open, retry);
         ui.connect_more(led_pulse, hap_buttons);
         ui.connect_kernel(kn_back_btn);
+        ui.connect_helper();
         ui
     }
 
@@ -1713,7 +1763,154 @@ impl Ui {
             self.kn.banner.set_revealed(false);
             self.kn.sys_group.set_visible(false);
         }
+        match props.get("HelperUpdate") {
+            Some(Some(h)) => {
+                self.hu.group.set_visible(true);
+                self.update_helper(h);
+            }
+            // an older helper without self-update
+            Some(None) if !self.hu.busy.get() => self.hu.group.set_visible(false),
+            _ => {}
+        }
         self.updating.set(false);
+    }
+
+    fn update_helper(&self, p: &Props) {
+        let s = |k: &str| dbus::s(p, k).unwrap_or_default();
+        let (avail, downloaded, prev, state) = (s("Available"), s("Downloaded"), s("Previous"), s("State"));
+        let own = s("Method") == "self";
+        let lu: HashMap<String, String> = dbus::dict_ss(p, "LastUpdate").into_iter().collect();
+        let g = |k: &str| lu.get(k).cloned().unwrap_or_default();
+        let label = match state.as_str() {
+            "checking" => "Checking…".to_string(),
+            "downloading" => format!("Downloading… {} %", dbus::u(p, "Progress").unwrap_or(0)),
+            "verifying" => "Verifying…".into(),
+            "installing" | "rolling-back" => "Restarting the helper…".into(),
+            "interrupted" => "An update was interrupted: go back to the previous version".into(),
+            _ => match g("result").as_str() {
+                "rolled-back" if g("to") != s("Version") && !avail.is_empty() => format!("{} did not start; back on {}", g("to"), g("from")),
+                _ if !avail.is_empty() => format!("Version {} (version {avail} is available)", s("Version")),
+                _ => format!("Version {} (up to date)", s("Version")),
+            },
+        };
+        set_text(&self.hu.state, &label);
+        set_class(&self.hu.state, "warning", state == "interrupted");
+
+        let next: (&'static str, String) = if avail.is_empty() || !own || !dbus::b(p, "Installable").unwrap_or(false) {
+            ("", String::new())
+        } else if downloaded == avail {
+            ("install", avail.clone())
+        } else {
+            ("download", avail.clone())
+        };
+        self.hu.avail.set_visible(!next.0.is_empty());
+        if !next.0.is_empty() {
+            let title = format!("Helper {avail} Available");
+            if self.hu.avail.title() != title {
+                self.hu.avail.set_title(&title);
+            }
+            let btn = if next.0 == "install" { "Update…" } else { "Download" };
+            if self.hu.action.label().as_deref() != Some(btn) {
+                self.hu.action.set_label(btn);
+            }
+        }
+        *self.hu.next.borrow_mut() = next;
+        let cmd_row = !avail.is_empty() && !own;
+        self.hu.command.row.set_visible(cmd_row);
+        if cmd_row {
+            self.hu.command.row.set_title(&format!("Helper {avail} Available"));
+            let cmd = s("UpdateCommand");
+            self.hu.command.set(&cmd, &cmd);
+        }
+        let back = own && !prev.is_empty();
+        self.hu.back.set_visible(back);
+        if back {
+            let sub = format!("Back to {prev}");
+            if self.hu.back.subtitle().as_deref() != Some(sub.as_str()) {
+                self.hu.back.set_subtitle(&sub);
+            }
+        }
+    }
+
+    /// A long HelperUpdate call on a worker thread (like kernel_call). The
+    /// helper restarts during Install and Rollback; the poll picks it up again.
+    fn helper_call<B>(self: &Rc<Self>, method: &'static str, body: B)
+    where
+        B: serde::ser::Serialize + zbus::zvariant::DynamicType + Send + 'static,
+    {
+        if self.hu.busy.replace(true) {
+            return;
+        }
+        for b in [&self.hu.action, &self.hu.back_btn] {
+            b.set_sensitive(false);
+        }
+        let client = self.client.borrow().clone();
+        let ui = self.clone();
+        glib::spawn_future_local(async move {
+            let res = gio::spawn_blocking(move || client.call("HelperUpdate", method, &body))
+                .await
+                .unwrap_or_else(|_| Err("Something went wrong".into()));
+            ui.hu.busy.set(false);
+            for b in [&ui.hu.action, &ui.hu.back_btn] {
+                b.set_sensitive(true);
+            }
+            match &res {
+                Ok(Some(m)) if !m.is_empty() => ui.toast(m),
+                Err(e) => ui.toast(&format!("{}: {e}", if method == "Rollback" { "Previous helper" } else { "Helper update" })),
+                _ => {}
+            }
+            ui.refresh();
+        });
+    }
+
+    fn connect_helper(self: &Rc<Self>) {
+        let ui = self.clone();
+        self.hu.action.connect_clicked(move |_| {
+            let (verb, v) = ui.hu.next.borrow().clone();
+            match verb {
+                "download" => ui.helper_call("Download", (v,)),
+                "install" => {
+                    let d = adw::AlertDialog::new(Some(&format!("Update Open Device Helper to {v}?")),
+                        Some("The helper restarts with the new version. If it does not answer within 30 seconds, the current version \
+                            comes back by itself."));
+                    d.add_response("cancel", "Cancel");
+                    d.add_response("go", "Update");
+                    d.set_response_appearance("go", adw::ResponseAppearance::Suggested);
+                    d.set_default_response(Some("go"));
+                    d.set_close_response("cancel");
+                    let ui2 = ui.clone();
+                    d.connect_response(None, move |_, r| {
+                        if r == "go" {
+                            ui2.helper_call("Install", (v.clone(),));
+                        }
+                    });
+                    d.present(Some(&ui.window));
+                }
+                _ => {}
+            }
+        });
+        let ui = self.clone();
+        self.hu.notes.connect_clicked(move |_| {
+            let v = ui.hu.next.borrow().1.clone();
+            ui.notes_dialog("HelperUpdate", &v, format!("Open Device Helper {v}"));
+        });
+        let ui = self.clone();
+        self.hu.back_btn.connect_clicked(move |_| {
+            let d = adw::AlertDialog::new(Some("Go Back to the Previous Helper?"),
+                Some("The files from before the last helper update are put back and the helper restarts."));
+            d.add_response("cancel", "Cancel");
+            d.add_response("go", "Go Back");
+            d.set_response_appearance("go", adw::ResponseAppearance::Destructive);
+            d.set_default_response(Some("cancel"));
+            d.set_close_response("cancel");
+            let ui2 = ui.clone();
+            d.connect_response(None, move |_, r| {
+                if r == "go" {
+                    ui2.helper_call("Rollback", ());
+                }
+            });
+            d.present(Some(&ui.window));
+        });
     }
 
     fn update_boot(self: &Rc<Self>, p: &Props) {
@@ -2099,8 +2296,11 @@ impl Ui {
     /// The release notes (Markdown, the release body on GitHub), rendered, in
     /// a dialog that can be large (a bottom sheet on a narrow window).
     fn show_notes(self: &Rc<Self>, tag: &str) {
-        let t = tag.to_string();
-        self.call_then("Kernel", "Notes", (t.clone(),), move |ui, res| {
+        self.notes_dialog("Kernel", tag, format!("Kernel {}", short_tag(tag)));
+    }
+
+    fn notes_dialog(self: &Rc<Self>, obj: &'static str, arg: &str, title: String) {
+        self.call_then(obj, "Notes", (arg.to_string(),), move |ui, res| {
             let Ok(Some(text)) = res else { return };
             let body = if text.trim().is_empty() {
                 let l = gtk::Label::new(Some("No release notes."));
@@ -2119,7 +2319,7 @@ impl Ui {
             let tv = adw::ToolbarView::new();
             tv.add_top_bar(&adw::HeaderBar::new());
             tv.set_content(Some(&sw));
-            let d = adw::Dialog::builder().title(format!("Kernel {}", short_tag(&t))).content_width(760).content_height(900).child(&tv).build();
+            let d = adw::Dialog::builder().title(title).content_width(760).content_height(900).child(&tv).build();
             d.present(Some(&ui.window));
         });
     }
@@ -2209,14 +2409,6 @@ impl Ui {
                 self.kn.back.set_subtitle(&sub);
             }
         }
-        let hl = s("HelperLatest");
-        self.kn.helper.row.set_visible(!hl.is_empty());
-        if !hl.is_empty() {
-            let cmd = s("HelperUpdateCommand");
-            self.kn.helper.row.set_title(&format!("Helper {hl} Available"));
-            self.kn.helper.set(&cmd, &cmd);
-        }
-
         // banner on About: Keep (testing channel) or the rollback notice
         let (kind, text, btn): (&'static str, String, &str) = if keep {
             ("keep", format!("Trying kernel {trial}: keep it if everything works"), "Keep")

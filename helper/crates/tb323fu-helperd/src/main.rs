@@ -14,6 +14,7 @@ mod kernel;
 mod led;
 mod nm;
 mod polkit;
+mod selfupdate;
 
 use ifaces::*;
 use std::collections::HashMap;
@@ -555,6 +556,8 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
             k2.clean_staged();
         });
     }
+    let hupd = selfupdate::Inner::new(shared.clone(), kern.clone());
+    b = b.serve_at(selfupdate::P_HELPER_UPDATE, selfupdate::HelperUpdate(hupd))?;
     if has_thermal {
         b = b.serve_at(P_THERMAL, Thermal(shared.clone()))?;
     }
@@ -562,7 +565,7 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
         b = b.serve_at(P_HAPTICS, Haptics(shared.clone()))?;
     }
     let conn = b.name(BUS)?.build().await?;
-    eprintln!("tb323fu-helperd {} on {} bus: {}", env!("CARGO_PKG_VERSION"), if session { "session" } else { "system" },
+    eprintln!("tb323fu-helperd {} on {} bus: {}", selfupdate::version(), if session { "session" } else { "system" },
         shared.features.join(" "));
 
     // Poller: LED ring and GPU follow, re-assert USB wake, and PropertiesChanged
@@ -600,6 +603,7 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
         if has_usb { watch::<Usb>(&conn, P_USB, &mut last).await; }
         watch::<EmergencyKey>(&conn, P_EMERGENCY, &mut last).await;
         watch::<Diagnostics>(&conn, P_DIAG, &mut last).await;
+        watch::<selfupdate::HelperUpdate>(&conn, selfupdate::P_HELPER_UPDATE, &mut last).await;
         if has_boot { watch::<Boot>(&conn, P_BOOT, &mut last).await; }
         if has_thermal { watch::<Thermal>(&conn, P_THERMAL, &mut last).await; }
         if has_haptics { watch::<Haptics>(&conn, P_HAPTICS, &mut last).await; }
@@ -614,8 +618,12 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--apply") {
+        std::process::exit(selfupdate::apply_main(&args));
+    }
     if args.iter().any(|a| a == "-h" || a == "--help") {
-        println!("usage: tb323fu-helperd [--session] [--no-polkit]");
+        println!("usage: tb323fu-helperd [--session] [--no-polkit]
+       tb323fu-helperd --apply DIR --from VERSION --to VERSION [--rollback] [--session]   (started by HelperUpdate)");
         return;
     }
     let no_polkit = args.iter().any(|a| a == "--no-polkit");

@@ -28,7 +28,8 @@ damaged downloads, not a changed release.
   kernel-release.py verify OUT [--pub P]  sha256sum -c (and minisign -V with --pub)
   kernel-release.py fake-api ROOT --repo O/R --dir OUT --tag kernel-tNN [--prerelease]
         [--title T] [--notes FILE] [--base URL] [--no-digest]
-  kernel-release.py fake-api ROOT --repo O/R --helper 0.2.0 [--base URL]
+  kernel-release.py fake-api ROOT --repo O/R --helper 0.2.0 [--dir OUT] [--notes FILE] [--prerelease] [--base URL]
+        (a helper release: with --dir its assets, e.g. what helper-release.py assets made)
         add a release to a local stand-in of the GitHub REST API: ROOT/repos/O/R/releases
         (the release list, newest first) and ROOT/assets/<id>; asset URLs are
         BASE/assets/<id> (BASE default file://ROOT). Point the helper at it with
@@ -194,12 +195,11 @@ def cmd_fake_api(a):
     rels = json.load(open(lst)) if os.path.exists(lst) else []
     nid = 1 + max([0] + [x["id"] for r in rels for x in r["assets"]] + [r["id"] for r in rels])
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    if a.helper:
-        tag, assets, body = f"helper-v{a.helper}", [], ""
-    else:
-        if not (a.dir and a.tag):
-            sys.exit("--dir and --tag (or --helper)")
-        tag, body, assets = a.tag, open(a.notes, encoding="utf-8").read() if a.notes else "", []
+    body = open(a.notes, encoding="utf-8").read() if a.notes else ""
+    tag, assets = (f"helper-v{a.helper}" if a.helper else a.tag), []
+    if not a.helper and not (a.dir and a.tag):
+        sys.exit("--dir and --tag (or --helper)")
+    if a.dir:
         for n in sorted(os.listdir(a.dir)):
             p = os.path.join(a.dir, n)
             if not os.path.isfile(p):

@@ -276,7 +276,7 @@ fn kernel_asset_serial(name: &str) -> Option<u64> {
     n.parse().ok()
 }
 
-fn requirement(notes: &str, key: &str) -> String {
+pub(crate) fn requirement(notes: &str, key: &str) -> String {
     notes.lines().filter_map(|l| l.trim().strip_prefix("<!-- tb323fu:")).flat_map(|l| l.trim_end_matches("-->").split_whitespace().map(str::to_string).collect::<Vec<_>>())
         .find_map(|kv| kv.strip_prefix(&format!("{key}=")).map(str::to_string)).unwrap_or_default()
 }

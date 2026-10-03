@@ -77,8 +77,8 @@ channel = "stable"       # "stable": the newest release; "testing": the newest r
 source = "github:joonhoekim/tb323fu-linux"   # GitHub Releases of this repository (a fork works the same way)
 api_url = "https://api.github.com"            # the GitHub REST API; another URL only for tests
 auto_check = true        # look once a day (never downloads by itself)
-helper_notify = true     # say when a newer helper is published (a helper-vX.Y.Z release)
-require_signature = false   # also require SHA256SUMS.minisig, signed by one of public_keys
+helper_notify = true     # say when a newer helper is published (a helper-vX.Y.Z release; tb323fu-ctl helper update)
+require_signature = false   # also require SHA256SUMS.minisig, signed by one of public_keys (kernel and helper releases)
 public_keys = []            # minisign public keys (the base64 line), or /etc/tb323fu/keys/kernel-*.pub
 # A GitHub token (private repository, higher rate limit) goes into /etc/credstore/tb323fu-github-token,
 # not here: only the download unit reads it.

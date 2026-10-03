@@ -8,7 +8,7 @@ use zbus::zvariant::{OwnedValue, Value};
 
 const BUS: &str = "io.github.joonhoekim.OpenDeviceHelper1";
 const ROOT: &str = "/io/github/joonhoekim/OpenDeviceHelper1";
-const OBJECTS: [&str; 13] = ["Battery", "Android", "Torch", "LedRing", "Refresh", "Gpu", "Usb", "EmergencyKey", "Diagnostics", "Boot", "Thermal", "Haptics", "Kernel"];
+const OBJECTS: [&str; 14] = ["Battery", "Android", "Torch", "LedRing", "Refresh", "Gpu", "Usb", "EmergencyKey", "Diagnostics", "Boot", "Thermal", "Haptics", "Kernel", "HelperUpdate"];
 
 const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
 
@@ -66,6 +66,14 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
   kernel auto-check on|off       daily check for a new kernel
   kernel helper-notify on|off    show when a newer helper is published
   kernel dismiss                 hide the notice after an automatic rollback
+  helper [status]                helper updates: this version, the newest release, who updates it here
+  helper check                   look for a newer helper release
+  helper notes [VERSION]         its release notes (default the newest)
+  helper download [VERSION]      download and check a release (default the newest)
+  helper install [VERSION]       install a downloaded release (admin)
+  helper update [VERSION]        check, download and install it (admin); the helper restarts, checks that the
+                                 new version answers and goes back by itself if it does not
+  helper rollback                put back the version from before the last update (admin)
   versions                       helper, kernel, series, firmware state
   reload                         re-read /etc/tb323fu/helper.toml (admin)";
 
@@ -511,6 +519,174 @@ impl Ctl {
     }
 }
 
+impl Ctl {
+    /// A method of the HelperUpdate object; its message, or the exit code.
+    fn hcall<B>(&self, method: &str, body: &B) -> Result<String, i32>
+    where
+        B: serde::ser::Serialize + zbus::zvariant::DynamicType,
+    {
+        match self.conn.call_method(Some(BUS), path("HelperUpdate").as_str(), Some(iface("HelperUpdate").as_str()), method, body) {
+            Ok(reply) => Ok(reply.body().deserialize::<String>().unwrap_or_default()),
+            Err(zbus::Error::MethodError(n, msg, _)) if n.as_str() == "org.freedesktop.DBus.Error.UnknownObject" || n.as_str() == "org.freedesktop.DBus.Error.UnknownMethod" => {
+                eprintln!("tb323fu-ctl: this helper cannot update itself (older than 0.3.0){}", msg.map(|m| format!(": {m}")).unwrap_or_default());
+                Err(1)
+            }
+            Err(zbus::Error::MethodError(_, msg, _)) => {
+                eprintln!("tb323fu-ctl: helper {}: {}", method.to_lowercase(), msg.unwrap_or_default());
+                Err(1)
+            }
+            Err(e) => {
+                eprintln!("tb323fu-ctl: helper {}: {e}", method.to_lowercase());
+                Err(1)
+            }
+        }
+    }
+
+    fn helper_status(&self) -> i32 {
+        if self.json {
+            return self.show(&["HelperUpdate"]);
+        }
+        let Some(p) = self.props("HelperUpdate") else {
+            eprintln!("tb323fu-ctl: no HelperUpdate object (helper not running, or older than 0.3.0)");
+            return 1;
+        };
+        let s = |k: &str| p.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+        println!("version    {}", s("Version"));
+        let how = if s("Method") == "self" { "self-update from GitHub Releases".to_string() } else { s("Reason") };
+        println!("updates    {how}");
+        println!("state      {}", s("State"));
+        if s("Available").is_empty() {
+            println!("available  (nothing newer, or notices off: kernel helper-notify)");
+        } else {
+            let ready = if s("Downloaded") == s("Available") { " (downloaded)" } else { "" };
+            println!("available  {}{ready}: {}", s("Available"), s("UpdateCommand"));
+        }
+        if !s("Previous").is_empty() {
+            println!("previous   {} (tb323fu-ctl helper rollback)", s("Previous"));
+        }
+        if let Some(serde_json::Value::Object(lu)) = p.get("LastUpdate") {
+            let g = |k: &str| lu.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+            if !g("result").is_empty() {
+                let why = if g("reason").is_empty() { String::new() } else { format!(": {}", g("reason")) };
+                println!("last       {} {} -> {}: {} ({}){why}", g("kind"), g("from"), g("to"), g("result"), utc(g("time").parse().unwrap_or(0)));
+            }
+        }
+        if !s("Message").is_empty() {
+            println!("message    {}", s("Message"));
+        }
+        0
+    }
+
+    /// After Install or Rollback: wait for the restarted helper's verdict.
+    fn helper_wait(&self, to: &str, since: u64) -> i32 {
+        use std::io::Write;
+        print!("waiting for the helper to restart");
+        let _ = std::io::stdout().flush();
+        let end = std::time::Instant::now() + std::time::Duration::from_secs(120);
+        while std::time::Instant::now() < end {
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            print!(".");
+            let _ = std::io::stdout().flush();
+            let Some(p) = self.props("HelperUpdate") else { continue };
+            let Some(serde_json::Value::Object(lu)) = p.get("LastUpdate") else { continue };
+            let g = |k: &str| lu.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+            if g("to") != to || g("time").parse::<u64>().unwrap_or(0) < since {
+                continue;
+            }
+            match g("result").as_str() {
+                "ok" => {
+                    println!("\nhelper {to} is running ({} {} -> {to})", g("kind"), g("from"));
+                    return 0;
+                }
+                "rolled-back" | "failed" => {
+                    println!("\nhelper {to}: {} ({}); running: {}", g("result"), g("reason"), p.get("Version").and_then(|v| v.as_str()).unwrap_or("?"));
+                    return 1;
+                }
+                _ => {}
+            }
+        }
+        println!("\nno answer within 120 s: see tb323fu-ctl helper and /var/lib/tb323fu/helper/update.log");
+        1
+    }
+
+    fn helper(&self, rest: &[&str]) -> i32 {
+        let say = |r: Result<String, i32>| match r {
+            Ok(m) => {
+                println!("{m}");
+                0
+            }
+            Err(c) => c,
+        };
+        let ver = rest.get(1).copied().unwrap_or("");
+        match rest.first().copied() {
+            None | Some("status") => self.helper_status(),
+            Some("check") => say(self.hcall("Check", &())),
+            Some("notes") => say(self.hcall("Notes", &(ver,))),
+            Some("download") => say(self.hcall("Download", &(ver,))),
+            Some("update") => {
+                match self.hcall("Check", &()) {
+                    Ok(m) => println!("{m}"),
+                    Err(c) => return c,
+                }
+                let p = self.props("HelperUpdate").unwrap_or_default();
+                let s = |k: &str| p.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+                if s("Method") != "self" {
+                    println!("{}", s("UpdateCommand"));
+                    return 1;
+                }
+                let target = if !ver.is_empty() || s("Downloaded").is_empty() || s("Downloaded") != s("Available") {
+                    match self.hcall("Download", &(ver,)) {
+                        Ok(m) => println!("{m}"),
+                        Err(c) => return c,
+                    }
+                    let p = self.props("HelperUpdate").unwrap_or_default();
+                    p.get("Downloaded").and_then(|v| v.as_str()).unwrap_or("").to_string()
+                } else {
+                    s("Downloaded")
+                };
+                let target = if ver.is_empty() { target } else { ver.to_string() };
+                if target.is_empty() {
+                    println!("nothing to update");
+                    return 0;
+                }
+                let since = now_secs();
+                match self.hcall("Install", &(target.as_str(),)) {
+                    Ok(m) => println!("{m}"),
+                    Err(c) => return c,
+                }
+                self.helper_wait(&target, since)
+            }
+            Some("install") => {
+                let since = now_secs();
+                let m = match self.hcall("Install", &(ver,)) {
+                    Ok(m) => m,
+                    Err(c) => return c,
+                };
+                println!("{m}");
+                // "installing helper X: ..."
+                let to = m.split("helper ").nth(1).and_then(|r| r.split(':').next()).unwrap_or("").to_string();
+                self.helper_wait(&to, since)
+            }
+            Some("rollback") => {
+                let since = now_secs();
+                let m = match self.hcall("Rollback", &()) {
+                    Ok(m) => m,
+                    Err(c) => return c,
+                };
+                println!("{m}");
+                // "going back to helper X: ..."
+                let to = m.split("helper ").nth(1).and_then(|r| r.split(':').next()).unwrap_or("").to_string();
+                self.helper_wait(&to, since)
+            }
+            _ => usage(),
+        }
+    }
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+}
+
 fn onoff(s: Option<&&str>) -> Option<bool> {
     match s.copied() {
         Some("on") | Some("true") | Some("1") => Some(true),
@@ -747,6 +923,7 @@ fn run(args: &[String]) -> i32 {
             _ => usage(),
         },
         "kernel" => c.kernel(rest, args, args.iter().any(|x| x == "--reboot")),
+        "helper" => c.helper(rest),
         "reload" => c.call("", "Reload", &()),
         _ => usage(),
     }

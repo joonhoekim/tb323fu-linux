@@ -871,7 +871,7 @@ impl Diagnostics {
     /// Write a sanitized diagnostics tarball and return its path.
     async fn export(&self, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection) -> fdo::Result<String> {
         polkit::check(conn, &hdr, "diagnostics", self.0.no_polkit).await?;
-        crate::diag::export(env!("CARGO_PKG_VERSION")).map(|p| p.display().to_string()).map_err(failed)
+        crate::diag::export(crate::selfupdate::version()).map(|p| p.display().to_string()).map_err(failed)
     }
 }
 
@@ -883,7 +883,7 @@ pub struct Helper(pub Arc<Shared>);
 impl Helper {
     #[zbus(property)]
     fn version(&self) -> String {
-        env!("CARGO_PKG_VERSION").to_string()
+        crate::selfupdate::version().to_string()
     }
     #[zbus(property)]
     fn features(&self) -> Vec<String> {

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Joonhoe Kim
 # install.sh -- install tb323fu-settings after `cargo build --release`.
-#   PREFIX=/usr DESTDIR=... ./install.sh [--uninstall]
+#   PREFIX=/usr DESTDIR=... ./install.sh [--uninstall]   (BUILD_DIR: another build directory)
 set -e
 PREFIX=${PREFIX:-/usr/local}
 D=${DESTDIR:-}
@@ -20,7 +20,7 @@ fi
 # the app ID before the helper became Open Device Helper (10-03)
 old=io.github.joonhoekim.tb323fu.Settings
 rm -f "$D$PREFIX/share/applications/$old.desktop" "$D$PREFIX/share/icons/hicolor/scalable/apps/$old.svg" "$D$PREFIX/share/metainfo/$old.metainfo.xml"
-install -Dm755 "$here/target/release/tb323fu-settings" "$D$PREFIX/bin/tb323fu-settings"
+install -Dm755 "${BUILD_DIR:-$here/target/release}/tb323fu-settings" "$D$PREFIX/bin/tb323fu-settings"
 install -Dm644 "$here/data/$id.desktop" "$D$PREFIX/share/applications/$id.desktop"
 install -Dm644 "$here/data/$id.svg" "$D$PREFIX/share/icons/hicolor/scalable/apps/$id.svg"
 install -Dm644 "$here/data/$id.metainfo.xml" "$D$PREFIX/share/metainfo/$id.metainfo.xml"
