@@ -110,7 +110,9 @@ fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
 /// without the newline) -- the same text as `/proc/version` of that kernel.
 /// An Image carries the banner twice: a placeholder from `init/version.o`
 /// with an empty build number ("# SMP PREEMPT ") and the real one linked in
-/// last ("#7 SMP PREEMPT <date>"); the one with a build number wins.
+/// last ("#7 SMP PREEMPT <date>"); the one with a build number wins, the
+/// longer one when both have one (a fixed KBUILD_BUILD_VERSION numbers the
+/// placeholder too, which still has no date).
 pub fn banner(raw: &[u8], release: &str) -> Option<String> {
     let needle = format!("Linux version {release} (");
     let mut found = Vec::new();
@@ -125,7 +127,7 @@ pub fn banner(raw: &[u8], release: &str) -> Option<String> {
         from = at + 1;
     }
     let numbered = |s: &String| s.split(" #").skip(1).any(|t| t.starts_with(|c: char| c.is_ascii_digit()));
-    found.iter().find(|s| numbered(s)).or(found.last()).cloned()
+    found.iter().filter(|s| numbered(s)).max_by_key(|s| s.len()).or(found.last()).cloned()
 }
 
 /// The release and banner of a kernel whose release is not known yet (a file
@@ -389,6 +391,11 @@ pub mod tests {
         assert!(banner(&raw, "7.3.0-rc4-tb323fu-t27").is_none());
         assert!(has_banner(&raw, "Linux version 7.3.0-rc4-tb323fu-t28 (u@h) (clang 19) #1 SMP PREEMPT Thu Oct 2\n"));
         assert!(!has_banner(&raw, "Linux version 7.3.0-rc4-tb323fu-t28 (u@h) (clang 19) #2 SMP PREEMPT Thu Oct 2"));
+
+        let mut both = b"..Linux version 7.3.0-rc4-tb323fu-t38 (b@h) (clang) #1 SMP PREEMPT \0..".to_vec();
+        both.extend_from_slice(b"Linux version 7.3.0-rc4-tb323fu-t38 (b@h) (clang) #1 SMP PREEMPT Sat Oct  3 12:47:28 UTC 2026\n");
+        assert_eq!(banner(&both, "7.3.0-rc4-tb323fu-t38").as_deref(),
+            Some("Linux version 7.3.0-rc4-tb323fu-t38 (b@h) (clang) #1 SMP PREEMPT Sat Oct  3 12:47:28 UTC 2026"));
     }
 
     /// Real images (not in the repository): TB323FU_REAL_STOCK (a stock boot
