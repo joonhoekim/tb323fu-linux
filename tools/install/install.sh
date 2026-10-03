@@ -159,9 +159,14 @@ STAGE='$stage'
 EOF
 	cat >> "$WORK/bin/adb" <<'EOF'
 set -o pipefail
+# adb.exe starts in the current directory, which Windows must be able to open
+# (it cannot open e.g. /root): remember it for relative names, then leave it
+ORIG=$PWD
+cd /mnt/c 2>/dev/null || cd "$STAGE" 2>/dev/null || true
+abs() { case $1 in /*) printf '%s' "$1" ;; *) printf '%s' "$ORIG/$1" ;; esac; }
 winpath() {
 	local p=$1 w
-	case $p in /*) ;; *) p=$PWD/$p ;; esac
+	case $p in /*) ;; *) p=$ORIG/$p ;; esac
 	w=$(wslpath -w "$p" 2>/dev/null)
 	if [ -z "$w" ]; then
 		case $p in /mnt/[a-z]/*) w="${p:5:1}:${p:6}" ;; *) w="//wsl.localhost/$WSL_DISTRO_NAME$p" ;; esac
@@ -187,7 +192,7 @@ push)
 	rc=$?; online || exit $rc
 	echo "adb: retrying through $STAGE" >&2
 	mkdir -p "$STAGE" || exit $rc; w=()
-	for s in "${src[@]}"; do cp -a "$s" "$STAGE/" || exit $rc; w+=("$(winpath "$STAGE/${s##*/}")"); done
+	for s in "${src[@]}"; do cp -a "$(abs "$s")" "$STAGE/" || exit $rc; w+=("$(winpath "$STAGE/${s##*/}")"); done
 	"$ADB_EXE" "${pre[@]}" push "${opts[@]}" "${w[@]}" "$dst"; rc=$?
 	for s in "${src[@]}"; do rm -rf "${STAGE:?}/${s##*/}"; done
 	exit $rc ;;
@@ -199,6 +204,7 @@ pull)
 	echo "adb: retrying through $STAGE" >&2
 	rm -rf "$STAGE/pull"; mkdir -p "$STAGE/pull" || exit $rc
 	"$ADB_EXE" "${pre[@]}" pull "${opts[@]}" "${src[@]}" "$(winpath "$STAGE/pull")" || exit
+	dst=$(abs "$dst")
 	if [ "$n" -ge 2 ] && [ ! -d "$dst" ] && [ "${#src[@]}" = 1 ]; then mv "$STAGE/pull/"* "$dst"; else mv "$STAGE/pull/"* "$dst/"; fi
 	rc=$?; rm -rf "$STAGE/pull"; exit $rc ;;
 install)
@@ -249,7 +255,8 @@ EOF
 		[ -n "${ADB:-}" ] && { mkdir -p "$WORK/bin"; ln -sf "$ADB" "$WORK/bin/adb"; export PATH="$WORK/bin:$PATH"; }
 		have adb || { warn "no adb: install your distribution's android-tools / adb package"; [ $DRY = 1 ] || return 1; }
 	fi
-	[ $DRY = 1 ] || adb version 2>/dev/null | head -2 | sed 's/^/  /'
+	[ $DRY = 1 ] || adb version 2>/dev/null | sed -n "1,2s/^/  /p"
+	return 0
 }
 
 # ---- steps ----------------------------------------------------------------------
