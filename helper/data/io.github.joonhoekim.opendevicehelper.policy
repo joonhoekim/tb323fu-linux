@@ -53,9 +53,23 @@
   </action>
 
   <action id="io.github.joonhoekim.opendevicehelper.gpu">
-    <description>Configure GPU performance limits</description>
-    <message>Authentication is required to configure the GPU limits</message>
+    <description>Configure the performance profile (CPU and GPU limits, CPU boost, Wi-Fi power saving)</description>
+    <message>Authentication is required to configure the performance profile</message>
     <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
+  <action id="io.github.joonhoekim.opendevicehelper.thermal">
+    <description>Choose a cooler board-temperature profile or the panel heat protection</description>
+    <message>Authentication is required to change the thermal profile</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
+  <!-- the performance thermal profile (the back and battery get warmer) and switching the panel
+       heat protection off: asked once per session -->
+  <action id="io.github.joonhoekim.opendevicehelper.thermal-performance">
+    <description>Let the tablet run hotter (performance thermal profile, panel heat protection off)</description>
+    <message>Authentication is required to let the tablet run hotter</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
   </action>
 
   <action id="io.github.joonhoekim.opendevicehelper.usb-wake">

@@ -22,13 +22,22 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
   ledring [charge|off|brightness N|low PERCENT]
   refresh [auto|off|manual [HZ]|idle MS60 MS30|preset power-saver|balanced|smooth]
   gpu [profile NAME|follow on|off|limits PROFILE MIN_MHZ MAX_MHZ|boost on|off]
+                                 the performance profile (power-saver, balanced, performance); also `perf`
+  gpu cpu-limits PROFILE LITTLE_MIN LITTLE_MAX BIG_MIN BIG_MAX
+                                 CPU limits of a profile, MHz (the top of the range keeps boost)
+  gpu wifi-low-latency on|off    Wi-Fi power saving off in the performance profile
   usb [wake on|off|dev on|off]
   emergency-key [on|off|hold SECONDS]
   diagnostics [export]
   boot [list|next NAME|clear|default NAME|reboot NAME|rescan]
                                  installed systems (multiboot): one-shot next boot, default, restart into;
                                  list also names what a system lacks for this kernel (modules, firmware)
-  thermal                        temperatures (surface, CPU, GPU, board sensors) and throttling
+  thermal                        temperatures (surface, CPU, GPU, board sensors), throttling, profile
+  thermal profile quiet|default|performance
+                                 board-temperature profile (performance: up to 58 °C, asks once)
+  thermal follow on|off          the thermal profile follows the performance profile
+  thermal bypass on|off          Bypass charging while the thermal profile is performance
+  thermal panel-limit on|off     dim the panel at 55 °C (off asks for authentication)
   kernel [status]                kernel updates: running, trial, last good, available release
   kernel check|list|notes TAG    look for a newer kernel in the channel / show it / its release notes
   kernel download TAG            download and verify a release
@@ -222,6 +231,14 @@ impl Ctl {
         println!("cpu (max)   {}", deg(p.get("CpuMax")));
         println!("gpu (max)   {}", deg(p.get("GpuMax")));
         println!("throttling  {}", if p.get("Throttling").and_then(|v| v.as_bool()).unwrap_or(false) { "yes" } else { "no" });
+        if let Some(pr) = p.get("Profile").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
+            let follow = p.get("FollowPerformance").and_then(|v| v.as_bool()).unwrap_or(false);
+            let trips: Vec<String> = p.get("Trips").and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|t| t.as_f64()).map(|t| format!("{t:.0}")).collect()).unwrap_or_default();
+            println!("profile     {pr}{} (board steps {} °C)", if follow { ", follows the performance profile" } else { "" }, trips.join(" "));
+        }
+        if p.get("PanelLimited").and_then(|v| v.as_bool()).unwrap_or(false) {
+            println!("panel       hot: brightness held at 70 %");
+        }
         if let Some(serde_json::Value::Object(z)) = p.get("Zones") {
             for (k, v) in z {
                 println!("  {k:<10}{}", deg(Some(v)));
@@ -588,7 +605,7 @@ fn run(args: &[String]) -> i32 {
             },
             _ => usage(),
         },
-        "gpu" => match rest.first().copied() {
+        "gpu" | "perf" => match rest.first().copied() {
             None => c.show(&["Gpu"]),
             Some("profile") => match rest.get(1) {
                 Some(p) => c.call("Gpu", "SetProfile", &(*p,)),
@@ -604,6 +621,14 @@ fn run(args: &[String]) -> i32 {
             },
             Some("boost") => match onoff(rest.get(1)) {
                 Some(b) => c.call("Gpu", "SetCpuBoost", &(b,)),
+                None => usage(),
+            },
+            Some("cpu-limits") => match (rest.get(1), num(rest.get(2)), num(rest.get(3)), num(rest.get(4)), num(rest.get(5))) {
+                (Some(p), Some(a), Some(b), Some(x), Some(y)) => c.call("Gpu", "SetCpuLimits", &(*p, a, b, x, y)),
+                _ => usage(),
+            },
+            Some("wifi-low-latency") => match onoff(rest.get(1)) {
+                Some(b) => c.call("Gpu", "SetWifiLowLatency", &(b,)),
                 None => usage(),
             },
             _ => usage(),
@@ -647,7 +672,23 @@ fn run(args: &[String]) -> i32 {
             Some("rescan") => c.call("Boot", "Rescan", &()),
             _ => usage(),
         },
-        "thermal" => c.thermal(),
+        "thermal" => match (rest.first().copied(), rest.get(1).copied()) {
+            (None, _) => c.thermal(),
+            (Some("profile"), Some(p)) => c.call("Thermal", "SetProfile", &(p,)),
+            (Some("follow"), _) => match onoff(rest.get(1)) {
+                Some(b) => c.call("Thermal", "SetFollowPerformance", &(b,)),
+                None => usage(),
+            },
+            (Some("bypass"), _) => match onoff(rest.get(1)) {
+                Some(b) => c.call("Thermal", "SetPerformanceBypass", &(b,)),
+                None => usage(),
+            },
+            (Some("panel-limit"), _) => match onoff(rest.get(1)) {
+                Some(b) => c.call("Thermal", "SetPanelLimit", &(b,)),
+                None => usage(),
+            },
+            _ => usage(),
+        },
         "kernel" => c.kernel(rest, args, args.iter().any(|x| x == "--reboot")),
         "reload" => c.call("", "Reload", &()),
         _ => usage(),

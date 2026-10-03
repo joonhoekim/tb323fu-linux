@@ -6,12 +6,13 @@
 //! PropertiesChanged (with the changed properties invalidated).
 
 use crate::polkit;
-use crate::Shared;
+use crate::{thermal_for, Shared};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tb323fu_helper_core::boot;
 use tb323fu_helper_core::features as f;
+use tb323fu_helper_core::perf;
 use std::sync::Mutex;
 use zbus::fdo;
 use zbus::interface;
@@ -149,6 +150,7 @@ impl Battery {
             c.battery.charge_limit = percent;
             c.battery.bypass = false;
             c.battery.saved_limit = None;
+            c.thermal.bypass_auto = false;
         });
         invalidate(&em, Self::IFACE, Self::PROPS).await;
         Ok(())
@@ -159,24 +161,12 @@ impl Battery {
     async fn set_bypass(&self, on: bool, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
         #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
         polkit::check(conn, &hdr, "charge-limit", self.0.no_polkit).await?;
-        let info = f::battery_info().map_err(failed)?;
-        let cfg = self.0.cfg();
-        if on && !cfg.battery.bypass {
-            let hold = info.capacity.max(f::CHARGE_LIMIT_MIN).min(100);
-            f::set_charge_limit(hold).map_err(failed)?;
-            let prev = cfg.battery.charge_limit;
-            self.0.update(|c| {
-                c.battery.saved_limit = Some(prev);
-                c.battery.bypass = true;
-            });
-        } else if !on && cfg.battery.bypass {
-            let back = cfg.battery.saved_limit.unwrap_or(cfg.battery.charge_limit);
-            f::set_charge_limit(back).map_err(failed)?;
-            self.0.update(|c| {
-                c.battery.charge_limit = back;
-                c.battery.bypass = false;
-                c.battery.saved_limit = None;
-            });
+        let auto = self.0.cfg().thermal.bypass_auto;
+        self.0.set_bypass(on).map_err(failed)?;
+        if auto {
+            // the user decides now; off also stops performance from switching it back on
+            self.0.update(|c| c.thermal.bypass_auto = false);
+            self.0.rt.lock().unwrap().bypass_declined = !on;
         }
         invalidate(&em, Self::IFACE, Self::PROPS).await;
         Ok(())
@@ -454,13 +444,20 @@ fn apply_idle(s: &Shared, ms60: u32, ms30: u32) -> fdo::Result<()> {
 
 // ------------------------------------------------------------------ Gpu
 
+/// The performance profile (named Gpu for compatibility): GPU limits, CPU
+/// limits and boost, and what follows the profile (the thermal profile when
+/// linked, Wi-Fi power saving).
 pub struct Gpu(pub Arc<Shared>);
+
+const PERF_PROFILES: [&str; 3] = ["power-saver", "balanced", "performance"];
 
 impl Snapshot for Gpu {
     const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Gpu";
-    const PROPS: &'static [&'static str] = &["Profile", "FollowPowerProfiles", "Floors", "CpuBoost"];
+    const PROPS: &'static [&'static str] = &["Profile", "FollowPowerProfiles", "Floors", "CpuBoost", "CpuLimits", "CpuRange",
+        "WifiLowLatency", "WifiAvailable"];
     fn snapshot(&self) -> String {
-        format!("{:?} {} {:?}", self.0.cfg().gpu, self.0.gpu_profile(), f::cpu_boost())
+        let c = self.0.cfg();
+        format!("{:?} {:?} {:?} {} {:?}", c.gpu, c.cpu, c.wifi, self.0.gpu_profile(), f::cpu_boost())
     }
 }
 
@@ -479,6 +476,27 @@ impl Gpu {
     fn floors(&self) -> HashMap<String, (u32, u32)> {
         self.0.cfg().gpu.floors.into_iter().map(|(k, v)| (k, (v[0], v[1]))).collect()
     }
+    /// profile -> (little min, little max, big min, big max), MHz
+    #[zbus(property)]
+    fn cpu_limits(&self) -> HashMap<String, (u32, u32, u32, u32)> {
+        PERF_PROFILES
+            .iter()
+            .filter_map(|p| self.0.cpu_limits_of(p).map(|l| (p.to_string(), (l[0], l[1], l[2], l[3]))))
+            .collect()
+    }
+    /// cluster -> hardware (min, max) MHz, boost frequencies not counted
+    #[zbus(property)]
+    fn cpu_range(&self) -> HashMap<String, (u32, u32)> {
+        perf::CLUSTERS.iter().filter_map(|(c, _)| perf::cluster_range(c).map(|r| (c.to_string(), r))).collect()
+    }
+    #[zbus(property)]
+    fn wifi_low_latency(&self) -> bool {
+        self.0.cfg().wifi.low_latency_performance
+    }
+    #[zbus(property)]
+    fn wifi_available(&self) -> bool {
+        self.0.wifi_available()
+    }
 
     /// cpufreq boost (the fast cores' top frequencies); false also when the
     /// kernel offers none
@@ -494,6 +512,8 @@ impl Gpu {
         }
         f::set_cpu_boost(on).map_err(failed)?;
         self.0.update(|c| c.cpu.boost = on);
+        // changing boost resets scaling_max_freq
+        self.0.cpu_tick(true);
         invalidate(&em, Self::IFACE, Self::PROPS).await;
         Ok(())
     }
@@ -505,26 +525,31 @@ impl Gpu {
         if !self.0.cfg().gpu.floors.contains_key(&profile) {
             return Err(invalid("unknown profile".into()));
         }
+        if self.0.cfg().thermal.follow_performance && thermal_for(&profile) == "performance" && perf::thermal_profile_available() {
+            polkit::check(conn, &hdr, "thermal-performance", self.0.no_polkit).await?;
+        }
         self.0.update(|c| {
             c.gpu.profile = profile.clone();
             c.gpu.follow_power_profiles = false;
         });
-        self.0.gpu_tick(conn, true).await;
+        self.0.profile_tick(conn, true).await;
         invalidate(&em, Self::IFACE, Self::PROPS).await;
+        invalidate_thermal(conn).await;
         Ok(())
     }
     async fn set_follow_power_profiles(&self, on: bool, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
         #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
         polkit::check(conn, &hdr, "gpu", self.0.no_polkit).await?;
         self.0.update(|c| c.gpu.follow_power_profiles = on);
-        self.0.gpu_tick(conn, true).await;
+        self.0.profile_tick(conn, true).await;
         invalidate(&em, Self::IFACE, Self::PROPS).await;
+        invalidate_thermal(conn).await;
         Ok(())
     }
     async fn set_limits(&self, profile: String, min_mhz: u32, max_mhz: u32, #[zbus(header)] hdr: Header<'_>,
         #[zbus(connection)] conn: &zbus::Connection, #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
         polkit::check(conn, &hdr, "gpu", self.0.no_polkit).await?;
-        if !["power-saver", "balanced", "performance"].contains(&profile.as_str()) {
+        if !PERF_PROFILES.contains(&profile.as_str()) {
             return Err(invalid("profile must be power-saver, balanced or performance".into()));
         }
         f::gpu_limits_valid(min_mhz, max_mhz).map_err(invalid)?;
@@ -534,6 +559,50 @@ impl Gpu {
         self.0.gpu_tick(conn, true).await;
         invalidate(&em, Self::IFACE, Self::PROPS).await;
         Ok(())
+    }
+    /// CPU limits of a profile, MHz (rounded to the nearest available
+    /// frequency; a maximum at the top of the range leaves boost reachable).
+    #[allow(clippy::too_many_arguments)]
+    async fn set_cpu_limits(&self, profile: String, little_min: u32, little_max: u32, big_min: u32, big_max: u32,
+        #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "gpu", self.0.no_polkit).await?;
+        if !PERF_PROFILES.contains(&profile.as_str()) {
+            return Err(invalid("profile must be power-saver, balanced or performance".into()));
+        }
+        if !perf::cpu_limits_available() {
+            return Err(fdo::Error::NotSupported("no cpufreq policies".into()));
+        }
+        let l = [little_min, little_max, big_min, big_max];
+        perf::cpu_limits_valid(l).map_err(invalid)?;
+        self.0.update(|c| {
+            if perf::cpu_full_range() == Some(l) {
+                c.cpu.limits.remove(&profile);
+            } else {
+                c.cpu.limits.insert(profile.clone(), l);
+            }
+        });
+        self.0.cpu_tick(true);
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+    /// Wi-Fi power saving off while the performance profile is in effect.
+    async fn set_wifi_low_latency(&self, on: bool, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "gpu", self.0.no_polkit).await?;
+        if on && !self.0.wifi_available() {
+            return Err(fdo::Error::NotSupported("no Wi-Fi interface, or iw is not installed".into()));
+        }
+        self.0.update(|c| c.wifi.low_latency_performance = on);
+        self.0.wifi_tick(conn, true).await;
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+}
+
+async fn invalidate_thermal(conn: &zbus::Connection) {
+    if let Ok(em) = SignalEmitter::new(conn, P_THERMAL) {
+        invalidate(&em, Thermal::IFACE, Thermal::PROPS).await;
     }
 }
 
@@ -682,7 +751,7 @@ impl Helper {
         polkit::check(conn, &hdr, "admin", self.0.no_polkit).await?;
         self.0.reload();
         *self.0.firmware.lock().unwrap() = None;
-        self.0.gpu_tick(conn, true).await;
+        self.0.profile_tick(conn, true).await;
         self.0.ledring_tick(true);
         Ok(())
     }
@@ -826,8 +895,10 @@ impl Boot {
 
 // ------------------------------------------------------------------ Thermal
 
-/// Read-only temperatures: no polkit, no writes, trips never touched.
-pub struct Thermal;
+/// Temperatures (read-only) and the board-temperature profile: only the
+/// quiet-thermal passive trips are ever written (core `perf`), never a chip
+/// zone, `hot`/`critical` trip, policy or mode.
+pub struct Thermal(pub Arc<Shared>);
 
 fn or_nan(t: &Option<f::Thermal>, g: impl Fn(&f::Thermal) -> f64) -> f64 {
     t.as_ref().map(g).unwrap_or(f64::NAN)
@@ -835,13 +906,14 @@ fn or_nan(t: &Option<f::Thermal>, g: impl Fn(&f::Thermal) -> f64) -> f64 {
 
 impl Snapshot for Thermal {
     const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Thermal";
-    const PROPS: &'static [&'static str] = &["Surface", "CpuMax", "GpuMax", "Throttling", "Zones"];
+    const PROPS: &'static [&'static str] = &["Surface", "CpuMax", "GpuMax", "Throttling", "Zones", "Profile", "Profiles", "TripOffset",
+        "Trips", "FollowPerformance", "PerformanceBypass", "PanelLimit", "PanelLimited"];
     fn snapshot(&self) -> String {
         // whole degrees: a signal per degree of change, not per sample
         let t = f::thermal();
         let r = |v: f64| if v.is_nan() { i64::MIN } else { v.round() as i64 };
-        format!("{:?}", t.map(|t| (r(t.surface), r(t.cpu_max), r(t.gpu_max), t.throttling,
-            t.zones.values().map(|v| r(*v)).collect::<Vec<_>>())))
+        format!("{:?} {:?} {:?} {}", t.map(|t| (r(t.surface), r(t.cpu_max), r(t.gpu_max), t.throttling,
+            t.zones.values().map(|v| r(*v)).collect::<Vec<_>>())), perf::thermal_trips(), self.0.cfg().thermal, self.0.panel_limited())
     }
 }
 
@@ -870,4 +942,110 @@ impl Thermal {
     fn zones(&self) -> HashMap<String, f64> {
         f::thermal().map(|t| t.zones.into_iter().collect()).unwrap_or_default()
     }
+    /// The board-temperature profile the trips match: quiet / default /
+    /// performance, "custom" when none, "" when the kernel has no such zone.
+    #[zbus(property)]
+    fn profile(&self) -> String {
+        perf::thermal_profile().unwrap_or_default()
+    }
+    #[zbus(property)]
+    fn profiles(&self) -> Vec<String> {
+        if perf::thermal_profile_available() { perf::THERMAL_PROFILES.iter().map(|s| s.to_string()).collect() } else { Vec::new() }
+    }
+    /// °C added to the device tree's steps by the profile in effect.
+    #[zbus(property)]
+    fn trip_offset(&self) -> i32 {
+        perf::thermal_profile().and_then(|p| perf::profile_offset(&p)).map(|o| (o / 1000) as i32).unwrap_or(0)
+    }
+    /// The board steps now (°C, lowest first).
+    #[zbus(property)]
+    fn trips(&self) -> Vec<f64> {
+        perf::thermal_trips()
+    }
+    #[zbus(property)]
+    fn follow_performance(&self) -> bool {
+        self.0.cfg().thermal.follow_performance
+    }
+    #[zbus(property)]
+    fn performance_bypass(&self) -> bool {
+        self.0.cfg().thermal.performance_bypass
+    }
+    #[zbus(property)]
+    fn panel_limit(&self) -> bool {
+        self.0.cfg().thermal.panel_limit && perf::panel_limit_available()
+    }
+    #[zbus(property)]
+    fn panel_limited(&self) -> bool {
+        self.0.panel_limited()
+    }
+
+    /// Choose the profile (and stop following the performance profile).
+    async fn set_profile(&self, profile: String, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        if perf::profile_offset(&profile).is_none() {
+            return Err(invalid("profile must be quiet, default or performance".into()));
+        }
+        let action = if profile == "performance" { "thermal-performance" } else { "thermal" };
+        polkit::check(conn, &hdr, action, self.0.no_polkit).await?;
+        if !perf::thermal_profile_available() {
+            return Err(fdo::Error::NotSupported("no quiet-thermal zone with passive trips".into()));
+        }
+        if profile == "performance" {
+            if let Some(reason) = perf::performance_guard_now() {
+                return Err(failed(format!("too hot for the performance profile: {reason}")));
+            }
+        }
+        self.0.update(|c| {
+            c.thermal.profile = profile.clone();
+            c.thermal.follow_performance = false;
+        });
+        self.0.thermal_tick(conn, true).await;
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+    /// Follow the performance profile: power-saver -> quiet, balanced ->
+    /// default, performance -> performance.
+    async fn set_follow_performance(&self, on: bool, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        let hot = on && thermal_for(&self.0.gpu_profile()) == "performance";
+        polkit::check(conn, &hdr, if hot { "thermal-performance" } else { "thermal" }, self.0.no_polkit).await?;
+        self.0.update(|c| c.thermal.follow_performance = on);
+        self.0.thermal_tick(conn, true).await;
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+    async fn set_performance_bypass(&self, on: bool, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "thermal", self.0.no_polkit).await?;
+        let auto = self.0.cfg().thermal.bypass_auto;
+        if !on && auto {
+            self.0.set_bypass(false).map_err(failed)?;
+        }
+        self.0.update(|c| {
+            c.thermal.performance_bypass = on;
+            if !on {
+                c.thermal.bypass_auto = false;
+            }
+        });
+        self.0.thermal_tick(conn, false).await;
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+    /// Panel heat protection (backlight held at 178/255 from 55 °C);
+    /// switching it off asks for authentication.
+    async fn set_panel_limit(&self, on: bool, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, if on { "thermal" } else { "thermal-performance" }, self.0.no_polkit).await?;
+        if !perf::panel_limit_available() {
+            return Err(fdo::Error::NotSupported("no panel temperature sensor or backlight".into()));
+        }
+        self.0.update(|c| c.thermal.panel_limit = on);
+        self.0.panel_tick();
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+
+    /// The performance profile ended by itself (a battery or the board too hot).
+    #[zbus(signal)]
+    pub async fn profile_fallback(em: &SignalEmitter<'_>, reason: &str) -> zbus::Result<()>;
 }

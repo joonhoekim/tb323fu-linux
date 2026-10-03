@@ -32,12 +32,16 @@ tb323fu-ctl bypass on                # hold the battery where it is while on ext
 tb323fu-ctl torch on | off | level 60
 tb323fu-ctl ledring charge | off | brightness 40 | low 15
 tb323fu-ctl refresh auto | off | manual 60 | preset power-saver|balanced|smooth | idle 1000 5000
-tb323fu-ctl gpu profile power-saver | follow on | limits balanced 160 1200
+tb323fu-ctl gpu profile power-saver | follow on | limits balanced 160 1200   # the performance profile
+tb323fu-ctl gpu cpu-limits power-saver 384 2496 768 2880   # CPU little min/max, big min/max (MHz)
+tb323fu-ctl gpu wifi-low-latency on   # Wi-Fi power saving off in the performance profile
+tb323fu-ctl thermal profile quiet | default | performance   # board-temperature steps -3 / 0 / +8 °C (max 58 °C)
+tb323fu-ctl thermal follow on | bypass on | panel-limit on
 tb323fu-ctl usb wake on
 tb323fu-ctl android --yes            # restart into Android now
 tb323fu-ctl diagnostics export       # sanitized tarball under /var/lib/tb323fu/diagnostics
 tb323fu-ctl boot list                # installed systems, and what each lacks for this kernel
-tb323fu-ctl thermal                  # surface, CPU, GPU and board temperatures, throttling (read-only)
+tb323fu-ctl thermal                  # surface, CPU, GPU and board temperatures, throttling, thermal profile
 tb323fu-ctl kernel                   # kernel updates: running, trial, last good, available release
 tb323fu-ctl kernel update --reboot   # check, download, install (admin) and restart; or check / download TAG / install TAG
 tb323fu-ctl kernel keep              # keep a testing-channel kernel; rollback [--reboot] writes the last good one back
@@ -65,8 +69,9 @@ PREFIX=/usr/local ./install.sh      # binary, .desktop, icon, metainfo; --uninst
 ## Permissions
 
 The daemon runs as root; polkit decides per call. Everyday controls are allowed for the active local
-session without a password (charge limit, bypass, Android switch, flashlight, LED ring, refresh, GPU,
-USB wakeup, emergency-key settings, diagnostics). Authentication is asked for developer USB access,
+session without a password (charge limit, bypass, Android switch, flashlight, LED ring, refresh, performance profile,
+cooler thermal profiles, USB wakeup, emergency-key settings, diagnostics). Authentication is asked for developer USB access,
+the performance thermal profile and switching the panel heat protection off (once per session),
 disabling the emergency key, `android require-auth`, `reload`, and for kernel updates: installing, going back,
 and changing the channel or the daily check (looking for, downloading and keeping a kernel need none); installing a
 kernel from a file asks for the administrator's password every time (`auth_admin`, see docs/helper.md).

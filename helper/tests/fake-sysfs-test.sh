@@ -46,6 +46,35 @@ mkdir -p $R/usr/local/sbin && printf '#!/bin/sh\necho "fake back-to-android $1" 
 mk /etc/baldur/ledring.conf "BRIGHTNESS=33
 LOW=12"
 mk /proc/uptime "100.0 100.0"; mk /proc/version "Linux version 7.3.0-test"
+# thermal: quiet-thermal (hot 80 + passive 43..50), a chip zone, battery, panel; backlight
+T=/sys/class/thermal
+Q=$T/thermal_zone65
+mk $Q/type quiet-thermal; mk $Q/temp 30000; mk $Q/trip_point_0_type hot; mk $Q/trip_point_0_temp 80000
+for i in 1 2 3 4 5 6 7 8; do mk $Q/trip_point_${i}_type passive; mk $Q/trip_point_${i}_temp $((42000 + i * 1000)); done
+mk $T/thermal_zone1/type cpu-0-0-0-thermal; mk $T/thermal_zone1/temp 35000
+mk $T/thermal_zone1/trip_point_0_type passive; mk $T/thermal_zone1/trip_point_0_temp 95000
+mk $T/thermal_zone66/type batt-thermal; mk $T/thermal_zone66/temp 30000
+mk $T/thermal_zone58/type lcm-thermal; mk $T/thermal_zone58/temp 31000
+BL=/sys/class/backlight/aw99706-backlight
+mk $BL/brightness 4000; mk $BL/max_brightness 4095; mk $BL/actual_brightness 4000; mk $BL/bl_power 0
+mk /proc/sys/kernel/random/boot_id fake-boot
+# CPU clusters
+C0=/sys/devices/system/cpu/cpufreq/policy0; C6=/sys/devices/system/cpu/cpufreq/policy6
+mk $C0/scaling_available_frequencies "384000 1996800 2496000 3628800"; mk $C0/scaling_min_freq 384000
+mk $C0/scaling_max_freq 3628800; mk $C0/cpuinfo_max_freq 3628800
+mk $C6/scaling_available_frequencies "768000 2880000 4396800"; mk $C6/scaling_min_freq 768000
+mk $C6/scaling_max_freq 4608000; mk $C6/cpuinfo_max_freq 4608000
+mk /sys/devices/system/cpu/cpufreq/boost 1
+# a Wi-Fi interface and a stand-in for iw (power save kept in a file)
+mkdir -p $R/sys/class/net/wlan0/wireless; echo on > $R/iw-ps
+mkdir -p $R/usr/sbin
+cat > $R/usr/sbin/iw <<EOF
+#!/bin/sh
+case "\$3" in get) echo "Power save: \$(cat $R/iw-ps)";; set) echo "\$5" > $R/iw-ps;; esac
+EOF
+chmod +x $R/usr/sbin/iw
+# wait until a file has the value (the 5 s poller)
+waitfor() { for i in $(seq 1 30); do [ "$(cat "$R$1" 2>/dev/null)" = "$2" ] && return 0; sleep 0.3; done; return 1; }
 
 $BIN/tb323fu-helperd --session --no-polkit > $R/daemon.log 2>&1 &
 D=$!
@@ -99,6 +128,48 @@ $C gpu profile power-saver && check "gpu cap power-saver" $G/max_freq 726000000
 check "gpu floor power-saver" $G/min_freq 160000000
 $C gpu limits power-saver 461 726 && check "gpu limits applied" $G/min_freq 461000000
 $C gpu limits power-saver 900 100 2>/dev/null && bad "min>max accepted" || ok "min>max refused"
+
+# CPU limits follow the performance profile (power-saver now)
+check "CPU full range by default" $C0/scaling_max_freq 3628800
+$C gpu cpu-limits power-saver 384 2500 768 2880 && check "little cap rounded to 2.496 GHz" $C0/scaling_max_freq 2496000
+check "big cap" $C6/scaling_max_freq 2880000
+$C gpu cpu-limits power-saver 3628 3628 768 4396 2>/dev/null && bad "little floor 3.6 GHz accepted" || ok "little floor above 1996 MHz refused"
+$C gpu profile balanced && check "balanced: whole range, boost kept" $C6/scaling_max_freq 4608000
+check "balanced: little whole range" $C0/scaling_max_freq 3628800
+grep -q "power-saver = \[" $R/etc/tb323fu/helper.toml && ok "CPU limits persisted" || bad "CPU limits not persisted"
+
+# thermal profile: only quiet-thermal passive trips move, never above 58 °C
+check "default profile writes nothing" $Q/trip_point_8_temp 50000
+$C thermal profile performance && check "performance: top step 58 °C" $Q/trip_point_8_temp 58000
+check "performance: first step 51 °C" $Q/trip_point_1_temp 51000
+check "hot trip untouched" $Q/trip_point_0_temp 80000
+check "chip zone untouched" $T/thermal_zone1/trip_point_0_temp 95000
+check "performance on a charger switches Bypass on" $B/charge_control_end_threshold 62
+$C thermal profile quiet && check "quiet: first step 40 °C" $Q/trip_point_1_temp 40000
+check "leaving performance restores the limit" $B/charge_control_end_threshold 60
+$C thermal profile hot 2>/dev/null && bad "unknown thermal profile accepted" || ok "unknown thermal profile refused"
+$C thermal profile performance >/dev/null
+mk $T/thermal_zone66/temp 45500	# battery at 45.5 °C: performance must end
+waitfor $Q/trip_point_8_temp 50000 && ok "hot battery ends performance (back to default)" || bad "hot battery did not end performance"
+grep -q 'profile = "default"' $R/etc/tb323fu/helper.toml && ok "fallback persisted" || bad "fallback not persisted"
+$C thermal profile performance 2>/dev/null && bad "performance accepted with a hot battery" || ok "performance refused while the battery is hot"
+mk $T/thermal_zone66/temp 30000
+# linked to the performance profile
+$C thermal follow on && $C gpu profile power-saver && check "follow: power-saver -> quiet" $Q/trip_point_1_temp 40000
+$C gpu profile balanced && check "follow: balanced -> default" $Q/trip_point_1_temp 43000
+$C thermal follow off
+
+# panel heat limit: 55 °C holds the backlight at 178/255, 52 °C gives it back
+mk $T/thermal_zone58/temp 56000
+waitfor $BL/brightness 2858 && ok "hot panel: backlight held at 2858" || bad "hot panel: backlight $(cat $R$BL/brightness)"
+$C --json thermal | grep -q '"PanelLimited": true' && ok "PanelLimited" || bad "PanelLimited"
+mk $T/thermal_zone58/temp 50000
+waitfor $BL/brightness 4000 && ok "cool panel: brightness restored" || bad "cool panel: backlight $(cat $R$BL/brightness)"
+
+# Wi-Fi power saving off in the performance profile, back on after
+$C gpu wifi-low-latency on && $C gpu profile performance && check "performance: Wi-Fi power save off" /iw-ps off
+$C gpu profile balanced && check "balanced: Wi-Fi power save back on" /iw-ps on
+$C gpu wifi-low-latency off
 
 $C usb wake on && check "usb wake" /sys/bus/platform/devices/a600000.usb/power/wakeup enabled
 $C usb dev off && check "dev mode off unbinds" /sys/kernel/config/usb_gadget/g1/UDC ""

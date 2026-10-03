@@ -10,6 +10,7 @@ pub mod bootimg;
 pub mod config;
 pub mod features;
 pub mod kernel;
+pub mod perf;
 pub mod sys;
 
 pub use config::Config;

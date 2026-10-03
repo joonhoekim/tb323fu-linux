@@ -23,6 +23,8 @@ pub struct Config {
     pub refresh: Refresh,
     pub gpu: Gpu,
     pub cpu: Cpu,
+    pub thermal: Thermal,
+    pub wifi: Wifi,
     pub usb: Usb,
     pub kernel: Kernel,
 }
@@ -86,12 +88,48 @@ pub struct Cpu {
     /// cpufreq boost: the fast cores' top frequencies (4.512 and 4.608 GHz on
     /// the TB323FU, which Android uses); applied at every start
     pub boost: bool,
+    /// performance profile -> [little_min, little_max, big_min, big_max] MHz;
+    /// a profile without an entry uses the whole range
+    pub limits: BTreeMap<String, [u32; 4]>,
 }
 
 impl Default for Cpu {
     fn default() -> Self {
-        Cpu { boost: true }
+        Cpu { boost: true, limits: BTreeMap::new() }
     }
+}
+
+/// Board-temperature profile and the panel heat limit.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct Thermal {
+    /// "quiet", "default" (the device tree's steps) or "performance"
+    pub profile: String,
+    /// follow the performance profile instead: power-saver -> quiet,
+    /// balanced -> default, performance -> performance
+    pub follow_performance: bool,
+    /// switch Bypass on while the thermal profile is performance on external
+    /// power (Linux has no temperature-based charge-current reduction)
+    pub performance_bypass: bool,
+    /// hold the backlight at 178/255 while the panel is at 55 °C or more
+    pub panel_limit: bool,
+    /// Bypass was switched on by performance_bypass (restored on leaving)
+    pub bypass_auto: bool,
+}
+
+impl Default for Thermal {
+    fn default() -> Self {
+        Thermal { profile: "default".into(), follow_performance: false, performance_bypass: true, panel_limit: true, bypass_auto: false }
+    }
+}
+
+/// Wi-Fi power saving, set on the interface (iw) where the NetworkManager
+/// connection leaves it alone; connection profiles are never changed.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(default)]
+pub struct Wifi {
+    /// turn Wi-Fi power saving off while the performance profile is in effect
+    pub low_latency_performance: bool,
 }
 
 /// Kernel updates (docs/notes/kernel-updates-design.md).
@@ -177,6 +215,8 @@ impl Default for Config {
             refresh: Refresh::default(),
             gpu: Gpu::default(),
             cpu: Cpu::default(),
+            thermal: Thermal::default(),
+            wifi: Wifi::default(),
             usb: Usb::default(),
             kernel: Kernel::default(),
         }

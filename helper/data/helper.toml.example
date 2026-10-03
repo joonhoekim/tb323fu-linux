@@ -25,17 +25,35 @@ low_percent = 15
 # ms60 = 1000            # idle ms before 60 Hz (auto)
 # ms30 = 5000            # idle ms before 30 Hz (auto)
 
-[cpu]
-boost = true   # cpufreq boost: the fast cores up to 4.6 GHz (as Android); warmer under load
-
-[gpu]
+[gpu]                          # the performance profile (CPU, GPU, Wi-Fi; the thermal profile when linked)
 follow_power_profiles = true   # use power-profiles-daemon's profile when it runs
-profile = "balanced"           # used when not following
+profile = "balanced"           # power-saver | balanced | performance; used when not following
 
-[gpu.floors]                   # profile = [min_mhz, max_mhz]
+[gpu.floors]                   # GPU per profile = [min_mhz, max_mhz]
 power-saver = [160, 726]
 balanced = [160, 1200]
 performance = [461, 1200]
+
+[cpu]
+boost = true   # cpufreq boost: the fast cores up to 4.6 GHz (as Android); warmer under load
+
+[cpu.limits]   # per profile = [little_min, little_max, big_min, big_max] MHz; a missing profile uses
+               # the whole range (little 384..3628, big 768..4396; the top keeps boost reachable).
+               # Floors at most 1996 (little) and 2880 (big): higher only adds heat.
+# power-saver = [384, 2496, 768, 2880]
+
+[thermal]                      # board-temperature profile: moves the quiet-thermal steps (43..50 °C)
+profile = "default"            # quiet (-3 °C) | default | performance (+8 °C, never above 58 °C)
+follow_performance = false     # instead follow the performance profile: power-saver -> quiet,
+                               # balanced -> default, performance -> performance
+performance_bypass = true      # Bypass charging while performance runs on a charger
+panel_limit = true             # dim the panel to 70 % while it is at 55 °C or more (as Android)
+# Chip protection trips (95/105/120 °C) are never written. performance ends by itself
+# (back to default) when a battery reaches 45 °C or the board passes its top step by 2 °C.
+
+[wifi]
+low_latency_performance = false   # Wi-Fi power saving off in the performance profile (iw; a connection
+                                  # whose profile sets 802-11-wireless.powersave stays NetworkManager's)
 
 [usb]
 wake = false             # USB host wakeup from suspend (off by default on this board)

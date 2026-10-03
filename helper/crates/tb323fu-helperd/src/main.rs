@@ -11,6 +11,7 @@
 mod diag;
 mod ifaces;
 mod kernel;
+mod nm;
 mod polkit;
 
 use ifaces::*;
@@ -19,9 +20,28 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tb323fu_helper_core::config::{config_path, Config};
 use tb323fu_helper_core::features as f;
+use tb323fu_helper_core::perf;
 use zbus::object_server::SignalEmitter;
 
 pub const BUS: &str = "io.github.joonhoekim.OpenDeviceHelper1";
+
+/// State that lives only while the daemon runs.
+#[derive(Default)]
+pub struct Runtime {
+    /// thermal profile last written
+    thermal_applied: Option<String>,
+    /// the user switched Bypass off while performance had switched it on
+    pub bypass_declined: bool,
+    /// the panel heat limit holds the backlight; the brightness to restore
+    panel_limited: bool,
+    panel_saved: Option<u32>,
+    /// CPU limits last written: (profile, limits, boost)
+    cpu_applied: Option<(String, [u32; 4], Option<bool>)>,
+    /// Wi-Fi: power saving wanted off; interfaces the helper switched off
+    wifi_want_off: bool,
+    wifi_off: Vec<String>,
+    wifi_ticks: u32,
+}
 
 pub struct Shared {
     cfg: Mutex<Config>,
@@ -32,6 +52,16 @@ pub struct Shared {
     last_led: Mutex<Option<Option<[u32; 3]>>>,
     last_gpu: Mutex<Option<(String, [u32; 2])>>,
     ppd_profile: Mutex<Option<String>>,
+    pub rt: Mutex<Runtime>,
+}
+
+/// The thermal profile that goes with a performance profile.
+pub fn thermal_for(perf_profile: &str) -> &'static str {
+    match perf_profile {
+        "power-saver" => "quiet",
+        "performance" => "performance",
+        _ => "default",
+    }
 }
 
 impl Shared {
@@ -67,21 +97,223 @@ impl Shared {
 
     /// Apply the GPU floor/cap of the current profile when it changed.
     pub async fn gpu_tick(&self, conn: &zbus::Connection, force: bool) {
-        if !f::gpu_dir().exists() {
-            return;
-        }
         let ppd = if self.cfg().gpu.follow_power_profiles { ppd_active_profile(conn).await } else { None };
         *self.ppd_profile.lock().unwrap() = ppd;
         let profile = self.gpu_profile();
-        let Some(lim) = self.cfg().gpu.floors.get(&profile).copied() else { return };
-        let mut last = self.last_gpu.lock().unwrap();
-        if force || last.as_ref() != Some(&(profile.clone(), lim)) {
-            match f::gpu_apply(lim[0], lim[1]) {
-                Ok(()) => eprintln!("tb323fu-helperd: GPU profile {profile}: {}..{} MHz", lim[0], lim[1]),
-                Err(e) => eprintln!("tb323fu-helperd: GPU: {e}"),
+        if let (true, Some(lim)) = (f::gpu_dir().exists(), self.cfg().gpu.floors.get(&profile).copied()) {
+            let mut last = self.last_gpu.lock().unwrap();
+            if force || last.as_ref() != Some(&(profile.clone(), lim)) {
+                match f::gpu_apply(lim[0], lim[1]) {
+                    Ok(()) => eprintln!("tb323fu-helperd: GPU profile {profile}: {}..{} MHz", lim[0], lim[1]),
+                    Err(e) => eprintln!("tb323fu-helperd: GPU: {e}"),
+                }
+                *last = Some((profile, lim));
             }
-            *last = Some((profile, lim));
         }
+        self.cpu_tick(force);
+    }
+
+    /// The CPU limits of a performance profile (the whole range without an entry).
+    pub fn cpu_limits_of(&self, profile: &str) -> Option<[u32; 4]> {
+        self.cfg().cpu.limits.get(profile).copied().or_else(perf::cpu_full_range)
+    }
+
+    /// Apply the CPU limits of the current profile when they (or boost, which
+    /// resets the maximum) changed.
+    pub fn cpu_tick(&self, force: bool) {
+        if !perf::cpu_limits_available() {
+            return;
+        }
+        let profile = self.gpu_profile();
+        let Some(lim) = self.cpu_limits_of(&profile) else { return };
+        let key = (profile.clone(), lim, f::cpu_boost());
+        let mut rt = self.rt.lock().unwrap();
+        if force || rt.cpu_applied.as_ref() != Some(&key) {
+            match perf::cpu_apply(lim) {
+                Ok(()) => eprintln!("tb323fu-helperd: CPU profile {profile}: little {}..{}, big {}..{} MHz", lim[0], lim[1], lim[2], lim[3]),
+                Err(e) => eprintln!("tb323fu-helperd: CPU: {e}"),
+            }
+            rt.cpu_applied = Some(key);
+        }
+    }
+
+    /// The thermal profile that should be in effect.
+    pub fn thermal_target(&self) -> String {
+        let c = self.cfg();
+        if c.thermal.follow_performance { thermal_for(&self.gpu_profile()).to_string() } else { c.thermal.profile }
+    }
+
+    /// Write the thermal profile when it changed; end `performance` when a
+    /// battery or the board gets too hot (persisted as `default`, signalled).
+    pub async fn thermal_tick(&self, conn: &zbus::Connection, force: bool) {
+        if !perf::thermal_profile_available() {
+            return;
+        }
+        let mut want = self.thermal_target();
+        if want == "performance" {
+            if let Some(reason) = perf::performance_guard_now() {
+                eprintln!("tb323fu-helperd: thermal profile performance ended: {reason}");
+                self.update(|c| {
+                    c.thermal.profile = "default".into();
+                    c.thermal.follow_performance = false;
+                });
+                want = "default".into();
+                if let Ok(em) = SignalEmitter::new(conn, P_THERMAL) {
+                    let _ = Thermal::profile_fallback(&em, &reason).await;
+                    invalidate(&em, Thermal::IFACE, Thermal::PROPS).await;
+                }
+            }
+        }
+        let changed = force || self.rt.lock().unwrap().thermal_applied.as_deref() != Some(want.as_str());
+        if changed {
+            match perf::apply_thermal_profile(&want) {
+                Ok(()) => eprintln!("tb323fu-helperd: thermal profile {want}"),
+                Err(e) => eprintln!("tb323fu-helperd: thermal profile {want}: {e}"),
+            }
+            self.rt.lock().unwrap().thermal_applied = Some(want.clone());
+        }
+        self.performance_bypass_tick(want == "performance");
+    }
+
+    /// Bypass while the thermal profile is performance on external power
+    /// (when `performance_bypass`), undone when performance ends.
+    fn performance_bypass_tick(&self, perf_on: bool) {
+        let c = self.cfg();
+        let declined = self.rt.lock().unwrap().bypass_declined;
+        if perf_on {
+            if c.thermal.performance_bypass && !c.battery.bypass && !declined && f::battery_dir().is_some() && f::external_power() {
+                match self.set_bypass(true) {
+                    Ok(()) => {
+                        self.update(|c| c.thermal.bypass_auto = true);
+                        eprintln!("tb323fu-helperd: Bypass on for the performance thermal profile");
+                    }
+                    Err(e) => eprintln!("tb323fu-helperd: Bypass: {e}"),
+                }
+            }
+            return;
+        }
+        self.rt.lock().unwrap().bypass_declined = false;
+        if c.thermal.bypass_auto {
+            if c.battery.bypass {
+                if let Err(e) = self.set_bypass(false) {
+                    eprintln!("tb323fu-helperd: Bypass: {e}");
+                }
+            }
+            self.update(|c| c.thermal.bypass_auto = false);
+        }
+    }
+
+    /// Bypass: hold the battery where it is (limit = current capacity);
+    /// off restores the previous limit.
+    pub fn set_bypass(&self, on: bool) -> Result<(), String> {
+        let cfg = self.cfg();
+        if on && !cfg.battery.bypass {
+            let info = f::battery_info()?;
+            let hold = info.capacity.max(f::CHARGE_LIMIT_MIN).min(100);
+            f::set_charge_limit(hold)?;
+            let prev = cfg.battery.charge_limit;
+            self.update(|c| {
+                c.battery.saved_limit = Some(prev);
+                c.battery.bypass = true;
+            });
+        } else if !on && cfg.battery.bypass {
+            let back = cfg.battery.saved_limit.unwrap_or(cfg.battery.charge_limit);
+            f::set_charge_limit(back)?;
+            self.update(|c| {
+                c.battery.charge_limit = back;
+                c.battery.bypass = false;
+                c.battery.saved_limit = None;
+            });
+        }
+        Ok(())
+    }
+
+    /// Hold the backlight at 178/255 while the panel is hot; give back the
+    /// brightness afterwards unless someone changed it meanwhile.
+    pub fn panel_tick(&self) {
+        if !perf::panel_limit_available() {
+            return;
+        }
+        let on = self.cfg().thermal.panel_limit;
+        let mut rt = self.rt.lock().unwrap();
+        let limit = on && perf::panel_temp_mc().is_some_and(|t| perf::panel_should_limit(t, rt.panel_limited));
+        let Some((b, max)) = perf::backlight() else { return };
+        let cap = perf::panel_cap(max);
+        if limit {
+            if b > cap {
+                if !rt.panel_limited {
+                    eprintln!("tb323fu-helperd: panel hot: backlight held at {cap}/{max}");
+                }
+                rt.panel_saved = Some(b);
+                if let Err(e) = perf::set_backlight(cap) {
+                    eprintln!("tb323fu-helperd: {e}");
+                }
+            }
+            rt.panel_limited = true;
+        } else if rt.panel_limited {
+            rt.panel_limited = false;
+            if let Some(s) = rt.panel_saved.take() {
+                if b == cap {
+                    let _ = perf::set_backlight(s);
+                }
+            }
+        }
+    }
+
+    pub fn panel_limited(&self) -> bool {
+        self.rt.lock().unwrap().panel_limited
+    }
+
+    /// Wi-Fi power saving off while the performance profile is in effect
+    /// (`wifi.low_latency_performance`); back on afterwards. Interfaces whose
+    /// connection profile sets power saving belong to NetworkManager and are
+    /// left alone. Re-checked once a minute (a reconnect can reset it).
+    pub async fn wifi_tick(&self, conn: &zbus::Connection, force: bool) {
+        let want_off = self.cfg().wifi.low_latency_performance && self.gpu_profile() == "performance";
+        let (run, restore) = {
+            let mut rt = self.rt.lock().unwrap();
+            rt.wifi_ticks = rt.wifi_ticks.wrapping_add(1);
+            let changed = rt.wifi_want_off != want_off;
+            rt.wifi_want_off = want_off;
+            let run = want_off && (force || changed || rt.wifi_ticks % 12 == 0);
+            let restore = if !want_off { std::mem::take(&mut rt.wifi_off) } else { Vec::new() };
+            (run, restore)
+        };
+        for i in restore {
+            match perf::set_wifi_power_save(&i, true) {
+                Ok(()) => eprintln!("tb323fu-helperd: Wi-Fi {i}: power saving back on"),
+                Err(e) => eprintln!("tb323fu-helperd: Wi-Fi {i}: {e}"),
+            }
+        }
+        if !run || perf::iw().is_none() {
+            return;
+        }
+        for i in perf::wifi_interfaces() {
+            if nm::owns_power_save(conn, &i).await || perf::wifi_power_save(&i) != Some(true) {
+                continue;
+            }
+            match perf::set_wifi_power_save(&i, false) {
+                Ok(()) => {
+                    eprintln!("tb323fu-helperd: Wi-Fi {i}: power saving off (performance)");
+                    let mut rt = self.rt.lock().unwrap();
+                    if !rt.wifi_off.contains(&i) {
+                        rt.wifi_off.push(i);
+                    }
+                }
+                Err(e) => eprintln!("tb323fu-helperd: Wi-Fi {i}: {e}"),
+            }
+        }
+    }
+
+    pub fn wifi_available(&self) -> bool {
+        perf::iw().is_some() && !perf::wifi_interfaces().is_empty()
+    }
+
+    /// Everything that follows the performance profile.
+    pub async fn profile_tick(&self, conn: &zbus::Connection, force: bool) {
+        self.gpu_tick(conn, force).await;
+        self.thermal_tick(conn, force).await;
+        self.wifi_tick(conn, force).await;
     }
 
     /// Charge indicator on the RGB ring (only writes on a colour change).
@@ -183,10 +415,10 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
     let has_torch = f::torch_dir().exists();
     let has_ledring = f::ledring_dir().exists();
     let has_refresh = f::refresh_available();
-    let has_gpu = f::gpu_dir().exists();
+    let has_gpu = f::gpu_dir().exists() || perf::cpu_limits_available();
     let has_usb = f::usb_wake().is_some() || f::gadget().is_some();
     let has_boot = !tb323fu_helper_core::boot::partitions().is_empty();
-    let has_thermal = f::thermal().is_some();
+    let has_thermal = f::thermal().is_some() || perf::thermal_profile_available();
     let has_kernel = tb323fu_helper_core::kernel::find_device().is_ok();
     for (on, name) in [(has_battery, "Battery"), (has_android, "Android"), (has_torch, "Torch"), (has_ledring, "LedRing"),
         (has_refresh, "Refresh"), (has_gpu, "Gpu"), (has_usb, "Usb"), (true, "EmergencyKey"), (true, "Diagnostics"), (has_boot, "Boot"),
@@ -205,6 +437,7 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
         last_led: Mutex::new(None),
         last_gpu: Mutex::new(None),
         ppd_profile: Mutex::new(None),
+        rt: Mutex::new(Runtime::default()),
     });
     if migrated {
         shared.update(|_| {}); // write the defaults (+ migrated legacy values) once
@@ -250,7 +483,7 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
         });
     }
     if has_thermal {
-        b = b.serve_at(P_THERMAL, Thermal)?;
+        b = b.serve_at(P_THERMAL, Thermal(shared.clone()))?;
     }
     let conn = b.name(BUS)?.build().await?;
     eprintln!("tb323fu-helperd {} on {} bus: {}", env!("CARGO_PKG_VERSION"), if session { "session" } else { "system" },
@@ -262,7 +495,8 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
     let mut last: HashMap<&'static str, String> = HashMap::new();
     loop {
         shared.ledring_tick(false);
-        shared.gpu_tick(&conn, false).await;
+        shared.profile_tick(&conn, false).await;
+        shared.panel_tick();
         let want = shared.cfg().usb.wake;
         if f::usb_wake().is_some_and(|w| w != want) {
             let _ = f::set_usb_wake(want);
