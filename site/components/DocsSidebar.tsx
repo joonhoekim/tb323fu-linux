@@ -14,7 +14,7 @@ function NavList({ current }: { current: string }) {
             {docs
               .filter((d) => d.group === g)
               .map((d) => (
-                <li key={d.route}>
+                <li key={d.route} className={d.parent ? "nav-child" : undefined}>
                   <Link href={d.route} aria-current={d.route === current ? "page" : undefined}>
                     {d.title}
                     {d.group === "source" && <span className="nav-path">{d.file.replace(/\/README\.md$/, "/")}</span>}

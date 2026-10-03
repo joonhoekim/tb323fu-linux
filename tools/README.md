@@ -1,6 +1,6 @@
 # Tools
 
-The scripts used while porting. The manual setup is in [docs/rooting.md](../docs/rooting.md) and [docs/install.md](../docs/install.md);
+The scripts used while porting. The manual setup is in [docs/rooting.md](../docs/rooting.md) and [docs/install-manual.md](../docs/install-manual.md);
 [`install/`](install/README.md) is the guided installer (Ubuntu on the microSD card; Windows/WSL2 or Linux; PC-side steps run, not yet run against a tablet).
 
 Every script starts with its usage. Hosts are never hard-coded except the tablet's USB network default: the root filesystem sets up a

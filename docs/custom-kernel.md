@@ -5,16 +5,16 @@ trial and automatic rollback as an official update), and publish it on your own 
 others can get it through their helper.
 
 Background: [helper.md "Kernel updates"](helper.md#kernel-updates) (what the helper checks and does),
-[install.md step 3](install.md#3-the-linux-boot-image) (the boot image), and the design note
+[the manual install, step 3](install-manual.md#3-the-linux-boot-image) (the boot image), and the design note
 [kernel-updates-design.md](notes/kernel-updates-design.md).
 
 > **Status.** The helper side — `install-local`, the GitHub Releases channel, trial boot, Keep and rollback — is
 > **[verified]** on the development tablet (2026-10-03, with development kernels and a test pre-release; the app's file chooser and update screens were used by a person). The build
-> commands are the ones in [install.md 3b](install.md#3b-build-it-yourself) **[from records]**.
+> commands are the ones in [the manual install, 3b](install-manual.md#3b-build-it-yourself) **[from records]**.
 
 ## 1. Build
 
-Follow [install.md 3b](install.md#3b-build-it-yourself), with two things that matter for the helper:
+Follow [the manual install, 3b](install-manual.md#3b-build-it-yourself), with two things that matter for the helper:
 
 - **A release name of your own, unique per build:** `CONFIG_LOCALVERSION="-tb323fu-<something>"` and
   `make LOCALVERSION=` (no `+`). The release string is how modules and kernels are told apart. To publish through

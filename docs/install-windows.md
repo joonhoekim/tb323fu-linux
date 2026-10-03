@@ -1,8 +1,9 @@
-# Installing on Windows
+# Installing from Windows
 
 From a rooted TB323FU to Ubuntu with GNOME on the microSD card, using one Ubuntu terminal on Windows and one script.
 Everything happens in that terminal; the script tells you what it is doing, asks before each step and can be run again
-after any failure. [Installing Linux](install.md) is the reference with the individual commands.
+after any failure. [Installing Linux](install.md) shows where this fits; [Installing by hand](install-manual.md) has
+the individual commands.
 
 > **Status:** followed end to end on 2026-10-04: Windows 11, WSL2 Ubuntu 26.04, a rooted TB323FU with an empty
 > 64 GB partition on the card, kernel release `kernel-t38`. Every step below ran, and the first start, Wi-Fi, the
@@ -97,7 +98,7 @@ where it stopped. `tools/install/install.sh STEP` runs one step again.
 | `firmware` | copies the firmware Linux needs from Android's `/vendor` to the PC (nothing on the tablet changes) | — | 1 min |
 | `wayback` | makes sure `boot_b` holds your Android boot image (the way back), installs the **Switch to Linux** KernelSU module, saves the hash and your stock boot image | type `WRITE BOOT_B` only if `boot_b` needs the copy | 1 min |
 | `download` | the newest kernel release and the Ubuntu packages for the tablet from GitHub Releases, checked against `SHA256SUMS` | (browser download only without a GitHub login, see above) | 1–3 min |
-| `bootimg` | packs the release kernel into **your own** stock boot image ([why](install.md#why-there-is-no-ready-made-bootimg)) | — | seconds |
+| `bootimg` | packs the release kernel into **your own** stock boot image ([why](install-manual.md#why-there-is-no-ready-made-bootimg)) | — | seconds |
 | `sdcard` | builds a partition table on the PC and writes it to the card from Android: one partition `baldur-root-sd` (64 GB on a large card, else the whole card) | pick the size; type `ERASE` | 1 min |
 | `rootfs` | builds Ubuntu 26.04 with GNOME into an image file on the PC (arm64 through qemu), then shrinks and packs it | your user name for the tablet; a password for it (needed for `sudo`, asked after the build) | **20–60 min** |
 | `write` | copies the image to the tablet and writes it into the card's partition, then reads it back and compares | type `WRITE` | 3–10 min |
@@ -149,5 +150,5 @@ Afterwards `~/tb323fu-install/root.img` and `root.img.gz` can be deleted (keep `
 | **Android says the card is unsupported** | Expected after the `sdcard` step: Android cannot read the Linux partition. |
 | **Linux does not start** | Hold volume up + volume down 10 s for Android; if nothing reacts, see [Recovery](recovery.md#linux-does-not-boot). |
 
-Native Linux PCs run the same script; there it uses the system's `adb`. Other distributions, your own kernel and a
-root on the internal storage are in [Installing Linux](install.md).
+On a Linux PC: [Installing from Linux](install-linux.md). Other distributions, your own kernel and a root on the
+internal storage are in [Installing by hand](install-manual.md).

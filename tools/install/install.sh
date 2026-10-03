@@ -11,15 +11,15 @@
 # it uses the Windows adb.exe for USB. A native Linux PC works the same way.
 #
 # Steps, in this order (all by default; each explains itself and asks first):
-#   host       packages (apt), arm64 programs through qemu, disk space, adb      1-5 min
+#   host       packages (apt), arm64 programs through qemu, disk space, adb      1-10 min
 #   tablet     the tablet in rooted Android: model, slot _a, root, microSD card  1 min
 #   firmware   copy the firmware from Android's /vendor (firmware/)              1 min
 #   wayback    Android's boot image in boot_b, Switch to Linux module, hash      1 min
 #   download   newest kernel and helper-v releases, checked against SHA256SUMS   1-3 min
 #   bootimg    the release kernel packed into YOUR stock boot image              seconds
 #   sdcard     GPT on the microSD card, written from Android -- WIPES THE CARD   1 min
-#   rootfs     build Ubuntu into an image file here (qemu: 1-2 h with GNOME)     1-2 h
-#   write      push the image and write it into the card's partition             10-20 min
+#   rootfs     build Ubuntu with GNOME into an image file here (qemu on x86-64)  20-60 min
+#   write      push the image and write it into the card's partition             3-10 min
 #   boot       write the Linux boot image to boot_a, reboot into Linux           1 min
 #   firstboot  what a good first boot looks like, the way back                   -
 # Finished steps are remembered in $WORK/state and skipped on the next run, so
@@ -261,7 +261,7 @@ EOF
 
 # ---- steps ----------------------------------------------------------------------
 step_host() {
-	head_ "host: packages, arm64 through qemu, disk space, adb (1-5 min)"
+	head_ "host: packages, arm64 through qemu, disk space, adb (1-10 min)"
 	local os=linux pkgs miss=() p avail
 	is_wsl && os=wsl
 	say "This PC: $os, $(uname -m). Repository: $repo"
@@ -613,7 +613,7 @@ step_sdcard() {
 Android's own tools cannot create partitions, so the table is built here, in an empty file the
 size of the card, and only its first 34 and last 33 sectors are written to the card from Android.
 One ext4-ready partition named $ROOT_PARTLABEL is created; the rest of the card stays free for
-more systems later (docs/install.md, Multiboot). Android will call the card "unsupported"; expected.
+more systems later (docs/install-manual.md, Multiboot). Android will call the card "unsupported"; expected.
 EOF
 	local dev n part_n part_sz first last size size_b img=$WORK/sd-gpt.img
 	dev=$(st_get sd_dev); dev=${dev:-mmcblk1}
@@ -701,7 +701,7 @@ growroot_into() {
 }
 
 step_rootfs() {
-	head_ "rootfs: build Ubuntu ($DESKTOP) into an image file on this PC (1-2 h with GNOME)"
+	head_ "rootfs: build Ubuntu ($DESKTOP) into an image file on this PC (20-60 min with GNOME)"
 	local img=$WORK/root.img mnt=$WORK/mnt part_b size_b user bs minb tgt t0
 	part_b=$(st_get part_bytes)
 	[ $DRY = 1 ] && part_b=${part_b:-68719476736}
@@ -713,7 +713,7 @@ step_rootfs() {
 	cat <<EOF
 rootfs/ubuntu/build-rootfs.sh installs Ubuntu 26.04 with debootstrap into an ext4 image of
 $(bytes "$size_b"), with the firmware, your boot_b hash and the tablet packages. On an x86-64 PC
-every arm64 program runs through qemu: about 20 min without a desktop, 1-2 h with GNOME
+every arm64 program runs through qemu: about 20 min without a desktop, 20-60 min with GNOME (22 min on the test PC)
 (the PC stays usable; the tablet is not needed meanwhile). Afterwards the image is shrunk to what
 it holds; on the tablet's first start it grows to fill the partition by itself.
 EOF
@@ -783,7 +783,7 @@ EOF
 }
 
 step_write() {
-	head_ "write: put the root image into the card's partition, from Android (10-20 min)"
+	head_ "write: put the root image into the card's partition, from Android (3-10 min)"
 	local part gz=$WORK/root.img.gz isha ibytes gsha free got out
 	part=$(st_get part_dev); isha=$(st_get root_img_sha); ibytes=$(st_get root_img_bytes); gsha=$(st_get root_gz_sha)
 	[ $DRY = 1 ] && { part=${part:-/dev/block/mmcblk1p1}; ibytes=${ibytes:-1}; }
@@ -875,7 +875,7 @@ EOF
 }
 
 say "${b}TB323FU: Ubuntu on the microSD card, guided${r}$([ $DRY = 1 ] && echo ' (dry run: nothing is executed)')"
-say "Guide: docs/install-windows.md (Windows) and docs/install.md (reference). State: $STATE"
+say "Guide: docs/install.md (Windows, Linux, macOS); by hand: docs/install-manual.md. State: $STATE"
 [ $DRY = 1 ] || mkdir -p "$WORK"
 if is_wsl && [ -x "$WORK/bin/adb" ]; then export PATH="$WORK/bin:$PATH"; fi
 for s in "${steps[@]}"; do

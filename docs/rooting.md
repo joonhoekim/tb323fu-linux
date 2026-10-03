@@ -74,9 +74,9 @@ LTBox also checked the bootloader of the earlier firmware `18.0.10.039` (passed)
 
 LTBox is a native desktop application (Rust) with release builds for Windows, macOS and Linux; it brings its own adb,
 Sahara and Firehose code, so for LTBox itself no separate EDL tool is needed. Only the Windows path was used for this
-guide. The macOS and Linux sections below are **assembled from LTBox's and the tools' own documentation and have not
-been tried on this tablet** — the steps after this section (the LTBox screens) should be the same on every host, but
-that too is unchecked.
+guide. The macOS and Linux instructions (on the pages for those systems) are **assembled from LTBox's and the tools'
+own documentation and have not been tried on this tablet**. The steps after this section (the LTBox screens) should
+be the same on every host, but that too is unchecked.
 
 | Host | Status here | LTBox package | EDL (9008) access |
 |---|---|---|---|
@@ -105,65 +105,11 @@ with `$env:ICED_BACKEND = "tiny-skia"` in PowerShell (not needed here).
 Paths on Windows used later in this guide: LTBox's backup folder `%LOCALAPPDATA%\ltbox\backup\`, its log folder
 `%APPDATA%\ltbox\logs\`.
 
-### macOS (not tested here)
+### macOS and Linux (not tested here)
 
-1. Install LTBox: `brew tap miner7222/tap`, `brew trust miner7222/tap`, `brew install --cask ltbox` — or unpack the
-   `macos_universal` tarball into `/Applications`. Needs macOS 11 or later.
-2. The app is only ad-hoc signed, so Gatekeeper blocks the first start. LTBox's documentation gives three ways:
-   `xattr -dr com.apple.quarantine /Applications/LTBox.app`, right-click → Open, or System Settings → Privacy &
-   Security → Open Anyway.
-3. No USB driver is needed: LTBox bundles libusb. Allow the accessory when macOS asks whether the USB device may
-   connect (Apple-silicon Macs ask for new accessories).
-4. platform-tools: `brew install --cask android-platform-tools`.
-5. The firmware package: Software Fix does not run on macOS — see
-   [Getting the firmware package without Windows](#getting-the-firmware-package-without-windows).
-6. Where LTBox keeps its backup and log folders on macOS was not checked; find the root backup folder after rooting
-   (see [step 2](#2-root-without-unlocking-ltbox)) and copy it next to your dump.
-
-For the one recovery case that needs the separate [`edl`](https://github.com/bkerler/edl) tool
-([Slot marked unbootable](recovery.md#slot-marked-unbootable)): its README installs it on macOS with
-`brew install libusb git` and `pip3 install .`.
-
-### Linux (not tested here)
-
-1. Install LTBox: on Debian/Ubuntu from LTBox's APT repository or the `.deb`, on Fedora from its DNF repository or the
-   `.rpm`, on Arch from the AUR (`ltbox-bin`, a community package), or unpack the tarball. The repositories and
-   their keys are given in [LTBox's documentation](https://miner7222.github.io/ltbox/en/index.html).
-2. USB access without root: with the tarball run `sudo ./ltbox --install-udev` once, then **unplug and replug** the
-   tablet (the packages are expected to ship the rule; check). It lets the desktop session open the Qualcomm 9008
-   and Lenovo USB devices.
-3. Run LTBox as your normal user (not with `sudo`). It needs libusb-1.0, libudev, xkbcommon, Wayland or X11 libraries
-   and fontconfig — usually already present on a desktop.
-4. platform-tools: your distribution's `android-tools` / `adb` package. With systemd 258 or newer, adb access works
-   through systemd's built-in rule; on older systems install `android-udev-rules` (or your distribution's equivalent).
-5. If **ModemManager** is running, it may probe the 9008 serial device and disturb the EDL session; the `edl` tool's
-   README tells you to stop it (`sudo systemctl stop ModemManager`). Not known whether LTBox is affected — stopping it
-   for the session costs nothing.
-6. The firmware package: see [Getting the firmware package without Windows](#getting-the-firmware-package-without-windows).
-
-For the separate [`edl`](https://github.com/bkerler/edl) tool on Linux: its `install-linux-edl-drivers.sh` installs the
-udev rules (`51-edl.rules`, …) and blacklists `qcserial`, then asks you to rebuild the initramfs and reboot.
-
-#### NixOS (not tested here)
-
-- LTBox has no nixpkgs package and no AppImage (checked October 2026). The Linux tarball is a dynamically linked
-  binary, so it needs [`nix-ld`](https://github.com/nix-community/nix-ld) (`programs.nix-ld.enable = true;` plus the
-  libraries above in `programs.nix-ld.libraries`) or `steam-run ./ltbox`.
-- `ltbox --install-udev` writes into `/etc/udev/rules.d`, which NixOS does not manage. Put an equivalent rule into
-  the configuration instead, for example
-
-  ```nix
-  services.udev.extraRules = ''
-    # Qualcomm EDL (9008) and Lenovo devices, for the logged-in user
-    SUBSYSTEM=="usb", ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="9008", TAG+="uaccess"
-    SUBSYSTEM=="usb", ATTRS{idVendor}=="17ef", TAG+="uaccess"
-  '';
-  ```
-
-  or `services.udev.packages = [ pkgs.edl ];` (nixpkgs' `edl` ships `51-edl.rules` for 9008).
-- adb: add `pkgs.android-tools` to the system packages. The old `programs.adb.enable` option and the `adbusers`
-  group were removed from nixpkgs (25.11) because systemd's own rule now covers adb.
-- `pkgs.edl` is the [`edl`](https://github.com/bkerler/edl) tool, for the recovery case above.
+Installing LTBox, USB access and adb on these systems: [Installing from macOS](install-macos.md#1-tools-for-rooting),
+[Installing from Linux](install-linux.md#1-tools-for-rooting) (with NixOS). The firmware package needs a way around
+Software Fix, below.
 
 ### Getting the firmware package without Windows
 
@@ -388,7 +334,7 @@ systems ([multiboot](../kernel/initramfs/README.md#root-partitions-and-multiboot
 | Where | What it costs | Notes |
 |---|---|---|
 | microSD (new GPT, ext4) | nothing on the tablet | Android then reports the card as unsupported; that is expected |
-| internal UFS, after `userdata` | **a factory reset of Android** | `userdata` is f2fs (cannot shrink) and encrypted; afterwards reinstall the KernelSU manager, allow Shell and disable the OTA apps again. Steps: [install.md, step 8](install.md#8-optional-a-linux-root-on-the-internal-storage) |
+| internal UFS, after `userdata` | **a factory reset of Android** | `userdata` is f2fs (cannot shrink) and encrypted; afterwards reinstall the KernelSU manager, allow Shell and disable the OTA apps again. Steps: [the manual install, step 8](install-manual.md#8-optional-a-linux-root-on-the-internal-storage) |
 
 <details>
 <summary>How the UFS root was made on the development unit</summary>

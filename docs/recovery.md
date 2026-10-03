@@ -93,18 +93,8 @@ flip the bit by hand — the GPT header CRC covers it.
 
 </details>
 
-<details>
-<summary>The <code>edl</code> tool on macOS and Linux (not tested here)</summary>
-
-From the tool's README; none of this was used on the development unit.
-
-- **Linux:** stop ModemManager for the session, run the repository's `install-linux-edl-drivers.sh` (udev rules for
-  9008, blacklists `qcserial`), rebuild the initramfs and reboot; then `pip3 install .` from the clone.
-  On NixOS, `pkgs.edl` provides the tool and its udev rule (`services.udev.packages = [ pkgs.edl ];`).
-- **macOS:** `brew install libusb git`, then `pip3 install .` from the clone. No driver.
-- The commands (`edl.py rs` / `ws` / `reset` with the loader `.xml`) are the same on every host.
-
-</details>
+The `edl` tool on macOS and Linux (not tested here): [Installing from macOS](install-macos.md#4-recovery-tools),
+[Installing from Linux](install-linux.md#4-recovery-tools). The commands are the same on every host.
 
 ## Full reinstall
 

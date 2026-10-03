@@ -123,7 +123,7 @@ if [ -n "$MODULES_FROM" ]; then   # own mode only; normally the boot image's mod
 	ch "depmod $k"
 fi
 fw=$(cd "$FIRMWARE_FROM" && ls -d ath12k qcom qca novatek aw882xx_acf.bin 2>/dev/null) || true
-[ -n "$fw" ] || { echo "no device firmware (qcom/, ath12k/, ...) in $FIRMWARE_FROM: see docs/install.md step 1" >&2; exit 1; }
+[ -n "$fw" ] || { echo "no device firmware (qcom/, ath12k/, ...) in $FIRMWARE_FROM: see docs/install-manual.md step 1" >&2; exit 1; }
 ( cd "$FIRMWARE_FROM" && tar cf - $fw ) | tar xpf - -C "$T/usr/lib/firmware"
 
 # 4. system configuration

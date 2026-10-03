@@ -21,13 +21,29 @@ export interface DocEntry {
   route: string;
   title: string;
   group: DocGroup;
+  /** shown indented under the doc of this name */
+  parent?: string;
 }
 
 /** Internal working documents: not rendered, not in the navigation. */
 const HIDDEN = new Set(["docs/photo-shotlist.md"]);
 
 /** Preferred order of docs/*.md in the navigation; the rest follow alphabetically. */
-const DOCS_ORDER = ["hardware-status", "distros", "rooting", "install", "recovery", "helper"];
+const DOCS_ORDER = [
+  "hardware-status",
+  "distros",
+  "install",
+  "install-windows",
+  "install-linux",
+  "install-macos",
+  "install-manual",
+  "rooting",
+  "recovery",
+  "helper",
+];
+
+/** docs/<parent>-<name>.md shown indented under docs/<parent>.md in the navigation. */
+const NAV_PARENTS = ["install"];
 
 /** Directory READMEs worth reading on the site, in navigation order. */
 const SOURCE_READMES = [
@@ -66,10 +82,10 @@ let cache: DocEntry[] | null = null;
 export function getDocs(): DocEntry[] {
   if (cache && process.env.NODE_ENV === "production") return cache;
   const out: DocEntry[] = [];
-  const add = (file: string, slug: string[], group: DocGroup, fallback: string) => {
+  const add = (file: string, slug: string[], group: DocGroup, fallback: string, parent?: string) => {
     const abs = path.join(REPO_ROOT, file);
     if (!fs.existsSync(abs) || HIDDEN.has(file)) return;
-    out.push({ file, slug, route: routeOf(slug), title: readTitle(abs, fallback), group });
+    out.push({ file, slug, route: routeOf(slug), title: readTitle(abs, fallback), group, parent });
   };
 
   add("README.md", [], "project", "Overview");
@@ -91,7 +107,7 @@ export function getDocs(): DocEntry[] {
   for (const n of names) {
     // "repo" is reserved for the source-tree READMEs below
     if (n === "repo") continue;
-    add(`docs/${n}.md`, [n], "docs", n);
+    add(`docs/${n}.md`, [n], "docs", n, NAV_PARENTS.find((p) => n.startsWith(`${p}-`)));
   }
 
   for (const file of SOURCE_READMES) {
