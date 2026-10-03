@@ -19,7 +19,7 @@ column names the source; see that tree's history for the individual authors.
 ## Patches
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114 and 0116 carry no `Signed-off-by` yet; the author adds it before sending them upstream.
+0111-0114, 0116 and 0117 carry no `Signed-off-by` yet; the author adds it before sending them upstream.
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -138,6 +138,7 @@ column names the source; see that tree's history for the individual authors.
 | `0113` | wifi: ath12k: keep the RX refill ring from running dry | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `0250a3b8b9b44fb9` |
 | `0114` | net: qrtr: ns: retry announcements the new node is not ready for yet | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `6826715ed1ed1eb2` |
 | `0116` | media: qcom: camss: hold the bandwidth vote while TITAN_TOP is powered | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission (0115 is a debugging aid kept out of the series) | `3e5a2e77a2018c0d` |
+| `0117` | arm64: dts: qcom: kaanapali: add CPU capacity-dmips-mhz | Joonhoe Kim | this project | upstream candidate; Signed-off-by to be added before submission | `b5513590cb0a6f06` |
 
 ## Out-of-tree
 

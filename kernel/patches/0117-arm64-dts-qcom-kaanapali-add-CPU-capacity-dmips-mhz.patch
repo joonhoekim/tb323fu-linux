@@ -1,0 +1,96 @@
+From e57cb593f587213d256c415c8b03c70880159581 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Sat, 3 Oct 2026 09:47:34 +0000
+Subject: [PATCH] arm64: dts: qcom: kaanapali: add CPU capacity-dmips-mhz
+
+Without capacity-dmips-mhz every CPU reports a capacity of 1024, so the
+scheduler sees the 3.63 GHz cluster (CPU0-5) and the 4.61 GHz cluster
+(CPU6-7) as equal: there is no misfit migration, and EAS stays off even
+though scmi-cpufreq registers an energy model for both perf domains.
+
+Use the values from the vendor device tree: 1792 for CPU0-5 and 1894 for
+CPU6-7. Scaled by the cpufreq maximum frequencies this gives capacities
+of 762 and 1024.
+
+The vendor tree also sets dynamic-power-coefficient. It is not added
+here: the energy model comes from the SCMI performance protocol's power
+estimates, not from the OPP table, as on glymur.
+
+Measured on a Lenovo Legion Tab Gen 5 (TB323FU) without this change:
+Geekbench 6 single-core scores 2288 when the scheduler places the task
+and 3604 when it is pinned to CPU6.
+---
+ arch/arm64/boot/dts/qcom/kaanapali.dtsi | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/kaanapali.dtsi b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+index 76bc574b1..525d9a67e 100644
+--- a/arch/arm64/boot/dts/qcom/kaanapali.dtsi
++++ b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+@@ -46,6 +46,7 @@ cpu0: cpu@0 {
+ 			compatible = "qcom,oryon";
+ 			reg = <0x0 0x0>;
+ 			enable-method = "psci";
++			capacity-dmips-mhz = <1792>;
+ 			next-level-cache = <&l2_0>;
+ 			power-domains = <&cpu_pd0>, <&scmi_perf 0>;
+ 			power-domain-names = "psci", "perf";
+@@ -63,6 +64,7 @@ cpu1: cpu@100 {
+ 			compatible = "qcom,oryon";
+ 			reg = <0x0 0x100>;
+ 			enable-method = "psci";
++			capacity-dmips-mhz = <1792>;
+ 			next-level-cache = <&l2_0>;
+ 			power-domains = <&cpu_pd1>, <&scmi_perf 0>;
+ 			power-domain-names = "psci", "perf";
+@@ -74,6 +76,7 @@ cpu2: cpu@200 {
+ 			compatible = "qcom,oryon";
+ 			reg = <0x0 0x200>;
+ 			enable-method = "psci";
++			capacity-dmips-mhz = <1792>;
+ 			next-level-cache = <&l2_0>;
+ 			power-domains = <&cpu_pd2>, <&scmi_perf 0>;
+ 			power-domain-names = "psci", "perf";
+@@ -85,6 +88,7 @@ cpu3: cpu@300 {
+ 			compatible = "qcom,oryon";
+ 			reg = <0x0 0x300>;
+ 			enable-method = "psci";
++			capacity-dmips-mhz = <1792>;
+ 			next-level-cache = <&l2_0>;
+ 			power-domains = <&cpu_pd3>, <&scmi_perf 0>;
+ 			power-domain-names = "psci", "perf";
+@@ -96,6 +100,7 @@ cpu4: cpu@400 {
+ 			compatible = "qcom,oryon";
+ 			reg = <0x0 0x400>;
+ 			enable-method = "psci";
++			capacity-dmips-mhz = <1792>;
+ 			next-level-cache = <&l2_0>;
+ 			power-domains = <&cpu_pd4>, <&scmi_perf 0>;
+ 			power-domain-names = "psci", "perf";
+@@ -107,6 +112,7 @@ cpu5: cpu@500 {
+ 			compatible = "qcom,oryon";
+ 			reg = <0x0 0x500>;
+ 			enable-method = "psci";
++			capacity-dmips-mhz = <1792>;
+ 			next-level-cache = <&l2_0>;
+ 			power-domains = <&cpu_pd5>, <&scmi_perf 0>;
+ 			power-domain-names = "psci", "perf";
+@@ -118,6 +124,7 @@ cpu6: cpu@10000 {
+ 			compatible = "qcom,oryon";
+ 			reg = <0x0 0x10000>;
+ 			enable-method = "psci";
++			capacity-dmips-mhz = <1894>;
+ 			next-level-cache = <&l2_1>;
+ 			power-domains = <&cpu_pd6>, <&scmi_perf 1>;
+ 			power-domain-names = "psci", "perf";
+@@ -135,6 +142,7 @@ cpu7: cpu@10100 {
+ 			compatible = "qcom,oryon";
+ 			reg = <0x0 0x10100>;
+ 			enable-method = "psci";
++			capacity-dmips-mhz = <1894>;
+ 			next-level-cache = <&l2_1>;
+ 			power-domains = <&cpu_pd7>, <&scmi_perf 1>;
+ 			power-domain-names = "psci", "perf";
+-- 
+2.43.0
+

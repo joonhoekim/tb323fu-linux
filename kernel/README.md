@@ -14,7 +14,7 @@ A patch series on top of a fixed upstream base. There is no kernel fork: clone t
 ```sh
 git clone --depth 1 -b v7.3-rc4 https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux-tb323fu
 cd linux-tb323fu
-git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0116, in order (no 0115)
+git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0117, in order (no 0115)
 ```
 
 ## Configuration
