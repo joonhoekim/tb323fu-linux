@@ -16,12 +16,14 @@ side on the card.
 | Fedora 44 Workstation + FEX | `tb323fu-fedora` | `rootfs/fedora` | 7.5 s² | GNOME 50 autologin, Wi-Fi, speakers, sensors (4), firewalld³, FEX x86-64, Steam client starts⁴ |
 | NixOS 26.11 (unstable) | `tb323fu-nixos` | `rootfs/nixos` + `flake.nix` | 11.2 s | stage 2 straight from our initramfs, GNOME autologin, Wi-Fi, speakers, sensors, helper |
 | SteamOS (arm64, community handheld port⁵) | `tb323fu-spare` | `rootfs/steamos` | 14.1 s | Gaming Mode (landscape, seen on the panel; touch lands where tapped after a calibration matrix), Wi-Fi, speakers (protection filter), helper; with the old port release v1.3-odin3-beta1 also Desktop Mode (KDE) both ways. Current release v1.3-8elite-beta2 through the guided installer on kernel t39: Gaming Mode, touch, speakers, both ways to Android and back; Switch to Desktop does not work ([known problems](#known-problems)) |
+| Armada 20260926 (Fedora bootc, experimental⁶) | `baldur-root-sd` | `rootfs/armada` | – | not booted yet: built in WSL2 and checked offline only |
 
 ¹ `systemd-analyze` "Startup finished" (kernel + userspace), with automatic login.\
 ² graphical.target; "Startup finished" is 15 s while first-boot timer jobs (plocate, fstrim) still run. iSCSI and plymouth are masked (see the builder).\
 ³ Needs the netfilter set in [kernel/config/baldur-netfilter.fragment](../kernel/config/).\
 ⁴ Steam's own client, run with `FEXBash -c "~/steam-launcher/steam -no-cef-sandbox"`; games not tried yet.\
-⁵ [SteamOS ARM for handhelds](https://github.com/hashtagbasit/SteamOS-ARM-Handhelds) v1.3-odin3-beta1 (since withdrawn; the builder now pins v1.3-8elite-beta2); unofficial, not affiliated with Valve. See [SteamOS notes](#steamos-notes).
+⁵ [SteamOS ARM for handhelds](https://github.com/hashtagbasit/SteamOS-ARM-Handhelds) v1.3-odin3-beta1 (since withdrawn; the builder now pins v1.3-8elite-beta2); unofficial, not affiliated with Valve. See [SteamOS notes](#steamos-notes).\
+⁶ [Armada](https://github.com/armada-os/armada), a gaming distribution for ARM handhelds; its device list ends at SM8750, so this SoC is not one of its targets. See [Armada notes](#armada-notes).
 
 ## Installing each one
 
@@ -38,6 +40,7 @@ top of the file.
 | Fedora 44 | `rootfs/fedora/build-rootfs.sh` | arm64 (not tried through qemu; it builds the helper with cargo inside the root, which would take hours there) | built from this repository inside the root (needs network) |
 | NixOS | `DISTRO=nixos tools/install/install.sh`, or `rootfs/nixos/build-rootfs.sh` (a flake: `flake.nix`, `packaging/nix/`) | any Linux with Nix; x86-64 through qemu (`extra-platforms = aarch64-linux`), where the helper is compiled slowly | Nix packages from this repository (`services.tb323fu`) |
 | SteamOS (community port) | `DISTRO=steamos tools/install/install.sh` (experimental), or `rootfs/steamos/build-rootfs.sh` | any Linux; off arm64 it needs the kernel modules, LADSPA plugins and platform packages as arm64 files (the module fetches them: the kernel release's modules bundle, Ubuntu 24.04's `swh-plugins`, the helper release's `.deb` files) | the release's `.deb` files (`DEBS_FROM=`), or `userspace/platform/install.sh` and `HELPER_FROM=` on arm64; no settings app. Needs kernel t39 or later (tracefs): on t38 the builder leaves the SteamOS manager off, Gaming Mode works, Switch to Desktop does not |
+| Armada | `DISTRO=armada tools/install/install.sh` (experimental), or `rootfs/armada/build-rootfs.sh` | any Linux whose kernel mounts btrfs (the image's root); off arm64 it needs the same arm64 inputs as SteamOS (the module fetches them) | the release's `.deb` files (`DEBS_FROM=`); no settings app |
 
 ### What the builders take care of
 
@@ -65,6 +68,12 @@ the build. Besides the list in [What every root needs](#what-every-root-needs):
   `systemd-repart` and device services for other handhelds masked; module lists trimmed to this kernel; the LADSPA
   plugins PipeWire needs copied in; Gaming Mode's rotation matched with a touch calibration; a power-button service
   that does not wait for SteamVR.
+- **Armada:** the OSTree deployment and its `/var` copied out of the image's btrfs as a plain root; the mounts bootc
+  wrote for the image's disk removed; OSTree, bootc and rpm-ostree units, `bootc-generic-growpart`, Armada's ABL and
+  boot-image plumbing, its installer (it writes to the internal storage) and its MTP gadget (it would take the USB
+  controller from the initramfs' gadget) masked; a device profile for Armada's `device-env` and the Gaming Mode
+  orientation; LADSPA plugins; SELinux permissive; developer access through a NetworkManager profile (Armada has no
+  systemd-networkd).
 
 ### NixOS: your own configuration
 
@@ -122,7 +131,6 @@ Not built with the scripts here yet. What is known:
 | System | Notes |
 |---|---|
 | Debian 13 through a builder | the development root is Debian (first row above), but it was set up by hand before the builders existed; `rootfs/ubuntu` with a Debian mirror and release is the closest starting point |
-| [Armada](https://github.com/armada-os/armada) | a gaming distribution for ARM handhelds (Fedora bootc, Steam, FEX, KDE), shipped as one disk image (`armada-YYYYMMDD.img.gz`); its device list goes up to SM8750, not this SoC. Its root is an ostree deployment: our initramfs does not start ostree, so it would need flattening into a plain root (losing Armada's own updates) or ostree support in the initramfs |
 | postmarketOS | aimed at phones and tablets, with its own boot chain; its root would need the same changes as the others |
 
 ## Your own distribution
@@ -171,5 +179,30 @@ The builders in [`rootfs/`](../rootfs/) do all of it.
 - The power button suspends once `steamos-powerbuttond` runs. The Steam Frame unit only starts next to SteamVR, so
   the builder replaces it.
 - Its own disk plumbing is masked (see [What every root needs](#what-every-root-needs)).
+
+</details>
+
+## Armada notes
+
+<details>
+<summary>How the Armada root is put together</summary>
+
+- The release image is a raw disk: ESP (ROCKNIX ABL boot image), `/boot` (ext4, OSTree's boot entries) and a btrfs
+  root whose subvolume `root` holds an OSTree repository and one bootc deployment (composefs enabled). Our initramfs
+  does not start OSTree, so the builder copies the deployment's tree (with its merged `/etc`) and the stateroot's
+  `/var` (the `armada` user's home with the Steam bootstrap) into one ext4 partition. Nothing of the ESP or `/boot` is
+  used.
+- `/home`, `/root`, `/opt` and so on stay symlinks into `/var`, as on Fedora's atomic systems.
+- Armada's updates (bootc, Steam's system update button) do not work on the copy; a newer release means building the
+  root again.
+- The user is `armada` (the image's password is `armada`; the guided installer sets your own). SDDM logs it
+  into Gaming Mode; Desktop Mode is KDE Plasma.
+- The panel has no orientation property: a profile in Armada's `device-env` (by the device tree's model) turns on
+  gamescope's rotation shader, and `/etc/gamescope-session-plus/sessions.d/steam` gives Gaming Mode its orientation
+  (`ORIENTATION=`, default `right`, as on SteamOS).
+- Not checked yet: that it boots at all, Gaming Mode's picture and whether touch follows the rotation (SteamOS needed
+  a calibration matrix), Desktop Mode, sound, suspend through Armada's own `suspend-dispatch`, Armada's power daemon
+  next to the helper (both set CPU and GPU limits), Steam's first start. No sensors (Fedora's `iio-sensor-proxy` has
+  no SSC backend).
 
 </details>
