@@ -243,16 +243,50 @@ $C bypass off && check "Bypass off during performance" $B/charge_control_end_thr
 sleep 4; check "performance does not switch it back on" $B/charge_control_end_threshold 60
 
 grep -q "charge_limit = 60" $R/etc/tb323fu/helper.toml && ok "config persisted" || bad "config not persisted"
-kill $D; wait $D 2>/dev/null
-# restart: persisted settings re-applied
-echo 100 > $R$B/charge_control_end_threshold
-$BIN/tb323fu-helperd --session --no-polkit >> $R/daemon.log 2>&1 &
-D=$!
-for i in 1 2 3 4 5 6 7 8 9 10; do $BIN/tb323fu-ctl --session versions >/dev/null 2>&1 && break; sleep 0.3; done
+$C gpu boost off >/dev/null && check "CPU boost off" /sys/devices/system/cpu/cpufreq/boost 0
+$C gpu wifi-low-latency on >/dev/null && $C gpu profile performance >/dev/null && check "performance: Wi-Fi power save off" /iw-ps off
+mk $T/thermal_zone58/temp 56000
+waitfor $BL/brightness 2858 && ok "hot panel before the restart: backlight held" || bad "hot panel: backlight $(cat $R$BL/brightness)"
+# restart (the device files as after a reboot): persisted settings re-applied
+restart() {
+	kill $D; wait $D 2>/dev/null
+	echo 100 > $R$B/charge_control_end_threshold
+	$BIN/tb323fu-helperd --session --no-polkit >> $R/daemon.log 2>&1 &
+	D=$!
+	for i in 1 2 3 4 5 6 7 8 9 10; do $BIN/tb323fu-ctl --session versions >/dev/null 2>&1 && break; sleep 0.3; done
+}
+echo disabled > $R/sys/bus/platform/devices/a600000.usb/power/wakeup; echo disabled > $R$U/power/wakeup
+echo 1 > $R/sys/devices/system/cpu/cpufreq/boost
+echo 1 > $R$P/idle_refresh_policy; echo 1000 > $R$P/idle_refresh_ms60; echo 5000 > $R$P/idle_refresh_ms30
+echo 160000000 > $R$G/min_freq; echo 50000 > $R$Q/trip_point_8_temp; echo 99 > $R$L/brightness
+: > $R/dev/input/event5
+mk $T/thermal_zone58/temp 50000
+restart
 check "restart re-applies charge limit" $B/charge_control_end_threshold 60
 check "restart re-applies usb wake" /sys/bus/platform/devices/a600000.usb/power/wakeup enabled
+check "restart re-applies CPU boost off" /sys/devices/system/cpu/cpufreq/boost 0
+check "restart re-applies the refresh policy" $P/idle_refresh_policy 2
+check "restart re-applies the idle timings" $P/idle_refresh_ms60 3000
+check "restart re-applies the charger wake" $U/power/wakeup enabled
+waitfor $G/min_freq 461000000 && ok "restart re-applies the performance GPU floor" || bad "GPU floor after restart: $(cat $R$G/min_freq)"
+waitfor $Q/trip_point_8_temp 58000 && ok "restart re-applies the performance thermal profile" || bad "thermal profile after restart"
+waitfor $L/brightness 0 && ok "restart keeps the LED ring off" || bad "LED ring after restart: $(cat $R$L/brightness)"
+sleep 0.5; [ "$(gain 5)" = "15006000ff7f0000" ] && ok "restart re-applies vibration strength 50" || bad "vibration after restart: $(gain 5)"
+$C --json torch | grep -q '"Level": 40' && ok "torch level kept" || bad "torch level"
+waitfor $BL/brightness 4000 && ok "panel cooled during the restart: brightness given back" || bad "panel after restart: backlight $(cat $R$BL/brightness)"
 sleep 4; check "Bypass stays off after a restart in performance" $B/charge_control_end_threshold 60
+$C gpu profile balanced >/dev/null && check "Wi-Fi power save switched off before the restart comes back on" /iw-ps on
+$C gpu wifi-low-latency off >/dev/null
 $C thermal profile default >/dev/null && grep -q "bypass_declined = false" $R/etc/tb323fu/helper.toml && ok "leaving performance clears the decline" || bad "decline not cleared"
+: > $R/dev/input/event5
+$C reload && [ "$(gain 5)" = "15006000ff7f0000" ] && ok "Reload re-applies vibration strength" || bad "vibration after Reload: $(gain 5)"
+$C bypass on && check "Bypass on" $B/charge_control_end_threshold 62
+restart
+check "restart keeps Bypass holding at the capacity" $B/charge_control_end_threshold 62
+$C bypass off && check "Bypass off after the restart restores the limit" $B/charge_control_end_threshold 60
+echo '= broken' >> $R/etc/tb323fu/helper.toml
+restart
+[ -s $R/etc/tb323fu/helper.toml.bad ] && ok "an unreadable config is kept as helper.toml.bad" || bad "unreadable config not kept"
 
 [ $fail = 0 ] && echo "ALL PASSED" || { echo "SOME FAILED"; cat $R/daemon.log; }
 exit $fail

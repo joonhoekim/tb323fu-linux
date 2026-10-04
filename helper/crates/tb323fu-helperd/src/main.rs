@@ -32,15 +32,12 @@ pub const BUS: &str = "io.github.joonhoekim.OpenDeviceHelper1";
 pub struct Runtime {
     /// thermal profile last written
     thermal_applied: Option<String>,
-    /// the user switched Bypass off while performance had switched it on
-    /// the panel heat limit holds the backlight; the brightness to restore
+    /// the panel heat limit holds the backlight
     panel_limited: bool,
-    panel_saved: Option<u32>,
     /// CPU limits last written: (profile, limits, boost)
     cpu_applied: Option<(String, [u32; 4], Option<bool>)>,
-    /// Wi-Fi: power saving wanted off; interfaces the helper switched off
+    /// Wi-Fi: power saving wanted off
     wifi_want_off: bool,
-    wifi_off: Vec<String>,
     wifi_ticks: u32,
     /// motors the gain was written to (a reloaded driver gets it again)
     haptics_seen: Vec<std::path::PathBuf>,
@@ -86,7 +83,9 @@ impl Shared {
     pub fn reload(&self) {
         let (c, _) = Config::load(&self.cfg_path);
         *self.cfg.lock().unwrap() = c;
+        self.rt.lock().unwrap().haptics_seen.clear();
         apply_startup(self);
+        self.haptics_tick();
     }
 
     /// The profile whose GPU limits are in effect.
@@ -240,8 +239,9 @@ impl Shared {
         if !perf::panel_limit_available() {
             return;
         }
-        let on = self.cfg().thermal.panel_limit;
+        let c = self.cfg().thermal;
         let mut rt = self.rt.lock().unwrap();
+        let on = c.panel_limit;
         let limit = on && perf::panel_temp_mc().is_some_and(|t| perf::panel_should_limit(t, rt.panel_limited));
         let Some((b, max)) = perf::backlight() else { return };
         let cap = perf::panel_cap(max);
@@ -250,15 +250,16 @@ impl Shared {
                 if !rt.panel_limited {
                     eprintln!("tb323fu-helperd: panel hot: backlight held at {cap}/{max}");
                 }
-                rt.panel_saved = Some(b);
+                self.update(|c| c.thermal.panel_saved = Some(b));
                 if let Err(e) = perf::set_backlight(cap) {
                     eprintln!("tb323fu-helperd: {e}");
                 }
             }
             rt.panel_limited = true;
-        } else if rt.panel_limited {
+        } else if rt.panel_limited || c.panel_saved.is_some() {
             rt.panel_limited = false;
-            if let Some(s) = rt.panel_saved.take() {
+            if let Some(s) = c.panel_saved {
+                self.update(|c| c.thermal.panel_saved = None);
                 if b == cap {
                     let _ = perf::set_backlight(s);
                 }
@@ -282,9 +283,11 @@ impl Shared {
             let changed = rt.wifi_want_off != want_off;
             rt.wifi_want_off = want_off;
             let run = want_off && (force || changed || rt.wifi_ticks % 12 == 0);
-            let restore = if !want_off { std::mem::take(&mut rt.wifi_off) } else { Vec::new() };
-            (run, restore)
+            (run, if want_off { Vec::new() } else { self.cfg().wifi.power_save_off })
         };
+        if !restore.is_empty() {
+            self.update(|c| c.wifi.power_save_off.clear());
+        }
         for i in restore {
             match perf::set_wifi_power_save(&i, true) {
                 Ok(()) => eprintln!("tb323fu-helperd: Wi-Fi {i}: power saving back on"),
@@ -301,10 +304,11 @@ impl Shared {
             match perf::set_wifi_power_save(&i, false) {
                 Ok(()) => {
                     eprintln!("tb323fu-helperd: Wi-Fi {i}: power saving off (performance)");
-                    let mut rt = self.rt.lock().unwrap();
-                    if !rt.wifi_off.contains(&i) {
-                        rt.wifi_off.push(i);
-                    }
+                    self.update(|c| {
+                        if !c.wifi.power_save_off.contains(&i) {
+                            c.wifi.power_save_off.push(i);
+                        }
+                    });
                 }
                 Err(e) => eprintln!("tb323fu-helperd: Wi-Fi {i}: {e}"),
             }
@@ -428,8 +432,13 @@ async fn ppd_active_profile(conn: &zbus::Connection) -> Option<String> {
 /// Settings applied once at start (and on Reload).
 fn apply_startup(s: &Shared) {
     let c = s.cfg();
-    if f::battery_dir().is_some() && !c.battery.bypass {
-        if let Err(e) = f::set_charge_limit(c.battery.charge_limit, c.battery.recharge_gap) {
+    if f::battery_dir().is_some() {
+        let limit = if c.battery.bypass {
+            f::battery_info().map(|i| i.capacity.clamp(f::CHARGE_LIMIT_MIN, 100))
+        } else {
+            Ok(c.battery.charge_limit)
+        };
+        if let Err(e) = limit.and_then(|l| f::set_charge_limit(l, c.battery.recharge_gap)) {
             eprintln!("tb323fu-helperd: charge limit: {e}");
         }
     }

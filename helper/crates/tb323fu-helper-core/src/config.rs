@@ -133,11 +133,21 @@ pub struct Thermal {
     pub bypass_auto: bool,
     /// the user turned Bypass off during this performance period
     pub bypass_declined: bool,
+    /// the backlight brightness to give back when the panel heat limit ends
+    pub panel_saved: Option<u32>,
 }
 
 impl Default for Thermal {
     fn default() -> Self {
-        Thermal { profile: "default".into(), follow_performance: false, performance_bypass: true, panel_limit: true, bypass_auto: false, bypass_declined: false }
+        Thermal {
+            profile: "default".into(),
+            follow_performance: false,
+            performance_bypass: true,
+            panel_limit: true,
+            bypass_auto: false,
+            bypass_declined: false,
+            panel_saved: None,
+        }
     }
 }
 
@@ -148,6 +158,8 @@ impl Default for Thermal {
 pub struct Wifi {
     /// turn Wi-Fi power saving off while the performance profile is in effect
     pub low_latency_performance: bool,
+    /// interfaces whose power saving the helper switched off
+    pub power_save_off: Vec<String>,
 }
 
 /// The vibration motors.
@@ -278,7 +290,15 @@ impl Config {
     /// defaults plus the legacy /etc/baldur values (returns `migrated = true`).
     pub fn load(path: &Path) -> (Config, bool) {
         match fs::read_to_string(path) {
-            Ok(s) => (toml::from_str(&s).unwrap_or_default(), false),
+            Ok(s) => match toml::from_str(&s) {
+                Ok(c) => (c, false),
+                Err(e) => {
+                    let bad = path.with_extension("toml.bad");
+                    eprintln!("tb323fu-helperd: {}: {e}; using the defaults, the file is kept as {}", path.display(), bad.display());
+                    let _ = fs::copy(path, &bad);
+                    (Config::default(), false)
+                }
+            },
             Err(_) => {
                 let mut c = Config::default();
                 c.migrate_legacy();
@@ -355,6 +375,11 @@ mod tests {
         fs::write(&p, "[kernel]\nchannel = \"testing\"\nindex_url = \"https://x/index.json\"\n").unwrap();
         let (d, _) = Config::load(&p);
         assert_eq!((d.kernel.channel.as_str(), d.kernel.source.as_str()), ("testing", DEFAULT_SOURCE));
+        fs::write(&p, "[battery]\ncharge_limit = \"seventy\"\n").unwrap();
+        let (d, migrated) = Config::load(&p);
+        assert!(!migrated);
+        assert_eq!(d, Config::default());
+        assert!(fs::read_to_string(dir.join("helper.toml.bad")).unwrap().contains("seventy"));
         let _ = fs::remove_dir_all(dir);
     }
     #[test]

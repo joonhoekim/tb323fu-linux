@@ -191,9 +191,10 @@ Update…, or the command when a package manager updates the helper; Go Back… 
 ## Persistence
 
 - `android.require_auth` (bool, default `false`): whether switching to Android asks for authentication (polkit `android-switch-auth` instead of `android-switch`). Settable from the app and `tb323fu-ctl`; changing it itself requires authentication.
-- `/etc/tb323fu/helper.toml` — written by the daemon when a setting changes, read at start; defaults when the file or a key is absent.
+- `/etc/tb323fu/helper.toml` — written by the daemon when a setting changes, read at start; defaults when the file or a key is absent. A file that does not parse is copied to `helper.toml.bad` before the daemon starts from the defaults.
 - Applied once at daemon start (after the relevant devices exist; the daemon waits on udev for the LED/power-supply/devfreq devices, bounded).
-- Settings that the kernel already defaults sensibly (idle refresh auto) are only written when the user changes them. The charge limit is always applied by the helper at start (default 80 %).
+- Settings that the kernel already defaults sensibly (idle refresh auto) are only written when the user changes them. The charge limit is always applied by the helper at start (default 80 %; with Bypass on, the battery is held at its capacity at start).
+- The state of the automatic rules is kept there too, so a restart picks up where it left off: Bypass switched on or declined during the performance thermal profile (`thermal.bypass_auto`, `thermal.bypass_declined`), the brightness the panel heat limit will give back (`thermal.panel_saved`), and the interfaces whose Wi-Fi power saving the helper switched off (`wifi.power_save_off`).
 - The legacy `/etc/baldur/*.conf` files are read once on first start to migrate values, then left untouched.
 
 ## Not exposed
