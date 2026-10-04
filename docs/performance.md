@@ -12,8 +12,8 @@ tablet. Single runs: expect a few percent between runs. Linux: Debian 13 with GN
 | Memory latency, 64 MB random | 68 ns | 69 ns | `kernel-t40` without memlat: 127 ns |
 | GPU compute, Geekbench 7 OpenCL | 19204 | 7559 (39 %) | Mesa 26.1.6 (Debian); see [GPU](#gpu) |
 | GPU raw throughput (clpeak) | — | FP32 3.05 TFLOPS, 66 GB/s | about 83 % of the theoretical 3.7 TFLOPS |
-| Storage, sequential read / write | 2.7 / 1.8 GB/s | 4.0 / 1.8 GB/s | Android's /data is encrypted (inline crypto) |
-| Storage, 4K random read, 4 jobs | 459k IOPS | 386k IOPS | with MCQ (patch 0119); without it 240k |
+| Storage, sequential read / write | 2.7 / 1.8 GB/s | 4.3 / 2.0 GB/s | Android's /data is encrypted (inline crypto) |
+| Storage, 4K random read QD1 / 4 jobs | 13.6k / 459k IOPS | 16.1k / 448k IOPS | with MCQ (patch 0119) |
 | Video decode, 4K | — | H.264 319 fps, HEVC 531 fps | hardware decoder (iris); 40 Mbit/s test clips |
 
 ## Against published Android results
@@ -76,17 +76,17 @@ Qualcomm's driver once per group. A convolution kernel without that load runs as
 
 ## Storage
 
-UFS 4.1, `fio` with `io_uring` on Android and `libaio` on Linux, 8 GB file, direct I/O.
+UFS 4.1, `fio` with `io_uring` on both, 8 GB file, direct I/O; Linux with patches 0119-0127.
 
 | Test | Android | Linux |
 |---|---|---|
-| Sequential read, 1 MB, QD32 | 2686 MB/s | 4101 MB/s |
-| Sequential write, 1 MB, QD32 | 1819 MB/s | 1821 MB/s |
-| 4K random read, QD1 / QD32 / 4 jobs | 13.6k / 208k / 459k | 8.9k / 206k / 386k |
-| 4K random write, QD1 / QD32 | 25.9k / 50.8k | 16.8k / 37k |
+| Sequential read, 1 MB, QD32 | 2686 MB/s | 4265 MB/s |
+| Sequential write, 1 MB, QD32 | 1819 MB/s | 2001 MB/s |
+| 4K random read, QD1 / QD32 / 4 jobs | 13.6k / 208k / 459k | 16.1k / 209k / 448k |
+| 4K random write, QD1 / QD32 / 4 jobs | 25.9k / 50.8k / 48.2k | 28.6k / 38.5k / 49.1k |
 
-Patch 0119 turned on the controller's multi-queue mode (MCQ): random reads with 4 jobs went from 240k to 386k
-IOPS. Single-request latency (QD1) is still higher than on Android.
+Patch 0119 turns on the controller's multi-queue mode (MCQ): random reads with 4 jobs went from 240k to 448k IOPS.
+The I/O engine matters at low queue depth: with `libaio` the same Linux system does 11.5k random reads at QD1.
 
 ## Running it yourself
 
