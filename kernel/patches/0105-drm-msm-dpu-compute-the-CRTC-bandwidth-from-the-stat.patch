@@ -1,8 +1,8 @@
-From ddc7320ec2e7f4d0a362264dfa3238539f7dfa91 Mon Sep 17 00:00:00 2001
+From f3ba1086f003b691da0e155b43c649c6a00ba7e0 Mon Sep 17 00:00:00 2001
 From: joonhoekim <26rote@gmail.com>
-Date: Sun, 27 Sep 2026 17:21:40 +0000
-Subject: [PATCH] drm/msm/dpu: compute the CRTC bandwidth from the state being
- checked
+Date: Tue, 29 Sep 2026 07:54:57 +0000
+Subject: [PATCH] drm/msm/dpu: compute the CRTC bandwidth from the state
+ being checked
 
 _dpu_core_perf_calc_bw() is called with the new CRTC state but sums
 plane_fetch_bw over drm_atomic_crtc_for_each_plane(), i.e. the planes
@@ -24,17 +24,19 @@ plane state for planes that are not part of the commit, so the result
 is unchanged for commits that do touch the planes.
 
 With this, bw_ctl is 3728793600 right after DPMS on and after resume.
+Only tested on this device.
 
+Fixes: c33b7c0389e1 ("drm/msm/dpu: add support for clk and bw scaling for display")
 Assisted-by: LLM
 ---
- drivers/gpu/drm/msm/disp/dpu1/dpu_core_perf.c | 24 ++++++++++---------
- 1 file changed, 13 insertions(+), 11 deletions(-)
+ drivers/gpu/drm/msm/disp/dpu1/dpu_core_perf.c | 17 ++++++-----------
+ 1 file changed, 6 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_core_perf.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_core_perf.c
-index fea173e37..343c41550 100644
+index fea173e37464..9fa55904dba1 100644
 --- a/drivers/gpu/drm/msm/disp/dpu1/dpu_core_perf.c
 +++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_core_perf.c
-@@ -54,24 +54,26 @@ u64 dpu_core_perf_adjusted_mode_clk(u64 mode_clk_rate,
+@@ -54,24 +54,19 @@ u64 dpu_core_perf_adjusted_mode_clk(u64 mode_clk_rate,
  /**
   * _dpu_core_perf_calc_bw() - to calculate BW per crtc
   * @perf_cfg: performance configuration
@@ -59,19 +61,12 @@ index fea173e37..343c41550 100644
 -
 -		crtc_plane_bw += pstate->plane_fetch_bw;
 -	}
-+	/*
-+	 * The planes of the CRTC state being checked: iterating the committed
-+	 * state (drm_atomic_crtc_for_each_plane()) summed nothing when the CRTC
-+	 * was being re-enabled (DPMS on, resume), whose old state has no
-+	 * planes, and the display ran without a bandwidth vote until the next
-+	 * plane update.
-+	 */
 +	drm_atomic_crtc_state_for_each_plane_state(plane, plane_state, state)
 +		crtc_plane_bw += to_dpu_plane_state(plane_state)->plane_fetch_bw;
  
  	bw_factor = perf_cfg->bw_inefficiency_factor;
  	if (bw_factor) {
-@@ -131,7 +133,7 @@ static void _dpu_core_perf_calc_crtc(const struct dpu_core_perf *core_perf,
+@@ -131,7 +126,7 @@ static void _dpu_core_perf_calc_crtc(const struct dpu_core_perf *core_perf,
  		return;
  	}
  
@@ -80,6 +75,7 @@ index fea173e37..343c41550 100644
  	perf->max_per_pipe_ib = perf_cfg->min_dram_ib;
  	perf->core_clk_rate = _dpu_core_perf_calc_clk(perf_cfg, crtc, state);
  	DRM_DEBUG_ATOMIC(
+
 -- 
 2.43.0
 

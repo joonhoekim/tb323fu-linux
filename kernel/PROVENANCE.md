@@ -119,7 +119,7 @@ column names the source; see that tree's history for the individual authors.
 | `0094` | media: iris: Don't report the picture state on decoder input buffers | Victor Fuentes | infiniti-mainline (iris kaanapali; authors as in From:) | community / pending upstream | `9b5d6b188c52580b` |
 | `0095` | arm64: dts: qcom: baldur: enable the iris video codec | joonhoekim | this project | local | `33721e3c71d41c40` |
 | `0096` | phy: qcom: qmp-combo: Add Kaanapali USB3+DP PHY | Victor Fuentes | infiniti-mainline (Victor Fuentes) | community, not upstream | `1e0e578ff21fb961` |
-| `0097` | drm/msm/dpu: stop all video interfaces before cleaning up a split encoder | joonhoekim | this project | sent upstream 2026-09-29, under review | `9fdec9fce3a03776` |
+| `0097` | drm/msm/dpu: disable the slave encoder before the master | joonhoekim | this project | upstream v3 2026-10-02, Reviewed-by Dmitry Baryshkov | `de73cb0543886c07` |
 | `0098` | drm/msm/dp: hold one runtime PM reference per plugged state | joonhoekim | this project | sent upstream 2026-09-29, under review | `814b709cea246edc` |
 | `0099` | phy: qcom: qmp-combo: Drop the stale err_disable_pipe_clk teardown | Victor Fuentes | infiniti-mainline (Victor Fuentes) | community, not upstream | `4cc9500eb779c89d` |
 | `0100` | phy: qcom: qmp-combo: Keep the DP lanes of a USB-capable DP sink | Victor Fuentes | infiniti-mainline (Victor Fuentes) | community, not upstream | `6f508562ddb6e8ec` |
@@ -127,7 +127,7 @@ column names the source; see that tree's history for the individual authors.
 | `0102` | drm/msm/dp: reset the link caps on every DPCD read | Victor Fuentes | infiniti-mainline (Victor Fuentes) | community, not upstream | `bc3e46a9718d4891` |
 | `0103` | clk: qcom: gdsc: drop the controller reference only if it was taken | joonhoekim | this project | local | `ed38bddd35bf3659` |
 | `0104` | usb: dwc3: tell xHCI that it lost its state when the core is powered off | joonhoekim | this project | sent upstream 2026-09-29, under review | `2a447d4ba9a36679` |
-| `0105` | drm/msm/dpu: compute the CRTC bandwidth from the state being checked | joonhoekim | this project | sent upstream 2026-09-29, under review | `8eb9e32dfaa88e5d` |
+| `0105` | drm/msm/dpu: compute the CRTC bandwidth from the state being checked | joonhoekim | this project | upstream v2 2026-10-02, Reviewed-by Dmitry Baryshkov | `09aaff9bc1459c18` |
 | `0106` | cpuidle: psci-domain: baldur: use the system domain state only in system suspend | Joonhoe Kim | this project | local workaround (cpuidle system domain state only in suspend) | `09a5acaa07543da4` |
 | `0107` | power: supply: qcom_battmgr: fix the battery current sign on Kaanapali | Joonhoe Kim | this project | local | `0a838c98a286a567` |
 | `0108` | arm64: dts: qcom: baldur: throttle on the board temperature like Android | Joonhoe Kim | this project | local (board DT) | `21a147ededcac540` |
