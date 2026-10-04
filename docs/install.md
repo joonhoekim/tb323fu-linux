@@ -24,7 +24,7 @@ that can run arm64 programs (to build the tablet's root filesystem) and `adb` to
 |---|---|---|
 | **Windows 10/11** | in Ubuntu under WSL2, with the Windows `adb.exe` | **followed end to end** on a tablet (2026-10-04) → [Installing from Windows](install-windows.md) |
 | **Linux** | directly, with the system's `adb` | **not verified separately**: the same script and builders → [Installing from Linux](install-linux.md) |
-| **macOS** | in an arm64 Linux virtual machine, with the tablet passed through over USB | **not verified** → [Installing from macOS](install-macos.md) |
+| **macOS** | in an arm64 Linux virtual machine (Lima), using the Mac's `adb` server; no USB passthrough | **followed end to end** once, up to the first start (2026-10-04) → [Installing from macOS](install-macos.md) |
 
 The result is the same on every PC: Ubuntu 26.04 with GNOME (unless you [pick another system](#which-system)) on a
 partition `baldur-root-sd` of the microSD card, the release kernel in `boot_a`, Android's boot image in `boot_b`, and
