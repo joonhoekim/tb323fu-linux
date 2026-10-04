@@ -138,3 +138,6 @@ CONFIG_LEDS_TRIGGER_PATTERN=y
 # "Switch to Desktop" and the Gaming Mode session wait for that daemon
 CONFIG_FTRACE=y
 CONFIG_ENABLE_DEFAULT_TRACERS=y
+
+# zstd squashfs images: Armada's x86-64 runtime for FEX, many AppImages
+CONFIG_SQUASHFS_ZSTD=y
