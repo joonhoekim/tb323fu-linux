@@ -4,8 +4,9 @@
 > install script's steps `host`, `tablet`, `firmware`, `download`, `bootimg` and `rootfs` (Ubuntu with GNOME, built in
 > 7 min) ran against a rooted tablet, and `adb push`/`pull` through the Mac's adb server were checked byte for byte.
 > The steps that write to the tablet (`wayback`, `sdcard`, `write`, `boot`) use the same `adb` path but were not run
-> from a Mac. The rooting and recovery tools are described from their own documentation and were not tried on a Mac.
-> If something does not match, stop and open an issue.
+> from a Mac. LTBox 3.3.3 (the `macos_universal` tarball) started and recognized the tablet over adb; rooting with it
+> and the `edl` recovery tool were not tried on a Mac and are described from their own documentation. If something
+> does not match, stop and open an issue.
 
 The same path as on Windows ([Installing Linux](install.md)): root the tablet, then one script takes it to Ubuntu
 with GNOME on the microSD card. Rooting works from macOS itself. The install script needs a Linux system, so on a
@@ -26,8 +27,11 @@ Rooting follows [Rooting and dual boot setup](rooting.md); its LTBox screens sho
 4. adb: `brew install --cask android-platform-tools`. It is used for rooting and, in step 3 below, by the VM.
 5. The firmware package: Lenovo's Software Fix does not run on macOS, see
    [Getting the firmware package without Windows](rooting.md#getting-the-firmware-package-without-windows).
-6. Where LTBox keeps its backup and log folders on macOS was not checked; find the root backup folder after rooting
+6. LTBox keeps its settings, its own adb key and its logs in `~/Library/Application Support/ltbox/`. Where it puts the
+   root backup on macOS was not checked; find that folder after rooting
    (see [rooting step 2](rooting.md#2-root-without-unlocking-ltbox)) and copy it next to your dump.
+7. LTBox talks to the tablet over USB itself, and **starting it stops the Mac's adb server**. Quit LTBox before
+   step 3 below, then run `adb devices` once on the Mac to start the server again.
 
 ## 2. A Linux virtual machine
 

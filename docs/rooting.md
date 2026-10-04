@@ -81,7 +81,7 @@ be the same on every host, but that too is unchecked.
 | Host | Status here | LTBox package | EDL (9008) access |
 |---|---|---|---|
 | Windows 11 x86-64 | **verified** (LTBox v3.3.1 / v3.3.2) | zip or Scoop | Qualcomm USB driver, installed from LTBox |
-| macOS 11+ | **not tested here** | Homebrew cask or tarball (universal) | bundled libusb, no driver |
+| macOS 11+ | **starts and sees the tablet over adb** (v3.3.3, macOS 26.6); EDL and rooting not tried | Homebrew cask or tarball (universal) | bundled libusb, no driver |
 | Linux x86-64 / arm64 | **not tested here** | `.deb`, `.rpm`, tarball, AUR `ltbox-bin` | udev rule (`ltbox --install-udev`) |
 | NixOS | **not tested here** | tarball | udev rule in the NixOS configuration |
 
