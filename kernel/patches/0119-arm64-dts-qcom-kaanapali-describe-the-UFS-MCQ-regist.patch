@@ -1,0 +1,46 @@
+From f81ddabe059326032d43ed4ab6ddbf9cdc23e059 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Sun, 4 Oct 2026 14:45:53 +0000
+Subject: [PATCH] arm64: dts: qcom: kaanapali: describe the UFS MCQ registers
+
+The UFS host on kaanapali supports Multi-Circular Queue mode, but its
+node only describes the standard register space, so ufshcd falls back
+to the single legacy doorbell queue ("MCQ resource not found in device
+tree").
+
+Add the MCQ register region and the ITS MSI parent used for ESI, as on
+eliza. The region and the ITS device ID 0x60 match the vendor device
+tree, which lists the MCQ SQD and VS ranges inside it.
+
+On a Lenovo Legion Tab Gen 5 (TB323FU) ufshcd now configures 8 I/O
+queues and a poll queue with ESI. fio 4k random reads, 4 jobs at queue
+depth 32, go from 240k to 386k IOPS; sequential throughput and random
+writes are unchanged.
+---
+ arch/arm64/boot/dts/qcom/kaanapali.dtsi | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/kaanapali.dtsi b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+index 1e7e9229c..7e22b3c72 100644
+--- a/arch/arm64/boot/dts/qcom/kaanapali.dtsi
++++ b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+@@ -2536,10 +2536,15 @@ ufs_mem_hc: ufs@1d84000 {
+ 			compatible = "qcom,kaanapali-ufshc",
+ 				     "qcom,ufshc",
+ 				     "jedec,ufs-2.0";
+-			reg = <0x0 0x01d84000 0x0 0x3000>;
++			reg = <0x0 0x01d84000 0x0 0x3000>,
++			      <0x0 0x01da0000 0x0 0x15000>;
++			reg-names = "std",
++				    "mcq";
+ 
+ 			interrupts = <GIC_SPI 265 IRQ_TYPE_LEVEL_HIGH>;
+ 
++			msi-parent = <&gic_its 0x60>;
++
+ 			clocks = <&gcc GCC_UFS_PHY_AXI_CLK>,
+ 				 <&gcc GCC_AGGRE_UFS_PHY_AXI_CLK>,
+ 				 <&gcc GCC_UFS_PHY_AHB_CLK>,
+-- 
+2.43.0
+

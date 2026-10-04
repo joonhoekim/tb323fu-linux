@@ -19,7 +19,7 @@ column names the source; see that tree's history for the individual authors.
 ## Patches
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114 and 0116-0118 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
+0111-0114 and 0116-0119 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -140,6 +140,7 @@ column names the source; see that tree's history for the individual authors.
 | `0116` | media: qcom: camss: hold the bandwidth vote while TITAN_TOP is powered | Joonhoe Kim | this project | upstream candidate (0115 is a debugging aid kept out of the series) | `3b8ea94fd19e5fc5` |
 | `0117` | arm64: dts: qcom: kaanapali: add CPU capacity-dmips-mhz | Joonhoe Kim | this project | upstream candidate | `cde3fbe0e37a205a` |
 | `0118` | cpuidle: psci-domain: add allow_cluster_off to refuse cluster idle states | Joonhoe Kim | this project | local workaround: no cluster idle state in runtime idle on baldur, where its power-down reset the SoC when idle (set by the config fragment's command line; the cause is not fixed) | `9c63e2de94b80582` |
+| `0119` | arm64: dts: qcom: kaanapali: describe the UFS MCQ registers | Joonhoe Kim | this project | upstream candidate | `28e15806d26509c5` |
 
 ## Out-of-tree
 
