@@ -138,9 +138,6 @@ in {
     # --- desktop
     services.displayManager.gdm.enable = gnome;
     services.desktopManager.gnome.enable = gnome;
-    # GNOME Web's address bar does not bring up the on-screen keyboard; Firefox does
-    environment.gnome.excludePackages = mkIf gnome [ pkgs.epiphany ];
-    programs.firefox.enable = gnome;
     services.displayManager.autoLogin = mkIf (gnome && cfg.user != null) {
       enable = true;
       user = cfg.user;

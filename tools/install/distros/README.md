@@ -14,7 +14,7 @@ DISTRO=~/my-distro.sh tools/install/install.sh  # your own module, by path
 |---|---|---|
 | [`ubuntu.sh`](ubuntu.sh) | Ubuntu 26.04, GNOME | verified: followed end to end on a tablet |
 | [`arch.sh`](arch.sh) | Arch Linux ARM, GNOME | verified: followed end to end once (no sensors: `hexagonrpcd` is not packaged for Arch) |
-| [`nixos.sh`](nixos.sh) | NixOS (unstable), GNOME | experimental: builds in WSL2 with Nix (the helper is compiled through qemu) |
+| [`nixos.sh`](nixos.sh) | NixOS (unstable), GNOME | verified once: built in WSL2 with Nix (the first build compiles the helper through qemu, about 45 min), then boot, sound, Wi-Fi password prompt, the way to Android, and a rebuild from `/etc/nixos` on the tablet |
 | [`steamos.sh`](steamos.sh) | SteamOS, community port (Gaming Mode, KDE) | experimental: Gaming Mode, touch, sound and both ways checked on kernel t39 (needs tracefs: t39 or later); Switch to Desktop does not work yet |
 
 Changing `DISTRO` after a `rootfs` step builds the root again from scratch (the image holds one system). The

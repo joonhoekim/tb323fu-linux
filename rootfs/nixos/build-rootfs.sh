@@ -9,10 +9,12 @@
 # It writes a device-local flake to WORK -- outside this repository, because it
 # holds this device's firmware, sensor files, SSH keys and
 # password hash -- that combines this repository's nixosModules.rootfs
-# (configuration.nix next to this file) with a generated local.nix, builds the
-# system and runs `nixos-install --no-bootloader` from it. WORK stays usable
-# afterwards: on the booted NixOS, `nixos-rebuild switch --flake WORK#NAME`
-# (copy WORK over first) -- the newest generation is what the initramfs boots.
+# (configuration.nix next to this file) with a generated local.nix and the user's
+# own configuration.nix, builds the system and runs `nixos-install --no-bootloader`
+# from it. The same flake goes into the image as /etc/nixos (with a copy of this
+# repository as its input): on the booted NixOS, edit /etc/nixos/configuration.nix
+# and `nixos-rebuild switch --flake /etc/nixos#NAME` -- the newest generation is
+# what the initramfs boots.
 #
 # Environment (all optional):
 #   ROOT_PARTLABEL=tb323fu-nixos    GPT name of the target partition (fstab)
@@ -152,10 +154,13 @@ $keys
   services.tb323fu.androidBootSha256 = $androidsha;
 }
 EOF
-cat > "$WORK/flake.nix" <<EOF
+# the flake that builds this system; the copy in the image (/etc/nixos) gets its own input url
+write_flake() { # URL DIR
+	cat > "$2/flake.nix" <<EOF2
 # Written by tb323fu-linux rootfs/nixos/build-rootfs.sh -- device-local, not for git.
+# configuration.nix is yours; local.nix and the tb323fu-linux module are the tablet's part.
 {
-  inputs.tb323fu-linux.url = $(nixstr "$REPO_URL");
+  inputs.tb323fu-linux.url = $(nixstr "$1");
   inputs.nixpkgs.follows = "tb323fu-linux/nixpkgs";
   outputs = { self, nixpkgs, tb323fu-linux }: {
     nixosConfigurations.$(nixstr "$HOSTNAME_NEW") = nixpkgs.lib.nixosSystem {
@@ -163,11 +168,23 @@ cat > "$WORK/flake.nix" <<EOF
         { nixpkgs.hostPlatform = "aarch64-linux"; }
         tb323fu-linux.nixosModules.rootfs
         ./local.nix
+        ./configuration.nix
       ];
     };
   };
 }
-EOF
+EOF2
+}
+write_flake "$REPO_URL" "$WORK"
+[ -e "$WORK/configuration.nix" ] || cat > "$WORK/configuration.nix" <<EOF2
+# Your settings for this NixOS, on top of NixOS's defaults. The tablet's own part (kernel,
+# firmware, services, the desktop) comes from tb323fu-linux and local.nix. After a change:
+#   sudo nixos-rebuild switch --flake /etc/nixos#$HOSTNAME_NEW
+{ pkgs, ... }: {
+  # environment.systemPackages = with pkgs; [ firefox git ];
+  # services.openssh.enable = true;
+}
+EOF2
 chmod 700 "$WORK"
 # pick up the current state of this repository
 $NIX flake update --flake "path:$WORK"
@@ -192,6 +209,18 @@ say "first activation"
 PATH=$tools$PATH nixos-enter --root "$T" -c true
 # activation in the chroot wrote to the target's /run, a tmpfs once booted
 find "$T/run" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
+
+# 2b. the same flake in the image, to change and rebuild on the tablet itself: /etc/nixos with a
+#     copy of this repository as its tb323fu-linux input
+say "the configuration in /etc/nixos"
+src=$($NIX eval --raw --impure --expr "(builtins.getFlake \"path:$WORK\").inputs.tb323fu-linux.outPath")
+E=$T/etc/nixos
+mkdir -p "$E"
+rm -rf "$E/tb323fu-linux"; cp -r "$src" "$E/tb323fu-linux"; chmod -R u+w "$E/tb323fu-linux"
+for f in local.nix kernel firmware sensors; do [ -e "$WORK/$f" ] && rm -rf "$E/$f" && cp -r "$WORK/$f" "$E/"; done
+[ -e "$E/configuration.nix" ] || cp "$WORK/configuration.nix" "$E/"
+write_flake "path:./tb323fu-linux" "$E"
+$NIX flake lock "path:$E"
 
 # 3. mutable state: this device's settings, Wi-Fi connections
 mkdir -p "$T/etc/tb323fu"

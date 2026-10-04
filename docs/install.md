@@ -40,7 +40,8 @@ builder takes care of.
 |---|---|---|
 | **Start here** | Ubuntu 26.04 with GNOME | the guided script, as above — followed end to end |
 | | Arch Linux ARM with GNOME | the same script with `DISTRO=arch` — followed end to end once; no rotation sensor |
-| | NixOS, SteamOS (community port) | the same script with `DISTRO=nixos` or `DISTRO=steamos` — experimental: the images build on a PC, booting them from this path is not checked yet |
+| | NixOS with GNOME | the same script with `DISTRO=nixos` — followed end to end once; its configuration is editable on the tablet ([how](distros.md#nixos-your-own-configuration)) |
+| | SteamOS (community port) | the same script with `DISTRO=steamos` — experimental: Gaming Mode works on kernel t39 or later, Switch to Desktop does not yet |
 | | Fedora (with FEX for x86 games) | built on the tablet itself, from a first Linux root: [Distributions → Installing each one](distros.md#installing-each-one) |
 | | anything else (Armada, postmarketOS, Debian, your own) | not tried yet; what a root needs and how to plug your own builder into the script: [Distributions → Your own distribution](distros.md#your-own-distribution) |
 

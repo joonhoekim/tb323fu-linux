@@ -36,7 +36,7 @@ top of the file.
 | Ubuntu 26.04 | `tools/install/install.sh` (default), or `rootfs/ubuntu/build-rootfs.sh` | any Linux; x86-64 through qemu (WSL2 works) | the `.deb` files of a `helper-v*` release (`DEBS_FROM=`) |
 | Arch Linux ARM | `DISTRO=arch tools/install/install.sh`, or `rootfs/arch/build-rootfs.sh` | any Linux; x86-64 through qemu | the release's `.deb` files, unpacked (`DEBS_FROM=`), or your own packages from `packaging/arch/PKGBUILD` (`PKGS_FROM=`) |
 | Fedora 44 | `rootfs/fedora/build-rootfs.sh` | arm64 (not tried through qemu; it builds the helper with cargo inside the root, which would take hours there) | built from this repository inside the root (needs network) |
-| NixOS | `DISTRO=nixos tools/install/install.sh` (experimental), or `rootfs/nixos/build-rootfs.sh` (a flake: `flake.nix`, `packaging/nix/`) | any Linux with Nix; x86-64 through qemu (`extra-platforms = aarch64-linux`), where the helper is compiled slowly | Nix packages from this repository (`services.tb323fu`) |
+| NixOS | `DISTRO=nixos tools/install/install.sh`, or `rootfs/nixos/build-rootfs.sh` (a flake: `flake.nix`, `packaging/nix/`) | any Linux with Nix; x86-64 through qemu (`extra-platforms = aarch64-linux`), where the helper is compiled slowly | Nix packages from this repository (`services.tb323fu`) |
 | SteamOS (community port) | `DISTRO=steamos tools/install/install.sh` (experimental), or `rootfs/steamos/build-rootfs.sh` | any Linux; off arm64 it needs the kernel modules, LADSPA plugins and platform packages as arm64 files (the module fetches them: the kernel release's modules bundle, Ubuntu 24.04's `swh-plugins`, the helper release's `.deb` files) | the release's `.deb` files (`DEBS_FROM=`), or `userspace/platform/install.sh` and `HELPER_FROM=` on arm64; no settings app. Needs kernel t39 or later (tracefs): on t38 the builder leaves the SteamOS manager off, Gaming Mode works, Switch to Desktop does not |
 
 ### What the builders take care of
@@ -57,13 +57,45 @@ the build. Besides the list in [What every root needs](#what-every-root-needs):
   sound card); iSCSI and plymouth masked (22.9 s → 7.5 s to the desktop); SELinux permissive (not in this kernel);
   `hexagonrpcd` and an `iio-sensor-proxy` with the SSC backend from another root (`*_FROM=`); FEX set up to read its
   x86-64 root through erofsfuse (no EROFS in the kernel).
-- **NixOS:** no initrd and no bootloader (our initramfs starts stage 2); a kernel stub so the boot image's modules
+- **NixOS:** no initrd and no bootloader (our initramfs starts stage 2); the flake copied to `/etc/nixos` with a
+  `configuration.nix` of your own; a kernel stub so the boot image's modules
   are used; no getty on tty1 next to GDM's automatic login; firmware uncompressed (the DSP loader asks for the file
   by name).
 - **SteamOS:** only its root and home partitions are used; its kernel modules, A/B and offload mounts,
   `systemd-repart` and device services for other handhelds masked; module lists trimmed to this kernel; the LADSPA
   plugins PipeWire needs copied in; Gaming Mode's rotation matched with a touch calibration; a power-button service
   that does not wait for SteamVR.
+
+### NixOS: your own configuration
+
+The NixOS root carries the flake it was built from in `/etc/nixos`. Only `configuration.nix` there is yours; it
+starts with NixOS's defaults (a few examples, commented out). `local.nix` (this tablet's partition, user, Android
+hash) and `tb323fu-linux/` (a copy of this repository: kernel stub, firmware, services, the desktop) are the
+tablet's part. After a change, on the tablet:
+
+```sh
+sudo nixos-rebuild switch --flake /etc/nixos#tb323fu-nixos
+```
+
+The first rebuild downloads nixpkgs (needs the network). The rebuilt system is what the next start boots.
+
+**Your own copy, e.g. `~/nixos-config`** (checked on the tablet: a package added, rebuilt in 57 s, still there after a
+restart):
+
+```sh
+sudo cp -r /etc/nixos ~/nixos-config && sudo chown -R $USER: ~/nixos-config   # some firmware files are root-only
+nano ~/nixos-config/configuration.nix
+sudo nixos-rebuild switch --flake ~/nixos-config#tb323fu-nixos
+```
+
+- **Under git:** a flake in a git repository sees only the files git tracks — `git add` the whole directory before
+  rebuilding, or Nix reports `local.nix` or the firmware as missing. Alternatively build with
+  `--flake path:$HOME/nixos-config#tb323fu-nixos`, which reads the directory as it is.
+- **Do not publish `firmware/`**: it holds Lenovo's and Qualcomm's files from your tablet. Keep such a repository
+  private, or keep `firmware/` out of it (in `.gitignore`) and build with the `path:` form above.
+- **A newer version of this repository:** replace `tb323fu-linux/` with a newer copy, or point
+  `inputs.tb323fu-linux.url` in `flake.nix` at `github:joonhoekim/tb323fu-linux`, then `nix flake update` in the
+  directory and rebuild.
 
 ### Known problems
 
