@@ -111,7 +111,7 @@ in {
 
     # --- system
     networking.hostName = lib.mkDefault cfg.partlabel;
-    time.timeZone = "Asia/Seoul";
+    time.timeZone = lib.mkDefault "UTC";
     i18n.defaultLocale = "en_US.UTF-8";
     nix.settings.experimental-features = [ "nix-command" "flakes" ];
     networking.networkmanager.enable = true;   # Wi-Fi (wpa_supplicant backend)

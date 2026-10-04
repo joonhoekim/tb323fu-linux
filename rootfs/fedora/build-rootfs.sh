@@ -231,6 +231,8 @@ for d in qcom ath12k qca novatek; do   # novatek: the touch controller firmware
 	mkdir -p "$T/usr/lib/firmware/$d"; cp -a "$FIRMWARE_FROM/$d/." "$T/usr/lib/firmware/$d/"
 done
 [ -e "$FIRMWARE_FROM/aw882xx_acf.bin" ] && cp -a "$FIRMWARE_FROM/aw882xx_acf.bin" "$T/usr/lib/firmware/"
+tplg=qcom/kaanapali/LENOVO-TB323FU-tplg.bin
+[ -e "$T/usr/lib/firmware/$tplg" ] || install -Dm644 "$here/firmware/audio/${tplg##*/}" "$T/usr/lib/firmware/$tplg"
 for f in regulatory.db regulatory.db.p7s; do   # wireless-regdb normally provides these
 	[ -e "$T/usr/lib/firmware/$f" ] || { [ -e "$FIRMWARE_FROM/$f" ] && cp -L "$FIRMWARE_FROM/$f" "$T/usr/lib/firmware/$f"; }
 done
@@ -276,7 +278,7 @@ done
 chown -R 0:0 "$T/usr/lib/firmware" "$T/etc/tb323fu"   # copies from a user's PC keep its uid
 ch env OPTIONAL="$iio_opt" CC=gcc sh $S/userspace/platform/install.sh >/dev/null
 ch systemctl enable tb323fu-gen-ids.service tb323fu-btaddr.service tb323fu-dsp.service \
-	tb323fu-audio.service tb323fu-usb-port.service tb323fu-emergency-key.service >/dev/null 2>&1
+	tb323fu-audio.service tb323fu-usb-port.service tb323fu-emergency-key.service tb323fu-kernel-confirm.service >/dev/null 2>&1
 ch systemctl --global enable tb323fu-speaker-gain.service >/dev/null 2>&1
 # the proxy is started at boot and retried (the SSC sensors appear late), see the drop-in
 [ -n "$iio_opt" ] && ch systemctl add-wants multi-user.target iio-sensor-proxy.service >/dev/null 2>&1

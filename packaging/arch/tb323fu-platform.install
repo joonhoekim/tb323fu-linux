@@ -1,9 +1,8 @@
 # SPDX-License-Identifier: MIT
 post_install() {
 	udevadm control --reload 2>/dev/null
-	echo ">> enable the platform services:"
-	echo "   systemctl enable tb323fu-gen-ids tb323fu-btaddr tb323fu-dsp tb323fu-audio tb323fu-usb-port tb323fu-emergency-key tb323fu-kernel-confirm"
-	echo "   systemctl --global enable tb323fu-speaker-gain"
+	systemctl enable tb323fu-gen-ids tb323fu-btaddr tb323fu-dsp tb323fu-audio tb323fu-usb-port tb323fu-emergency-key tb323fu-kernel-confirm 2>/dev/null
+	systemctl --global enable tb323fu-speaker-gain 2>/dev/null
 	echo ">> put the Android boot image hash into /etc/tb323fu/android-boot.sha256 to arm the emergency key"
 }
 post_upgrade() {

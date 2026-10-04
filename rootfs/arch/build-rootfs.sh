@@ -1,8 +1,9 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
 # build-rootfs.sh -- an Arch Linux ARM (aarch64) root filesystem for the
-# TB323FU, built natively on an arm64 host (for example the tablet itself
-# running Linux) into a mounted, empty ext4 partition.
+# TB323FU, built on an arm64 host (for example the tablet itself
+# running Linux) or through qemu-user on another PC, into a mounted, empty ext4
+# partition or image.
 #
 #   sh build-rootfs.sh TARGET_DIR
 #
@@ -19,6 +20,9 @@
 #   FIRMWARE_FROM=/lib/firmware     copy qcom/ ath12k/ qca/ novatek/ aw882xx_acf.bin from here
 #   PKGS_FROM=DIR                   install the tb323fu-*.pkg.tar.* packages found here
 #                                   (build them with packaging/arch/PKGBUILD)
+#   DEBS_FROM=DIR                   or: unpack the tb323fu-*.deb files of a helper-v* release found
+#                                   here (the files are the same on every distribution)
+#   TIMEZONE=                       e.g. Europe/Berlin; default: the build host's, else UTC
 #   CONFIG_FROM=/etc/tb323fu        copy bt-address, android-boot.sha256, audio.conf,
 #                                   emergency-key.conf when present (device-specific,
 #                                   never put them in git)
@@ -48,6 +52,8 @@ TARBALL_URL=${TARBALL_URL:-http://os.archlinuxarm.org/os/ArchLinuxARM-aarch64-la
 MODULES_FROM=${MODULES_FROM:-}
 FIRMWARE_FROM=${FIRMWARE_FROM:-/lib/firmware}
 PKGS_FROM=${PKGS_FROM:-}
+DEBS_FROM=${DEBS_FROM:-}
+TIMEZONE=${TIMEZONE:-$(readlink /etc/localtime 2>/dev/null | sed -n "s|.*/zoneinfo/||p")}
 CONFIG_FROM=${CONFIG_FROM:-/etc/tb323fu}
 DEV_ACCESS=${DEV_ACCESS:-0}
 DEV_SSH_KEYS=${DEV_SSH_KEYS:-}
@@ -59,6 +65,12 @@ ALARM_KEY=68B3537F39A313B3E574D06777193F152BDBE6A6
 here=$(cd "$(dirname "$0")/../.." && pwd)
 
 mountpoint -q "$T" || { echo "$T is not a mount point"; exit 1; }
+case $(uname -m) in
+aarch64) ;;
+*) b=/proc/sys/fs/binfmt_misc/qemu-aarch64
+	{ grep -qx enabled $b && grep -q '^flags:.*F' $b; } 2>/dev/null ||
+		{ echo "run this on an arm64 host, or install qemu-user-binfmt (arm64 programs through qemu)"; exit 1; } ;;
+esac
 
 # run a shell command inside the target (arch-chroot equivalent)
 ch() {
@@ -66,8 +78,10 @@ ch() {
 		mountpoint -q "$T/$m" && continue
 		case $m in
 		proc) mount -t proc proc "$T/proc" ;;
-		sys) mount --rbind /sys "$T/sys" ;;
-		dev) mount --rbind /dev "$T/dev" ;;
+		# rslave: on hosts with shared mounts (systemd, WSL) the umount -R in cleanup
+		# would otherwise also unmount the host's /dev/pts and /sys submounts
+		sys) mount --rbind /sys "$T/sys" && mount --make-rslave "$T/sys" ;;
+		dev) mount --rbind /dev "$T/dev" && mount --make-rslave "$T/dev" ;;
 		run) mount -t tmpfs tmpfs "$T/run" ;;
 		esac
 	done
@@ -125,6 +139,8 @@ fi
 fw=$(cd "$FIRMWARE_FROM" && ls -d ath12k qcom qca novatek aw882xx_acf.bin 2>/dev/null) || true
 [ -n "$fw" ] || { echo "no device firmware (qcom/, ath12k/, ...) in $FIRMWARE_FROM: see docs/install-manual.md step 1" >&2; exit 1; }
 ( cd "$FIRMWARE_FROM" && tar cf - $fw ) | tar xpf - -C "$T/usr/lib/firmware"
+tplg=qcom/kaanapali/LENOVO-TB323FU-tplg.bin
+[ -e "$T/usr/lib/firmware/$tplg" ] || install -Dm644 "$here/firmware/audio/${tplg##*/}" "$T/usr/lib/firmware/$tplg"
 
 # 4. system configuration
 echo "PARTLABEL=$ROOT_PARTLABEL / ext4 defaults,noatime 0 1" > "$T/etc/fstab"
@@ -132,6 +148,7 @@ echo "$HOSTNAME_NEW" > "$T/etc/hostname"
 printf '127.0.0.1 localhost\n::1 localhost\n127.0.1.1 %s\n' "$HOSTNAME_NEW" > "$T/etc/hosts"
 sed -i 's/^#en_US.UTF-8/en_US.UTF-8/' "$T/etc/locale.gen"
 ch "locale-gen >/dev/null"; echo LANG=en_US.UTF-8 > "$T/etc/locale.conf"
+[ -e "$T/usr/share/zoneinfo/${TIMEZONE:-UTC}" ] && ln -sf "/usr/share/zoneinfo/${TIMEZONE:-UTC}" "$T/etc/localtime"
 mkdir -p "$T/etc/tb323fu"
 for f in bt-address android-boot.sha256 audio.conf emergency-key.conf; do
 	[ -e "$CONFIG_FROM/$f" ] && cp -a "$CONFIG_FROM/$f" "$T/etc/tb323fu/"
@@ -155,11 +172,9 @@ fi
 # 6. desktop
 if [ "$DESKTOP" = gnome ]; then
 	ch "systemctl enable gdm >/dev/null"
-	if [ -n "$DEV_USER" ]; then
-		printf '[daemon]\nAutomaticLoginEnable=True\nAutomaticLogin=%s\n' "$DEV_USER" > "$T/etc/gdm/custom.conf"
-		# automatic login never tells plymouth to quit (see userspace/desktop/gnome)
-		install -Dm755 "$here/userspace/desktop/gnome/gdm/PostLogin-Default" "$T/etc/gdm/PostLogin/Default"
-	fi
+	[ -n "$DEV_USER" ] && printf '[daemon]\nAutomaticLoginEnable=True\nAutomaticLogin=%s\n' "$DEV_USER" > "$T/etc/gdm/custom.conf"
+	# automatic login never tells plymouth to quit (see userspace/desktop/gnome)
+	install -Dm755 "$here/userspace/desktop/gnome/gdm/PostLogin-Default" "$T/etc/gdm/PostLogin/Default"
 fi
 ch "systemctl enable NetworkManager bluetooth sshd >/dev/null"
 
@@ -203,11 +218,25 @@ if [ -n "$HEXAGONRPCD_FROM" ]; then
 	ch "systemd-sysusers >/dev/null && systemctl enable hexagonrpcd >/dev/null 2>&1 || true"
 fi
 
-# 8. platform files + helper (packages built from packaging/arch/PKGBUILD)
+# 8. platform files + helper: packages built from packaging/arch/PKGBUILD, or the release's .deb files
 if [ -n "$PKGS_FROM" ]; then
 	mkdir -p "$T/var/cache/tb323fu-pkgs"
 	cp "$PKGS_FROM"/tb323fu-*.pkg.tar.* "$T/var/cache/tb323fu-pkgs/"
 	ch "pacman -U --noconfirm --needed /var/cache/tb323fu-pkgs/*.pkg.tar.*"
+elif [ -n "$DEBS_FROM" ]; then
+	for d in "$DEBS_FROM"/tb323fu-*.deb; do
+		case ${d##*/} in tb323fu-helper-gnome_*|tb323fu-settings_*) [ "$DESKTOP" = gnome ] || continue ;; esac
+		x=$(mktemp -d)
+		bsdtar -xOf "$d" 'data.tar*' | bsdtar -xpf - -C "$x"
+		[ -d "$x/usr" ] && bsdtar -cf - -C "$x" usr | bsdtar -xpf - -C "$T"
+		# the device settings copied above win over the packages' defaults in /etc
+		[ -d "$x/etc" ] && bsdtar -cf - -C "$x" etc | bsdtar -xpkf - -C "$T"
+		rm -rf "$x"
+	done
+fi
+if [ -n "$PKGS_FROM$DEBS_FROM" ]; then
+	ch "systemctl enable tb323fu-gen-ids tb323fu-btaddr tb323fu-dsp tb323fu-audio tb323fu-usb-port tb323fu-emergency-key tb323fu-kernel-confirm tb323fu-helperd >/dev/null"
+	ch "systemctl --global enable tb323fu-speaker-gain >/dev/null"
 fi
 sync
 echo "done: $T ($(du -sh "$T" 2>/dev/null | cut -f1))"

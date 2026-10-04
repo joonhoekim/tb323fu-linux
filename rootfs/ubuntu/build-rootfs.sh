@@ -129,6 +129,8 @@ for d in qcom ath12k qca novatek; do   # novatek: the touch controller firmware
 	mkdir -p "$T/lib/firmware/$d"; cp -a "$FIRMWARE_FROM/$d/." "$T/lib/firmware/$d/"
 done
 [ -e "$FIRMWARE_FROM/aw882xx_acf.bin" ] && cp -a "$FIRMWARE_FROM/aw882xx_acf.bin" "$T/lib/firmware/"
+tplg=qcom/kaanapali/LENOVO-TB323FU-tplg.bin
+[ -e "$T/usr/lib/firmware/$tplg" ] || install -Dm644 "$(dirname "$0")/../../firmware/audio/${tplg##*/}" "$T/usr/lib/firmware/$tplg"
 
 # 5. this device's settings (never from git) and our packages
 mkdir -p "$T/etc/tb323fu"

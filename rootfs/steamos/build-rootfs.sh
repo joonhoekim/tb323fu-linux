@@ -83,14 +83,9 @@ here=$(cd "$(dirname "$0")/../.." && pwd)
 say() { printf '== %s\n' "$*"; }
 
 mountpoint -q "$T" || { echo "$T is not a mount point"; exit 1; }
-# arm64, or another architecture running arm64 programs through qemu-user
-# (binfmt with the F flag, e.g. Debian/Ubuntu's qemu-user-binfmt; WSL2 works)
-case $(uname -m) in
-aarch64) ;;
-*) b=/proc/sys/fs/binfmt_misc/qemu-aarch64
-	{ grep -qx enabled $b && grep -q '^flags:.*F' $b; } 2>/dev/null ||
-		{ echo "run this on an arm64 host, or install qemu-user-binfmt (arm64 programs through qemu)"; exit 1; } ;;
-esac
+# arm64 only: keyhold is compiled with the host's cc, and LADSPA_FROM and MODULES_FROM
+# default to the host's files
+[ "$(uname -m)" = aarch64 ] || { echo "run this on an arm64 host (for example the tablet running Linux)"; exit 1; }
 
 # 1. the release image: SHA256SUMS pinned, parts checked, unpacked once
 mkdir -p "$WORK_DIR"; W=$WORK_DIR
@@ -166,6 +161,8 @@ for d in qcom ath12k qca novatek; do   # novatek: the touch controller firmware
 	mkdir -p "$T/usr/lib/firmware/$d"; cp -a "$FIRMWARE_FROM/$d/." "$T/usr/lib/firmware/$d/"
 done
 [ -e "$FIRMWARE_FROM/aw882xx_acf.bin" ] && cp -a "$FIRMWARE_FROM/aw882xx_acf.bin" "$T/usr/lib/firmware/"
+tplg=qcom/kaanapali/LENOVO-TB323FU-tplg.bin
+[ -e "$T/usr/lib/firmware/$tplg" ] || install -Dm644 "$here/firmware/audio/${tplg##*/}" "$T/usr/lib/firmware/$tplg"
 for f in regulatory.db regulatory.db.p7s; do
 	[ -e "$T/usr/lib/firmware/$f" ] || { [ -e "$FIRMWARE_FROM/$f" ] && cp -L "$FIRMWARE_FROM/$f" "$T/usr/lib/firmware/$f"; }
 done
@@ -238,7 +235,7 @@ done
 chown -R 0:0 "$T/usr/lib/firmware" "$T/etc/tb323fu"   # copies from a user's PC keep its uid
 CC=${CC:-cc} DESTDIR=$T sh "$here/userspace/platform/install.sh" >/dev/null
 sc enable tb323fu-gen-ids.service tb323fu-btaddr.service tb323fu-dsp.service \
-	tb323fu-audio.service tb323fu-usb-port.service tb323fu-emergency-key.service
+	tb323fu-audio.service tb323fu-usb-port.service tb323fu-emergency-key.service tb323fu-kernel-confirm.service
 sc --global enable tb323fu-speaker-gain.service
 if [ -n "$HELPER_FROM" ] && [ -x "$HELPER_FROM/target/release/tb323fu-helperd" ]; then
 	say "helper from $HELPER_FROM"

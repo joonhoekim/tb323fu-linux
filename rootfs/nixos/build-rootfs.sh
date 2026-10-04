@@ -45,6 +45,7 @@
 #   BALDUR_DEV_PASSWORD=            dev-only password for root and the user (its hash ends
 #                                   up in the store); without it root is locked and the
 #                                   user has no password
+#   TIMEZONE=                       e.g. Europe/Berlin; default: the build host's, else UTC
 #   DEV_USER=                       create this user (wheel); with DESKTOP=gnome it is
 #                                   also logged in automatically
 # Needs: nix (flakes are enabled per command), openssl, gzip. The first build
@@ -68,6 +69,7 @@ DEV_ACCESS=${DEV_ACCESS:-0}
 DEV_SSH_KEYS=${DEV_SSH_KEYS:-}
 BALDUR_DEV_PASSWORD=${BALDUR_DEV_PASSWORD:-}
 DEV_USER=${DEV_USER:-}
+TIMEZONE=${TIMEZONE:-$(readlink /etc/localtime 2>/dev/null | sed -n "s|.*/zoneinfo/||p")}
 if [ -z "${REPO_URL:-}" ]; then
 	if [ -d "$REPO/.git" ]; then REPO_URL=git+file://$REPO; else REPO_URL=path:$REPO; fi
 fi
@@ -110,6 +112,8 @@ for d in qcom ath12k qca novatek; do   # novatek: the touch controller firmware
 	mkdir -p "$WORK/firmware"; cp -a "$FIRMWARE_FROM/$d" "$WORK/firmware/"; fw=./firmware
 done
 [ -e "$FIRMWARE_FROM/aw882xx_acf.bin" ] && { mkdir -p "$WORK/firmware"; cp -a "$FIRMWARE_FROM/aw882xx_acf.bin" "$WORK/firmware/"; fw=./firmware; }
+tplg=qcom/kaanapali/LENOVO-TB323FU-tplg.bin
+[ "$fw" = null ] || [ -e "$WORK/firmware/$tplg" ] || install -Dm644 "$here/firmware/audio/${tplg##*/}" "$WORK/firmware/$tplg"
 sensors=null
 rm -rf "$WORK/sensors"
 if [ -n "$SENSORS_FROM" ] && [ -d "$SENSORS_FROM" ]; then
@@ -143,6 +147,7 @@ $keys
     ];
   };
   networking.hostName = $(nixstr "$HOSTNAME_NEW");
+  time.timeZone = $(nixstr "${TIMEZONE:-UTC}");
   services.tb323fu.sensors.dataDir = $sensors;
   services.tb323fu.androidBootSha256 = $androidsha;
 }
@@ -193,6 +198,7 @@ mkdir -p "$T/etc/tb323fu"
 for f in bt-address audio.conf emergency-key.conf; do
 	[ -e "$CONFIG_FROM/$f" ] && [ ! -e "$T/etc/tb323fu/$f" ] && cp -a "$CONFIG_FROM/$f" "$T/etc/tb323fu/$f"
 done
+chown -R 0:0 "$T/etc/tb323fu"   # copies from a user's PC keep its uid
 if [ -n "$NM_CONNECTIONS_FROM" ]; then
 	d=$T/etc/NetworkManager/system-connections
 	mkdir -p "$d"; chmod 700 "$d"
