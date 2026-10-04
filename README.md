@@ -4,7 +4,8 @@ Mainline Linux on the **Lenovo Legion Tab Gen 5 / Legion Y700 5th Gen** (model *
 The same model number is used in China and elsewhere; the firmware region (PRC / ROW) differs, not the hardware.
 
 > **Status: work in progress — not ready for everyday use.** The [install guide](docs/install.md) was followed end to end
-> on the development tablet from Windows, macOS and Linux; the kernel and helper releases are on GitHub Releases.
+> on the development tablet from Windows, macOS and Linux ([what the status labels
+> mean](docs/hardware-status.md#labels-on-other-pages)); the kernel and helper releases are on GitHub Releases.
 > Everything here is published so the kernel work can be reviewed and reused.
 
 ## What this is

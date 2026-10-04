@@ -24,6 +24,23 @@ Status: ✅ works · 🟡 partial or conditional · ❌ does not work · ❓ not
 A feature that needs a human to judge (display, sound, LEDs, vibration) is never marked ✅ without an observation.
 Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
 
+### Labels on other pages
+
+Other pages say in their own words how far something was tried. This is how those words relate to the evidence
+levels above:
+
+| Page | Label | Means | Closest level here |
+|---|---|---|---|
+| [install.md](install.md) and the pages for each PC | **followed end to end** | a person ran the guide as written against a rooted tablet; how far (up to the first start, or further) and how often is said next to it | measured / observed |
+| [install-manual.md](install-manual.md), [custom-kernel.md](custom-kernel.md) | **[verified]** | done on the development tablet with the command or tool shown | measured / observed |
+| | **[from records]** | done on the development tablet, but the commands are reconstructed from notes and were not re-run in this form | user-reported |
+| | **[untested]** | not done on any tablet; follows from how the tools work | untested |
+| [distros.md](distros.md) | **checked on the device** | seen on the device with that system, not "should work" | observed |
+| [distribution modules](../tools/install/distros/README.md) | **verified** | the guided install with that module was followed end to end on a tablet | measured / observed |
+| | **experimental** | tried on a tablet, with known gaps listed next to it; the installer warns before using it | 🟡 |
+| | **custom** | your own module; nothing is known about it | untested |
+| this page | ✅ 🟡 ❌ ❓ | the status of a feature; every row also carries one of the evidence levels above | — |
+
 <details>
 <summary>How a check is done</summary>
 

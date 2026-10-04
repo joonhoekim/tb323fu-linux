@@ -20,7 +20,7 @@ holding **volume up + volume down for 10 s** in Linux puts it back and starts An
 Step 2 is one script, [`tools/install/install.sh`](../tools/install/README.md). It needs a Linux system on the PC
 that can run arm64 programs (to build the tablet's root filesystem) and `adb` to reach the tablet.
 
-| PC | How the script runs | Status |
+| PC | How the script runs | Status ([labels](hardware-status.md#labels-on-other-pages)) |
 |---|---|---|
 | **Windows 10/11** | in Ubuntu under WSL2, with the Windows `adb.exe` | **followed end to end** on a tablet (2026-10-04) → [Installing from Windows](install-windows.md) |
 | **Linux** | directly, with the system's `adb`; on NixOS in an Ubuntu container | **followed end to end** once from NixOS through the container, up to the first start (2026-10-04); a plain Debian/Ubuntu PC not tried → [Installing from Linux](install-linux.md) |

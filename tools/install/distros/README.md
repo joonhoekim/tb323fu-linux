@@ -18,6 +18,9 @@ DISTRO=~/my-distro.sh tools/install/install.sh  # your own module, by path
 | [`steamos.sh`](steamos.sh) | SteamOS, community port (Gaming Mode, KDE) | experimental: Gaming Mode, touch, sound and both ways checked on kernel t39 (needs tracefs: t39 or later); Switch to Desktop does not work yet |
 | [`armada.sh`](armada.sh) | Armada (Fedora bootc; Gaming Mode, KDE) | experimental: its OSTree deployment copied into a plain root; an image from this builder booted on the tablet with no changes by hand: Gaming Mode, touch, USB networking, Steam's first start, the x86 runtime on kernel t40 |
 
+What the status words mean next to those of other pages:
+[hardware-status.md → Labels on other pages](../../../docs/hardware-status.md#labels-on-other-pages).
+
 Changing `DISTRO` after a `rootfs` step builds the root again from scratch (the image holds one system). The
 other steps are not repeated.
 

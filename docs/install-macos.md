@@ -1,6 +1,6 @@
 # Installing from macOS
 
-> **Followed end to end once, up to the first start.** On 2026-10-04, from an Apple-silicon Mac (macOS 26.6) with
+> **Followed end to end once, up to the first start** ([labels](hardware-status.md#labels-on-other-pages)). On 2026-10-04, from an Apple-silicon Mac (macOS 26.6) with
 > Lima and Ubuntu 26.04 arm64, every step of the install script ran against a rooted tablet (Ubuntu with GNOME built
 > in 7 min, the card written in about 4 min), and the tablet then started from the card into the GNOME desktop
 > (seen by a person). Sound, Wi-Fi and the way back to Android were not checked again from the Mac; they are the same

@@ -23,6 +23,8 @@ Every step carries one of these labels:
 | **[from records]** | done on the development tablet, but the exact commands here are reconstructed from notes and were not re-run in this form |
 | **[untested]** | not done on any tablet; follows from how the tools work |
 
+How these compare with the labels on other pages: [hardware-status.md → Labels on other pages](hardware-status.md#labels-on-other-pages).
+
 The guided script [`tools/install/install.sh`](../tools/install/README.md) does steps 1–7 for the most common case
 (a distribution on the microSD card, partitioned from Android). It was followed end to end from Windows (WSL2), macOS and
 Linux on 2026-10-04 ([Installing Linux](install.md)).

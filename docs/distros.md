@@ -5,7 +5,8 @@ been tried. Any arm64 Linux distribution can run on the tablet if its root files
 [every root needs](#what-every-root-needs); the systems below are the ones that have been built with the scripts in
 [`rootfs/`](../rootfs/) and booted on a TB323FU, each from its own partition through the initramfs's root selection
 ([kernel/initramfs/README.md](../kernel/initramfs/README.md#root-partitions-and-multiboot), `tb323fu-ctl boot …`,
-[helper.md](helper.md#multiboot)). "Checked" means seen on the device, not "should work". Several can live side by
+[helper.md](helper.md#multiboot)). "Checked" means seen on the device, not "should work"
+([labels](hardware-status.md#labels-on-other-pages)). Several can live side by
 side on the card.
 
 | System | Partition (example) | Builder | Boot to desktop¹ | Checked on the device |
