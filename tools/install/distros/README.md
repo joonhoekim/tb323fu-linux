@@ -16,7 +16,7 @@ DISTRO=~/my-distro.sh tools/install/install.sh  # your own module, by path
 | [`arch.sh`](arch.sh) | Arch Linux ARM, GNOME | verified: followed end to end once (no sensors: `hexagonrpcd` is not packaged for Arch) |
 | [`nixos.sh`](nixos.sh) | NixOS (unstable), GNOME | verified once: built in WSL2 with Nix (the first build compiles the helper through qemu, about 45 min), then boot, sound, Wi-Fi password prompt, the way to Android, and a rebuild from `/etc/nixos` on the tablet |
 | [`steamos.sh`](steamos.sh) | SteamOS, community port (Gaming Mode, KDE) | experimental: Gaming Mode, touch, sound and both ways checked on kernel t39 (needs tracefs: t39 or later); Switch to Desktop does not work yet |
-| [`armada.sh`](armada.sh) | Armada (Fedora bootc; Gaming Mode, KDE) | experimental: its OSTree deployment copied into a plain root; booted on the tablet: Gaming Mode, touch, Steam's first start; x86 games need kernel t40 or later (zstd squashfs) |
+| [`armada.sh`](armada.sh) | Armada (Fedora bootc; Gaming Mode, KDE) | experimental: its OSTree deployment copied into a plain root; an image from this builder booted on the tablet with no changes by hand: Gaming Mode, touch, USB networking, Steam's first start, the x86 runtime on kernel t40 |
 
 Changing `DISTRO` after a `rootfs` step builds the root again from scratch (the image holds one system). The
 other steps are not repeated.
