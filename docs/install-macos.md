@@ -82,7 +82,7 @@ tries to restart the server and fails.
 
 The steps, what they ask and how long they take are in
 [Installing from Windows, step 5](install-windows.md#5-what-the-script-asks); the first start and the way back in
-[step 6](install-windows.md#6-first-start-and-the-way-back). Differences on a Mac:
+[After installing](after-install.md#first-start). Differences on a Mac:
 
 - The `host` step installs its packages with `apt` in the VM; there is no `adb.exe` wrapper as under WSL.
 - Keep the Mac awake and the tablet connected while the script talks to the tablet. If the Mac's adb server is

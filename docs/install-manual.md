@@ -373,7 +373,8 @@ tb323fu-ctl boot list                      # the roots the initramfs can see (wi
 Then test the way back once, while you are still at the desk: `back-to-android <hash>` or the 10-second key chord.
 Android must come up; return to Linux with the **Switch to Linux** module.
 
-If Linux does not come up: [Recovery → Linux does not boot](recovery.md#linux-does-not-boot).
+If Linux does not come up: [Recovery → Linux does not boot](recovery.md#linux-does-not-boot). Switching, updates
+and removing Linux again: [After installing](after-install.md).
 
 ## 8. Optional: a Linux root on the internal storage
 
@@ -467,13 +468,5 @@ the state root, normally `baldur-root`; volume up = next, 5 s idle = boot). See 
 
 ## Undo
 
-| To undo | How | Status |
-|---|---|---|
-| Linux in `boot_a` | `back-to-android <hash>`, the 10 s key chord, or EDL → LTBox Flash Partitions → `boot_a` ← your Android boot image ([recovery](recovery.md#linux-does-not-boot)) | [verified] |
-| a root on the card | delete the partition (`sgdisk -d`) or reformat the card in Android | [untested] |
-| the Linux root on internal storage | write the saved table back (`sgdisk -l lun0-gpt.bak $D`) and factory-reset Android again so `userdata` is formatted at full size (Android: Settings → Reset, or LTBox Flash Firmware → Wipe Data) | [untested] |
-| `boot_b` | not needed: it is never booted. A stock copy is also in your dump and in the firmware package (same version) | — |
-| the root itself | [recovery → Undoing the root](recovery.md#undoing-the-root) | [from LTBox's source] |
-
-Never restore a partition table backup taken before a firmware update over a newer layout, and never restore another
-tablet's table: the backup contains your device's unique GUIDs.
+Removing Linux and going back to the stock tablet, including a root on the internal storage, is in
+[After installing → Removing Linux](after-install.md#removing-linux).

@@ -53,7 +53,7 @@ tools/install/install.sh
 
 The steps, what they ask and how long they take are in
 [Installing from Windows, step 5](install-windows.md#5-what-the-script-asks); the first start and the way back in
-[step 6](install-windows.md#6-first-start-and-the-way-back). Differences on Linux:
+[After installing](after-install.md#first-start). Differences on Linux:
 
 - **Packages.** On Debian and Ubuntu the `host` step installs what it needs with `apt` (`debootstrap`,
   `ubuntu-keyring`, `qemu-user-binfmt`, `gdisk`, `e2fsprogs`, `pigz`, …). Elsewhere it lists them and you install

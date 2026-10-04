@@ -103,29 +103,11 @@ where it stopped. `tools/install/install.sh STEP` runs one step again.
 
 The tablet is not needed during the `rootfs` build; it can stay connected.
 
-## 6. First start and the way back
+## 6. First start
 
-The Lenovo logo, then a text summary on the panel, then Ubuntu. The first start takes a little longer (the root grows
-to fill the partition); after that the desktop is up about 12 s after the kernel starts. GNOME logs you in automatically.
-
-**Wi-Fi:** top right → Wi-Fi → pick your network → a notification asks for the password. Until then the clock is
-wrong (Android keeps the real time in a place Linux cannot read); it sets itself once the network is up. The time
-zone comes from the PC you built on. A Wi-Fi icon with a `?` means the internet check failed; it usually clears
-within a minute.
-
-In GNOME's Terminal:
-
-```sh
-uname -r                                # the release kernel
-systemctl is-system-running             # running, or degraded (see systemctl --failed)
-cat /etc/tb323fu/android-boot.sha256    # the hash the script printed in the wayback step
-```
-
-Try the way back once while you are at the desk:
-
-- **To Android:** Open Device Helper → **Android**, or the Android tile in the quick settings, or hold
-  **volume up + volume down for 10 s** (works even when the desktop hangs).
-- **To Linux:** KernelSU app → Modules → **Switch to Linux** → Action.
+The script restarts the tablet into Linux. What a good first start looks like, Wi-Fi and the clock, the checks to run
+and both ways back to Android are in **[After installing](after-install.md)**; try the way back once while you are
+at the desk.
 
 Afterwards `~/tb323fu-install/root.img` and `root.img.gz` can be deleted (keep `stock-boot.img`, `linux-boot.img` and
 `config/`). The WSL disk does not shrink by itself when files are deleted.
@@ -146,5 +128,6 @@ Afterwards `~/tb323fu-install/root.img` and `root.img.gz` can be deleted (keep `
 | **Android says the card is unsupported** | Expected after the `sdcard` step: Android cannot read the Linux partition. |
 | **Linux does not start** | Hold volume up + volume down 10 s for Android; if nothing reacts, see [Recovery](recovery.md#linux-does-not-boot). |
 
-On a Linux PC: [Installing from Linux](install-linux.md). Other distributions, your own kernel and a root on the
+Once Linux runs: [After installing](after-install.md) (switching, updates, removing Linux). On a Linux PC:
+[Installing from Linux](install-linux.md). Other distributions, your own kernel and a root on the
 internal storage are in [Installing by hand](install-manual.md).

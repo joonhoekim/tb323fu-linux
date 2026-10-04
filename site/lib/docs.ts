@@ -37,6 +37,7 @@ const DOCS_ORDER = [
   "install-linux",
   "install-macos",
   "install-manual",
+  "after-install",
   "rooting",
   "recovery",
   "helper",
