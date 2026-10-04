@@ -4,6 +4,7 @@
 //   README.md                      -> /docs/
 //   docs/<name>.md                 -> /docs/<name>/   (every file, picked up automatically)
 //   <dir>/README.md (list below)   -> /docs/repo/<dir>/
+//   <dir>/<NAME>.md (list below)   -> /docs/repo/<dir>/<name>/
 //
 // Files in HIDDEN are internal and not rendered; links to them go to GitHub.
 import fs from "node:fs";
@@ -49,9 +50,10 @@ const DOCS_ORDER = [
 /** docs/<parent>-<name>.md shown indented under docs/<parent>.md in the navigation. */
 const NAV_PARENTS = ["install", "helper"];
 
-/** Directory READMEs worth reading on the site, in navigation order. */
+/** Directory READMEs (and a few other source-tree pages) worth reading on the site, in navigation order. */
 const SOURCE_READMES = [
   "kernel/README.md",
+  "kernel/PROVENANCE.md",
   "kernel/initramfs/README.md",
   "firmware/README.md",
   "userspace/platform/README.md",
@@ -118,7 +120,9 @@ export function getDocs(): DocEntry[] {
 
   for (const file of SOURCE_READMES) {
     const dir = path.posix.dirname(file);
-    add(file, ["repo", ...dir.split("/")], "source", dir);
+    const base = path.posix.basename(file, ".md");
+    const slug = ["repo", ...dir.split("/"), ...(base === "README" ? [] : [base.toLowerCase()])];
+    add(file, slug, "source", base === "README" ? dir : file);
   }
 
   cache = out;

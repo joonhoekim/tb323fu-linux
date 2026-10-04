@@ -2,6 +2,45 @@
 
 A patch series on top of a fixed upstream base. There is no kernel fork: clone the base, apply `patches/` in order, build.
 
+## For reviewers
+
+The series by subsystem. Origin, author and status of each patch: [PROVENANCE.md](PROVENANCE.md).
+
+| Area | Patches |
+|---|---|
+| Display: DPU, DSI, MDSS | 0007, 0008, 0009 (display clocks), 0023, 0029 (MDSS SMMU), 0032, 0050, 0052, 0065, 0079, 0081-0083 (INT2 GDSC), 0097, 0105, 0110 (idle refresh rate) |
+| DSI panel and backlight | 0019 (second DSI in the SoC DT), 0020, 0066, 0109 (NT36523 CSOT panel modes), 0028 (AW99706 backlight) |
+| DisplayPort and the USB-C combo PHY | 0051, 0057, 0098, 0101, 0102; PHY 0096, 0099, 0100 |
+| USB and Type-C | 0036 (NCM gadget), 0059 (USB GDSCs), 0060 (pmic_glink altmode), 0061 (UCSI), 0062, 0104 (dwc3) |
+| Power, charging, ADC | 0033, 0107 (qcom_battmgr), 0039 (PMIC5 Gen4 ADC) |
+| Audio | 0034, 0035, 0037 (ASoC), 0075-0077 (GPR/APM); the amplifier driver is [out of tree](#out-of-tree-module) |
+| Camera | 0013-0018 (CSI2 PHY, linux-next), 0040, 0042, 0043 (CAMSS), 0041, 0045 (sensors), 0044 (CCI pull-up), 0047 (focus motor), 0063, 0064, 0074 (camera PLL), 0116 |
+| Video (iris) | 0084-0095, 0111, 0112 |
+| GPU | 0001-0006 (GPU DT, queued for v7.4), 0010 and its revert 0080 |
+| CPU idle and capacity | 0031, 0106, 0118 (PSCI domains and cluster idle), 0117 (capacity-dmips-mhz) |
+| Thermal | 0069, 0108 |
+| Clocks and power domains | 0046, 0070-0073, 0103 |
+| Wi-Fi, Bluetooth, PCIe | 0024, 0058, 0113 (ath12k), 0030 (Bluetooth), 0049, 0056 (PCIe), 0078 |
+| Remoteproc and QRTR | 0067, 0068, 0114 (QRTR name service; the modem) |
+| Input, haptics, LEDs | 0025-0027, 0053 (NT36536 touch and pen), 0038 (AW86937 haptics), 0048 (AW22127 LED ring) |
+| Storage | 0012 (UFS) |
+| Board device tree, config, boot | 0054 (board DTs), 0055 (config fragments), 0011 (defconfig fragment), 0021 (built-in DTB), 0022 (boot progress marks, debug) |
+
+The **Status** column of PROVENANCE.md says where a patch stands upstream:
+
+| Status | Means |
+|---|---|
+| upstream, upstream (linux-next), upstream (queued for v7.4) | already merged upstream or queued in a maintainer tree; carried until the base includes it |
+| pending upstream | someone else's series on the mailing list, not merged yet |
+| community, not upstream | from a community tree ([kaanapali-mainline](https://github.com/kaanapali-mainline/linux), [infiniti-mainline](https://github.com/infiniti-mainline/linux)), not posted upstream |
+| sent upstream, upstream vN | this project's patch, posted to the mailing list (date, version and review state in the column) |
+| upstream candidate | this project's patch, written to be sent but not posted yet |
+| local | this project's patch, specific to this board or not ready for upstream |
+| local workaround | avoids a problem without fixing its cause (0106, 0118) |
+| superseded | a newer upstream or linux-next change (named in the column) does the same |
+
+"0115" is missing on purpose: it is a debugging aid kept out of the series.
+
 ## Base
 
 - **Upstream:** torvalds/linux `v7.3-rc4` (`93f51579e7df248780214094418f205253383cc5`).
