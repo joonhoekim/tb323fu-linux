@@ -69,7 +69,7 @@ keep`) confirms it. A kernel that is not confirmed by its third start is replace
 restarts. A kernel that dies before the initramfs runs cannot be caught this way; then the way back is EDL
 ([recovery](recovery.md#linux-does-not-boot)). Details: [helper.md → Kernel updates](helper.md#kernel-updates).
 
-**Helper.** Releases tagged `helper-vX.Y.Z` (`helper-v0.3.0` is the current stable one) show in **About** → Helper
+**Helper.** Releases tagged `helper-vX.Y.Z` (`helper-v0.3.1` is the current stable one) show in **About** → Helper
 Updates and in `tb323fu-ctl helper`. Who installs them depends on who installed the helper
 ([helper.md → Helper updates](helper.md#helper-updates)):
 
