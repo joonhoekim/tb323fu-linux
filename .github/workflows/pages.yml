@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Build the website in site/ (Next.js static export) and deploy it to GitHub Pages.
+# Without Pages enabled (Settings -> Pages -> Source: GitHub Actions) it only builds.
 name: Deploy website
 
 on:
@@ -19,6 +20,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      pages: ${{ steps.check.outputs.enabled }}
     defaults:
       run:
         working-directory: site
@@ -32,19 +35,32 @@ jobs:
           node-version: lts/*
           cache: pnpm
           cache-dependency-path: site/pnpm-lock.yaml
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/pages" > /dev/null 2>&1; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GitHub Pages is not enabled for this repository: building only, no deploy"
+          fi
       - id: pages
+        if: steps.check.outputs.enabled == 'true'
         uses: actions/configure-pages@v5
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
         env:
           PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
           NEXT_TELEMETRY_DISABLED: "1"
-      - uses: actions/upload-pages-artifact@v4
+      - if: steps.check.outputs.enabled == 'true'
+        uses: actions/upload-pages-artifact@v4
         with:
           path: site/out
 
   deploy:
     needs: build
+    if: needs.build.outputs.pages == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

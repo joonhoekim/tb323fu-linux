@@ -49,4 +49,5 @@ Other build-time variables: `REPO_URL` (default `https://github.com/joonhoekim/t
 
 [`.github/workflows/pages.yml`](../.github/workflows/pages.yml) builds `site/` and publishes `site/out` with the official
 Pages actions (`configure-pages` supplies the base path) on every push to `main`, or by hand (Actions → "Deploy
-website" → Run workflow). It needs Settings → Pages → Source: **GitHub Actions**.
+website" → Run workflow). It needs Settings → Pages → Source: **GitHub Actions**; until Pages is enabled the
+workflow only builds the site (a check that it still builds) and skips the deploy.
