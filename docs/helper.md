@@ -354,7 +354,7 @@ considered and skipped.
 | Charge limit below 20 %, recharge threshold above the limit | deep storage charge is bad for the battery |
 | Backlight current, brightness above `max_brightness`, flash strobe (2 A) | panel/LED lifetime, heat; the torch stays at torch level |
 | 144/165 Hz panel modes, DSI timings, bandwidth votes | underrun every frame on this kernel; bandwidth votes are a TrustZone/RPMh hazard |
-| cpuidle state `disable`, CPU hotplug, cpufreq governor, `mem_sleep` deep | no gain, and they confuse the idle-crash investigation; deep sleep saves no power here |
+| cpuidle state `disable`, CPU hotplug, cpufreq governor, `mem_sleep` deep | no gain, and they would interfere with the idle-state settings of the kernel; deep sleep saves no power here |
 | `msm` and `ath12k` debug parameters | debugging only (GPU ACD off changes voltage margins) |
 | Wi-Fi transmit power, regulatory country | radio regulations; the system's regulatory database decides |
 | remoteproc restart, NPU, `/dev/mem` register writes (vendor LED-ring effects, amplifier registers) | a stopped remoteproc kills the SoC; TrustZone kills the system on secure registers; the driver state would diverge |

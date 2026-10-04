@@ -97,9 +97,9 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Battery readings | ✅ | measured | while bypass charging, `status` still reads "Charging" (display only) |
 | USB PD charging, PPS | ✅ | measured | about 40 W into the battery on PPS with a 65 W charger (about 9.25 V in). The USB-C controller reports the negotiated voltage and current as 0 |
 | Charge limit, bypass charging | ✅ | measured + observed | bypass cuts the battery current (9 A → 185 mA) and it comes back when turned off; the kernel `status` stays "Charging", so the helper derives its State from the current ("Bypass" at ≤ 300 mA; logic tested, not yet re-checked on the charger) |
-| Suspend (s2idle) and resume | 🟡 | measured | works (9 of 9 RTC cycles: Wi-Fi, sensors, sound, USB and video decode back each time); a rare crash without an error message (also seen outside suspend, when idle or under load) is still under investigation |
+| Suspend (s2idle) and resume | 🟡 | measured | works (9 of 9 RTC cycles: Wi-Fi, sensors, sound, USB and video decode back each time); suspend still uses the CPU cluster idle state that runtime idle leaves out (next rows) |
 | Deep sleep (CX / DDR power collapse) | ✅ | measured | |
-| Idle crash stopgap: no CPU cluster idle states | 🟡 | measured | **a workaround, not a fix.** Since patch 0118 the CPU cluster idle states are not used in runtime idle by default (`cpuidle_psci_domain.allow_cluster_off=0` on the built-in command line; switch at run time with `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off`, 1 = allowed). With them refused, a test kernel ran 3 h idle without a crash, against 2 crashes in 78 min with them allowed; display-off power was the same (658 / 659 / 621 mW allowed / refused / allowed). The cause (a race around cluster off/on, or firmware) is not fixed. s2idle still uses the cluster states (the system state needs them). A development kernel with 0118 runs on the test tablet since 2026-10-03 (cluster-off requests refused as expected); a long idle count with it is still to be made |
+| CPU cluster idle state in runtime idle | 🟡 | measured | left out by default since patch 0118 (`cpuidle_psci_domain.allow_cluster_off=0` on the built-in command line; switch at run time with `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off`, 1 = allowed). With it allowed the tablet reset when idle (2 resets in 78 min, no error message); refused, 3 h idle without one, at the same display-off power (658 / 659 / 621 mW allowed / refused / allowed). Why the cluster's power-down resets the SoC is not fixed; s2idle still uses the state (the system state needs it). The release kernels since t38 run with it refused |
 | Wake sources | ✅ | measured | power key, RTC; USB wake off by default |
 
 ## USB, storage, other
@@ -124,7 +124,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 
 ## Known issues
 
-- **Rare crash without an error message**, around idle states (in and outside suspend); under investigation. Outside suspend it goes away when the CPU cluster idle states are not used, so since patch 0118 they are off by default in runtime idle — a stopgap that avoids the symptom, not a fix (knob: `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off`).
+- **CPU cluster idle state left out of runtime idle** (patch 0118): with it the tablet reset when idle, without an error message. Leaving it out avoids that at the same idle power; the cause in the cluster's power-down path is not fixed, and suspend still uses the state (knob: `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off`).
 - **165 Hz / 144 Hz**: the vendor timings underrun the display controller. 164 Hz (120 Hz horizontal timing) is offered instead; 144 Hz needs a different timing.
 - **No DisplayPort MST** yet: monitors that need MST for "extend" only mirror.
 - **GNSS**: no satellites on Linux, and no GPS fix on Android either — treated as not usable on this device.
@@ -144,7 +144,7 @@ In rough order of value. Rows above marked user-reported, ❓ or 🟡, and rows 
 |---|---|---|
 | 164 Hz in long sessions, SteamOS orientation and UI size, touch on Fedora and NixOS | 10+ minutes in Gaming Mode with underrun counters; first taps on each desktop | eyes, hands |
 | Bluetooth HFP | headset call profile, microphone loopback | ears, voice |
-| Idle stability with patch 0118 | hours of idle and display-off time counted, crashes per hour compared with the 78-minute baseline | no (scripted) |
+| Long idle with patch 0118 | hours of idle and display-off time without a reset, against the 78-minute baseline with the cluster state allowed | no (scripted) |
 | AV1 in applications | newer GStreamer / FFmpeg on Arch, Fedora or NixOS, compared bit-exact with a software decoder | no (scripted) |
 | 144 Hz | another vertical-porch variant, underruns and touch | eyes, hands |
 | From the spec sheet | battery design capacity, OpenCL, heavy Vulkan, full-resolution (50 MP) rear capture, touch report rate (up to 480 Hz), HBM (800 nit) and HDR, 8K and film-grain video | mostly no; touch rate needs a finger |
