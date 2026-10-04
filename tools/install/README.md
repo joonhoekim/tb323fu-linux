@@ -25,14 +25,14 @@ tools/install/install.sh rootfs       # run one step again
 | `download` | newest `kernel-t*` and `helper-v*` releases, checked against `SHA256SUMS`; GitHub login from `GITHUB_TOKEN` or `gh auth token` (also `gh.exe`), else the public API, else files downloaded in the browser are picked up from Downloads | `curl`, GitHub API | the PC only |
 | `bootimg` | the release kernel into your stock boot image | [`tools/boot-repack-kernel.py`](../boot-repack-kernel.py) | the PC only |
 | `sdcard` | GPT built with `sgdisk` in a file of the card's size, first 34 and last 33 sectors written to the card from Android (install-manual.md step 4); one partition `baldur-root-sd` | `sgdisk`, `adb` | **the card is wiped** — typed `ERASE` |
-| `rootfs` | Ubuntu into a sparse ext4 image (`IMG_SIZE`, at most the partition), adds `tb323fu-growroot.service`, sets the user's password, shrinks the image to its contents + 2 GiB, gzip | [`rootfs/ubuntu/build-rootfs.sh`](../../rootfs/ubuntu/build-rootfs.sh) | the PC only |
+| `rootfs` | the chosen distribution (a [module](distros/README.md), default Ubuntu) into a sparse ext4 image (`IMG_SIZE`, at most the partition), adds `tb323fu-growroot.service`, sets the user's password, shrinks the image to its contents + 2 GiB, gzip | the module's builder, e.g. [`rootfs/ubuntu/build-rootfs.sh`](../../rootfs/ubuntu/build-rootfs.sh) | the PC only |
 | `write` | pushes the image, `zcat \| dd` into the partition, reads it back and compares | `adb` | the partition — typed `WRITE` |
 | `boot` | stages the boot image for the module, writes `boot_a` from the staged copy, checks the hash (on a mismatch: `boot_b` back into `boot_a`, no reboot), reboots | `install-module.sh stage`, `adb` | `boot_a` — typed `FLASH BOOT_A` |
 | `firstboot` | what to expect, checks, the way back | — | — |
 
 State (finished steps, hashes, partition, release tags) is kept in `$WORK/state`; a finished step is skipped on the
 next run, a named step always runs. Options are environment variables, listed by `install.sh --help` (`WORK`,
-`ROOT_PARTLABEL`, `ROOT_SIZE`, `DEV_USER`, `DESKTOP`, `DEV_ACCESS`, `STOCK_BOOT`, `KERNEL_TAG`, `HELPER_TAG`,
+`ROOT_PARTLABEL`, `ROOT_SIZE`, `DEV_USER`, `DESKTOP`, `DISTRO`, `DEV_ACCESS`, `STOCK_BOOT`, `KERNEL_TAG`, `HELPER_TAG`,
 `GITHUB_TOKEN`, `ADB`, `ANDROID_SERIAL`).
 
 ## adb in WSL
@@ -46,5 +46,6 @@ into `-s`, since Windows programs do not see WSL's environment.
 
 ## Not covered
 
-Other distributions, a card reader on the PC, a kernel you build yourself, and a root on the internal storage (which
-wipes Android's data) are manual: [docs/install-manual.md](../../docs/install-manual.md).
+Distributions without a module ([distros/](distros/README.md) has Ubuntu and Arch so far), a card reader on the PC,
+a kernel you build yourself, and a root on the internal storage (which wipes Android's data) are manual:
+[docs/install-manual.md](../../docs/install-manual.md).

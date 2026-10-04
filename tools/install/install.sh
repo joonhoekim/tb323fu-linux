@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
-# install.sh -- guided install of Ubuntu (GNOME) on the microSD card of a rooted TB323FU.
+# install.sh -- guided install of Linux on the microSD card of a rooted TB323FU.
 #
 #   tools/install/install.sh [--dry-run] [STEP ...]
 #
 # Start: rooting done (docs/rooting.md steps 1-3: your own EDL dump kept off the PC,
 # KernelSU with Shell allowed, OTA apps off) and the tablet in Android on USB.
-# End: Linux in boot_a, Ubuntu with GNOME on the microSD card, Android kept as the
+# End: Linux in boot_a, a distribution (default Ubuntu with GNOME) on the microSD card, Android kept as the
 # way back. On Windows run it in a WSL2 Ubuntu terminal (docs/install-windows.md);
 # it uses the Windows adb.exe for USB. A native Linux PC works the same way.
 #
@@ -18,7 +18,7 @@
 #   download   newest kernel and helper-v releases, checked against SHA256SUMS   1-3 min
 #   bootimg    the release kernel packed into YOUR stock boot image              seconds
 #   sdcard     GPT on the microSD card, written from Android -- WIPES THE CARD   1 min
-#   rootfs     build Ubuntu with GNOME into an image file here (qemu on x86-64)  20-60 min
+#   rootfs     build the distribution into an image file here (qemu on x86-64)    20-60 min
 #   write      push the image and write it into the card's partition             3-10 min
 #   boot       write the Linux boot image to boot_a, reboot into Linux           1 min
 #   firstboot  what a good first boot looks like, the way back                   -
@@ -33,6 +33,9 @@
 #   ROOT_SIZE=                 its size (e.g. 64G; 0 = the rest of the card). Asked if unset
 #   DEV_USER=                  your user on the tablet (asked; default: your user here)
 #   DESKTOP=gnome              gnome or none (none: console only, much faster build)
+#   DISTRO=ubuntu              the distribution module: ubuntu, arch (both verified),
+#                              or the path of your own module file (tools/install/distros/README.md);
+#                              --distros lists them
 #   DEV_ACCESS=0               1: developer access in the root (USB network, root shell
 #                              on the USB serial port) -- for debugging only
 #   STOCK_BOOT=                your stock boot image (e.g. boot_a.img of your EDL dump);
@@ -52,7 +55,8 @@ all_steps=(host tablet firmware wayback download bootimg sdcard rootfs write boo
 for a in "$@"; do
 	case $a in
 	--dry-run|-n) DRY=1 ;;
-	-h|--help) sed -n '3,46p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+	-h|--help) sed -n '3,47p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+	--distros) list_distros=1 ;;
 	*) case " ${all_steps[*]} " in *" $a "*) steps+=("$a") ;; *) echo "unknown argument: $a (see --help)" >&2; exit 2 ;; esac ;;
 	esac
 done
@@ -69,6 +73,24 @@ IMG_SIZE=${IMG_SIZE:-24G}
 FW=$WORK/fw/tb323fu-firmware/lib/firmware
 LINUX_BOOT_IMG=$WORK/linux-boot.img
 T=/data/local/tmp
+
+# ---- the distribution module (tools/install/distros/README.md) --------------
+if [ "${list_distros:-0}" = 1 ]; then
+	for m in "$here"/distros/*.sh; do
+		( . "$m"; printf '  %-8s %-24s %s\n' "$(basename "$m" .sh)" "$DISTRO_TITLE" "$DISTRO_STATUS" )
+	done
+	exit 0
+fi
+DISTRO=${DISTRO:-ubuntu}
+case $DISTRO in */*|*.sh) DISTRO_FILE=$(cd "$(dirname "$DISTRO")" 2>/dev/null && pwd)/$(basename "$DISTRO") ;; *) DISTRO_FILE=$here/distros/$DISTRO.sh ;; esac
+[ -f "$DISTRO_FILE" ] || { echo "no distribution module '$DISTRO' (install.sh --distros lists the built-in ones)" >&2; exit 2; }
+DISTRO_TITLE=$DISTRO DISTRO_STATUS=custom DISTRO_MINUTES="?"
+distro_host_packages() { :; }
+distro_set_password() { $SUDO chroot "$1" passwd "$2" </dev/tty; }
+# shellcheck source=/dev/null
+. "$DISTRO_FILE"
+declare -F distro_build >/dev/null || { echo "$DISTRO_FILE defines no distro_build" >&2; exit 2; }
+declare -F distro_about >/dev/null || distro_about() { say "$DISTRO_FILE builds the root."; }
 
 # ---- output and questions ---------------------------------------------------
 b='' r=''
@@ -269,13 +291,13 @@ step_host() {
 	case $WORK in /mnt/[a-z]/*) warn "WORK is on a Windows drive; the root image needs a Linux file system. Use the default (~/tb323fu-install)."; return 1 ;; esac
 	run mkdir -p "$WORK"
 
-	pkgs=(debootstrap ubuntu-keyring libarchive-tools gpg curl ca-certificates e2fsprogs gdisk python3 gzip pigz coreutils)
+	pkgs=(libarchive-tools gpg curl ca-certificates e2fsprogs gdisk python3 gzip pigz coreutils $(distro_host_packages))
 	[ "$(uname -m)" = aarch64 ] || pkgs+=(qemu-user-binfmt)
 	if have dpkg-query; then
 		for p in "${pkgs[@]}"; do dpkg-query -W -f='${Status}' "$p" 2>/dev/null | grep -q 'ok installed' || miss+=("$p"); done
 		if [ ${#miss[@]} -gt 0 ]; then
 			say "Missing packages: ${miss[*]}"
-			say "  debootstrap, ubuntu-keyring: build Ubuntu; qemu-user-binfmt: run arm64 programs on this PC;"
+			say "  qemu-user-binfmt: run arm64 programs on this PC; $(distro_host_packages | tr " " ","): the $DISTRO_TITLE builder;"
 			say "  gdisk: the card's partition table; e2fsprogs: the root image; curl, gpg, python3, pigz: downloads, checks, packing."
 			if yesno "install them now with apt (asks for your password)?"; then
 				run $SUDO apt-get update || return 1
@@ -570,7 +592,7 @@ step_download() {
 	head_ "download: kernel and platform packages from GitHub Releases (1-3 min)"
 	cat <<'EOF'
 A kernel release is a kernel Image (its modules are inside) -- never a ready-made boot.img: the
-boot image is made from YOUR stock one in the next step. The helper-v release has the Ubuntu
+boot image is made from YOUR stock one in the next step. The helper-v release has the Debian
 packages for the tablet (audio, sensors, emergency key, Open Device Helper).
 SHA256SUMS catches a damaged download; it is not a signature.
 EOF
@@ -704,8 +726,16 @@ growroot_into() {
 	run $SUDO ln -sf ../tb323fu-growroot.service "$m/etc/systemd/system/multi-user.target.wants/tb323fu-growroot.service"
 }
 
+# run_builder SCRIPT MNT [VAR=VALUE ...]: a builder from rootfs/, as root, from $WORK.
+# setsid: no controlling terminal for the build; on sudo-rs's pty, job control can stop apt-get under qemu
+run_builder() {
+	local s=$1 m=$2; shift 2
+	if [ $DRY = 1 ]; then say "  [dry-run] $SUDO setsid -w env $* sh $s $m"; return 0; fi
+	(cd "$WORK" && $SUDO setsid -w env "$@" sh "$s" "$m")
+}
+
 step_rootfs() {
-	head_ "rootfs: build Ubuntu ($DESKTOP) into an image file on this PC (20-60 min with GNOME)"
+	head_ "rootfs: build $DISTRO_TITLE ($DESKTOP) into an image file on this PC ($DISTRO_MINUTES)"
 	local img=$WORK/root.img mnt=$WORK/mnt part_b size_b user bs minb tgt t0
 	part_b=$(st_get part_bytes)
 	[ $DRY = 1 ] && part_b=${part_b:-68719476736}
@@ -714,12 +744,12 @@ step_rootfs() {
 	[ $DRY = 1 ] || [ -s "$WORK/config/android-boot.sha256" ] || { warn "no Android boot hash (wayback step)"; return 1; }
 	[ $DRY = 1 ] || [ -n "$(deb_files)" ] || { warn "no platform packages (download step)"; return 1; }
 	size_b=$(to_bytes "$IMG_SIZE"); [ "$size_b" -gt "$part_b" ] && size_b=$part_b
+	[ "$DISTRO_STATUS" = verified ] || warn "$DISTRO_TITLE is $DISTRO_STATUS: this module has not been followed end to end on a tablet"
+	distro_about
 	cat <<EOF
-rootfs/ubuntu/build-rootfs.sh installs Ubuntu 26.04 with debootstrap into an ext4 image of
-$(bytes "$size_b"), with the firmware, your boot_b hash and the tablet packages. On an x86-64 PC
-every arm64 program runs through qemu: about 20 min without a desktop, 20-60 min with GNOME (22 min on the test PC)
-(the PC stays usable; the tablet is not needed meanwhile). Afterwards the image is shrunk to what
-it holds; on the tablet's first start it grows to fill the partition by itself.
+The root goes into an ext4 image of $(bytes "$size_b") on this PC (the PC stays usable; the tablet is
+not needed meanwhile). Afterwards the image is shrunk to what it holds; on the tablet's first start
+it grows to fill the partition by itself.
 EOF
 	user=${DEV_USER:-$(st_get dev_user)}
 	[ -n "$user" ] || user=$(ask "your user name on the tablet" "$(id -un)")
@@ -728,6 +758,13 @@ EOF
 	yesno "build now?" || return 1
 	[ $DRY = 1 ] || $SUDO true || return 1
 
+	if [ $DRY = 0 ] && [ -f "$img" ] && [ "$(st_get root_distro)" != "$DISTRO_FILE" ]; then
+		local was; was=$(st_get root_distro)
+		say "  $img was built by another module (${was:-unknown}): starting over"
+		if findmnt -n "$mnt" >/dev/null 2>&1; then run $SUDO umount -R "$mnt" || return 1; fi
+		run rm -f "$img" "$img.gz"
+	fi
+	[ $DRY = 1 ] || st_set root_distro "$DISTRO_FILE"
 	if [ $DRY = 0 ] && findmnt -n "$mnt" >/dev/null 2>&1; then say "  $mnt is mounted already (an earlier run): building on"
 	else
 		if [ $DRY = 0 ] && [ -f "$img" ]; then
@@ -742,12 +779,8 @@ EOF
 	fi
 	t0=$(date +%s)
 	say "  log: $WORK/rootfs-build.log"
-	if [ $DRY = 1 ]; then
-		say "  [dry-run] $SUDO setsid -w env ROOT_PARTLABEL=$ROOT_PARTLABEL DESKTOP=$DESKTOP DEV_USER=$user DEV_ACCESS=$DEV_ACCESS FIRMWARE_FROM=$FW CONFIG_FROM=$WORK/config DEBS_FROM=$WORK/debs sh $repo/rootfs/ubuntu/build-rootfs.sh $mnt"
-	# setsid: no controlling terminal for the build; on sudo-rs's pty, job control can stop apt-get under qemu
-	elif ! (cd "$WORK" && $SUDO setsid -w env ROOT_PARTLABEL="$ROOT_PARTLABEL" DESKTOP="$DESKTOP" DEV_USER="$user" DEV_ACCESS="$DEV_ACCESS" \
-		FIRMWARE_FROM="$FW" CONFIG_FROM="$WORK/config" DEBS_FROM="$WORK/debs" \
-		sh "$repo/rootfs/ubuntu/build-rootfs.sh" "$mnt") 2>&1 </dev/null | tee "$WORK/rootfs-build.log"; then
+	local log=$WORK/rootfs-build.log; [ $DRY = 1 ] && log=/dev/null
+	if ! distro_build "$mnt" "$user" 2>&1 </dev/null | tee "$log"; then
 		warn "the build failed (log: $WORK/rootfs-build.log). Often a network hiccup: run this step again, it goes on where it stopped."
 		say "  To start over instead: sudo umount $mnt; rm $img"
 		return 1
@@ -759,7 +792,7 @@ EOF
 	local try=0
 	if [ $DRY = 1 ]; then say "  [dry-run] $SUDO chroot $mnt passwd $user"
 	else
-		until $SUDO chroot "$mnt" passwd "$user" </dev/tty; do
+		until distro_set_password "$mnt" "$user"; do
 			try=$((try + 1)); [ $try -ge 3 ] && { warn "no password set: $user cannot use sudo until you set one (install.sh rootfs again)"; break; }
 			warn "try again"
 		done
@@ -855,12 +888,12 @@ step_firstboot() {
 	head_ "firstboot: what to expect"
 	cat <<EOF
 1. Lenovo logo, then a text summary on the panel (kernel, CPUs, storage, battery) for a few seconds.
-2. "switching to root $ROOT_PARTLABEL ..." and Ubuntu starts. The first start takes longer: the root
+2. "switching to root $ROOT_PARTLABEL ..." and $DISTRO_TITLE starts. The first start takes longer: the root
    grows to fill its partition (tb323fu-growroot) and the card is slower than internal storage.
-3. GNOME logs you in automatically (user $(st_get dev_user || true)). Wi-Fi: top right -> Wi-Fi -> your network;
+3. With GNOME you are logged in automatically (user $(st_get dev_user || true)). Wi-Fi: top right -> Wi-Fi -> your network;
    the clock is wrong until the network is up.
 
-Then, in GNOME's Terminal:
+Then, in a terminal:
   uname -r                                  # the release kernel ($(st_get kernel_tag || true))
   systemctl is-system-running               # running (or degraded: systemctl --failed)
   df -h /                                   # about the size of the partition
@@ -878,7 +911,7 @@ and config/ (the WSL disk does not shrink by itself after deleting).
 EOF
 }
 
-say "${b}TB323FU: Ubuntu on the microSD card, guided${r}$([ $DRY = 1 ] && echo ' (dry run: nothing is executed)')"
+say "${b}TB323FU: $DISTRO_TITLE on the microSD card, guided ($DISTRO: $DISTRO_STATUS)${r}$([ $DRY = 1 ] && echo ' (dry run: nothing is executed)')"
 say "Guide: docs/install.md (Windows, Linux, macOS); by hand: docs/install-manual.md. State: $STATE"
 [ $DRY = 1 ] || mkdir -p "$WORK"
 if is_wsl && [ -x "$WORK/bin/adb" ]; then export PATH="$WORK/bin:$PATH"; fi
