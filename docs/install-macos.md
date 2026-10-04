@@ -1,12 +1,13 @@
 # Installing from macOS
 
-> **Partly checked.** On 2026-10-04, from an Apple-silicon Mac (macOS 26.6) with Lima and Ubuntu 26.04 arm64, the
-> install script's steps `host`, `tablet`, `firmware`, `download`, `bootimg` and `rootfs` (Ubuntu with GNOME, built in
-> 7 min) ran against a rooted tablet, and `adb push`/`pull` through the Mac's adb server were checked byte for byte.
-> The steps that write to the tablet (`wayback`, `sdcard`, `write`, `boot`) use the same `adb` path but were not run
-> from a Mac. LTBox 3.3.3 (the `macos_universal` tarball) started and recognized the tablet over adb; rooting with it
-> and the `edl` recovery tool were not tried on a Mac and are described from their own documentation. If something
-> does not match, stop and open an issue.
+> **Followed end to end once, up to the first start.** On 2026-10-04, from an Apple-silicon Mac (macOS 26.6) with
+> Lima and Ubuntu 26.04 arm64, every step of the install script ran against a rooted tablet (Ubuntu with GNOME built
+> in 7 min, the card written in about 4 min), and the tablet then started from the card into the GNOME desktop
+> (seen by a person). Sound, Wi-Fi and the way back to Android were not checked again from the Mac; they are the same
+> on the tablet whichever PC installed it ([Installing from Windows](install-windows.md)). LTBox 3.3.3 (the
+> `macos_universal` tarball) started and recognized the tablet over adb; rooting with it and the `edl` recovery tool
+> were not tried on a Mac and are described from their own documentation. If something does not match, stop and open
+> an issue.
 
 The same path as on Windows ([Installing Linux](install.md)): root the tablet, then one script takes it to Ubuntu
 with GNOME on the microSD card. Rooting works from macOS itself. The install script needs a Linux system, so on a

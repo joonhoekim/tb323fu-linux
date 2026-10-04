@@ -10,7 +10,7 @@ to follow start at [docs/install.md](../../docs/install.md) (one per PC); the in
 > **Status:** every step was run against a tablet on 2026-10-04, from WSL2 (Ubuntu 26.04 on Windows 11): rooted
 > Android to Ubuntu with GNOME on the card, first start, both ways back to Android and back to Linux
 > ([install-windows.md](../../docs/install-windows.md)). On a native Linux PC it has not been run. From a Mac (Lima
-> VM, Ubuntu 26.04 arm64) every step that does not write to the tablet ran on 2026-10-04.
+> VM, Ubuntu 26.04 arm64) every step ran on 2026-10-04, up to the first start into GNOME.
 
 ```sh
 tools/install/install.sh              # every step, asking before each
