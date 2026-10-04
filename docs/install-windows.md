@@ -75,7 +75,9 @@ cd tb323fu-linux
 tools/install/install.sh
 ```
 
-Keep the clone in your Ubuntu home directory (as above), not under `/mnt/c`.
+Keep the clone in your Ubuntu home directory (as above), not under `/mnt/c`. For Arch Linux ARM instead of Ubuntu
+(followed end to end once, without the rotation sensor): `DISTRO=arch tools/install/install.sh`
+([which system](install.md#which-system)).
 
 > **While the repository is private** the plain `git clone` fails. Log in first:
 > `sudo apt install -y gh && gh auth login` (choose GitHub.com, HTTPS, log in with a browser), then

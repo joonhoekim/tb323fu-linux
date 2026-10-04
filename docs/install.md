@@ -26,9 +26,24 @@ that can run arm64 programs (to build the tablet's root filesystem) and `adb` to
 | **Linux** | directly, with the system's `adb` | **not verified separately**: the same script and builders → [Installing from Linux](install-linux.md) |
 | **macOS** | in an arm64 Linux virtual machine, with the tablet passed through over USB | **not verified** → [Installing from macOS](install-macos.md) |
 
-The result is the same on every PC: Ubuntu 26.04 with GNOME on a partition `baldur-root-sd` of the microSD card,
-the release kernel in `boot_a`, Android's boot image in `boot_b`, and Open Device Helper installed. Allow 1–2 hours,
-most of it an unattended build.
+The result is the same on every PC: Ubuntu 26.04 with GNOME (unless you [pick another system](#which-system)) on a
+partition `baldur-root-sd` of the microSD card, the release kernel in `boot_a`, Android's boot image in `boot_b`, and
+Open Device Helper installed. Allow 1–2 hours, most of it an unattended build.
+
+## Which system
+
+The tablet is not tied to one distribution: the kernel and the boot chain are the same for all, and each system lives
+in its own partition. [Distributions](distros.md) lists what has been tried, how each one is built and what its
+builder takes care of.
+
+| | System | How |
+|---|---|---|
+| **Start here** | Ubuntu 26.04 with GNOME | the guided script, as above — followed end to end |
+| | Arch Linux ARM with GNOME | the same script with `DISTRO=arch` — followed end to end once; no rotation sensor |
+| | Fedora (with FEX for x86 games), NixOS, SteamOS (community port) | built on the tablet itself, from a first Linux root: [Distributions → Installing each one](distros.md#installing-each-one) |
+| | anything else (Armada, postmarketOS, Debian, your own) | not tried yet; what a root needs and how to plug your own builder into the script: [Distributions → Your own distribution](distros.md#your-own-distribution) |
+
+Several systems can share the card; you pick one with Open Device Helper → Systems or `tb323fu-ctl boot`.
 
 ## Beyond the script
 
