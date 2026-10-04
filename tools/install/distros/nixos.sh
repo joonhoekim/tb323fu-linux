@@ -24,13 +24,15 @@ distro_build() { # MNT USER
 	fi
 	# nixos-install wants every directory above the root to be mode 755 ($HOME often is not)
 	local r=/run/tb323fu-nixos-root rc
-	if [ $DRY = 0 ]; then $SUDO mkdir -p $r && $SUDO mount --bind "$1" $r || return 1; fi
+	# private: mounts the build makes under it must not appear under $1 as well
+	if [ $DRY = 0 ]; then $SUDO mkdir -p $r && $SUDO mount --bind "$1" $r && $SUDO mount --make-private $r || return 1; fi
 	run_builder "$repo/rootfs/nixos/build-rootfs.sh" "$r" \
 		ROOT_PARTLABEL="$ROOT_PARTLABEL" HOSTNAME_NEW=tb323fu-nixos DESKTOP="$DESKTOP" DEV_USER="$2" \
 		DEV_ACCESS="$DEV_ACCESS" FIRMWARE_FROM="$FW" CONFIG_FROM="$WORK/config" \
 		KCONFIG_FROM="$WORK/kernel/$cfg" WORK="$WORK/nixos-flake"
 	rc=$?
-	[ $DRY = 1 ] || $SUDO umount $r
+	[ $DRY = 1 ] && return $rc
+	$SUDO umount -R $r || { warn "$r is still mounted: the image must not be packed while it is"; return 1; }
 	return $rc
 }
 

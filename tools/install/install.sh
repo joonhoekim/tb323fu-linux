@@ -816,6 +816,10 @@ EOF
 	fi
 	run $SUDO umount "$mnt/proc" "$mnt/dev"
 	run $SUDO umount "$mnt" || return 1
+	# shrinking a filesystem that is still mounted elsewhere leaves a superblock written back later
+	if [ $DRY = 0 ] && [ -n "$(losetup -j "$img" 2>/dev/null)" ]; then
+		warn "$img is still in use ($(losetup -j "$img" | cut -d: -f1)); unmount it, then run this step again"; return 1
+	fi
 
 	say "Shrinking the image to its contents plus 2 GiB ..."
 	run e2fsck -fy "$img" >/dev/null

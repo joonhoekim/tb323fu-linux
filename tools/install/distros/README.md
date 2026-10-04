@@ -15,7 +15,7 @@ DISTRO=~/my-distro.sh tools/install/install.sh  # your own module, by path
 | [`ubuntu.sh`](ubuntu.sh) | Ubuntu 26.04, GNOME | verified: followed end to end on a tablet |
 | [`arch.sh`](arch.sh) | Arch Linux ARM, GNOME | verified: followed end to end once (no sensors: `hexagonrpcd` is not packaged for Arch) |
 | [`nixos.sh`](nixos.sh) | NixOS (unstable), GNOME | experimental: builds in WSL2 with Nix (the helper is compiled through qemu) |
-| [`steamos.sh`](steamos.sh) | SteamOS, community port (Gaming Mode, KDE) | experimental: image built in WSL2, not yet booted from this path |
+| [`steamos.sh`](steamos.sh) | SteamOS, community port (Gaming Mode, KDE) | experimental: Gaming Mode, touch, sound and both ways checked on kernel t39 (needs tracefs: t39 or later); Switch to Desktop does not work yet |
 
 Changing `DISTRO` after a `rootfs` step builds the root again from scratch (the image holds one system). The
 other steps are not repeated.
