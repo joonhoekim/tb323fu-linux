@@ -75,14 +75,8 @@ cd tb323fu-linux
 tools/install/install.sh
 ```
 
-Keep the clone in your Ubuntu home directory (as above), not under `/mnt/c`. For Arch Linux ARM instead of Ubuntu
-(followed end to end once, without the rotation sensor): `DISTRO=arch tools/install/install.sh`
-([which system](install.md#which-system)).
-
-> **While the repository is private** the plain `git clone` fails. Log in first:
-> `sudo apt install -y gh && gh auth login` (choose GitHub.com, HTTPS, log in with a browser), then
-> `gh repo clone joonhoekim/tb323fu-linux`. The script then also uses that login for the downloads. Without `gh`
-> it asks you to download the release files in your Windows browser and picks them up from your Downloads folder.
+Keep the clone in your Ubuntu home directory (as above), not under `/mnt/c`. Another system instead of Ubuntu:
+`DISTRO=arch tools/install/install.sh` (or `nixos`, `steamos`; [which system](install.md#which-system)).
 
 To see everything the script would do without doing it: `tools/install/install.sh --dry-run`.
 
@@ -147,7 +141,7 @@ Afterwards `~/tb323fu-install/root.img` and `root.img.gz` can be deleted (keep `
 | **arm64 programs not registered** (binfmt) | `sudo systemctl restart systemd-binfmt`. If WSL runs without systemd: add `[boot]` / `systemd=true` to `/etc/wsl.conf`, `wsl --shutdown`, reopen. Check: `cat /proc/sys/fs/binfmt_misc/qemu-aarch64` says `enabled` and its flags contain `F`. |
 | **Disk space** | The build needs about 30 GB inside WSL. `df -h ~` shows what is free. |
 | **The build stopped** | Usually a network hiccup while downloading packages: run the script again, it continues in the same image. To start the root over: `sudo umount ~/tb323fu-install/mnt; rm ~/tb323fu-install/root.img`, then run `tools/install/install.sh rootfs`. |
-| **Downloads fail** | With a private repository the script needs your GitHub login (`gh auth login`) or `GITHUB_TOKEN=…`; otherwise it shows which files to download in the browser. |
+| **Downloads fail** | Usually the network, or the GitHub API's limit for anonymous requests: run the step again later, or set `GITHUB_TOKEN=…` (any GitHub token); otherwise the script shows which files to download in the browser. |
 | **`adb push` fails** on a file in WSL | The script retries through a folder in your Windows temp directory by itself. |
 | **Android says the card is unsupported** | Expected after the `sdcard` step: Android cannot read the Linux partition. |
 | **Linux does not start** | Hold volume up + volume down 10 s for Android; if nothing reacts, see [Recovery](recovery.md#linux-does-not-boot). |

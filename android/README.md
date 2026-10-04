@@ -17,7 +17,7 @@ without a PC.
 | Direction | How | Where the code runs |
 |---|---|---|
 | Android → Linux | KernelSU module **Switch to Linux**: its Action button writes the Linux image to `boot_a`, verifies it and reboots | Android (`switch-to-linux/action.sh`) |
-| Linux → Android | `back-to-android <hash>`: copies `boot_b` into `boot_a`, verifies, reboots. Also saves the running Linux image so the Action button boots the same one back | Linux (`back-to-android`, installed as `/usr/local/sbin/back-to-android`) |
+| Linux → Android | `back-to-android <hash>`: copies `boot_b` into `boot_a`, verifies, reboots. Also saves the running Linux image so the Action button boots the same one back | Linux (`back-to-android`, installed as `/usr/sbin/back-to-android` by the platform files) |
 | Linux → Android, emergency | **hold volume up + volume down together for 10 s** — runs `back-to-android` even if the desktop is frozen (as long as the kernel runs) | Linux root filesystem service |
 | from a PC | `tools/cycle.sh` (through Android and adb) or `tools/flash-boot.sh` (from the running Linux over SSH) | PC |
 
@@ -40,7 +40,7 @@ If both directions fail, the tablet can still be recovered with Qualcomm EDL and
 |---|---|
 | `switch-to-linux/` | the KernelSU module (`module.prop`, `action.sh`); `android.sha256` is added at install time |
 | `install-module.sh` | PC helper: `prepare-boot-b` (copy the running Android boot image into `boot_b` once), `install` (build the module with the hash of `boot_b` and install it), `stage IMG`, `status` |
-| `back-to-android` | the Linux-side script (busybox sh) |
+| `back-to-android` | the Linux-side script (POSIX sh; the initramfs runs the same file with busybox) |
 
 ## Setting it up
 

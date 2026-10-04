@@ -13,7 +13,7 @@ const ORDER: StatusKey[] = ["works", "partial", "broken", "unverified", "na"];
 function readmeStatus(): { head: string; body: string } {
   const fallback = {
     head: "Work in progress — not ready for everyday use.",
-    body: "There are no release images yet; the install guide has not been followed end to end by anyone else. Everything here is published so the kernel work can be reviewed and reused.",
+    body: "The install guide was followed end to end on the development tablet; the kernel and helper releases are on GitHub Releases.",
   };
   try {
     const text = fs.readFileSync(path.join(REPO_ROOT, "README.md"), "utf8");
@@ -24,6 +24,7 @@ function readmeStatus(): { head: string; body: string } {
       .split("\n")
       .map((l) => l.replace(/^>\s?/, ""))
       .join(" ")
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
       .replace(/[*`]/g, "")
       .replace(/\s+/g, " ")
       .trim();

@@ -15,7 +15,7 @@ side on the card.
 | Arch Linux ARM | `tb323fu-arch` | `rootfs/arch` | 7.5 s | autologin, touch, Wi-Fi, speakers, sensors (4), helper; through the guided installer (2026-10-04, built in WSL2): GNOME, speakers, Wi-Fi password prompt, helper, both ways to Android and back, no sensors |
 | Fedora 44 Workstation + FEX | `tb323fu-fedora` | `rootfs/fedora` | 7.5 s² | GNOME 50 autologin, Wi-Fi, speakers, sensors (4), firewalld³, FEX x86-64, Steam client starts⁴ |
 | NixOS 26.11 (unstable) | `tb323fu-nixos` | `rootfs/nixos` + `flake.nix` | 11.2 s | stage 2 straight from our initramfs, GNOME autologin, Wi-Fi, speakers, sensors, helper |
-| SteamOS (arm64, community handheld port⁵) | `tb323fu-spare` | `rootfs/steamos` | 14.1 s | Gaming Mode (landscape, seen on the panel; touch lands where tapped after a calibration matrix), Wi-Fi, speakers (protection filter), helper; Desktop Mode (KDE) starts and switches back |
+| SteamOS (arm64, community handheld port⁵) | `tb323fu-spare` | `rootfs/steamos` | 14.1 s | Gaming Mode (landscape, seen on the panel; touch lands where tapped after a calibration matrix), Wi-Fi, speakers (protection filter), helper; with the old port release v1.3-odin3-beta1 also Desktop Mode (KDE) both ways. Current release v1.3-8elite-beta2 through the guided installer on kernel t39: Gaming Mode, touch, speakers, both ways to Android and back; Switch to Desktop does not work ([known problems](#known-problems)) |
 
 ¹ `systemd-analyze` "Startup finished" (kernel + userspace), with automatic login.\
 ² graphical.target; "Startup finished" is 15 s while first-boot timer jobs (plocate, fstrim) still run. iSCSI and plymouth are masked (see the builder).\
@@ -117,11 +117,11 @@ sudo nixos-rebuild switch --flake ~/nixos-config#tb323fu-nixos
 
 ## Not tried yet
 
-Nothing here has been booted on the tablet. What is known:
+Not built with the scripts here yet. What is known:
 
 | System | Notes |
 |---|---|
-| Debian 13 | the development root is Debian, but it was set up by hand before the builders existed; `rootfs/ubuntu` with a Debian mirror and release is the closest starting point |
+| Debian 13 through a builder | the development root is Debian (first row above), but it was set up by hand before the builders existed; `rootfs/ubuntu` with a Debian mirror and release is the closest starting point |
 | [Armada](https://github.com/armada-os/armada) | a gaming distribution for ARM handhelds (Fedora bootc, Steam, FEX, KDE), shipped as one disk image (`armada-YYYYMMDD.img.gz`); its device list goes up to SM8750, not this SoC. Its root is an ostree deployment: our initramfs does not start ostree, so it would need flattening into a plain root (losing Armada's own updates) or ostree support in the initramfs |
 | postmarketOS | aimed at phones and tablets, with its own boot chain; its root would need the same changes as the others |
 

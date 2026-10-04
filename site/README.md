@@ -50,10 +50,5 @@ Other build-time variables: `REPO_URL` (default `https://github.com/joonhoekim/t
 ## Deploy
 
 [`.github/workflows/pages.yml`](../.github/workflows/pages.yml) builds `site/` and publishes `site/out` with the official
-Pages actions (`configure-pages` supplies the base path). It runs **only when started by hand** (Actions → "Deploy
-website" → Run workflow) while the repository is private: a Pages site from a private repository is public.
-
-When the repository goes public:
-
-1. Settings → Pages → Source: **GitHub Actions**.
-2. Add `push: branches: [main]` to the workflow's `on:` to deploy on every push.
+Pages actions (`configure-pages` supplies the base path) on every push to `main`, or by hand (Actions → "Deploy
+website" → Run workflow). It needs Settings → Pages → Source: **GitHub Actions**.

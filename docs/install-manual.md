@@ -8,7 +8,7 @@ on the PC and a root on the internal storage.
 > **For a first install, use the guide for your PC instead:** [Installing Linux](install.md) picks the page
 > (Windows, Linux or macOS); they run one script that does steps 1–7 below.
 
-> **The first releases are pre-releases** (`kernel-t38`, `helper-v0.3.0`). A kernel release is a kernel `Image` (with all
+> **Current releases:** `kernel-t39`, `helper-v0.3.0` (GitHub Releases). A kernel release is a kernel `Image` (with all
 > its modules inside) and a repack tool — never a ready-made `boot.img` ([why](#why-there-is-no-ready-made-bootimg)); you
 > pack it into your own stock boot image (step 3a) or build the kernel yourself (3b), and put together a root filesystem
 > with the scripts in this repository. This page was **reconstructed from the development records** of one
@@ -24,8 +24,11 @@ Every step carries one of these labels:
 | **[untested]** | not done on any tablet; follows from how the tools work |
 
 The guided script [`tools/install/install.sh`](../tools/install/README.md) does steps 1–7 for the most common case
-(Ubuntu with GNOME on the microSD card, partitioned from Android). It was followed end to end from Windows (WSL2) on
-2026-10-04 ([Installing from Windows](install-windows.md)).
+(a distribution on the microSD card, partitioned from Android). It was followed end to end from Windows (WSL2), macOS and
+Linux on 2026-10-04 ([Installing Linux](install.md)).
+
+If you know your way around Linux, this page is the better choice: every step is visible, and you decide the
+distribution, the partition layout and what goes into the root yourself.
 
 ## What you end up with
 
@@ -54,7 +57,7 @@ initramfs picks a root filesystem **by GPT partition name** ([details](../kernel
 | 2. The way back: Android boot image into `boot_b` | `boot_b` | yes (`boot_b` is never booted) | [verified] |
 | 3. The Linux boot image: repack a release kernel, or build one | nothing (PC) | — | repack [verified], build [from records] |
 | 4. Partition a microSD card | **the card is wiped** | the card only | [verified] (from Android) / [untested] (from a PC) |
-| 5. Root filesystem | the new partition | yes (delete it) | [verified] on the tablet, [untested] on another host |
+| 5. Root filesystem | the new partition | yes (delete it) | [verified] on the tablet and on x86-64 PCs through qemu |
 | 6. Write `boot_a` and boot Linux | `boot_a` | yes: back-to-android, emergency keys, EDL | [verified] |
 | 7. First-boot checks | nothing | — | [verified] |
 | 8. Optional: Linux root on internal storage | GPT of LUN 0, **Android's data is wiped** | only with another factory reset | [from records] |
@@ -141,7 +144,7 @@ own tablet's stock image.
 
 ### 3a. From a release
 
-**[untested as a whole]** (the repack tool and its output are [verified]: every kernel on the development tablet was
+**[verified]** (the guided script's `bootimg` step runs exactly this; every kernel on the development tablet was
 packed this way). Releases are GitHub Releases of this repository (tag `kernel-tNN`). A release has
 `Image-tb323fu-tNN` (and the same as `Image-tb323fu-tNN.gz`), `boot-repack-kernel.py` and `SHA256SUMS` (plus the
 kernel configuration and initramfs lists for the GPL sources, and `modules-tb323fu-tNN.tar.gz`, which you normally do

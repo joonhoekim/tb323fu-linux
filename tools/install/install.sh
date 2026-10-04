@@ -40,9 +40,9 @@
 #                              on the USB serial port) -- for debugging only
 #   STOCK_BOOT=                your stock boot image (e.g. boot_a.img of your EDL dump);
 #                              default: read from boot_b. Must match boot_b's hash
-#   KERNEL_TAG= HELPER_TAG=    pin releases (default: the newest kernel-t* / helper-v*)
-#   GITHUB_TOKEN=              for a private repository (else `gh auth token` is used,
-#                              else the public API, else downloads from the browser)
+#   KERNEL_TAG= HELPER_TAG=    pin releases (default: the newest stable kernel-t* / helper-v*)
+#   GITHUB_TOKEN=              optional: GitHub API requests with your token (higher rate limit)
+#                              without it the public API, else downloads from the browser
 #   ADB=                       adb (Linux) or the Windows adb.exe (WSL) to use
 #   ANDROID_SERIAL=            pick one device when several are connected
 set -uo pipefail
@@ -465,14 +465,11 @@ EOF
 	say "your stock boot image -> $WORK/stock-boot.img (keep it with your backup)"
 }
 
-# GitHub: the token comes from GITHUB_TOKEN, else gh / gh.exe; none for a public repository.
+# GitHub API: anonymous, or with GITHUB_TOKEN for a higher rate limit.
 gh_auth_file() {
-	local t='' g f=$WORK/.gh-auth
+	local t f=$WORK/.gh-auth
 	[ $DRY = 1 ] && return 1
 	t=${GITHUB_TOKEN:-}
-	if [ -z "$t" ]; then
-		for g in gh gh.exe; do have $g || continue; t=$($g auth token 2>/dev/null | tr -d '\r\n'); [ -n "$t" ] && break; done
-	fi
 	rm -f "$f"
 	[ -n "$t" ] || return 1
 	(umask 077; printf 'Authorization: Bearer %s\n' "$t" > "$f")
@@ -489,6 +486,8 @@ import json, sys
 rels = json.load(open(sys.argv[1]))
 prefix, want = sys.argv[2], (sys.argv[3] if len(sys.argv) > 3 else "")
 rs = [r for r in rels if r["tag_name"].startswith(prefix) and not r.get("draft")]
+if not want:
+    rs = [r for r in rs if not r.get("prerelease")] or rs   # stable first, a pre-release only when none is
 if want:
     rs = [r for r in rs if r["tag_name"] == want]
 rs.sort(key=lambda r: r.get("published_at") or r["created_at"], reverse=True)
@@ -567,7 +566,7 @@ fetch_browser() {
 	local dl c k ks hs
 	if is_wsl; then dl=$(win2wsl "$(winenv USERPROFILE)")/Downloads; else dl=${XDG_DOWNLOAD_DIR:-$HOME/Downloads}; fi
 	cat <<EOF
-Download these files in your browser (you must be able to see the repository):
+Download these files in your browser:
   https://github.com/$REPO_SLUG/releases
   - from the newest "kernel-t.." release: Image-tb323fu-tNN (not the .gz) and SHA256SUMS${DISTRO_KERNEL_ASSETS:+
     and, for $DISTRO_TITLE: $DISTRO_KERNEL_ASSETS}
@@ -615,11 +614,10 @@ SHA256SUMS catches a damaged download; it is not a signature.
 EOF
 	if [ $DRY = 0 ] && [ "$explicit" = 0 ] && downloads_ok; then say "already here and checked: $WORK/kernel/$(kernel_files), $(deb_files | wc -l) packages"; return 0; fi
 	local auth=''
-	auth=$(gh_auth_file) && say "  (GitHub login found: using it)"
+	auth=$(gh_auth_file) && say "  (using GITHUB_TOKEN)"
 	if ! fetch_api "$auth"; then
-		[ -n "$auth" ] && warn "the GitHub API did not work with your login"
-		[ -z "$auth" ] && say "  The GitHub API gave nothing without a login (private repository?)."
-		say "  Alternatives: set GITHUB_TOKEN, or 'gh auth login' (Linux gh, or gh.exe on Windows), or the browser."
+		warn "the GitHub API did not answer${auth:+ with GITHUB_TOKEN} (offline, or its rate limit?)"
+		say "  Instead: run this step again later, set GITHUB_TOKEN, or download the files in a browser."
 		fetch_browser || { rm -f "$WORK/.gh-auth"; return 1; }
 	fi
 	rm -f "$WORK/.gh-auth"

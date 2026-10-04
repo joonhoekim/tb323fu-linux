@@ -3,8 +3,8 @@
 Mainline Linux on the **Lenovo Legion Tab Gen 5 / Legion Y700 5th Gen** (model **TB323FU**, Snapdragon 8 Elite Gen 5, SM8850 "kaanapali", board "baldur").
 The same model number is used in China and elsewhere; the firmware region (PRC / ROW) differs, not the hardware.
 
-> **Status: work in progress — not ready for everyday use.** The first releases are pre-releases. The [install guide](docs/install.md)
-> was followed end to end on the development tablet from Windows and from macOS; the Linux page is not verified.
+> **Status: work in progress — not ready for everyday use.** The [install guide](docs/install.md) was followed end to end
+> on the development tablet from Windows, macOS and Linux; the kernel and helper releases are on GitHub Releases.
 > Everything here is published so the kernel work can be reviewed and reused.
 
 ## What this is

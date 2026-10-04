@@ -50,6 +50,7 @@ Several systems can share the card; you pick one with Open Device Helper → Sys
 ## Beyond the script
 
 [Installing by hand](install-manual.md) lists every step as commands, with what each one changes and how far it
-was tested. Use it for another distribution ([distros.md](distros.md): Arch, Fedora, NixOS, SteamOS), a kernel
+was tested. If you know your way around Linux, it is the recommended way: every step is visible and yours to change.
+Use it for a distribution the script does not build (Fedora, or your own: [distros.md](distros.md)), a kernel
 you build yourself ([custom-kernel.md](custom-kernel.md)), several systems side by side on the card, or a root on the
 internal storage (which costs Android its data).

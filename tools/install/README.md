@@ -9,8 +9,9 @@ to follow start at [docs/install.md](../../docs/install.md) (one per PC); the in
 
 > **Status:** every step was run against a tablet on 2026-10-04, from WSL2 (Ubuntu 26.04 on Windows 11): rooted
 > Android to Ubuntu with GNOME on the card, first start, both ways back to Android and back to Linux
-> ([install-windows.md](../../docs/install-windows.md)). On a native Linux PC it has not been run. From a Mac (Lima
-> VM, Ubuntu 26.04 arm64) every step ran on 2026-10-04, up to the first start into GNOME.
+> ([install-windows.md](../../docs/install-windows.md)). From Linux (NixOS, through an Ubuntu container) and from a Mac (Lima
+> VM, Ubuntu 26.04 arm64) every step ran on 2026-10-04, up to the first start into GNOME. Arch, NixOS and SteamOS
+> went through it on the tablet as well (modules in [distros/](distros/README.md)).
 
 ```sh
 tools/install/install.sh              # every step, asking before each
@@ -24,7 +25,7 @@ tools/install/install.sh rootfs       # run one step again
 | `tablet` | `adb devices`, TB323FU, slot `_a`, root for Shell, the microSD card, battery; explains each failure (unauthorized, no root, tablet in Linux) | `adb` | — |
 | `firmware` | firmware from Android's `/vendor` to `$WORK/fw` | [`firmware/extract-on-device.sh`](../../firmware/) | `/data/local/tmp` |
 | `wayback` | `boot_a` == `boot_b`, else copies it; installs the Switch to Linux module if missing; saves the hash and the stock boot image (from `boot_b`, or `STOCK_BOOT` checked against it) | [`android/install-module.sh`](../../android/) | `boot_b` — typed `WRITE BOOT_B` |
-| `download` | newest `kernel-t*` and `helper-v*` releases, checked against `SHA256SUMS`; GitHub login from `GITHUB_TOKEN` or `gh auth token` (also `gh.exe`), else the public API, else files downloaded in the browser are picked up from Downloads | `curl`, GitHub API | the PC only |
+| `download` | newest `kernel-t*` and `helper-v*` releases, checked against `SHA256SUMS`; the newest stable release (a pre-release only when there is none); the public API (`GITHUB_TOKEN` optional, for its rate limit), else files downloaded in the browser are picked up from Downloads | `curl`, GitHub API | the PC only |
 | `bootimg` | the release kernel into your stock boot image | [`tools/boot-repack-kernel.py`](../boot-repack-kernel.py) | the PC only |
 | `sdcard` | GPT built with `sgdisk` in a file of the card's size, first 34 and last 33 sectors written to the card from Android (install-manual.md step 4); one partition `baldur-root-sd` | `sgdisk`, `adb` | **the card is wiped** — typed `ERASE` |
 | `rootfs` | the chosen distribution (a [module](distros/README.md), default Ubuntu) into a sparse ext4 image (`IMG_SIZE`, at most the partition), adds `tb323fu-growroot.service`, sets the user's password, shrinks the image to its contents + 2 GiB, gzip | the module's builder, e.g. [`rootfs/ubuntu/build-rootfs.sh`](../../rootfs/ubuntu/build-rootfs.sh) | the PC only |
@@ -48,6 +49,6 @@ into `-s`, since Windows programs do not see WSL's environment.
 
 ## Not covered
 
-Distributions without a module ([distros/](distros/README.md) has Ubuntu and Arch so far), a card reader on the PC,
+Distributions without a module ([distros/](distros/README.md) has Ubuntu, Arch, NixOS and SteamOS), a card reader on the PC,
 a kernel you build yourself, and a root on the internal storage (which wipes Android's data) are manual:
 [docs/install-manual.md](../../docs/install-manual.md).

@@ -3,11 +3,8 @@
 name: Deploy website
 
 on:
-  # Manual only while the repository is private: a Pages site built from a private
-  # repository is public. Once the repository is public, enable Pages (Settings ->
-  # Pages -> Source: GitHub Actions) and add:
-  #   push:
-  #     branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:

@@ -357,7 +357,7 @@ systems ([multiboot](../kernel/initramfs/README.md#root-partitions-and-multiboot
 |---|---|---|
 | Android → Linux | KernelSU manager → module **Switch to Linux** → Action button. Writes the last Linux image that ran (saved by `back-to-android` on the state root, normally `baldur-root`) or the staged one to `boot_a`, verifies it, reboots | yes |
 | Linux → Android | `back-to-android <hash>` as root, or the **Android** tile / "Switch to Android" in the desktop ([helper](helper.md)) | yes |
-| Linux → Android, emergency | hold **volume up + volume down for 10 s** — works with a frozen desktop as long as the kernel runs; letting go earlier cancels | yes (Debian) |
+| Linux → Android, emergency | hold **volume up + volume down for 10 s** — works with a frozen desktop as long as the kernel runs; letting go earlier cancels | yes (Debian; Ubuntu through the guided installer) |
 | from a PC, Linux running | [`tools/flash-boot.sh`](../tools/flash-boot.sh) over SSH (USB network: tablet `192.168.7.2`, PC `192.168.7.1`) | yes |
 | from a PC, through Android | [`tools/cycle.sh`](../tools/cycle.sh): back to Android if needed, write `boot_a` over adb, reboot, wait for SSH | yes, many times |
 
@@ -367,7 +367,7 @@ to Linux module finds a bad write, it copies Android back from `boot_b` before g
 ## 5. First boot of Linux
 
 The full install procedure — firmware, building the boot image, a root partition, the first boot and moving the root
-to the internal storage — is in **[Installing Linux](install.md)**. The points below are a summary.
+to the internal storage — is in **[Installing Linux](install.md)** (the guided script) and [Installing by hand](install-manual.md). The points below are a summary.
 
 - Root filesystems: [docs/distros.md](distros.md) lists the systems built with [`rootfs/`](../rootfs/) and booted
   on the device, and what every root needs (firmware, masked services; the kernel modules come with the boot image).

@@ -100,10 +100,6 @@ container sees the tablet through the PC's own `adb` server, as the Mac's VM doe
    ```sh
    docker run -it --name tb323fu --privileged --network host -v /dev:/dev ubuntu:26.04 bash
    ```
-
-   While the repository is private, add `-e GITHUB_TOKEN=$(gh auth token)`; the script then uses it for the
-   downloads, and the clone below takes it as
-   `git -c http.extraHeader="Authorization: Basic $(printf x-access-token:%s $GITHUB_TOKEN | base64 -w0)" clone …`.
 3. In the container (you are root there; there is no `sudo`):
 
    ```sh
