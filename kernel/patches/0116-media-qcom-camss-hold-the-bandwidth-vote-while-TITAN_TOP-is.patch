@@ -38,15 +38,15 @@ back 150 frames each) pass, every icc_set_bw() under 0.5 ms.
 
 Signed-off-by: Joonhoe Kim <26rote@gmail.com>
 ---
- drivers/media/platform/qcom/camss/camss.c | 74 +++++++++++++++++------
+ drivers/media/platform/qcom/camss/camss.c | 70 +++++++++++++++++------
  drivers/media/platform/qcom/camss/camss.h |  2 +
- 2 files changed, 57 insertions(+), 19 deletions(-)
+ 2 files changed, 53 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/media/platform/qcom/camss/camss.c b/drivers/media/platform/qcom/camss/camss.c
 index e19f9b544..3c2dc1d1b 100644
 --- a/drivers/media/platform/qcom/camss/camss.c
 +++ b/drivers/media/platform/qcom/camss/camss.c
-@@ -5607,6 +5607,48 @@ static const struct media_device_ops camss_media_ops = {
+@@ -5607,6 +5607,44 @@ static const struct media_device_ops camss_media_ops = {
  	.link_notify = v4l2_pipeline_link_notify,
  };
  
@@ -67,13 +67,9 @@ index e19f9b544..3c2dc1d1b 100644
 +}
 +
 +/*
-+ * Keep the bandwidth vote for as long as the TITAN_TOP domain is powered:
-+ * vote before it powers on, drop the vote after it is off. TITAN_TOP is also
-+ * powered by the CCI and CSIPHY devices, so the CAMSS runtime PM callbacks do
-+ * not bracket it. On Kaanapali, letting the multimedia NoC (BCM MM0/MM1) go
-+ * idle while the camera block stays powered, then voting it up again, leaves
-+ * the RPMh request uncompleted until TITAN_TOP collapses — with the display
-+ * off (no other MMNOC voter) the stream start then hangs in rpmh_write_batch().
++ * Hold the bandwidth vote for as long as TITAN_TOP is powered: on Kaanapali it
++ * cannot be dropped and raised again while TITAN_TOP stays on. CCI and CSIPHY
++ * also power TITAN_TOP, so the CAMSS runtime PM callbacks do not bracket it.
 + */
 +static int camss_genpd_notify(struct notifier_block *nb, unsigned long action,
 +			      void *data)
@@ -95,7 +91,7 @@ index e19f9b544..3c2dc1d1b 100644
  static int camss_configure_pd(struct camss *camss)
  {
  	const struct camss_resources *res = camss->res;
-@@ -5678,6 +5720,10 @@ static int camss_configure_pd(struct camss *camss)
+@@ -5678,6 +5716,10 @@ static int camss_configure_pd(struct camss *camss)
  		goto fail_pm;
  	}
  
@@ -106,7 +102,7 @@ index e19f9b544..3c2dc1d1b 100644
  	return 0;
  
  fail_pm:
-@@ -5718,6 +5764,9 @@ static void camss_genpd_cleanup(struct camss *camss)
+@@ -5718,6 +5760,9 @@ static void camss_genpd_cleanup(struct camss *camss)
  
  	camss_genpd_subdevice_cleanup(camss);
  
@@ -116,7 +112,7 @@ index e19f9b544..3c2dc1d1b 100644
  	if (camss->genpd_link)
  		device_link_del(camss->genpd_link);
  
-@@ -6160,34 +6209,21 @@ MODULE_DEVICE_TABLE(of, camss_dt_match);
+@@ -6160,34 +6205,21 @@ MODULE_DEVICE_TABLE(of, camss_dt_match);
  static int __maybe_unused camss_runtime_suspend(struct device *dev)
  {
  	struct camss *camss = dev_get_drvdata(dev);

@@ -137,7 +137,7 @@ column names the source; see that tree's history for the individual authors.
 | `0112` | media: iris: don't wait for the threaded IRQ handler under core->lock | Joonhoe Kim | this project | upstream candidate | `09cb4d1e2ba7c805` |
 | `0113` | wifi: ath12k: keep the RX refill ring from running dry | Joonhoe Kim | this project | upstream candidate | `bc3540820508e116` |
 | `0114` | net: qrtr: ns: retry announcements the new node is not ready for yet | Joonhoe Kim | this project | upstream candidate | `e1a306db29173484` |
-| `0116` | media: qcom: camss: hold the bandwidth vote while TITAN_TOP is powered | Joonhoe Kim | this project | upstream candidate (0115 is a debugging aid kept out of the series) | `655255a88a4a1e6c` |
+| `0116` | media: qcom: camss: hold the bandwidth vote while TITAN_TOP is powered | Joonhoe Kim | this project | upstream candidate (0115 is a debugging aid kept out of the series) | `3b8ea94fd19e5fc5` |
 | `0117` | arm64: dts: qcom: kaanapali: add CPU capacity-dmips-mhz | Joonhoe Kim | this project | upstream candidate | `cde3fbe0e37a205a` |
 | `0118` | cpuidle: psci-domain: add allow_cluster_off to refuse cluster idle states | Joonhoe Kim | this project | local workaround (stopgap: no cluster idle states in runtime idle on baldur, set by the config fragment's command line; the cause is not fixed) | `9c63e2de94b80582` |
 
