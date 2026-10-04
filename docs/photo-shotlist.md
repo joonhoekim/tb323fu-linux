@@ -25,7 +25,7 @@ home details in the background, and strip location data (EXIF) from the files.
 
 ## Hardware
 
-11. The LED ring lit (in a dim room, so the colours show).
+11. The LED ring lit (in a dim room, so the colors show).
 12. The tablet on the keyboard / pogo-pin dock, typing.
 13. An external monitor connected over USB-C DisplayPort, the desktop shown on both screens.
 14. The tablet with USB-C connected to a PC (the USB network / serial way in), with the PC terminal visible next to it.

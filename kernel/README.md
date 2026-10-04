@@ -139,7 +139,7 @@ The bootloader on this tablet cannot be made to pass our device tree or command 
   | `consoleblank=120` | blank the text console after 2 minutes |
   | `no_console_suspend` | keep the console alive across suspend (debugging) |
   | `mem_sleep_default=s2idle` | the only system sleep state this platform supports |
-  | `cpuidle_psci_domain.allow_cluster_off=0` | patch 0118: no CPU cluster idle state in runtime idle, which avoids the resets it caused when idle (3 h without one vs 2 in 78 min, same display-off power); the cause in the cluster's power-down is not fixed, and s2idle still uses the state. `1` = upstream behaviour; can be switched at run time in `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off` |
+  | `cpuidle_psci_domain.allow_cluster_off=0` | patch 0118: no CPU cluster idle state in runtime idle, which avoids the resets it caused when idle (3 h without one vs 2 in 78 min, same display-off power); the cause in the cluster's power-down is not fixed, and s2idle still uses the state. `1` = upstream behavior; can be switched at run time in `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off` |
 
   </details>
 

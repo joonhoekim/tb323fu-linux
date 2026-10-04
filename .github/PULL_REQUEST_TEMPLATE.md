@@ -4,4 +4,4 @@
 
 - [ ] Every commit has `Signed-off-by:` (DCO, `git commit -s`) and, for AI-assisted work, `Assisted-by:` — see [CONTRIBUTING.md](../CONTRIBUTING.md)
 - [ ] No device identifiers, Wi-Fi names, private hosts or paths, firmware files
-- [ ] Docs and `docs/hardware-status.md` updated if behaviour changed (✅ only with a measurement or observation)
+- [ ] Docs and `docs/hardware-status.md` updated if behavior changed (✅ only with a measurement or observation)

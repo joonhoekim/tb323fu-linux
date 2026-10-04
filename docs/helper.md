@@ -48,7 +48,7 @@ GNOME and apt.
   - **Refresh policy:** Adaptive, Fixed (N Hz), Always 120 Hz.
   - **Torch:** on/off with a brightness slider.
   - **Open Device Helper…:** opens the settings app.
-  - **Errors:** one notification per failed call (no D-Bus names); a cancelled authentication shows nothing.
+  - **Errors:** one notification per failed call (no D-Bus names); a canceled authentication shows nothing.
   - Auto Brightness stays a separate GSettings tile.
 - **Settings app** (Rust, gtk-rs, GTK4 + libadwaita; `tb323fu-settings [--page NAME]` opens a page directly). A list of
   pages on the left, the page on the right; below 860 sp it becomes list → page navigation. Short values stay on one
@@ -59,7 +59,7 @@ GNOME and apt.
     heat protection.
   - **Performance:** the profile (power-saver / balanced / performance) with CPU and GPU limits per profile, low-latency
     Wi-Fi in the performance profile, the thermal profile, CPU boost, and the temperatures.
-  - **Lights & Vibration:** torch, LED ring mode and colour (a palette of nine; `tb323fu-ctl` takes any `#rrggbb`),
+  - **Lights & Vibration:** torch, LED ring mode and color (a palette of nine; `tb323fu-ctl` takes any `#rrggbb`),
     breathing, notification pulse, vibration strength with a test.
   - **USB:** wake sources, USB-C port roles, developer mode.
   - **Emergency Key:** on/off and how long to hold volume up + volume down.
@@ -203,7 +203,7 @@ considered and skipped.
 
 | What | Why |
 |---|---|
-| Chip protection trips (CPU 95, GPU 105, `hot` 120 / `critical` 125 °C, PMIC 95/115/145 °C), every `hot` trip, zone `mode` / `policy` / `emul_temp`, cooling-device `cur_state` | the last line of defence; writable only because mainline marks every DT trip writable. The thermal profile writes `quiet-thermal` passive trips only, below a fixed 58 °C ceiling |
+| Chip protection trips (CPU 95, GPU 105, `hot` 120 / `critical` 125 °C, PMIC 95/115/145 °C), every `hot` trip, zone `mode` / `policy` / `emul_temp`, cooling-device `cur_state` | the last line of defense; writable only because mainline marks every DT trip writable. The thermal profile writes `quiet-thermal` passive trips only, below a fixed 58 °C ceiling |
 | Speaker amplifier volume, profile and monitor controls (`aw_dev_*`), bypassing the protection filter | safe only behind the PipeWire protection filter; can damage the speakers (layer 1) |
 | Charge current and USB input current (`input_current_limit`) | ignored by the firmware on PD/PPS chargers — a switch would only pretend to work |
 | Charge limit below 20 %, recharge threshold above the limit | deep storage charge is bad for the battery |
@@ -215,7 +215,7 @@ considered and skipped.
 | remoteproc restart, NPU, `/dev/mem` register writes (vendor LED-ring effects, amplifier registers) | a stopped remoteproc kills the SoC; TrustZone kills the system on secure registers; the driver state would diverge |
 | USB-C power role ("don't power connected devices") | `typec/port*/power_role` is writable, but with UCSI it is a per-connection PR swap, refused without a partner (`EIO` on the device); a swap hands the source role to the other device (a phone would then charge the tablet) rather than switching power off, and a failed swap needs a replug. Nothing persistent to switch, and not tried on the device (port 0 carries the development link). The roles are shown read-only (`Usb.Ports`) |
 | Wake from a Bluetooth keyboard | the Bluetooth UART (`1994000.serial`) has no wakeup interrupt in the device tree (no `power/wakeup` on the serial device; only the serdev controller's flag, which routes nothing) — needs a device-tree change first |
-| Panel colour modes (sRGB / P3) | the mainline DPU offers no gamma/3D LUT on this panel (`GAMMA_LUT` size 0), so only an ICC profile in the compositor could do it. The vendor 17³ calibration LUTs (`/vendor/etc/display/panel_baldur_*_C3D_cali_{srgb,p3}.txt`) are per-panel vendor data that cannot be shipped, and converting them into ICC profiles is untested; a layer-1 tool would have to build them from the user's own vendor partition first |
+| Panel color modes (sRGB / P3) | the mainline DPU offers no gamma/3D LUT on this panel (`GAMMA_LUT` size 0), so only an ICC profile in the compositor could do it. The vendor 17³ calibration LUTs (`/vendor/etc/display/panel_baldur_*_C3D_cali_{srgb,p3}.txt`) are per-panel vendor data that cannot be shipped, and converting them into ICC profiles is untested; a layer-1 tool would have to build them from the user's own vendor partition first |
 | Touch sampling rate, game / palm / glove / edge modes | the mainline `nt36536_ts` driver has no sysfs or proc nodes for them; the firmware commands must be worked out from the vendor driver first |
 
 ## Reference

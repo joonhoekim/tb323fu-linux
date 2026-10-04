@@ -19,7 +19,7 @@ Open Device Helper's settings app. As a fallback the items sit in a scroll view 
 pushed off the screen. Choices (charge limit, policy, switches) keep the menu open.
 
 **LED ring notification pulse:** when "Pulse for Notifications" is on in Open Device Helper (`LedRing.NotifyPulse`), a new desktop
-notification blinks the ring twice in its colour (`LedRing.Pulse`), at most every 2 s, and not while notification banners
+notification blinks the ring twice in its color (`LedRing.Pulse`), at most every 2 s, and not while notification banners
 are off (do not disturb).
 
 Items whose helper object is missing (the helper exports only what the running kernel supports) are hidden.

@@ -89,7 +89,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Camera streaming with the screen off | ✅ | measured | restarting a capture with the display off used to hang the system; fixed by patch 0116 (repeated starts with the display off pass) |
 | Torch | ✅ | observed | also from the helper's quick settings |
 | Flash strobe | ❓ | probe only | |
-| RGB ring light | ✅ | observed + measured | charge indicator, solid colours (a nine-colour palette in the helper; colours are gamma-corrected because the LEDs are linear) and breathing run by the chip itself (`hw_pattern`) watched on 2026-10-03. Known limitation: every brightness or colour change goes dark for about 45 ms while the chip's program restarts (no update command found in the vendor material) |
+| RGB ring light | ✅ | observed + measured | charge indicator, solid colors (a nine-color palette in the helper; colors are gamma-corrected because the LEDs are linear) and breathing run by the chip itself (`hw_pattern`) watched on 2026-10-03. Known limitation: every brightness or color change goes dark for about 45 ms while the chip's program restarts (no update command found in the vendor material) |
 | Haptics (2 motors) | ✅ | observed | |
 | Volume and power keys | ✅ | observed | power key suspends and resumes (seen in SteamOS) |
 | Emergency key (volume up + down, 10 s → back to Android) | ✅ | measured + observed | Android restore starts 10 s after the keys are detected and Android boots (1/1); switching back to Linux from Android works |
@@ -105,11 +105,11 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Accelerometer / auto-rotate | ✅ | measured + observed | via the sensor hub (SSC) |
 | Ambient light / auto-brightness | ✅ | measured + observed | |
 | Proximity | ✅ | measured | |
-| Compass | 🟡 | measured + observed | relative rotation is right (about 90° per quarter turn); absolute heading is about 30° off compared with a phone. Android's map apps are 90–180° off on this device too, so the sensor is uncalibrated on the stock OS as well. GNOME's sensor proxy only lets authorised clients read it |
+| Compass | 🟡 | measured + observed | relative rotation is right (about 90° per quarter turn); absolute heading is about 30° off compared with a phone. Android's map apps are 90–180° off on this device too, so the sensor is uncalibrated on the stock OS as well. GNOME's sensor proxy only lets authorized clients read it |
 | Gyroscope, SAR | — | untested | behind the sensor hub, not wired to iio-sensor-proxy |
 | Hall sensor (cover) | ❓ | measured | needs the original folio case |
 | GNSS / GPS | ❌ | measured | the modem, location service and a location session run, but no satellites are ever seen; Android on the same device gets no GPS fix either — most likely no antenna (Lenovo's spec sheet lists GPS) |
-| Modem (MPSS) | 🟡 | measured | boots and stays up when rmtfs and tqftpserv start before it; if its initialisation stalls, the SoC firmware resets the whole tablet and Linux cannot contain it. Kept off (rmtfs and tqftpserv masked): no cellular, no usable GNSS |
+| Modem (MPSS) | 🟡 | measured | boots and stays up when rmtfs and tqftpserv start before it; if its initialization stalls, the SoC firmware resets the whole tablet and Linux cannot contain it. Kept off (rmtfs and tqftpserv masked): no cellular, no usable GNSS |
 | Thermal throttling | ✅ | measured | CPU (95 °C) and GPU (105 °C) chip limits, plus board-temperature steps from 43 °C following Android's policy; checked under a 10-minute full load |
 | Battery readings | ✅ | measured | while bypass charging, `status` still reads "Charging" (display only) |
 | USB PD charging, PPS | ✅ | measured | about 40 W into the battery on PPS with a 65 W charger (about 9.25 V in). The USB-C controller reports the negotiated voltage and current as 0 |

@@ -41,7 +41,7 @@ independently. The manual roll-outs of the last two development kernels showed e
   `RootHealth` check exists only to catch that.
 
 A user-facing update ("a new kernel is available — install") cannot be built on top of this. The fix is to
-make the kernel and its modules **one artefact**.
+make the kernel and its modules **one artifact**.
 
 ## 2. Shared modules
 
@@ -196,7 +196,7 @@ Firmware is **never** shipped: release images carry no vendor firmware; users ex
 tablet ([firmware/](../../firmware/)). The release image must therefore boot with the firmware that is in the
 root only — see open question Q1.
 
-### 3.1 Release artefacts
+### 3.1 Release artifacts
 
 > Superseded by 3.8 (GitHub Releases; no manifest, no index). Kept as the record of the first design.
 
