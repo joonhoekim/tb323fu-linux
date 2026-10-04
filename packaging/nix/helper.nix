@@ -1,11 +1,14 @@
 # SPDX-License-Identifier: MIT
 { lib, rustPlatform, src }:
+let
+  # only this tree, so edits elsewhere in the repository do not rebuild it
+  tree = builtins.path { path = "${src}/helper"; name = "tb323fu-helper-src"; };
+in
 rustPlatform.buildRustPackage {
   pname = "tb323fu-helper";
   version = "0.3.0";
-  # only the helper tree, so edits elsewhere in the repository do not rebuild it
-  src = builtins.path { path = "${src}/helper"; name = "tb323fu-helper-src"; };
-  cargoLock.lockFile = "${src}/helper/Cargo.lock";
+  src = tree;
+  cargoLock.lockFile = "${tree}/Cargo.lock";
   # tests start a private D-Bus daemon; run them outside the sandbox
   doCheck = false;
   postInstall = ''

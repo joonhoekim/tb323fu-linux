@@ -1,10 +1,14 @@
 # SPDX-License-Identifier: MIT
 { lib, rustPlatform, pkg-config, wrapGAppsHook4, gtk4, libadwaita, src }:
+let
+  # only this tree, so edits elsewhere in the repository do not rebuild it
+  tree = builtins.path { path = "${src}/helper/crates/tb323fu-settings"; name = "tb323fu-settings-src"; };
+in
 rustPlatform.buildRustPackage {
   pname = "tb323fu-settings";
-  version = "0.2.0";
-  src = builtins.path { path = "${src}/helper/crates/tb323fu-settings"; name = "tb323fu-settings-src"; };
-  cargoLock.lockFile = "${src}/helper/crates/tb323fu-settings/Cargo.lock";
+  version = "0.3.0";
+  src = tree;
+  cargoLock.lockFile = "${tree}/Cargo.lock";
   nativeBuildInputs = [ pkg-config wrapGAppsHook4 ];
   buildInputs = [ gtk4 libadwaita ];
   postInstall = ''

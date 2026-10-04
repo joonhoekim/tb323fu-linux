@@ -743,6 +743,22 @@ growroot_into() {
 	run $SUDO ln -sf ../tb323fu-growroot.service "$m/etc/systemd/system/multi-user.target.wants/tb323fu-growroot.service"
 }
 
+# A service that starts in a mount namespace of its own while the image is mounted keeps a
+# copy of that mount (WSL's wsl-pro-service did): unmount the copies, true when none is left.
+release_image() {
+	local dev p mp
+	for dev in $(losetup -j "$1" | cut -d: -f1); do
+		for p in $(grep -l " $dev " /proc/[0-9]*/mountinfo 2>/dev/null | cut -d/ -f3 | sort -u); do
+			for mp in $(awk -v d=" $dev " 'index($0, d) {print $5}' "/proc/$p/mountinfo"); do
+				say "  unmounting a leftover mount of the image ($mp) held by $(cat "/proc/$p/comm" 2>/dev/null) ($p)"
+				$SUDO nsenter -t "$p" -m umount "$mp"
+			done
+		done
+	done
+	sleep 1
+	[ -z "$(losetup -j "$1")" ]
+}
+
 # run_builder SCRIPT MNT [VAR=VALUE ...]: a builder from rootfs/, as root, from $WORK.
 # setsid: no controlling terminal for the build; on sudo-rs's pty, job control can stop apt-get under qemu
 run_builder() {
@@ -817,7 +833,7 @@ EOF
 	run $SUDO umount "$mnt/proc" "$mnt/dev"
 	run $SUDO umount "$mnt" || return 1
 	# shrinking a filesystem that is still mounted elsewhere leaves a superblock written back later
-	if [ $DRY = 0 ] && [ -n "$(losetup -j "$img" 2>/dev/null)" ]; then
+	if [ $DRY = 0 ] && [ -n "$(losetup -j "$img" 2>/dev/null)" ] && ! release_image "$img"; then
 		warn "$img is still in use ($(losetup -j "$img" | cut -d: -f1)); unmount it, then run this step again"; return 1
 	fi
 
