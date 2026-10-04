@@ -83,7 +83,7 @@ be the same on every host, but that too is unchecked.
 | Windows 11 x86-64 | **verified** (LTBox v3.3.1 / v3.3.2) | zip or Scoop | Qualcomm USB driver, installed from LTBox |
 | macOS 11+ | **starts and sees the tablet over adb** (v3.3.3, macOS 26.6); EDL and rooting not tried | Homebrew cask or tarball (universal) | bundled libusb, no driver |
 | Linux x86-64 / arm64 | **not tested here** | `.deb`, `.rpm`, tarball, AUR `ltbox-bin` | udev rule (`ltbox --install-udev`) |
-| NixOS | **not tested here** | tarball | udev rule in the NixOS configuration |
+| NixOS | **starts** (v3.3.3 tarball through nix-ld, NixOS 26.11); device access, EDL and rooting not tried | tarball | udev rule in the NixOS configuration |
 
 Check the current release and its `.sha256` files on [LTBox's releases page](https://github.com/miner7222/LTBox/releases);
 install instructions per OS are in [LTBox's documentation](https://miner7222.github.io/ltbox/en/index.html), and the
