@@ -45,6 +45,7 @@ If both directions fail, the tablet can still be recovered with Qualcomm EDL and
 ## Setting it up
 
 `prepare-boot-b`, then `install` (note the printed hash — the Linux side needs it), then `stage linux-boot.img`.
-The full steps are in [docs/rooting.md](../docs/rooting.md#set-up-the-way-back).
+The guided install script does this in its `wayback` step; the commands are in
+[docs/install-manual.md, step 2](../docs/install-manual.md#2-the-way-back-androids-boot-image-in-boot_b).
 
 Nothing here contains device-specific data; the Android image hash is computed from your own `boot_b`.

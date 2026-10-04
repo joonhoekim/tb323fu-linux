@@ -7,7 +7,7 @@ tablet as the way back. This page is the whole path in order; the steps on your 
 
 | | What | Where it happens | Guide |
 |---|---|---|---|
-| 1 | **Back up** the whole tablet (an EDL dump), **root** Android without unlocking (LTBox, KernelSU) | Android + a PC tool | [Rooting and dual boot setup](rooting.md) |
+| 1 | **Back up** the whole tablet (an EDL dump), **root** Android without unlocking (LTBox, KernelSU) | Android + a PC tool | [Rooting](rooting.md) |
 | 2 | **Install**: firmware copied from Android, the way back set up, the release kernel packed into your own boot image, the card partitioned, a root filesystem built on the PC and written to the card, Linux written to `boot_a` | one script on the PC, talking to rooted Android | the page for your PC, below |
 | 3 | **First start**, then switch between the systems | the tablet | [After installing](after-install.md#first-start) |
 | 4 | Keep it up to date: kernel releases, the helper; remove Linux again if you want | Linux, Open Device Helper | [After installing](after-install.md#updates) |

@@ -1,6 +1,6 @@
 # Installing by hand
 
-The individual steps from a rooted TB323FU (Android with KernelSU, see [Rooting and dual boot setup](rooting.md)) to
+The individual steps from a rooted TB323FU (Android with KernelSU, see [Rooting](rooting.md)) to
 mainline Linux booting from its own partition, with Android kept as the way back. This is the reference behind the
 guided script and covers what the script does not: other distributions, a kernel you build yourself, a card reader
 on the PC and a root on the internal storage.
@@ -103,7 +103,7 @@ boots but has no sound card.
 
 ## 2. The way back: Android's boot image in `boot_b`
 
-**[verified]** From [rooting.md → Set up the way back](rooting.md#set-up-the-way-back):
+**[verified]** The guided script's `wayback` step does the same:
 
 ```sh
 android/install-module.sh prepare-boot-b      # copies the running Android boot image (boot_a) into boot_b; asks first
@@ -112,7 +112,11 @@ android/install-module.sh status              # prints the hashes
 ```
 
 Keep the printed sha256 of `boot_b`: it goes into the boot image (`-a`) and into every root filesystem as
-`/etc/tb323fu/android-boot.sha256`. Put it in a small directory the builders read:
+`/etc/tb323fu/android-boot.sha256`, where `back-to-android`, the emergency key service and the helper read it
+(`tools/cycle.sh` takes it as `ANDROID_BOOT_SHA256`). If the Android boot image ever changes (an OTA, a different
+Android kernel), `boot_b` and the recorded hash are stale: the Linux tools then refuse to write (safe, but there is no
+way back from Linux until you redo `prepare-boot-b` and `install` in Android and update the hash on the Linux side).
+Put it in a small directory the builders read:
 
 ```sh
 mkdir -p tb323fu-config

@@ -16,7 +16,7 @@ own `adb` server. No USB passthrough is needed.
 
 ## 1. Tools for rooting
 
-Rooting follows [Rooting and dual boot setup](rooting.md); its LTBox screens should be the same on every PC. On macOS:
+Rooting follows [Rooting](rooting.md); its LTBox screens should be the same on every PC. On macOS:
 
 1. Install [LTBox](https://github.com/miner7222/LTBox): `brew tap miner7222/tap`, `brew trust miner7222/tap`,
    `brew install --cask ltbox`, or unpack the `macos_universal` tarball into `/Applications`. Needs macOS 11 or later.

@@ -16,7 +16,7 @@ your own `adb`.
 
 ## 1. Tools for rooting
 
-Rooting follows [Rooting and dual boot setup](rooting.md); its LTBox screens should be the same on every PC. On Linux:
+Rooting follows [Rooting](rooting.md); its LTBox screens should be the same on every PC. On Linux:
 
 1. Install [LTBox](https://github.com/miner7222/LTBox): on Debian/Ubuntu from LTBox's APT repository or the `.deb`, on
    Fedora from its DNF repository or the `.rpm`, on Arch from the AUR (`ltbox-bin`, a community package), or unpack

@@ -1,11 +1,11 @@
-# Rooting and dual boot setup
+# Rooting
 
-How the TB323FU used for this project got from a stock tablet to Android and mainline Linux on the same device:
-backup, root **without unlocking the bootloader** (LTBox), KernelSU on Android, Android's boot image kept in `boot_b`,
-Linux written to `boot_a`. When something goes wrong, see [Recovery](recovery.md).
+**Step 1 of [Installing Linux](install.md).** Every install page starts from a rooted tablet: your own full backup,
+root on Android **without unlocking the bootloader** (LTBox), and KernelSU with root for `adb shell`. Android stays
+as it is. After this page, the install script does the rest. When something goes wrong, see [Recovery](recovery.md).
 
-This is a record of what was done on one unit, not a polished installer. "Checked" means it was done on the device;
-anything else is marked as not checked. Commands are given only where they were actually used.
+The steps were done on one unit ([Verified on](#verified-on)). "Checked" means it was done on the device; anything
+else is marked as not checked. Commands are given only where they were actually used.
 
 ## Overview
 
@@ -13,9 +13,8 @@ anything else is marked as not checked. Commands are given only where they were 
 |---|---|---|
 | 1. Back up | nothing (read-only EDL dump) | — |
 | 2. Root with LTBox | `efisp` gets a patched GBL EFI app, `init_boot_a` gets the KernelSU loader | yes: unroot restores `init_boot`; `efisp` can be erased (see [Undoing the root](recovery.md#undoing-the-root)) |
-| 3. KernelSU | manager app, root for `adb shell` | yes |
-| 4. Dual boot | `boot_b` ← copy of your Android boot image; a Linux root partition; `boot_a` ← Linux when you switch | `boot_a`/`boot_b`: yes. Making room for a Linux root on the internal storage **wipes Android's data** |
-| 5. First Linux boot | nothing more | — |
+| 3. KernelSU | manager app, root for `adb shell`, OTA apps turned off | yes |
+| [Next](#next-the-install-script-does-the-rest): install | done by the install script: `boot_b` ← copy of your Android boot image, a Linux root partition on the microSD card, `boot_a` ← Linux | yes ([removing Linux](after-install.md#removing-linux)) |
 
 The bootloader stays **locked** the whole time (`ro.boot.flash.locked=1`, verified boot state `green`).
 
@@ -26,7 +25,7 @@ The bootloader stays **locked** the whole time (`ro.boot.flash.locked=1`, verifi
 - **Warranty.** Modifying boot partitions is outside what Lenovo supports. Assume the warranty is affected.
 - **Data loss.** Rooting itself (step 2) did not wipe data on this unit. A **classic bootloader unlock** would (and
   is not what this guide does). Creating a Linux root partition on the internal UFS storage requires shrinking
-  `userdata`, which means a **factory reset of Android** (step 4).
+  `userdata`, which means a **factory reset of Android** ([Installing by hand, step 8](install-manual.md#8-optional-a-linux-root-on-the-internal-storage)).
 - **Region (PRC / ROW).** The hardware is the same; the firmware differs. This guide was done on a **ROW** unit with
   ROW firmware. LTBox picks the GBL EFI file by the region recorded on the device; PRC units are listed as supported
   by LTBox but were **not checked here**. Do not cross-flash regions as part of this procedure.
@@ -99,11 +98,16 @@ driver part in [Connecting a device](https://miner7222.github.io/ltbox/en/connec
 4. Get the firmware package with Lenovo Software Fix ([below](#get-the-firmware-package)) and close Software Fix
    completely before starting LTBox.
 
+<details>
+<summary>Windows notes: two GPUs, LTBox's folders</summary>
+
 If LTBox crashes or shows an empty window on a laptop with two GPUs, its troubleshooting page suggests starting it
 with `$env:ICED_BACKEND = "tiny-skia"` in PowerShell (not needed here).
 
 Paths on Windows used later in this guide: LTBox's backup folder `%LOCALAPPDATA%\ltbox\backup\`, its log folder
 `%APPDATA%\ltbox\logs\`.
+
+</details>
 
 ### macOS and Linux (not tested here)
 
@@ -165,9 +169,9 @@ LTBox → **Advanced → Dump Partitions**:
    (20 GiB) — it is the only copy of your current system.
 3. Choose the output folder. In v3.3.2 the dump starts as soon as the folder is chosen, without another confirmation.
 
-Checked results (twice): 142 files, 26.21 GiB, about 5 minutes; the tablet booted back to Android by itself.
 **LTBox v3.3.1/v3.3.2 shows no completion message** — it just returns to the first screen, and the file log does not
-record the dump. Verify the result instead:
+record the dump. On the development unit (twice): 142 files, 26.21 GiB, about 5 minutes; the tablet booted back to
+Android by itself. Verify the result:
 
 <details>
 <summary>How to verify the dump</summary>
@@ -240,12 +244,17 @@ Turning *OEM unlocking* on is not needed (it was switched off on this unit befor
 4. Loader: the `qsahara_device_programmer.xml` from step 1.
 5. Confirm → Start, and leave the cable alone until the tablet is back in Android.
 
-Result on this unit: `Flashed efisp` (135,168 bytes) then `Flashed init_boot_a` (8,388,608 bytes); after reboot
-`kernelsu` was live in `/proc/modules`, the bootloader still `locked` / `green`, slot `_a`.
+<details>
+<summary>Result on the development unit</summary>
+
+`Flashed efisp` (135,168 bytes) then `Flashed init_boot_a` (8,388,608 bytes); after reboot `kernelsu` was live in
+`/proc/modules`, the bootloader still `locked` / `green`, slot `_a`.
+
+</details>
 
 **Keep LTBox's backup folder** (on Windows `%LOCALAPPDATA%\ltbox\backup\root\TB323FU_<date_time>\`, containing
-`init_boot.img` and `manifest.json`; on macOS and Linux the location was not checked) and copy it next to your dump. Unroot needs it. On this unit the backed-up
-`init_boot.img` was identical to `image/init_boot.img` of the firmware package for the same version.
+`init_boot.img` and `manifest.json`; on macOS and Linux the location was not checked) and copy it next to your dump. Unroot needs
+it. On this unit the backed-up `init_boot.img` was identical to `image/init_boot.img` of the firmware package for the same version.
 
 Save LTBox's **Work History** with its Save button if you want a record — the file log under `%APPDATA%\ltbox\logs\`
 only keeps errors.
@@ -277,12 +286,20 @@ The KernelSU manager (`me.weishu.kernelsu`) is installed by LTBox. Root is in `i
 - Play Integrity after rooting: Basic and Device pass, Strong fails. The likely cause is the old vendor security
   patch level of this firmware (2025-06-05), not root; it was not measured before rooting, so there is no comparison.
 
-### Firmware for Linux
+The tablet is now ready for the install. Keep KernelSU's **Shell** permission on until the install is done.
 
-With root you can extract the firmware Linux needs from Android — see [`firmware/README.md`](../firmware/README.md).
-No firmware is distributed by this project.
+## Next: the install script does the rest
 
-## 4. Android in `boot_b`, Linux in `boot_a`
+With steps 1–3 done, go to **[Installing Linux](install.md)** and pick the page for your PC. One script then
+copies the firmware Linux needs from Android (none is distributed by this project, see
+[`firmware/README.md`](../firmware/README.md)), copies your Android boot image into `boot_b` as the way back and
+installs the **Switch to Linux** KernelSU module, packs the release kernel into your own stock boot image, partitions
+the microSD card, writes a root filesystem to it and writes Linux to `boot_a`.
+[Installing by hand](install-manual.md) has the same steps as commands, plus a root on the internal storage.
+Switching between the systems afterwards: [After installing](after-install.md#switching-between-android-and-linux).
+
+<details>
+<summary>How the dual boot works</summary>
 
 The model (details in [`android/README.md`](../android/README.md)):
 
@@ -291,53 +308,23 @@ The model (details in [`android/README.md`](../android/README.md)):
 - Switching to Linux writes the Linux boot image into `boot_a`; switching back copies `boot_b` into `boot_a`.
   Only `boot_a` changes. Partitions are found by GPT name, never by number.
 
-### Set up the way back
-
-Checked. In rooted Android with USB debugging, from a clone of this repository:
-
-```sh
-android/install-module.sh prepare-boot-b      # copies the running Android boot image (boot_a) into boot_b; asks first
-android/install-module.sh install             # refuses unless boot_a == boot_b; installs the "Switch to Linux" KernelSU module
-android/install-module.sh stage linux-boot.img   # fallback Linux image for the module's Action button
-android/install-module.sh status              # slot, boot_a/boot_b hashes, staged image, module
-```
-
-**Write down the hash `install` prints.** The Linux side needs it: `back-to-android <hash>`, the emergency key
-service and the helper read it from `/etc/tb323fu/android-boot.sha256`; `tools/cycle.sh` takes it as
-`ANDROID_BOOT_SHA256`.
-
-If the Android boot image ever changes (an OTA, a different Android kernel), `boot_b` and the recorded hash are stale:
-the Linux tools then refuse to write (safe, but there is no way back from Linux until you redo `prepare-boot-b` and
-`install` in Android and update the hash on the Linux side).
-
-### The Linux boot image
-
-The Linux boot image is built from **your own stock boot image**: [`tools/build-boot.sh`](../tools/build-boot.sh)
+**The Linux boot image** is built from **your own stock boot image**: [`tools/build-boot.sh`](../tools/build-boot.sh)
 uses [`tools/boot-repack-kernel.py`](../tools/boot-repack-kernel.py) to put the mainline kernel into it while keeping
 the header, the stock boot signature, the stock vbmeta blob and the AVB footer layout. Nothing is re-signed; the
 patched bootloader accepts the changed digest for `boot`. An image packed with plain `mkbootimg` loses that blob and
-is not accepted. Get the stock image in Android with root:
-
-```sh
-dd if=/dev/block/by-name/boot_a of=/sdcard/stock-boot.img
-```
-
-The kernel carries its device tree, command line and initramfs inside the image; see
+is not accepted. The kernel carries its device tree, command line and initramfs inside the image; see
 [`kernel/initramfs/README.md`](../kernel/initramfs/README.md).
 
-### A root partition for Linux
-
-The initramfs looks for root filesystems by **GPT partition name**: `baldur-root` (default; on this unit on the
-internal UFS storage after `userdata`), `baldur-root-sd` (microSD fallback) and `tb323fu-*` partitions for more
-systems ([multiboot](../kernel/initramfs/README.md#root-partitions-and-multiboot)).
+**A root partition for Linux.** The initramfs looks for root filesystems by **GPT partition name**: `baldur-root`
+(default; on the development unit on the internal UFS storage after `userdata`), `baldur-root-sd` (microSD fallback)
+and `tb323fu-*` partitions for more systems ([multiboot](../kernel/initramfs/README.md#root-partitions-and-multiboot)).
 
 | Where | What it costs | Notes |
 |---|---|---|
-| microSD (new GPT, ext4) | nothing on the tablet | Android then reports the card as unsupported; that is expected |
+| microSD (new GPT, ext4) | nothing on the tablet | what the install script does. Android then reports the card as unsupported; that is expected |
 | internal UFS, after `userdata` | **a factory reset of Android** | `userdata` is f2fs (cannot shrink) and encrypted; afterwards reinstall the KernelSU manager, allow Shell and disable the OTA apps again. Steps: [the manual install, step 8](install-manual.md#8-optional-a-linux-root-on-the-internal-storage) |
 
-<details>
-<summary>How the UFS root was made on the development unit</summary>
+How the UFS root was made on the development unit:
 
 - `userdata` (the last partition of LUN 0) was cut to 128 GiB and a ~322 GiB ext4 partition named `baldur-root` was
   added after it. `userdata` and `metadata` were cleared; Android formatted them on its next boot and started at the
@@ -350,33 +337,6 @@ systems ([multiboot](../kernel/initramfs/README.md#root-partitions-and-multiboot
 - `boot_a` and `boot_b` were unchanged after the reset, slot still `_a` (checked).
 
 </details>
-
-### Switching
-
-| Direction | How | Checked |
-|---|---|---|
-| Android → Linux | KernelSU manager → module **Switch to Linux** → Action button. Writes the last Linux image that ran (saved by `back-to-android` on the state root, normally `baldur-root`) or the staged one to `boot_a`, verifies it, reboots | yes |
-| Linux → Android | `back-to-android <hash>` as root, or the **Android** tile / "Switch to Android" in the desktop ([helper](helper.md)) | yes |
-| Linux → Android, emergency | hold **volume up + volume down for 10 s** — works with a frozen desktop as long as the kernel runs; letting go earlier cancels | yes (Debian; Ubuntu through the guided installer) |
-| from a PC, Linux running | [`tools/flash-boot.sh`](../tools/flash-boot.sh) over SSH (USB network: tablet `192.168.7.2`, PC `192.168.7.1`) | yes |
-| from a PC, through Android | [`tools/cycle.sh`](../tools/cycle.sh): back to Android if needed, write `boot_a` over adb, reboot, wait for SSH | yes, many times |
-
-Every one of these checks hashes before and after writing and stops without rebooting on any mismatch. If the Switch
-to Linux module finds a bad write, it copies Android back from `boot_b` before giving up.
-
-## 5. First boot of Linux
-
-The full install procedure — firmware, building the boot image, a root partition, the first boot and moving the root
-to the internal storage — is in **[Installing Linux](install.md)** (the guided script) and [Installing by hand](install-manual.md). The points below are a summary.
-
-- Root filesystems: [docs/distros.md](distros.md) lists the systems built with [`rootfs/`](../rootfs/) and booted
-  on the device, and what every root needs (firmware, masked services; the kernel modules come with the boot image).
-- What works: [docs/hardware-status.md](hardware-status.md).
-- The initramfs brings up a USB serial shell and USB network (`192.168.7.2`) before anything else, shows a boot
-  summary on the panel, then switches to the selected root. Holding **volume up** during the summary stays in the
-  initramfs.
-- In mainline Linux the power button alone does not force the tablet off; hold **power + volume down**.
-- If Linux does not come up: [Recovery](recovery.md#linux-does-not-boot).
 
 ## Terms
 
@@ -402,8 +362,8 @@ to the internal storage — is in **[Installing Linux](install.md)** (the guided
 - [gbl_root_baldur](https://github.com/miner7222/gbl_root_baldur) (the GBL build LTBox pins for this model)
 - [bkerler/edl](https://github.com/bkerler/edl)
 - [XDA thread for the TB323FU](https://xdaforums.com/t/gen-5-lenovo-legion-tab-5-global-tb323fu-how-to-root-and-bootloader-unlock.4800204/)
-- In this repository: [install](install.md), [android/](../android/README.md), [firmware/](../firmware/README.md),
+- In this repository: [install](install.md), [after installing](after-install.md), [android/](../android/README.md), [firmware/](../firmware/README.md),
   [kernel/initramfs/](../kernel/initramfs/README.md), [tools/](../tools/README.md), [distros](distros.md),
   [helper](helper.md), [hardware status](hardware-status.md), [recovery](recovery.md)
 
-**Next:** [Installing Linux](install.md) — from a rooted tablet to Linux on its own partition.
+**Next:** [Installing Linux](install.md) — from a rooted tablet to Linux on the microSD card.

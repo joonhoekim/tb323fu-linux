@@ -1,7 +1,7 @@
 # Recovery
 
 How to get a TB323FU back when Linux, Android or a write goes wrong. It assumes the setup from
-[Rooting and dual boot setup](rooting.md): a full EDL dump of your own tablet, LTBox, the firmware package with its
+[Rooting](rooting.md): a full EDL dump of your own tablet, LTBox, the firmware package with its
 EDL loader, and Android's boot image kept in `boot_b`.
 
 Start with the smallest step: rebooting → fixing `boot_a` from Android (`adb` + `dd`) → unroot → one partition over
@@ -123,4 +123,6 @@ Not done on the development unit since rooting. The order prepared from the LTBo
 2. Restore the stock `boot_a` and unroot.
 3. Enable the OTA apps and update; disable them again.
 4. Root again (LTBox then writes only `init_boot`).
-5. Redo `prepare-boot-b` / `install` ([rooting step 4](rooting.md#set-up-the-way-back)) and update the hash on the Linux side.
+5. Redo `prepare-boot-b` / `install`
+   ([Installing by hand, step 2](install-manual.md#2-the-way-back-androids-boot-image-in-boot_b)) and update the
+   hash on the Linux side.

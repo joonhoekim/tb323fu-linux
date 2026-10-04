@@ -19,8 +19,9 @@ the kernel does not assume a particular distribution or desktop.
 |---|---|
 | know what works | [Hardware status](docs/hardware-status.md) — a feature is marked as working only after it was checked on the device (measured, or seen/heard by a person); "the driver probes" does not count |
 | see which distributions boot | [Distributions](docs/distros.md) |
-| understand how the tablet was set up for dual boot | [Rooting and dual boot setup](docs/rooting.md) (host setup per OS, backup, LTBox, KernelSU, switching) and [Recovery](docs/recovery.md) |
-| install Linux after rooting | **Start here: [Installing Linux](docs/install.md)** — the whole path, then one guided script ([`tools/install/`](tools/install/README.md)) from your PC: [Windows](docs/install-windows.md) (followed end to end), [Linux](docs/install-linux.md) (followed end to end from NixOS) or [macOS](docs/install-macos.md) (followed end to end); result: Ubuntu with GNOME on the microSD card |
+| start: root the tablet (step 1 of the install) | **[Rooting](docs/rooting.md)**: back up the whole tablet, root Android without unlocking (LTBox, KernelSU); host setup per OS. When something goes wrong: [Recovery](docs/recovery.md) |
+| install Linux after rooting | **[Installing Linux](docs/install.md)** — the whole path, then one guided script ([`tools/install/`](tools/install/README.md)) from your PC: [Windows](docs/install-windows.md) (followed end to end), [Linux](docs/install-linux.md) (followed end to end from NixOS) or [macOS](docs/install-macos.md) (followed end to end); result: Ubuntu with GNOME on the microSD card |
+| switch, update or remove Linux once it runs | [After installing](docs/after-install.md): switching to Android and back, kernel and helper updates, more systems on the card, going back to stock, a symptom index |
 | install another distribution, your own kernel or a root on the internal storage | [Installing by hand](docs/install-manual.md) (every step as commands, each marked verified / from records / untested) |
 | build or review the kernel | [kernel/](kernel/README.md), [PROVENANCE.md](kernel/PROVENANCE.md), [initramfs](kernel/initramfs/README.md) |
 | put together a root filesystem | [platform files](userspace/platform/README.md), [firmware](firmware/README.md), [`rootfs/`](rootfs/) builders (arm64 host, or x86-64 Linux with qemu-user-binfmt — WSL2 with Ubuntu works, see [install](docs/install-manual.md#prerequisites)) |
@@ -37,7 +38,7 @@ the kernel does not assume a particular distribution or desktop.
 | `userspace/` | `platform/`: distribution-neutral platform files every install needs (udev, systemd units, audio/UCM, sensors, emergency key) with `install.sh`; `desktop/`: optional desktop extras |
 | `helper/` | device helper: `tb323fu-helperd` (system D-Bus), `tb323fu-ctl`, the `tb323fu-settings` app ([docs/helper.md](docs/helper.md)) |
 | `packaging/` | Debian (`build-debs.sh`), Arch (`PKGBUILD`) and Nix (`flake.nix` at the root) recipes |
-| `android/` | Android-side helpers (switching between Android and Linux; setup in [docs/rooting.md](docs/rooting.md)) |
+| `android/` | Android-side helpers (switching between Android and Linux; how to switch: [docs/after-install.md](docs/after-install.md)) |
 | `tools/` | build and flash scripts |
 | `docs/` | documentation (see [Where to start](#where-to-start)) |
 
