@@ -1,5 +1,5 @@
 From 90bde24c802ed37ca6a52c99bca0c67f267ce154 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:27:31 +0000
 Subject: [PATCH 28/56] backlight: aw99706: replay board registers after the
  HWEN reset

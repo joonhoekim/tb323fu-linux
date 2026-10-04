@@ -1,5 +1,5 @@
 From 8bf7d9240bb97353f4c6dca53e4a65c18ade7bcf Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:27:46 +0000
 Subject: [PATCH 33/56] power: supply: qcom_battmgr: let the host set the USB
  input current limit

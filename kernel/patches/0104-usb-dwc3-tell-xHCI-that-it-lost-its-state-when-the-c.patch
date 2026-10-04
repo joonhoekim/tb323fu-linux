@@ -1,5 +1,5 @@
 From 619aed226dbd5325ed2fa4d49f3ba238533d42b2 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sun, 27 Sep 2026 16:43:25 +0000
 Subject: [PATCH] usb: dwc3: tell xHCI that it lost its state when the core is
  powered off

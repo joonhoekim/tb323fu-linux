@@ -1,5 +1,5 @@
 From 04ce90693ab632572ab4722d7b8db16bc5e72cac Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 05:50:16 +0000
 Subject: [PATCH] wifi: ath12k: don't wake the device over MHI from the panic
  notifier

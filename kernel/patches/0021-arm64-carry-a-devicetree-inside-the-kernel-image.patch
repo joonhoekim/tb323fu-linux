@@ -1,5 +1,5 @@
 From 4209aeb86061de639290b63871d4ab5754f55a58 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:25:39 +0000
 Subject: [PATCH 21/56] arm64: carry a devicetree inside the kernel image
 

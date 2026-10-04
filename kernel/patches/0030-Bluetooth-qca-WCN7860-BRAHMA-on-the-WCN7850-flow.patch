@@ -1,5 +1,5 @@
 From 5e2750e47dfbdd4be964c92a979eb65433ba746b Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:27:40 +0000
 Subject: [PATCH 30/56] Bluetooth: qca: WCN7860 (BRAHMA) on the WCN7850 flow
 

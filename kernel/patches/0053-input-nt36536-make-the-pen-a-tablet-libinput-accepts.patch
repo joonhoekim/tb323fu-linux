@@ -1,5 +1,5 @@
 From 2efd6fd664aee2e9afa620d1fb40c619a5a279b4 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:33:07 +0000
 Subject: [PATCH 53/56] input: nt36536: make the pen a tablet libinput accepts
 

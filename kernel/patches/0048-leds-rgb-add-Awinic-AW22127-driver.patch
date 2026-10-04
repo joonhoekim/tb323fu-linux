@@ -1,5 +1,5 @@
 From 8fa8b1aceee3a1a4e135ebff5e2717ec0eaf6169 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:30:49 +0000
 Subject: [PATCH 48/56] leds: rgb: add Awinic AW22127 driver
 
@@ -449,7 +449,7 @@ index 000000000..c70ecc06b
 +};
 +module_i2c_driver(aw22127_driver);
 +
-+MODULE_AUTHOR("joonhoekim <26rote@gmail.com>");
++MODULE_AUTHOR("Joonhoe Kim <26rote@gmail.com>");
 +MODULE_DESCRIPTION("Awinic AW22127 RGB LED driver");
 +MODULE_LICENSE("GPL");
 -- 

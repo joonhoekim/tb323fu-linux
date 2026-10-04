@@ -1,5 +1,5 @@
 From c71df119483415a5a9e4650993cc66d9ab26ef96 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Wed, 30 Sep 2026 11:10:31 +0000
 Subject: [PATCH 110/111] drm/msm/dpu: baldur: lower the refresh rate in the
  kernel when idle

@@ -1,5 +1,5 @@
 From bec6350ce7dbb124c2e1036a26f448b6daf3174f Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 05:06:31 +0000
 Subject: [PATCH] drm/msm/dp: retrain the link on a quick replug while
  streaming

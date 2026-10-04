@@ -1,5 +1,5 @@
 From fce5de6518c602fcc2e577477f8e38d39e094dde Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 08:31:25 +0000
 Subject: [PATCH 60/61] soc: qcom: pmic_glink_altmode: handle notifications on
  the freezable workqueue

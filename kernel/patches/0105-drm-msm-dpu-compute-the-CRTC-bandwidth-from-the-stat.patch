@@ -1,5 +1,5 @@
 From f3ba1086f003b691da0e155b43c649c6a00ba7e0 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Tue, 29 Sep 2026 07:54:57 +0000
 Subject: [PATCH] drm/msm/dpu: compute the CRTC bandwidth from the state
  being checked

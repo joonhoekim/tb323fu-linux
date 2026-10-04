@@ -1,5 +1,5 @@
 From 9a28ca709c856d258ef66552c7238cf0a82dcb8e Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Wed, 30 Sep 2026 10:45:40 +0000
 Subject: [PATCH 109/111] drm/panel: nt36523: baldur: add 90 Hz and 164 Hz
  modes

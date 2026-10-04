@@ -1,5 +1,5 @@
 From 56d773ac7031fec64f9a543b039a6b84f1f84f36 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:30:48 +0000
 Subject: [PATCH 47/56] media: i2c: dw9719: add Giantec GT9764, optional vio
  supply

@@ -1,5 +1,5 @@
 From 889952dfbe4886874b2741c1e25c4bd6329cfc6a Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sun, 27 Sep 2026 04:28:44 +0000
 Subject: [PATCH 65/66] drm/msm/dpu+dsi: change the vertical front porch in
  place
@@ -21,7 +21,7 @@ panel off and on) at 60 or 30 Hz makes the Lenovo TB323FU CSOT NT36523
 panel flicker, while the same timings are fine when booted into or
 switched in place.
 
-Signed-off-by: joonhoekim <26rote@gmail.com>
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
 ---
  drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c      | 44 +++++++++++++++++++
  drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c   | 33 ++++++++++++++

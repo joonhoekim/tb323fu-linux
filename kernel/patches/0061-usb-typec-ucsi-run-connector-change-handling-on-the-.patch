@@ -1,5 +1,5 @@
 From 2bb339d8929b488ba010fcad2944edbf647cdbb8 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 08:31:25 +0000
 Subject: [PATCH 61/61] usb: typec: ucsi: run connector change handling on the
  freezable workqueue

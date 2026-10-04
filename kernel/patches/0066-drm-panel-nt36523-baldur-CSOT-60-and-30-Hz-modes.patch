@@ -1,5 +1,5 @@
 From ccf43c3935da1d7fa721bb7860b14d9042840684 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sun, 27 Sep 2026 04:28:44 +0000
 Subject: [PATCH 66/66] drm/panel: nt36523: baldur CSOT 60 and 30 Hz modes
 
@@ -9,7 +9,7 @@ VFP change in msm the display switches between them without a modeset.
 The vendor 165/144/90 Hz timings change the horizontal timing or break the
 picture and are left out.
 
-Signed-off-by: joonhoekim <26rote@gmail.com>
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
 ---
  drivers/gpu/drm/panel/panel-novatek-nt36523.c | 26 +++++++++++++++++++
  1 file changed, 26 insertions(+)

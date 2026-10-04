@@ -1,5 +1,5 @@
 From 35be5158951bb737c1b92d627ffa2a11c19fdcff Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:30:48 +0000
 Subject: [PATCH 46/56] clk: qcom: gdsc: keep the clock controller active while
  a GDSC is on

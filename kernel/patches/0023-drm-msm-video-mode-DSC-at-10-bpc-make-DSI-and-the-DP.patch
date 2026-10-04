@@ -1,5 +1,5 @@
 From ecfabe7a4da707e7f14223515588e0736219a4e0 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:26:17 +0000
 Subject: [PATCH 23/56] drm/msm: video-mode DSC at 10 bpc -- make DSI and the
  DPU INTF agree on the line

@@ -1,5 +1,5 @@
 From 60166ac3dfec8d7889c4a1311e460440aa806701 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:33:39 +0000
 Subject: [PATCH 54/56] arm64: dts: qcom: add Lenovo Legion Tab Y700 gen5
  (TB323FU, baldur) board DTs

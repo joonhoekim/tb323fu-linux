@@ -1,5 +1,5 @@
 From 777331dce7c93005df1d85a9b76f1abd85e0a118 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sun, 27 Sep 2026 09:20:25 +0000
 Subject: [PATCH 78/79] arm64: dts: qcom: baldur: WCN7860 WAKE# is active low
 

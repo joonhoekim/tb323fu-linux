@@ -1,5 +1,5 @@
 From 7eb5e14bbb5888c0a364aa6c5b721b80deafe2d9 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:27:45 +0000
 Subject: [PATCH 31/56] arm64: dts: qcom: kaanapali: CPU6-7 in a PSCI cluster
  domain of their own

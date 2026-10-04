@@ -1,5 +1,5 @@
 From e779b596e803d767e0782035c8d0ca483a2cff77 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 07:20:57 +0000
 Subject: [PATCH] clk: qcom: gcc-kaanapali: keep the USB GDSCs in retention
 

@@ -1,5 +1,5 @@
 From 6a6eeb8fc4a7e8b294068c56b977cc22dc2b6e46 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:28:21 +0000
 Subject: [PATCH 36/56] usb: gadget: f_ncm: restart the TX timer when the
  freelist is empty

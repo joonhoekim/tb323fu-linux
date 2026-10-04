@@ -1,5 +1,5 @@
 From 1d3454d6e097fa5f8f933243c09692e61438f62c Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:31:31 +0000
 Subject: [PATCH 49/56] PCI: qcom: don't advertise a hot-plug slot on the Root
  Port

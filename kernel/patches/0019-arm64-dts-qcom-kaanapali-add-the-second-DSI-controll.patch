@@ -1,5 +1,5 @@
 From cc2a040e0bfe884e268dda7e107c8c1be1b15ea8 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:25:39 +0000
 Subject: [PATCH 19/56] arm64: dts: qcom: kaanapali: add the second DSI
  controller and PHY

@@ -1,5 +1,5 @@
 From ab41b2c82960e696692ad0a93fba78164610baae Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:28:21 +0000
 Subject: [PATCH 35/56] ASoC: codecs: lpass-tx-macro: board tuning of the
  decimator filter block

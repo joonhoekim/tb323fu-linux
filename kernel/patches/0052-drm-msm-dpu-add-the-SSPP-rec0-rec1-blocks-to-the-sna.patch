@@ -1,5 +1,5 @@
 From e583f61105708493dea269643e0a8dd78c9b2990 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:32:55 +0000
 Subject: [PATCH 52/56] drm/msm/dpu: add the SSPP rec0/rec1 blocks to the
  snapshot

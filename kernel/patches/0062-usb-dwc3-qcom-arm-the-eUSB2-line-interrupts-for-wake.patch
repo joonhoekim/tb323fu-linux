@@ -1,5 +1,5 @@
 From 5428a02bb3abba664b87d5600aacf6faaf163849 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 09:54:56 +0000
 Subject: [PATCH] usb: dwc3: qcom: arm the eUSB2 line interrupts for wakeup
 

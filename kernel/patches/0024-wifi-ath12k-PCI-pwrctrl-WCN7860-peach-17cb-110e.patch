@@ -1,5 +1,5 @@
 From 362dc499674595e16879cb2b40fbfd909d7b7d9e Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:26:59 +0000
 Subject: [PATCH 24/56] wifi: ath12k + PCI/pwrctrl: WCN7860 ("peach",
  17cb:110e)

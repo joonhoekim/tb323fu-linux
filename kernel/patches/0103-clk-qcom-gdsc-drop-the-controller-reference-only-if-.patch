@@ -1,5 +1,5 @@
 From cc3be054c92988f3843568a80afa1115ee5e5837 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sun, 27 Sep 2026 15:42:22 +0000
 Subject: [PATCH] clk: qcom: gdsc: drop the controller reference only if it was
  taken

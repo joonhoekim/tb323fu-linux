@@ -1,5 +1,5 @@
 From 35e289d0c3f8140d4a3bb368486a90397ab9d99c Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 17:51:51 +0000
 Subject: [PATCH 63/64] media: i2c: s5kjns: the colour filter order is GRBG,
  not GBRG

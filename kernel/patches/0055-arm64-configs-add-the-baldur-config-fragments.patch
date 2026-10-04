@@ -1,5 +1,5 @@
 From 238c47ce9ec0fe9b4d6b101ce746b75a6c16803c Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:33:48 +0000
 Subject: [PATCH 55/56] arm64: configs: add the baldur config fragments
 

@@ -1,5 +1,5 @@
 From 6504f1b9cf06c5a0fa00737e6c6809b19402434f Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:30:47 +0000
 Subject: [PATCH 44/56] pinctrl: qcom: kaanapali: add the I2C strong pull-up
  bit

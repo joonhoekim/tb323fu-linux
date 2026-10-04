@@ -1,5 +1,5 @@
 From c734accdb932613a323f7ebe93da538dab35bd55 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 17:51:51 +0000
 Subject: [PATCH 64/64] arm64: dts: qcom: baldur: camera orientation and
  rotation

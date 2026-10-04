@@ -1,5 +1,5 @@
 From 0a66c63a043a98634cc9f88063c4042ed696cf98 Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:32:47 +0000
 Subject: [PATCH 50/56] drm/msm/dsi: phy: runtime suspend the PHY over system
  sleep

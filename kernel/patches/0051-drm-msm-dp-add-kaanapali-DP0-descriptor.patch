@@ -1,5 +1,5 @@
 From e63c3f9679c02d70538d41a45a200e83b73cd3eb Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:32:54 +0000
 Subject: [PATCH 51/56] drm/msm/dp: add kaanapali (DP0 descriptor)
 

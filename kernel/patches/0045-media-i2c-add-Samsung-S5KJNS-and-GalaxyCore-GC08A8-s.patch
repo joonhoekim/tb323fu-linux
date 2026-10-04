@@ -1,5 +1,5 @@
 From 3a74ecbb251580096250052e277a445ee47d327a Mon Sep 17 00:00:00 2001
-From: joonhoekim <26rote@gmail.com>
+From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:30:48 +0000
 Subject: [PATCH 45/56] media: i2c: add Samsung S5KJNS and GalaxyCore GC08A8
  sensor drivers
@@ -1413,7 +1413,7 @@ index 000000000..62a8d3d3d
 +
 +MODULE_DESCRIPTION("GalaxyCore gc08a8 Camera driver");
 +MODULE_AUTHOR("Zhi Mao <zhi.mao@mediatek.com>"); /* GC08A3 base */
-+MODULE_AUTHOR("joonhoekim <26rote@gmail.com>");
++MODULE_AUTHOR("Joonhoe Kim <26rote@gmail.com>");
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/media/i2c/s5kjns.c b/drivers/media/i2c/s5kjns.c
 new file mode 100644
@@ -2500,7 +2500,7 @@ index 000000000..cd858b58f
 +module_i2c_driver(s5kjns_i2c_driver);
 +
 +MODULE_AUTHOR("Wenmeng Liu <wenmeng.liu@oss.qualcomm.com>"); /* S5KJN5 base */
-+MODULE_AUTHOR("joonhoekim <26rote@gmail.com>");
++MODULE_AUTHOR("Joonhoe Kim <26rote@gmail.com>");
 +MODULE_DESCRIPTION("Samsung S5KJNS 50 MP 10-bit RAW sensor driver");
 +MODULE_LICENSE("GPL");
 -- 
