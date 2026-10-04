@@ -406,7 +406,7 @@ step_firmware() {
 	su_ "tar -C $T -cf $T/tb323fu-firmware.tar tb323fu-firmware && chmod 644 $T/tb323fu-firmware.tar"
 	run mkdir -p "$WORK/fw"
 	run adb pull $T/tb323fu-firmware.tar "$WORK/fw/tb323fu-firmware.tar" || return 1
-	run tar -C "$WORK/fw" -xf "$WORK/fw/tb323fu-firmware.tar" || return 1
+	run tar -C "$WORK/fw" -xmf "$WORK/fw/tb323fu-firmware.tar" || return 1
 	su_ "rm -rf $T/tb323fu-firmware $T/tb323fu-firmware.tar"
 	add_tplg
 	say "firmware: $FW"
@@ -855,7 +855,7 @@ step_write() {
 	got=$(su_ "sha256sum $T/tb323fu-root.img.gz" | cut -c1-64)
 	[ $DRY = 1 ] || [ "$got" = "$gsha" ] || { warn "the copy on the tablet is damaged; run this step again"; return 1; }
 	say "2) unpack it into $part ($ROOT_PARTLABEL); 5-15 min, depending on the card"
-	warn "this OVERWRITES $part (the partition made in the sdcard step)"
+	warn "this OVERWRITES $part (the card's $ROOT_PARTLABEL partition)"
 	undo "nothing on the tablet itself changes; to clear the card: Android Settings -> Storage -> Format"
 	confirm "WRITE" || return 1
 	out=$(su_ "zcat $T/tb323fu-root.img.gz | dd of=$part bs=4194304 conv=fsync 2>&1 | tail -1")
@@ -924,7 +924,7 @@ Linux -> Action (a newly installed module is active from Android's next start).
 If Linux does not come up: docs/recovery.md#linux-does-not-boot. Holding volume up during the
 summary keeps the tablet in the initramfs. Power + volume down forces it off.
 Space on this PC: $WORK/root.img and root.img.gz can go now; keep stock-boot.img, linux-boot.img
-and config/ (the WSL disk does not shrink by itself after deleting).
+and config/.$(is_wsl && printf ' The WSL disk does not shrink by itself after deleting.')
 EOF
 }
 
