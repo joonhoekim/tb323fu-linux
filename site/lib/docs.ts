@@ -41,10 +41,11 @@ const DOCS_ORDER = [
   "after-install",
   "recovery",
   "helper",
+  "helper-reference",
 ];
 
 /** docs/<parent>-<name>.md shown indented under docs/<parent>.md in the navigation. */
-const NAV_PARENTS = ["install"];
+const NAV_PARENTS = ["install", "helper"];
 
 /** Directory READMEs worth reading on the site, in navigation order. */
 const SOURCE_READMES = [

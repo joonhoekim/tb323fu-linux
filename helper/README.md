@@ -6,7 +6,7 @@ restart into Android, flashlight, RGB-ring charge indicator, idle refresh policy
 USB wakeup and developer USB access, the emergency key combination, a diagnostics export, and the performance
 profile (CPU/GPU limits, board-temperature profile, panel heat limit, Wi-Fi power saving), vibration strength, LED ring
 effects and a "full by" charging schedule.
-Design and API contract: [docs/helper.md](../docs/helper.md). Version 0.3.0; changes in [CHANGELOG.md](CHANGELOG.md).
+User guide: [docs/helper.md](../docs/helper.md); design and API contract: [docs/helper-reference.md](../docs/helper-reference.md). Version 0.3.0; changes in [CHANGELOG.md](CHANGELOG.md).
 
 The GTK settings app is in [`crates/tb323fu-settings/`](#settings-app-tb323fu-settings); the GNOME quick-settings tile is in
 [`userspace/desktop/gnome/extension/`](../userspace/desktop/gnome/extension/README.md).
@@ -84,7 +84,7 @@ cooler thermal profiles, USB wakeup, emergency-key settings, diagnostics). Authe
 the performance thermal profile and switching the panel heat protection off (once per session),
 disabling the emergency key, `android require-auth`, `reload`, updating the helper or going back to its previous version, and for kernel updates: installing, going back,
 and changing the channel or the daily check (looking for, downloading and keeping a kernel need none); installing a
-kernel from a file asks for the administrator's password every time (`auth_admin`, see docs/helper.md).
+kernel from a file asks for the administrator's password every time (`auth_admin`, see [docs/helper-reference.md](../docs/helper-reference.md#kernel-updates)).
 Switching to Android can be made to ask for authentication with `tb323fu-ctl android require-auth on`. Actions are in
 `data/io.github.joonhoekim.opendevicehelper.policy`.
 

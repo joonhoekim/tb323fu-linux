@@ -1,7 +1,7 @@
 # TB323FU Tablet — GNOME Shell quick settings
 
 A "Tablet" tile in GNOME's quick settings (GNOME 48/49). It is only a front-end for the `tb323fu-helperd` system service
-(`helper/`, design in `docs/helper.md`): every action is a call on the system D-Bus (`io.github.joonhoekim.OpenDeviceHelper1`),
+(`helper/`, design in [docs/helper-reference.md](../../../../docs/helper-reference.md)): every action is a call on the system D-Bus (`io.github.joonhoekim.OpenDeviceHelper1`),
 and permissions are decided by the helper's polkit policy. Without the helper the tile shows "helper not running".
 
 **The tile:** pressing it opens Open Device Helper (and closes the panel); the arrow opens the menu below. The subtitle shows

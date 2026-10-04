@@ -17,7 +17,7 @@ In scope:
   partitions — for example a local user getting a privileged action without the authentication the policy asks for.
 - **Kernel updates**: `tb323fu-kernel-fetch`, the checks before `boot_a` is written, and the trial and rollback
   logic. Note the design limit: `SHA256SUMS` comes from the same GitHub release as the kernel, so it detects damaged
-  downloads, not a replaced release; signatures are optional (`require_signature`, see [docs/helper.md](docs/helper.md)).
+  downloads, not a replaced release; signatures are optional (`require_signature`, see [docs/helper-reference.md](docs/helper-reference.md#kernel-updates)).
 - **The built-in initramfs** (`kernel/initramfs/`): its USB console (serial `ttyGS0` and telnet on `usb0`) takes no
   password while it runs; which builds enable it is described in
   [kernel/initramfs/README.md](kernel/initramfs/README.md). Someone with the tablet and a USB cable during boot is
