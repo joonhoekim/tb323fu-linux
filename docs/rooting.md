@@ -340,16 +340,8 @@ How the UFS root was made on the development unit:
 
 ## Terms
 
-| Term | Meaning here |
-|---|---|
-| ABL | Android bootloader (Qualcomm LinuxLoader); draws the fastboot screen and verifies `boot`/`init_boot` |
-| GBL / `efisp` | an EFI application ABL loads from the `efisp` partition; the patched one makes ABL treat itself as unlocked |
-| AVB | Android Verified Boot; `green` = locked and verified, `red` = rejected |
-| EDL / 9008 | Qualcomm emergency download mode; Sahara uploads the loader, Firehose reads and writes partitions |
-| 900E | crash dump mode; one-shot dump session, not a way to write |
-| `boot` / `init_boot` | kernel / first-stage ramdisk (where KernelSU LKM lives) |
-| virtual A/B | small partitions exist twice, `super` only once; slot `_b` cannot boot here |
-| LUN | a UFS logical unit; most boot partitions are on LUN 4, `userdata` on LUN 0 |
+ABL, GBL / `efisp`, AVB, EDL / 9008, 900E, `boot` / `init_boot`, virtual A/B, LUN and the other terms used
+across the documentation: [Glossary](glossary.md).
 
 ## Links
 

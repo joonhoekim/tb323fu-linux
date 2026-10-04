@@ -27,6 +27,7 @@ the kernel does not assume a particular distribution or desktop.
 | build or review the kernel | [kernel/](kernel/README.md), [PROVENANCE.md](kernel/PROVENANCE.md), [initramfs](kernel/initramfs/README.md) |
 | put together a root filesystem | [platform files](userspace/platform/README.md), [firmware](firmware/README.md), [`rootfs/`](rootfs/) builders (arm64 host, or x86-64 Linux with qemu-user-binfmt — WSL2 with Ubuntu works, see [install](docs/install-manual.md#prerequisites)) |
 | use the tablet settings | [Open Device Helper](docs/helper.md): charge limit, "full by" charging schedule and bypass, refresh rate and panel heat protection, performance profiles with CPU/GPU limits and CPU boost, thermal profiles, low-latency Wi-Fi, LED ring effects and colours, vibration strength, charger wake, multiboot, and kernel updates from this repository's releases (testing / stable channel, tried on the next start and rolled back if it does not come up) or from a file |
+| look up a term (`boot_b`, state root, trial, EDL, …) | [Glossary](docs/glossary.md) |
 | know the open problems | [Known issues](docs/hardware-status.md#known-issues): runtime idle leaves out the CPU cluster idle state, which made the tablet reset when idle (patch 0118); the LED ring goes dark for about 45 ms on each colour change; 165 / 144 Hz, DisplayPort MST, GNSS |
 
 ## Layout

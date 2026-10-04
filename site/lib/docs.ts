@@ -42,6 +42,8 @@ const DOCS_ORDER = [
   "recovery",
   "helper",
   "helper-reference",
+  "custom-kernel",
+  "glossary",
 ];
 
 /** docs/<parent>-<name>.md shown indented under docs/<parent>.md in the navigation. */
