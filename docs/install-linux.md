@@ -1,3 +1,5 @@
+# Installing from Linux
+
 > **Followed end to end once, from NixOS, up to the first start.** On 2026-10-04 an x86-64 PC with NixOS 26.11 ran
 > the install script in an Ubuntu 26.04 container (below, [NixOS](#nixos)) against a rooted tablet: every step
 > passed, Ubuntu with GNOME was built through qemu in 23 min and written to the card in under 2 min, and the tablet
