@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Joonhoe Kim
 //! Multiboot: the root filesystems the initramfs can boot and the one-shot /
 //! persistent selection it reads (userspace/platform and the kernel initramfs,
-//! docs/helper.md "Boot").
+//! docs/helper.md "Multiboot").
 //!
 //! Candidate roots are GPT partitions named `baldur-root` (usually UFS),
 //! `baldur-root-sd` and `tb323fu-*`. The selection files live on the state

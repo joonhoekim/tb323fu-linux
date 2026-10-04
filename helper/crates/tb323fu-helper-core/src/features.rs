@@ -293,7 +293,7 @@ pub fn ledring_dir() -> PathBuf {
     sys::path("/sys/class/leds/aw22127:rgb:indicator")
 }
 
-/// The colour the charge indicator shows: amber charging, green full / held /
+/// The color the charge indicator shows: amber charging, green full / held /
 /// bypass, red at or below `low` % on battery, otherwise off.
 pub fn ledring_color(i: &BatteryInfo, low: u32, bypass: bool) -> Option<[u32; 3]> {
     match battery_state(i, bypass) {
@@ -304,8 +304,8 @@ pub fn ledring_color(i: &BatteryInfo, low: u32, bypass: bool) -> Option<[u32; 3]
     }
 }
 
-/// An sRGB colour as the ring's PWM levels: the LEDs are linear, so without
-/// gamma a mixed colour (#c061cb) looks white on the ring.
+/// An sRGB color as the ring's PWM levels: the LEDs are linear, so without
+/// gamma a mixed color (#c061cb) looks white on the ring.
 pub fn led_pwm(c: [u32; 3]) -> [u32; 3] {
     c.map(|v| (255.0 * (v.min(255) as f64 / 255.0).powf(2.2)).round() as u32)
 }
@@ -334,19 +334,19 @@ pub const LED_MODES: [&str; 4] = ["off", "charge", "solid", "breathe"];
 pub fn parse_color(s: &str) -> Res<[u32; 3]> {
     let h = s.strip_prefix('#').unwrap_or(s);
     if h.len() != 6 || !h.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err("colour must be #rrggbb".into());
+        return Err("color must be #rrggbb".into());
     }
     let v = |i: usize| u32::from_str_radix(&h[i..i + 2], 16).unwrap_or(0);
     Ok([v(0), v(2), v(4)])
 }
 
-/// Only the brightness (the colour stays).
+/// Only the brightness (the color stays).
 pub fn ledring_brightness(v: u32) -> Res<()> {
     sys::write(&ledring_dir().join("brightness"), &v.min(255).to_string()).map_err(|e| werr("LED ring", e))
 }
 
 /// Breathing: brightness at `t_ms` into a cycle of `period_ms` (8..100 % of
-/// `max`, never 0 so the colour stays latched).
+/// `max`, never 0 so the color stays latched).
 pub fn breathe_level(max: u32, t_ms: u64, period_ms: u32) -> u32 {
     let x = (t_ms % period_ms.max(1) as u64) as f64 / period_ms.max(1) as f64;
     let level = 0.08 + 0.92 * (0.5 - 0.5 * (2.0 * std::f64::consts::PI * x).cos());
@@ -366,8 +366,8 @@ pub fn ledring_hw_pattern_available() -> bool {
     sys::read_opt(&ledring_dir().join("trigger")).is_some_and(|t| t.split_whitespace().any(|w| w.trim_matches(['[', ']']) == "pattern"))
 }
 
-/// Breathing run by the LED chip itself: colour, pattern trigger,
-/// `hw_pattern`. The colour is latched when `hw_pattern` is written. Errors
+/// Breathing run by the LED chip itself: color, pattern trigger,
+/// `hw_pattern`. The color is latched when `hw_pattern` is written. Errors
 /// (and leaves no trigger) when the driver has no hardware patterns.
 pub fn ledring_hw_breathe(color: [u32; 3], max: u32, period_ms: u32) -> Res<()> {
     let d = ledring_dir();
@@ -878,7 +878,7 @@ mod tests {
         assert_eq!(battery_state(&info("Charging", 60, 185, 80), false), "charging");
     }
     #[test]
-    fn colours() {
+    fn colors() {
         assert_eq!(ledring_color(&info("Charging", 60, 1500, 80), 15, false), Some([255, 90, 0]));
         assert_eq!(ledring_color(&info("Charging", 80, 0, 80), 15, false), Some([0, 255, 0]));
         assert_eq!(ledring_color(&info("Charging", 99, 185, 99), 15, true), Some([0, 255, 0]));

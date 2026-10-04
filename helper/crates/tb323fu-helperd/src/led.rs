@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Joonhoe Kim
-//! The LED ring: one thread owns every write (charge indicator, solid colour,
+//! The LED ring: one thread owns every write (charge indicator, solid color,
 //! breathing, notification pulses), so effects never race the setters.
 //! Breathing runs on the LED chip (pattern trigger, `hw_pattern`) where the
 //! kernel offers it, else it is drawn here frame by frame.
@@ -48,10 +48,10 @@ pub fn spawn(sh: Arc<Shared>) {
 
 fn run(sh: Arc<Shared>) {
     let start = Instant::now();
-    // (colour, brightness) last written; the charge colour, re-read every 5 s
+    // (color, brightness) last written; the charge color, re-read every 5 s
     let mut last: Option<(Option<[u32; 3]>, u32)> = None;
     let mut charge: (Option<Instant>, Option<[u32; 3]>) = (None, None);
-    // (colour, brightness, cycle) of the breathing the chip runs, and of the
+    // (color, brightness, cycle) of the breathing the chip runs, and of the
     // last one it refused (drawn in software instead)
     let mut hw: Option<([u32; 3], u32, u32)> = None;
     let mut hw_refused: Option<([u32; 3], u32, u32)> = None;

@@ -66,11 +66,11 @@ pub struct LedRing {
     pub mode: String,
     pub brightness: u32,
     pub low_percent: u32,
-    /// colour of solid and breathe, "#rrggbb"
+    /// color of solid and breathe, "#rrggbb"
     pub color: String,
     /// breathing cycle, ms
     pub speed: u32,
-    /// in solid and breathe, the charge colours take over while charging,
+    /// in solid and breathe, the charge colors take over while charging,
     /// full or held, and when the battery is low
     pub charge_override: bool,
     /// front-ends pulse the ring for desktop notifications

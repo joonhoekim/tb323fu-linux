@@ -5,7 +5,7 @@ let
 in
 stdenvNoCC.mkDerivation {
   pname = "gnome-shell-extension-tb323fu";
-  version = "0.3.0";
+  version = "0.3.1";
   src = "${src}/userspace/desktop/gnome/extension/${uuid}";
   dontBuild = true;
   installPhase = ''

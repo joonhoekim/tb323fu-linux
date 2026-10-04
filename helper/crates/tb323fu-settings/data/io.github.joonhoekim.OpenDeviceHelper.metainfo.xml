@@ -26,6 +26,11 @@
   </supports>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.3.1" date="2026-10-04">
+      <description>
+        <p>The quick settings tile and the app's sidebar say "Device" instead of "Tablet". American spelling throughout.</p>
+      </description>
+    </release>
     <release version="0.3.0" date="2026-10-04">
       <description>
         <p>The helper updates itself from the project's releases, with automatic rollback. The way back to Android works on systems without busybox.</p>
@@ -33,7 +38,7 @@
     </release>
     <release version="0.2.0" date="2026-10-03">
       <description>
-        <p>Kernel updates from the project's releases and from a file, with automatic rollback; performance profiles with CPU and GPU limits, CPU boost and thermal profiles; panel heat protection; charging schedule; LED ring colours and breathing; vibration strength; wake on charger plug. Renamed to Open Device Helper.</p>
+        <p>Kernel updates from the project's releases and from a file, with automatic rollback; performance profiles with CPU and GPU limits, CPU boost and thermal profiles; panel heat protection; charging schedule; LED ring colors and breathing; vibration strength; wake on charger plug. Renamed to Open Device Helper.</p>
       </description>
     </release>
     <release version="0.1.0" date="2026-10-01"/>

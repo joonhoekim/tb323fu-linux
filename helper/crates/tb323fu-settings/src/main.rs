@@ -29,7 +29,7 @@ const REPO: &str = "https://github.com/joonhoekim/tb323fu-linux";
 /// D-Bus ids and the labels shown for them (same order).
 const REFRESH_POLICIES: [&str; 3] = ["off", "auto", "manual"];
 const REFRESH_POLICY_LABELS: [&str; 3] = ["Always 120 Hz", "Adaptive", "Fixed Rate"];
-/// (id, label, ms before 60 Hz, ms before 30 Hz) as in docs/helper.md.
+/// (id, label, ms before 60 Hz, ms before 30 Hz) as in docs/helper-reference.md.
 const TIMINGS: [(&str, &str, u32, u32); 3] =
     [("power-saver", "Power Saver", 500, 2000), ("balanced", "Balanced", 1000, 5000), ("smooth", "Smooth", 3000, 15000)];
 const GPU_PROFILES: [&str; 3] = ["power-saver", "balanced", "performance"];
@@ -37,8 +37,8 @@ const GPU_PROFILE_LABELS: [&str; 3] = ["Power Saver", "Balanced", "Performance"]
 const THERMAL_PROFILES: [&str; 3] = ["quiet", "default", "performance"];
 const THERMAL_LABELS: [&str; 3] = ["Quiet", "Default", "Performance"];
 const LED_MODES: [&str; 4] = ["off", "charge", "solid", "breathe"];
-const LED_MODE_LABELS: [&str; 4] = ["Off", "Charge Indicator", "Solid Colour", "Breathing"];
-/// Colours that look like themselves on the ring (dark ones read as off,
+const LED_MODE_LABELS: [&str; 4] = ["Off", "Charge Indicator", "Solid Color", "Breathing"];
+/// Colors that look like themselves on the ring (dark ones read as off,
 /// brown as yellow).
 const LED_PALETTE: [(&str, &str); 9] = [("Red", "#ff0000"), ("Orange", "#ff6000"), ("Yellow", "#ffd000"), ("Green", "#00ff00"), ("Cyan", "#00ffff"), ("Blue", "#0000ff"), ("Purple", "#a000ff"), ("Pink", "#ff40a0"), ("White", "#ffffff")];
 const DAYS: [&str; 7] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
@@ -749,15 +749,15 @@ impl Ui {
             swatches.insert(&t, -1);
             led_color.push((hex, t));
         }
-        let led_color_row = adw::ActionRow::builder().title("Colour").build();
+        let led_color_row = adw::ActionRow::builder().title("Color").build();
         led_color_row.add_suffix(&swatches);
         led_group.add(&led_color_row);
         let led_speed = spin(&led_group, "Breathing Cycle (s)", "", 1.0, 20.0, 0.5);
         led_speed.set_digits(1);
-        let led_override = switch(&led_group, "Charge Colours Take Over", "While charging, held at the limit or low");
+        let led_override = switch(&led_group, "Charge Colors Take Over", "While charging, held at the limit or low");
         let led_bright = spin(&led_group, "Brightness", "", 1.0, 255.0, 1.0);
         let led_low = spin(&led_group, "Red Below (%)", "", 5.0, 50.0, 1.0);
-        let led_notify = switch(&led_group, "Pulse for Notifications", "Needs the Tablet quick settings extension");
+        let led_notify = switch(&led_group, "Pulse for Notifications", "Needs the Device quick settings tile (GNOME extension)");
         let (_, led_pulse) = button(&led_group, "Try a Pulse", "", "Pulse");
         let hap_group = group(&b, "Vibration", "");
         group_help(&hap_group, "The strength applies to everything that vibrates: the on-screen keyboard, games, notifications.");
@@ -933,7 +933,7 @@ impl Ui {
         let side_tv = adw::ToolbarView::new();
         side_tv.add_top_bar(&side_header);
         side_tv.set_content(Some(&scroller));
-        let side_page = adw::NavigationPage::builder().title("Tablet").child(&side_tv).build();
+        let side_page = adw::NavigationPage::builder().title("Device").child(&side_tv).build();
 
         let split = adw::NavigationSplitView::new();
         split.set_sidebar(Some(&side_page));

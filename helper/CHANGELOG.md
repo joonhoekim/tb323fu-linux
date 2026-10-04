@@ -1,5 +1,11 @@
 # Open Device Helper changelog
 
+## 0.3.1 — 2026-10-04
+
+- The GNOME quick settings tile, its menu header and the settings app's sidebar are labeled **Device** (was "Tablet",
+  which did not fit the tile); the extension is listed as "Open Device Helper".
+- American spelling in the app, `tb323fu-ctl` help and error messages ("color", "canceled").
+
 ## 0.3.0 — 2026-10-04
 
 - **The helper updates itself** from `helper-vX.Y.Z` releases on GitHub Releases (the same channel and checks as

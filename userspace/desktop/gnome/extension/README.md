@@ -1,6 +1,6 @@
 # Open Device Helper — GNOME Shell quick settings
 
-Open Device Helper's tile in GNOME's quick settings (GNOME 48/49), labeled "Tablet" in the panel. It is only a front-end for the `tb323fu-helperd` system service
+Open Device Helper's tile in GNOME's quick settings (GNOME 48/49), labeled "Device" in the panel. It is only a front-end for the `tb323fu-helperd` system service
 (`helper/`, design in [docs/helper-reference.md](../../../../docs/helper-reference.md)): every action is a call on the system D-Bus (`io.github.joonhoekim.OpenDeviceHelper1`),
 and permissions are decided by the helper's polkit policy. Without the helper the tile shows "helper not running".
 

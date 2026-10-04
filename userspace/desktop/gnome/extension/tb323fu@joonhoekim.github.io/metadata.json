@@ -1,6 +1,6 @@
 {
   "uuid": "tb323fu@joonhoekim.github.io",
-  "name": "TB323FU Tablet",
+  "name": "Open Device Helper",
   "description": "Quick settings for the TB323FU tablet (Lenovo Legion Tab Gen 5 / Y700 5th Gen; an independent project, not affiliated with Lenovo): battery charge and state, charge limit and bypass, refresh rate policy, torch with brightness. The tile opens Open Device Helper for everything else (GPU, USB, emergency key, systems, Android). Talks to the tb323fu-helperd system service; without it the menu only says so.",
   "shell-version": [
     "48",
@@ -8,5 +8,5 @@
     "50"
   ],
   "url": "https://github.com/joonhoekim/tb323fu-linux",
-  "version-name": "0.1.0"
+  "version-name": "0.3.1"
 }

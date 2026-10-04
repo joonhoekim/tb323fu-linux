@@ -7,7 +7,7 @@ not useful on its own).
   shoot.py --app PATH --out DIR [--scheme light|dark|both] [--only NAME,...]
 
 Pictures: <scheme>/<page>.png for every page, and <scheme>/kernel-file-*.png
-for "Install Kernel from File" (the dialog is cancelled, nothing is installed).
+for "Install Kernel from File" (the dialog is canceled, nothing is installed).
 """
 import argparse
 import os

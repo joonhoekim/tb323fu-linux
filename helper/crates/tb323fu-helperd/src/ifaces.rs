@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Joonhoe Kim
 //! The D-Bus objects of `io.github.joonhoekim.OpenDeviceHelper1` (see
-//! docs/helper.md for the contract). Property getters read the device live;
+//! docs/helper-reference.md "D-Bus API"). Property getters read the device live;
 //! setters check polkit, write the device, persist the setting and emit
 //! PropertiesChanged (with the changed properties invalidated).
 
@@ -440,7 +440,7 @@ impl LedRing {
         Ok(())
     }
     /// Blink `count` times (1..10) in `color` ("#rrggbb", "" = the ring's
-    /// colour), then back to the mode: for notifications and scripts.
+    /// color), then back to the mode: for notifications and scripts.
     async fn pulse(&self, color: String, count: u32, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection) -> fdo::Result<()> {
         polkit::check(conn, &hdr, "led-ring", self.0.no_polkit).await?;
         if !(1..=10).contains(&count) {

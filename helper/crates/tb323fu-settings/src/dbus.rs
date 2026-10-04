@@ -83,7 +83,7 @@ const NOT_RUNNING: &str = "The helper service is not running";
 pub fn human_error(name: &str, msg: Option<&str>) -> String {
     let short = name.rsplit('.').next().unwrap_or(name);
     match short {
-        "AccessDenied" | "AuthFailed" | "InteractiveAuthorizationRequired" => "Authentication was cancelled or denied".into(),
+        "AccessDenied" | "AuthFailed" | "InteractiveAuthorizationRequired" => "Authentication was canceled or denied".into(),
         "ServiceUnknown" | "NoReply" | "NameHasNoOwner" | "UnknownObject" | "Disconnected" => NOT_RUNNING.into(),
         _ => match msg {
             Some(m) if !m.is_empty() => {
@@ -114,9 +114,9 @@ pub fn setting_name(method: &str) -> &'static str {
         "SetPanelLimit" => "Panel heat protection",
         "SetRechargeGap" => "Recharge gap",
         "SetFullBy" => "Full charge by",
-        "SetColor" => "LED ring colour",
+        "SetColor" => "LED ring color",
         "SetSpeed" => "Breathing speed",
-        "SetChargeOverride" => "Charge colours",
+        "SetChargeOverride" => "Charge colors",
         "SetNotifyPulse" => "Notification pulse",
         "Pulse" => "LED ring",
         "SetStrength" => "Vibration strength",
@@ -126,7 +126,7 @@ pub fn setting_name(method: &str) -> &'static str {
         "SetLevel" => "Torch brightness",
         "SetMode" => "Charge indicator",
         "SetBrightness" => "LED ring brightness",
-        "SetLowPercent" => "Low battery colour",
+        "SetLowPercent" => "Low battery color",
         "SetWake" => "USB wake",
         "SetDevMode" => "Developer mode",
         "SetEnabled" => "Emergency key",

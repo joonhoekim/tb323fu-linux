@@ -35,7 +35,7 @@ const METHOD_TITLES = {
 let notifySource = null;
 function notify(title, body) {
     if (!notifySource) {
-        notifySource = new MessageTray.Source({title: 'Tablet', iconName: 'computer-symbolic'});
+        notifySource = new MessageTray.Source({title: 'Device', iconName: 'computer-symbolic'});
         notifySource.connect('destroy', () => {
             notifySource = null;
         });
@@ -145,12 +145,12 @@ class Helper {
                 try {
                     conn.call_finish(res);
                 } catch (e) {
-                    // a cancelled or refused authentication is the user's choice: no banner
+                    // a canceled or refused authentication is the user's choice: no banner
                     const remote = Gio.DBusError.get_remote_error(e) ?? '';
                     if (!remote.endsWith('.AccessDenied')) {
                         Gio.DBusError.strip_remote_error(e);
                         const msg = e.message ? e.message[0].toUpperCase() + e.message.slice(1) : 'Something went wrong';
-                        notify(METHOD_TITLES[method] ?? 'Tablet', msg);
+                        notify(METHOD_TITLES[method] ?? 'Device', msg);
                     }
                 }
                 this.refresh(name);
@@ -168,11 +168,11 @@ function launchSettings() {
         notify('Open Device Helper', 'The settings app is not installed');
 }
 
-const TabletToggle = GObject.registerClass(
-class TabletToggle extends QuickMenuToggle {
+const DeviceToggle = GObject.registerClass(
+class DeviceToggle extends QuickMenuToggle {
     _init() {
-        super._init({title: 'Tablet', iconName: 'computer-symbolic', toggleMode: false});
-        this.menu.setHeader('computer-symbolic', 'Tablet');
+        super._init({title: 'Device', iconName: 'computer-symbolic', toggleMode: false});
+        this.menu.setHeader('computer-symbolic', 'Device');
         this._helper = new Helper(() => this._sync());
 
         // the tile opens the settings app; the arrow opens the detailed menu
@@ -326,7 +326,7 @@ class TabletToggle extends QuickMenuToggle {
             const level = Math.min(100, Math.max(0, Math.round(bat.Capacity / 10) * 10));
             // Adwaita has no battery-level-100-charging icon, only -charged
             const charging = bat.State === 'charging' ? (level === 100 ? '-charged' : '-charging') : '';
-            this.menu.setHeader(`battery-level-${level}${charging}-symbolic`, 'Tablet',
+            this.menu.setHeader(`battery-level-${level}${charging}-symbolic`, 'Device',
                 `${bat.Capacity}% · ${state}${plugged ? ` · ${charger}` : ''}`);
             for (const [p, it] of Object.entries(this._limitItems))
                 it.setOrnament(Number(p) === bat.ChargeLimit && !bat.Bypass ? PopupMenu.Ornament.CHECK : PopupMenu.Ornament.NONE);
@@ -335,7 +335,7 @@ class TabletToggle extends QuickMenuToggle {
             this._limitLabel.label.text = preset || bat.Bypass ? 'Charge Limit' : `Charge Limit · ${bat.ChargeLimit}%`;
             this._bypass.setToggleState(!!bat.Bypass);
         } else {
-            this.menu.setHeader('computer-symbolic', 'Tablet', present ? null : 'Helper not running');
+            this.menu.setHeader('computer-symbolic', 'Device', present ? null : 'Helper not running');
         }
 
         const ref = h.props.Refresh;
@@ -374,11 +374,11 @@ class TabletToggle extends QuickMenuToggle {
     }
 });
 
-const TabletIndicator = GObject.registerClass(
-class TabletIndicator extends SystemIndicator {
+const DeviceIndicator = GObject.registerClass(
+class DeviceIndicator extends SystemIndicator {
     _init() {
         super._init();
-        this.quickSettingsItems.push(new TabletToggle());
+        this.quickSettingsItems.push(new DeviceToggle());
     }
 
     destroy() {
@@ -387,9 +387,9 @@ class TabletIndicator extends SystemIndicator {
     }
 });
 
-export default class TabletExtension extends Extension {
+export default class DeviceExtension extends Extension {
     enable() {
-        this._indicator = new TabletIndicator();
+        this._indicator = new DeviceIndicator();
         Main.panel.statusArea.quickSettings.addExternalIndicator(this._indicator);
     }
 

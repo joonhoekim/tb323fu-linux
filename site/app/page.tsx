@@ -203,7 +203,7 @@ export default function Home() {
           <li>Charge limit, bypass charging and a &ldquo;full by&rdquo; schedule; battery health and the charger&apos;s power</li>
           <li>Refresh policy and panel heat protection</li>
           <li>Performance profiles with CPU and GPU limits, CPU boost and thermal profiles</li>
-          <li>Torch, LED ring colours and effects, vibration strength</li>
+          <li>Torch, LED ring colors and effects, vibration strength</li>
           <li>USB-C port roles and wake sources, the emergency key</li>
           <li>Restart into Android, choose the system to boot</li>
           <li>Kernel updates from this project&apos;s releases, tried on the next start and rolled back if it fails</li>

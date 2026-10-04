@@ -24,7 +24,7 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
   torch [on|off|toggle|level N]
   ledring [charge|solid|breathe|off|brightness N|low PERCENT]
   ledring color #RRGGBB|speed MS|charge-override on|off|notify on|off
-                                 colour and breathing cycle (1000..20000 ms) of solid/breathe; charge colours
+                                 color and breathing cycle (1000..20000 ms) of solid/breathe; charge colors
                                  take over while charging or low; pulse on desktop notifications (GNOME extension)
   ledring pulse [#RRGGBB] [COUNT]  blink the ring (scripts, notifications)
   refresh [auto|off|manual [HZ]|idle MS60 MS30|preset power-saver|balanced|smooth]
