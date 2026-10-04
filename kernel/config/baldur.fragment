@@ -133,3 +133,8 @@ CONFIG_VIDEO_GC08A8=m
 CONFIG_VIDEO_DW9719=m
 CONFIG_LEDS_AW22127=m
 CONFIG_LEDS_TRIGGER_PATTERN=y
+
+# tracefs, no tracer running: SteamOS's steamos-manager mounts it, and Steam's
+# "Switch to Desktop" and the Gaming Mode session wait for that daemon
+CONFIG_FTRACE=y
+CONFIG_ENABLE_DEFAULT_TRACERS=y
