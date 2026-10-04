@@ -40,7 +40,7 @@ GNOME and apt.
 ## Front-ends
 
 - **`tb323fu-ctl`** (Rust, same crate as the daemon's client library; full list in [helper/README.md](../helper/README.md#using-it)): `tb323fu-ctl status`, `charge-limit 80`, `android --yes`, `torch on`, `refresh auto|off|manual 60`, `refresh idle 1000 5000`, `gpu profile balanced`. Always installed; the reference for scripting.
-- **GNOME Shell extension** (quick settings, `userspace/desktop/gnome/extension/`), one "Tablet" tile; it talks to the daemon over D-Bus only.
+- **GNOME Shell extension** (quick settings, `userspace/desktop/gnome/extension/`), one tile, labeled "Tablet" in the panel; it talks to the daemon over D-Bus only.
   - **Tile:** the subtitle shows charge and live refresh rate (`80% · 60 Hz`); a tap opens the settings app. Without the daemon the tile still opens the app.
   - **Arrow:** opens the menu. It stays open while choices are made and scrolls on a landscape screen; without the daemon it says the helper is not running.
   - **Menu header:** battery charge and state (`80% · Charging`), plus the charger when plugged in: the contract, or type and measured power (`99% · Bypass · PPS · ~40 W`).

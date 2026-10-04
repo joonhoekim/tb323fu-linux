@@ -1,6 +1,6 @@
-# TB323FU Tablet — GNOME Shell quick settings
+# Open Device Helper — GNOME Shell quick settings
 
-A "Tablet" tile in GNOME's quick settings (GNOME 48/49). It is only a front-end for the `tb323fu-helperd` system service
+Open Device Helper's tile in GNOME's quick settings (GNOME 48/49), labeled "Tablet" in the panel. It is only a front-end for the `tb323fu-helperd` system service
 (`helper/`, design in [docs/helper-reference.md](../../../../docs/helper-reference.md)): every action is a call on the system D-Bus (`io.github.joonhoekim.OpenDeviceHelper1`),
 and permissions are decided by the helper's polkit policy. Without the helper the tile shows "helper not running".
 
@@ -15,10 +15,10 @@ the charge and the live refresh rate (`80% · 60 Hz`). The tile has no on/off st
 | Open Device Helper… — opens the settings app (`io.github.joonhoekim.OpenDeviceHelper.desktop`) | — |
 
 The menu is kept short so it fits a landscape screen; idle timing presets, GPU-follow, USB wake and the Android switch are in
-the settings app. As a fallback the items sit in a scroll view capped to about half the work area height, so nothing can be
+Open Device Helper's settings app. As a fallback the items sit in a scroll view capped to about half the work area height, so nothing can be
 pushed off the screen. Choices (charge limit, policy, switches) keep the menu open.
 
-**LED ring notification pulse:** when "Pulse for Notifications" is on in the settings app (`LedRing.NotifyPulse`), a new desktop
+**LED ring notification pulse:** when "Pulse for Notifications" is on in Open Device Helper (`LedRing.NotifyPulse`), a new desktop
 notification blinks the ring twice in its colour (`LedRing.Pulse`), at most every 2 s, and not while notification banners
 are off (do not disturb).
 

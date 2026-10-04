@@ -26,7 +26,7 @@ the kernel does not assume a particular distribution or desktop.
 | install another distribution, your own kernel or a root on the internal storage | [Installing by hand](docs/install-manual.md) (every step as commands, each marked verified / from records / untested) |
 | build or review the kernel | [kernel/](kernel/README.md), [PROVENANCE.md](kernel/PROVENANCE.md), [initramfs](kernel/initramfs/README.md) |
 | put together a root filesystem | [platform files](userspace/platform/README.md), [firmware](firmware/README.md), [`rootfs/`](rootfs/) builders (arm64 host, or x86-64 Linux with qemu-user-binfmt — WSL2 with Ubuntu works, see [install](docs/install-manual.md#prerequisites)) |
-| use the tablet settings | [Open Device Helper](docs/helper.md): charge limit, "full by" charging schedule and bypass, refresh rate and panel heat protection, performance profiles with CPU/GPU limits and CPU boost, thermal profiles, low-latency Wi-Fi, LED ring effects and colours, vibration strength, charger wake, multiboot, and kernel updates from this repository's releases (testing / stable channel, tried on the next start and rolled back if it does not come up) or from a file |
+| change the tablet's own settings | [Open Device Helper](docs/helper.md): charge limit, "full by" charging schedule and bypass, refresh rate and panel heat protection, performance profiles with CPU/GPU limits and CPU boost, thermal profiles, low-latency Wi-Fi, LED ring effects and colours, vibration strength, charger wake, multiboot, and kernel updates from this repository's releases (testing / stable channel, tried on the next start and rolled back if it does not come up) or from a file |
 | look up a term (`boot_b`, state root, trial, EDL, …) | [Glossary](docs/glossary.md) |
 | know the open problems | [Known issues](docs/hardware-status.md#known-issues): runtime idle leaves out the CPU cluster idle state, which made the tablet reset when idle (patch 0118); the LED ring goes dark for about 45 ms on each colour change; 165 / 144 Hz, DisplayPort MST, GNSS |
 
@@ -38,7 +38,7 @@ the kernel does not assume a particular distribution or desktop.
 | `firmware/` | manifest (file, sha256, source on the device) and a script that extracts the firmware from your own tablet — no firmware files are stored here |
 | `rootfs/` | optional: scripts that build root filesystems for the multiboot partitions (Ubuntu, Arch Linux ARM, Fedora, NixOS) — status in [docs/distros.md](docs/distros.md) |
 | `userspace/` | `platform/`: distribution-neutral platform files every install needs (udev, systemd units, audio/UCM, sensors, emergency key) with `install.sh`; `desktop/`: optional desktop extras |
-| `helper/` | device helper: `tb323fu-helperd` (system D-Bus), `tb323fu-ctl`, the `tb323fu-settings` app ([docs/helper.md](docs/helper.md)) |
+| `helper/` | Open Device Helper: `tb323fu-helperd` (system D-Bus), `tb323fu-ctl`, the `tb323fu-settings` app ([docs/helper.md](docs/helper.md)) |
 | `packaging/` | Debian (`build-debs.sh`), Arch (`PKGBUILD`) and Nix (`flake.nix` at the root) recipes |
 | `android/` | Android-side helpers (switching between Android and Linux; how to switch: [docs/after-install.md](docs/after-install.md)) |
 | `tools/` | build and flash scripts |

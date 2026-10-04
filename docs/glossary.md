@@ -24,7 +24,7 @@ Terms used throughout the documentation, each with a link to where it is explain
 | Term | Meaning here |
 |---|---|
 | trial | a newly installed kernel starts on trial: the initramfs counts its starts, and the third start of a kernel that was never kept writes the good kernel back ([helper.md → Kernel updates](helper.md#kernel-updates)) |
-| Keep | confirms a kernel on trial by hand (settings app or `tb323fu-ctl kernel keep`). Stable-channel kernels are kept automatically after 90 s; testing-channel kernels and kernels from a file wait for Keep |
+| Keep | confirms a kernel on trial by hand (Open Device Helper or `tb323fu-ctl kernel keep`). Stable-channel kernels are kept automatically after 90 s; testing-channel kernels and kernels from a file wait for Keep |
 | good kernel | the last confirmed kernel, saved as `linux-good.img` on the state root; what a failed trial, Go Back and Android's Switch to Linux fall back to |
 | release (`kernel-tNN`, `helper-vX.Y.Z`) | the kernels and helper versions published on the project's GitHub Releases; a kernel release is an `Image`, never a boot image ([install-manual.md](install-manual.md#why-there-is-no-ready-made-bootimg)) |
 

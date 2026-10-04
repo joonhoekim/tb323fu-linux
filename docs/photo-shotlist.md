@@ -18,7 +18,7 @@ home details in the background, and strip location data (EXIF) from the files.
 
 5. GNOME on the tablet held in portrait.
 6. GNOME on the tablet in landscape, ideally with the on-screen keyboard or pen in use.
-7. The quick settings panel with the "Tablet" tile menu open (charge limit, refresh, torch).
+7. The quick settings panel with Open Device Helper's tile (labeled "Tablet") menu open (charge limit, refresh, torch).
 8. SteamOS Gaming Mode on the device (landscape), the library or a running game.
 9. SteamOS Desktop Mode (KDE) on the device.
 10. Another distribution's desktop (Ubuntu, Fedora, Arch or NixOS) on the device, one photo each if possible.

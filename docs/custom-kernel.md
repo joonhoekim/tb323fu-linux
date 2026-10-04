@@ -38,7 +38,7 @@ tb323fu-ctl kernel inspect Image.gz          # release, banner, shared modules o
 sudo tb323fu-ctl kernel install-local Image.gz --name "speaker fix" --reboot
 ```
 
-or in the settings app: **About → Kernel Updates → Install Kernel from File…** (it shows the same information and
+or in Open Device Helper: **About → Kernel Updates → Install Kernel from File…** (it shows the same information and
 asks before installing). What happens:
 
 1. The helper repacks the kernel into **your own stock boot image** (the copy in `boot_b`, checked against your

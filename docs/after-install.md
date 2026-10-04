@@ -79,7 +79,7 @@ Updates and in `tb323fu-ctl helper`. Who installs them depends on who installed 
 | Arch Linux ARM | the release's `.deb` files, unpacked without a package manager | nobody owns the files, which helper.md counts as `self`: the helper updates itself |
 | NixOS | Nix packages from this repository | `nix flake update tb323fu-linux && sudo nixos-rebuild switch` |
 
-On other systems the settings app shows the command when a package manager owns the helper.
+On other systems Open Device Helper shows the command when a package manager owns the helper.
 
 **The distribution** updates the usual way (`apt`, `pacman`, `nixos-rebuild`, …). The kernel and its modules come
 with the boot image, not from the distribution's packages.
