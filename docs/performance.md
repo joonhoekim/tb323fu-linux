@@ -28,9 +28,11 @@ Gen 5 devices (Android):
 | JetStream 2.2 (Chromium 150) | 389.5 | about 281–295 (Chrome) |
 | Geekbench 6 Vulkan | 18099 (Mesa 26.1.6), 20597 (Mesa main) | about 27200–29700 |
 | Geekbench 6 OpenCL | 9657 (Mesa main) | about 24000 |
+| GravityMark 1.89 Vulkan, 1920×1080, 200k asteroids | 5482 (32.8 fps, Mesa 26.1.6) | no Adreno 840 entries; Adreno 830: 3530–4568 |
 
 With Debian's Mesa 26.1.6, Geekbench 6 OpenCL fails one workload's result check (Particle Physics) and scores
-2593. So the loss is in GPU compute, not across the board.
+2593. Graphics (GravityMark) lands where an Adreno 840 should be, above the Adreno 830 phones. So the loss is in GPU
+compute (Geekbench's OpenCL and Vulkan compute workloads), not across the board.
 
 ## CPU and memory
 
