@@ -141,3 +141,9 @@ CONFIG_ENABLE_DEFAULT_TRACERS=y
 
 # zstd squashfs images: Armada's x86-64 runtime for FEX, many AppImages
 CONFIG_SQUASHFS_ZSTD=y
+
+# memlat in CPUCP firmware scales DDR, LLCC and DDR_QOS for latency-bound CPU
+# work (patches 0120-0127); without it DDR stays low and memory latency doubles
+CONFIG_QCOM_SCMI_GENERIC_EXT=y
+CONFIG_SCMI_QCOM_MEMLAT_DEVFREQ=y
+CONFIG_DEVFREQ_GOV_REMOTE=y

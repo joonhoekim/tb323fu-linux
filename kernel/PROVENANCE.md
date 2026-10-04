@@ -141,6 +141,14 @@ column names the source; see that tree's history for the individual authors.
 | `0117` | arm64: dts: qcom: kaanapali: add CPU capacity-dmips-mhz | Joonhoe Kim | this project | upstream candidate | `cde3fbe0e37a205a` |
 | `0118` | cpuidle: psci-domain: add allow_cluster_off to refuse cluster idle states | Joonhoe Kim | this project | local workaround: no cluster idle state in runtime idle on baldur, where its power-down reset the SoC when idle (set by the config fragment's command line; the cause is not fixed) | `9c63e2de94b80582` |
 | `0119` | arm64: dts: qcom: kaanapali: describe the UFS MCQ registers | Joonhoe Kim | this project | upstream candidate | `28e15806d26509c5` |
+| `0120` | firmware: arm_scmi: Add SCMI QCOM Generic Extension Protocol documentation | Pragnesh Papaniya | mailing list: Qualcomm Generic Vendor Extensions RFC v8, 2026-07-24 (Pragnesh Papaniya) (1/10) | pending upstream (RFC) | `82219b2577b9923e` |
+| `0121` | dt-bindings: firmware: arm,scmi: Add Qualcomm Generic Extension Protocol | Pragnesh Papaniya | mailing list: Qualcomm Generic Vendor Extensions RFC v8, 2026-07-24 (Pragnesh Papaniya) (2/10) | pending upstream (RFC) | `144faa6e848f2626` |
+| `0122` | firmware: arm_scmi: vendors: Add QCOM SCMI Generic Extensions | Sibi Sankar | mailing list: Qualcomm Generic Vendor Extensions RFC v8, 2026-07-24 (Pragnesh Papaniya) (3/10) | pending upstream (RFC) | `327a4791a0e40e80` |
+| `0123` | PM / devfreq: Add new target_freq attribute flag for governors | Sibi Sankar | mailing list: Qualcomm Generic Vendor Extensions RFC v8, 2026-07-24 (Pragnesh Papaniya) (4/10) | pending upstream (RFC) | `092d0284962f9e64` |
+| `0124` | PM / devfreq: Add new track_remote flag for governors | Sibi Sankar | mailing list: Qualcomm Generic Vendor Extensions RFC v8, 2026-07-24 (Pragnesh Papaniya) (5/10) | pending upstream (RFC) | `96cdf0068418445d` |
+| `0125` | PM / devfreq: Add a governor for tracking remote device frequencies | Sibi Sankar | mailing list: Qualcomm Generic Vendor Extensions RFC v8, 2026-07-24 (Pragnesh Papaniya) (6/10) | pending upstream (RFC) | `c66b5228106f6d14` |
+| `0126` | PM / devfreq: Introduce the QCOM SCMI Memlat devfreq driver | Sibi Sankar | mailing list: Qualcomm Generic Vendor Extensions RFC v8, 2026-07-24 (Pragnesh Papaniya) (7/10) | pending upstream (RFC) | `b6766bbbfd86a173` |
+| `0127` | arm64: dts: qcom: kaanapali: Enable LLCC/DDR/DDR_QOS DVFS | Jia Yang | mailing list: Qualcomm Generic Vendor Extensions RFC v8, 2026-07-24 (Pragnesh Papaniya) (10/10) | pending upstream (RFC) | `756aac29f1b60aad` |
 
 ## Out-of-tree
 
