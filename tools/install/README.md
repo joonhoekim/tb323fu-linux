@@ -2,13 +2,15 @@
 
 [`install.sh`](install.sh) takes a rooted TB323FU ([rooting.md](../../docs/rooting.md) steps 1–3) to Ubuntu with GNOME
 on the microSD card, with Android kept as the way back. On Windows it runs in a WSL2 Ubuntu terminal and uses the
-Windows `adb.exe`; a native Linux PC works the same way with its own `adb`. The pages to follow start at
-[docs/install.md](../../docs/install.md) (one per PC); the individual commands are in
+Windows `adb.exe`; a native Linux PC works the same way with its own `adb`; on a Mac it runs in a Linux VM whose
+`adb` uses the Mac's adb server (`ADB_SERVER_SOCKET`, [install-macos.md](../../docs/install-macos.md)). The pages
+to follow start at [docs/install.md](../../docs/install.md) (one per PC); the individual commands are in
 [docs/install-manual.md](../../docs/install-manual.md).
 
 > **Status:** every step was run against a tablet on 2026-10-04, from WSL2 (Ubuntu 26.04 on Windows 11): rooted
 > Android to Ubuntu with GNOME on the card, first start, both ways back to Android and back to Linux
-> ([install-windows.md](../../docs/install-windows.md)). On a native Linux PC it has not been run.
+> ([install-windows.md](../../docs/install-windows.md)). On a native Linux PC it has not been run. From a Mac (Lima
+> VM, Ubuntu 26.04 arm64) every step that does not write to the tablet ran on 2026-10-04.
 
 ```sh
 tools/install/install.sh              # every step, asking before each

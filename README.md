@@ -4,7 +4,7 @@ Mainline Linux on the **Lenovo Legion Tab Gen 5 / Legion Y700 5th Gen** (model *
 The same model number is used in China and elsewhere; the firmware region (PRC / ROW) differs, not the hardware.
 
 > **Status: work in progress — not ready for everyday use.** The first releases are pre-releases. The [install guide](docs/install.md)
-> was followed end to end once, from Windows on the development tablet; the Linux and macOS pages are not verified.
+> was followed end to end once, from Windows on the development tablet; the Linux page is not verified and the macOS page only partly.
 > Everything here is published so the kernel work can be reviewed and reused.
 
 ## What this is
@@ -20,7 +20,7 @@ the kernel does not assume a particular distribution or desktop.
 | know what works | [Hardware status](docs/hardware-status.md) — a feature is marked as working only after it was checked on the device (measured, or seen/heard by a person); "the driver probes" does not count |
 | see which distributions boot | [Distributions](docs/distros.md) |
 | understand how the tablet was set up for dual boot | [Rooting and dual boot setup](docs/rooting.md) (host setup per OS, backup, LTBox, KernelSU, switching) and [Recovery](docs/recovery.md) |
-| install Linux after rooting | **Start here: [Installing Linux](docs/install.md)** — the whole path, then one guided script ([`tools/install/`](tools/install/README.md)) from your PC: [Windows](docs/install-windows.md) (followed end to end), [Linux](docs/install-linux.md) or [macOS](docs/install-macos.md) (not verified); result: Ubuntu with GNOME on the microSD card |
+| install Linux after rooting | **Start here: [Installing Linux](docs/install.md)** — the whole path, then one guided script ([`tools/install/`](tools/install/README.md)) from your PC: [Windows](docs/install-windows.md) (followed end to end), [Linux](docs/install-linux.md) (not verified) or [macOS](docs/install-macos.md) (partly checked); result: Ubuntu with GNOME on the microSD card |
 | install another distribution, your own kernel or a root on the internal storage | [Installing by hand](docs/install-manual.md) (every step as commands, each marked verified / from records / untested) |
 | build or review the kernel | [kernel/](kernel/README.md), [PROVENANCE.md](kernel/PROVENANCE.md), [initramfs](kernel/initramfs/README.md) |
 | put together a root filesystem | [platform files](userspace/platform/README.md), [firmware](firmware/README.md), [`rootfs/`](rootfs/) builders (arm64 host, or x86-64 Linux with qemu-user-binfmt — WSL2 with Ubuntu works, see [install](docs/install-manual.md#prerequisites)) |
