@@ -21,7 +21,7 @@ side on the card.
 ² graphical.target; "Startup finished" is 15 s while first-boot timer jobs (plocate, fstrim) still run. iSCSI and plymouth are masked (see the builder).\
 ³ Needs the netfilter set in [kernel/config/baldur-netfilter.fragment](../kernel/config/).\
 ⁴ Steam's own client, run with `FEXBash -c "~/steam-launcher/steam -no-cef-sandbox"`; games not tried yet.\
-⁵ [SteamOS ARM for handhelds](https://github.com/hashtagbasit/SteamOS-ARM-Handhelds) v1.3-odin3-beta1; unofficial, not affiliated with Valve. See [SteamOS notes](#steamos-notes).
+⁵ [SteamOS ARM for handhelds](https://github.com/hashtagbasit/SteamOS-ARM-Handhelds) v1.3-odin3-beta1 (since withdrawn; the builder now pins v1.3-8elite-beta2); unofficial, not affiliated with Valve. See [SteamOS notes](#steamos-notes).
 
 ## Installing each one
 
@@ -36,8 +36,8 @@ top of the file.
 | Ubuntu 26.04 | `tools/install/install.sh` (default), or `rootfs/ubuntu/build-rootfs.sh` | any Linux; x86-64 through qemu (WSL2 works) | the `.deb` files of a `helper-v*` release (`DEBS_FROM=`) |
 | Arch Linux ARM | `DISTRO=arch tools/install/install.sh`, or `rootfs/arch/build-rootfs.sh` | any Linux; x86-64 through qemu | the release's `.deb` files, unpacked (`DEBS_FROM=`), or your own packages from `packaging/arch/PKGBUILD` (`PKGS_FROM=`) |
 | Fedora 44 | `rootfs/fedora/build-rootfs.sh` | arm64 (not tried through qemu; it builds the helper with cargo inside the root, which would take hours there) | built from this repository inside the root (needs network) |
-| NixOS | `rootfs/nixos/build-rootfs.sh` (a flake: `flake.nix`, `packaging/nix/`) | an arm64 host with Nix | Nix packages from this repository (`services.tb323fu`) |
-| SteamOS (community port) | `rootfs/steamos/build-rootfs.sh` | **arm64 only** (it compiles and copies host files) | `userspace/platform/install.sh`, the helper copied from a built tree (`HELPER_FROM=`); no settings app |
+| NixOS | `DISTRO=nixos tools/install/install.sh` (experimental), or `rootfs/nixos/build-rootfs.sh` (a flake: `flake.nix`, `packaging/nix/`) | any Linux with Nix; x86-64 through qemu (`extra-platforms = aarch64-linux`), where the helper is compiled slowly | Nix packages from this repository (`services.tb323fu`) |
+| SteamOS (community port) | `DISTRO=steamos tools/install/install.sh` (experimental), or `rootfs/steamos/build-rootfs.sh` | any Linux; off arm64 it needs the kernel modules, LADSPA plugins and platform packages as arm64 files (the module fetches them: the kernel release's modules bundle, Ubuntu 24.04's `swh-plugins`, the helper release's `.deb` files) | the release's `.deb` files (`DEBS_FROM=`), or `userspace/platform/install.sh` and `HELPER_FROM=` on arm64; no settings app |
 
 ### What the builders take care of
 
