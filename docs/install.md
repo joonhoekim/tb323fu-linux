@@ -43,7 +43,7 @@ builder takes care of.
 | | NixOS with GNOME | the same script with `DISTRO=nixos` — followed end to end once; its configuration is editable on the tablet ([how](distros.md#nixos-your-own-configuration)) |
 | | SteamOS (community port) | the same script with `DISTRO=steamos` — experimental: Gaming Mode works on kernel t39 or later, Switch to Desktop does not yet |
 | | Fedora (with FEX for x86 games) | built on the tablet itself, from a first Linux root: [Distributions → Installing each one](distros.md#installing-each-one) |
-| | anything else (Armada, postmarketOS, Debian, your own) | not tried yet; what a root needs and how to plug your own builder into the script: [Distributions → Your own distribution](distros.md#your-own-distribution) |
+| | Armada (experimental, `DISTRO=armada`), anything else (postmarketOS, Debian, your own) | Armada boots into Gaming Mode; the others are not tried yet; what a root needs and how to plug your own builder into the script: [Distributions → Your own distribution](distros.md#your-own-distribution) |
 
 Several systems can share the card; you pick one with Open Device Helper → Systems or `tb323fu-ctl boot`.
 

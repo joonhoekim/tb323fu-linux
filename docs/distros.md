@@ -16,7 +16,7 @@ side on the card.
 | Fedora 44 Workstation + FEX | `tb323fu-fedora` | `rootfs/fedora` | 7.5 s² | GNOME 50 autologin, Wi-Fi, speakers, sensors (4), firewalld³, FEX x86-64, Steam client starts⁴ |
 | NixOS 26.11 (unstable) | `tb323fu-nixos` | `rootfs/nixos` + `flake.nix` | 11.2 s | stage 2 straight from our initramfs, GNOME autologin, Wi-Fi, speakers, sensors, helper |
 | SteamOS (arm64, community handheld port⁵) | `tb323fu-spare` | `rootfs/steamos` | 14.1 s | Gaming Mode (landscape, seen on the panel; touch lands where tapped after a calibration matrix), Wi-Fi, speakers (protection filter), helper; with the old port release v1.3-odin3-beta1 also Desktop Mode (KDE) both ways. Current release v1.3-8elite-beta2 through the guided installer on kernel t39: Gaming Mode, touch, speakers, both ways to Android and back; Switch to Desktop does not work ([known problems](#known-problems)) |
-| Armada 20260926 (Fedora bootc, experimental⁶) | `baldur-root-sd` | `rootfs/armada` | – | not booted yet: built in WSL2 and checked offline only |
+| Armada 20260926 (Fedora bootc, experimental⁶) | `baldur-root-sd` | `rootfs/armada` | – | through the guided installer on kernel t39 (built in WSL2): boots (a long first-start splash), Gaming Mode with touch after a calibration matrix, Steam's first-start setup; x86 games (FEX) need EROFS zstd in the kernel ([Armada notes](#armada-notes)) |
 
 ¹ `systemd-analyze` "Startup finished" (kernel + userspace), with automatic login.\
 ² graphical.target; "Startup finished" is 15 s while first-boot timer jobs (plocate, fstrim) still run. iSCSI and plymouth are masked (see the builder).\
@@ -72,8 +72,9 @@ the build. Besides the list in [What every root needs](#what-every-root-needs):
   wrote for the image's disk removed; OSTree, bootc and rpm-ostree units, `bootc-generic-growpart`, Armada's ABL and
   boot-image plumbing, its installer (it writes to the internal storage) and its MTP gadget (it would take the USB
   controller from the initramfs' gadget) masked; a device profile for Armada's `device-env` and the Gaming Mode
-  orientation; LADSPA plugins; SELinux permissive; developer access through a NetworkManager profile (Armada has no
-  systemd-networkd).
+  orientation and a touch calibration matrix (as on SteamOS); its handheld controller setup masked; LADSPA plugins;
+  SELinux permissive; developer access through a NetworkManager profile, with `usb0` taken out of NetworkManager's
+  "unmanaged USB gadget" rule (Armada has no systemd-networkd).
 
 ### NixOS: your own configuration
 
@@ -200,9 +201,13 @@ The builders in [`rootfs/`](../rootfs/) do all of it.
 - The panel has no orientation property: a profile in Armada's `device-env` (by the device tree's model) turns on
   gamescope's rotation shader, and `/etc/gamescope-session-plus/sessions.d/steam` gives Gaming Mode its orientation
   (`ORIENTATION=`, default `right`, as on SteamOS).
-- Not checked yet: that it boots at all, Gaming Mode's picture and whether touch follows the rotation (SteamOS needed
-  a calibration matrix), Desktop Mode, sound, suspend through Armada's own `suspend-dispatch`, Armada's power daemon
-  next to the helper (both set CPU and GPU limits), Steam's first start. No sensors (Fedora's `iio-sensor-proxy` has
-  no SSC backend).
+- Checked on the tablet (2026-10-04, guided installer, kernel t39): the first start shows Armada's own splash for a
+  while, then Gaming Mode; touch lands where tapped once the calibration matrix is set; Steam's first-start setup
+  (language) comes up; the sound card and the helper run.
+- Not working yet: Armada presents its x86-64 runtime for FEX from an EROFS image compressed with zstd, which this
+  kernel's EROFS cannot read (`CONFIG_EROFS_FS_ZIP_ZSTD`), so x86 games and Decky's plugin loader fail.
+- Not checked yet: Desktop Mode, sound by ear, suspend through Armada's own `suspend-dispatch`, Armada's power
+  daemon next to the helper (both set CPU and GPU limits). No sensors (Fedora's `iio-sensor-proxy` has no SSC
+  backend).
 
 </details>

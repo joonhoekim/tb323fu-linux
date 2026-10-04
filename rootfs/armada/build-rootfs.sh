@@ -201,6 +201,7 @@ done
 #   ABL updates, ESP rename, update reserve) and its installer, which writes
 #   Armada to the internal storage
 # - armada-mtp: binds its own USB gadget to the UDC the initramfs' gadget holds
+# - armada-controller-type: picks the built-in gamepad of a handheld; the tablet has none
 # - rmtfs `-s` starts the modem, which crashes and resets the whole SoC, and the
 #   mobile-distribution helpers (in case they ever come in)
 masked="ostree-remount.service ostree-finalize-staged.service ostree-finalize-staged-hold.service
@@ -212,7 +213,7 @@ masked="ostree-remount.service ostree-finalize-staged.service ostree-finalize-st
 	rpm-ostree-bootstatus.service rpm-ostree-countme.service rpm-ostree-countme.timer
 	rpm-ostree-fix-shadow-mode.service systemd-repart.service
 	armada-bootimg-sync.service armada-esp-rename.service armada-update-reserve.service
-	armada-installer-visibility.service armada-mtp.service
+	armada-installer-visibility.service armada-mtp.service armada-controller-type.service
 	rmtfs.service tqftpserv.service ModemManager.service droid-juicer.service qbootctl.service
 	bootmac-bluetooth.service"
 for u in $masked; do
@@ -303,6 +304,17 @@ grep -q 'profile=lenovo-tb323fu' "$de" ||
 grep -q 'profile=lenovo-tb323fu' "$de" || echo "WARNING: $de has no profile for $model"
 mkdir -p "$T/etc/gamescope-session-plus/sessions.d"
 printf 'ORIENTATION=%s\nOUTPUT_CONNECTOR=*,DSI-1\n' "$ORIENTATION" > "$T/etc/gamescope-session-plus/sessions.d/steam"
+# the rotation shader turns the picture only: turn the touchscreen and pen with it
+# (the same matrices as rootfs/steamos; "right" measured on the device)
+case $ORIENTATION in
+right) cal="0 1 0 -1 0 1" ;;
+left) cal="0 -1 1 1 0 0" ;;
+upsidedown) cal="-1 0 1 0 -1 1" ;;
+*) cal="" ;;
+esac
+mkdir -p "$T/etc/udev/rules.d"
+[ -n "$cal" ] && printf 'ATTRS{name}=="NVTCapacitiveTouchScreen|NVTCapacitivePen", ENV{LIBINPUT_CALIBRATION_MATRIX}="%s"\n' "$cal" \
+	> "$T/etc/udev/rules.d/99-tb323fu-touch-gamescope.rules"
 
 # 10. developer access over the USB cable (the initramfs creates the gadget)
 if [ "$DEV_ACCESS" = 1 ]; then
@@ -327,6 +339,9 @@ route-metric=1024
 method=disabled
 EOF
 	chmod 600 "$T/etc/NetworkManager/system-connections/tb323fu-usb0.nmconnection"
+	# NetworkManager's own 85-nm-unmanaged.rules leaves USB gadget interfaces alone
+	printf 'SUBSYSTEM=="net", KERNEL=="usb0", ENV{DEVTYPE}=="gadget", ENV{NM_UNMANAGED}="0"\n' \
+		> "$T/etc/udev/rules.d/86-tb323fu-usb0-managed.rules"
 	printf '[Service]\nExecStart=\nExecStart=-/usr/bin/agetty --autologin root --keep-baud 115200,57600,38400,9600 - $TERM\nTimeoutStopSec=5\n' \
 		> "$T/etc/systemd/system/serial-getty@ttyGS0.service.d/autologin.conf"
 	echo "PermitRootLogin yes" > "$T/etc/ssh/sshd_config.d/10-tb323fu-dev.conf"
