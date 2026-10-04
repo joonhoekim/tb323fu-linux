@@ -19,11 +19,11 @@
 # Environment (all optional; same names as the other rootfs/ builders):
 #   ROOT_PARTLABEL=tb323fu-steamos  GPT name of the target partition (fstab)
 #   HOSTNAME_NEW=tb323fu-steamos    hostname of the new system
-#   RELEASE=v1.3-odin3-beta1        release tag of the port (SM8750 image: the
+#   RELEASE=v1.3-8elite-beta2       release tag of the port (SM8750 image: the
 #                                   newest chip it supports, Adreno 830/840 Mesa)
 #   IMAGE_NAME=steamos-arm-handhelds-sm8750-$RELEASE
 #   PARTS="7z.001 7z.002 7z.003"    the split 7-Zip archive holding $IMAGE_NAME.img
-#   SUMS_SHA256=90b67933...         sha256 of the release's SHA256SUMS file (pins
+#   SUMS_SHA256=e9673a1d...         sha256 of the release's SHA256SUMS file (pins
 #                                   the release; the parts are checked against it)
 #   WORK_DIR=/var/tmp/steamos-arm   download and unpack here (~25 GB for this release)
 #   MODULES_FROM=/lib/modules/$(uname -r)   kernel modules of the kernel that will boot it
@@ -34,6 +34,8 @@
 #   FIRMWARE_FROM=/lib/firmware     copy qcom/ ath12k/ qca/ novatek/ aw882xx_acf.bin from here
 #   LADSPA_FROM=/usr/lib/ladspa     sc4_1882.so and fast_lookahead_limiter_1913.so (swh-plugins)
 #                                   for the speaker protection filter; SteamOS has none
+#   DEBS_FROM=                      the tb323fu-*.deb files of a helper-v* release: platform files
+#                                   and helper unpacked from them instead of install.sh and HELPER_FROM
 #   HELPER_FROM=                    a helper/ tree with target/release built (tb323fu-helperd,
 #                                   tb323fu-ctl; glibc <= the image's 2.39), installed with
 #                                   PREFIX=/usr; without it no helper
@@ -54,24 +56,26 @@
 #
 # The image's user is `steamos` (uid 1000, no password, passwordless sudo); SDDM
 # logs it in automatically into Gaming Mode (gamescope + Steam), Desktop Mode
-# is KDE Plasma. Needs: curl, sha256sum, 7z (7zip), losetup, rsync, chroot.
+# is KDE Plasma. Needs: curl, sha256sum, 7z (7zip), losetup, rsync, chroot (and bsdtar with DEBS_FROM).
 set -eu
 
 T=${1:?usage: build-rootfs.sh TARGET_DIR}
 ROOT_PARTLABEL=${ROOT_PARTLABEL:-tb323fu-steamos}
 HOSTNAME_NEW=${HOSTNAME_NEW:-tb323fu-steamos}
-RELEASE=${RELEASE:-v1.3-odin3-beta1}
+RELEASE=${RELEASE:-v1.3-8elite-beta2}
 IMAGE_NAME=${IMAGE_NAME:-steamos-arm-handhelds-sm8750-$RELEASE}
 PARTS=${PARTS:-7z.001 7z.002 7z.003}
-[ "$RELEASE" = v1.3-odin3-beta1 ] &&
-	SUMS_SHA256=${SUMS_SHA256:-90b67933b8de1b93b5a51ce0a92da07f3e7035e92e5570e492e8ef2d0f8cb9af}
+[ "$RELEASE" = v1.3-8elite-beta2 ] &&
+	SUMS_SHA256=${SUMS_SHA256:-e9673a1dc2175709ed53d957dc787d09973d0d42cf43a6322b98e8fb75df7850}
 SUMS_SHA256=${SUMS_SHA256:?set SUMS_SHA256 (sha256 of the SHA256SUMS of release $RELEASE)}
 URL=https://github.com/hashtagbasit/SteamOS-ARM-Handhelds/releases/download/$RELEASE
 WORK_DIR=${WORK_DIR:-/var/tmp/steamos-arm}
+MODULES_FROM_SET=${MODULES_FROM:-}; LADSPA_FROM_SET=${LADSPA_FROM:-}
 MODULES_FROM=${MODULES_FROM:-/lib/modules/$(uname -r)}
 FIRMWARE_FROM=${FIRMWARE_FROM:-/lib/firmware}
 LADSPA_FROM=${LADSPA_FROM:-/usr/lib/ladspa}
 HELPER_FROM=${HELPER_FROM:-}
+DEBS_FROM=${DEBS_FROM:-}
 CONFIG_FROM=${CONFIG_FROM:-/etc/tb323fu}
 NM_CONNECTIONS_FROM=${NM_CONNECTIONS_FROM:-}
 ORIENTATION=${ORIENTATION:-right}
@@ -83,9 +87,16 @@ here=$(cd "$(dirname "$0")/../.." && pwd)
 say() { printf '== %s\n' "$*"; }
 
 mountpoint -q "$T" || { echo "$T is not a mount point"; exit 1; }
-# arm64 only: keyhold is compiled with the host's cc, and LADSPA_FROM and MODULES_FROM
-# default to the host's files
-[ "$(uname -m)" = aarch64 ] || { echo "run this on an arm64 host (for example the tablet running Linux)"; exit 1; }
+# Off arm64 (qemu-user binfmt), nothing may come from the host: the kernel modules, the
+# LADSPA plugins and the platform files (keyhold is compiled) must be given as arm64 files.
+case $(uname -m) in
+aarch64) ;;
+*) b=/proc/sys/fs/binfmt_misc/qemu-aarch64
+	{ grep -qx enabled $b && grep -q '^flags:.*F' $b; } 2>/dev/null ||
+		{ echo "run this on an arm64 host, or install qemu-user-binfmt (arm64 programs through qemu)"; exit 1; }
+	[ -n "$MODULES_FROM_SET" ] && [ -n "$LADSPA_FROM_SET" ] && [ -n "$DEBS_FROM" ] ||
+		{ echo "not on arm64: set MODULES_FROM, LADSPA_FROM and DEBS_FROM to arm64 files (see the top of this file)"; exit 1; } ;;
+esac
 
 # 1. the release image: SHA256SUMS pinned, parts checked, unpacked once
 mkdir -p "$WORK_DIR"; W=$WORK_DIR
@@ -233,11 +244,23 @@ for f in bt-address android-boot.sha256 audio.conf emergency-key.conf; do
 	[ -e "$CONFIG_FROM/$f" ] && [ ! -e "$T/etc/tb323fu/$f" ] && cp -a "$CONFIG_FROM/$f" "$T/etc/tb323fu/$f"
 done
 chown -R 0:0 "$T/usr/lib/firmware" "$T/etc/tb323fu"   # copies from a user's PC keep its uid
-CC=${CC:-cc} DESTDIR=$T sh "$here/userspace/platform/install.sh" >/dev/null
+if [ -n "$DEBS_FROM" ]; then
+	# platform and helper only: the settings app needs libadwaita, the extension GNOME
+	for d in "$DEBS_FROM"/tb323fu-platform_*.deb "$DEBS_FROM"/tb323fu-helper_*.deb; do
+		x=$(mktemp -d)
+		bsdtar -xOf "$d" 'data.tar*' | bsdtar -xpf - -C "$x"
+		[ -d "$x/usr" ] && bsdtar -cf - -C "$x" usr | bsdtar -xpf - -C "$T"
+		[ -d "$x/etc" ] && bsdtar -cf - -C "$x" etc | bsdtar -xpkf - -C "$T"
+		rm -rf "$x"
+	done
+	sc enable tb323fu-helperd.service
+else
+	CC=${CC:-cc} DESTDIR=$T sh "$here/userspace/platform/install.sh" >/dev/null
+fi
 sc enable tb323fu-gen-ids.service tb323fu-btaddr.service tb323fu-dsp.service \
 	tb323fu-audio.service tb323fu-usb-port.service tb323fu-emergency-key.service tb323fu-kernel-confirm.service
 sc --global enable tb323fu-speaker-gain.service
-if [ -n "$HELPER_FROM" ] && [ -x "$HELPER_FROM/target/release/tb323fu-helperd" ]; then
+if [ -z "$DEBS_FROM" ] && [ -n "$HELPER_FROM" ] && [ -x "$HELPER_FROM/target/release/tb323fu-helperd" ]; then
 	say "helper from $HELPER_FROM"
 	need=$(objdump -T "$HELPER_FROM/target/release/tb323fu-helperd" | grep -oE 'GLIBC_[0-9.]+' | sort -uV | tail -n1)
 	have=$(ls "$T"/usr/lib/libc.so.6 >/dev/null && strings "$T/usr/lib/libc.so.6" | grep -oE 'GLIBC_[0-9.]+' | sort -uV | tail -n1)

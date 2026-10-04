@@ -106,7 +106,7 @@ in {
     fileSystems."/" = {
       device = "/dev/disk/by-partlabel/${cfg.partlabel}";
       fsType = "ext4";
-      options = [ "noatime" ];
+      options = [ "noatime" "x-systemd.growfs" ];   # an image written into a larger partition
     };
 
     # --- system
