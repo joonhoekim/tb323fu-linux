@@ -54,6 +54,8 @@ const SOURCE_READMES = [
   "userspace/platform/README.md",
   "helper/README.md",
   "android/README.md",
+  "tools/install/README.md",
+  "tools/install/distros/README.md",
 ];
 
 export const GROUP_LABELS: Record<DocGroup, string> = {
