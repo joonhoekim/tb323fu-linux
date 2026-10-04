@@ -34,6 +34,8 @@
 #   FIRMWARE_FROM=/lib/firmware     copy qcom/ ath12k/ qca/ novatek/ aw882xx_acf.bin from here
 #   LADSPA_FROM=/usr/lib/ladspa     sc4_1882.so and fast_lookahead_limiter_1913.so (swh-plugins)
 #                                   for the speaker protection filter; SteamOS has none
+#   KCONFIG_FROM=/proc/config.gz    the configuration of the kernel that will boot it: without
+#                                   tracefs (CONFIG_TRACING) the SteamOS manager stays off
 #   DEBS_FROM=                      the tb323fu-*.deb files of a helper-v* release: platform files
 #                                   and helper unpacked from them instead of install.sh and HELPER_FROM
 #   HELPER_FROM=                    a helper/ tree with target/release built (tb323fu-helperd,
@@ -76,6 +78,7 @@ FIRMWARE_FROM=${FIRMWARE_FROM:-/lib/firmware}
 LADSPA_FROM=${LADSPA_FROM:-/usr/lib/ladspa}
 HELPER_FROM=${HELPER_FROM:-}
 DEBS_FROM=${DEBS_FROM:-}
+KCONFIG_FROM=${KCONFIG_FROM:-$([ "$(uname -m)" = aarch64 ] && echo /proc/config.gz)}
 CONFIG_FROM=${CONFIG_FROM:-/etc/tb323fu}
 NM_CONNECTIONS_FROM=${NM_CONNECTIONS_FROM:-}
 ORIENTATION=${ORIENTATION:-right}
@@ -249,8 +252,8 @@ if [ -n "$DEBS_FROM" ]; then
 	for d in "$DEBS_FROM"/tb323fu-platform_*.deb "$DEBS_FROM"/tb323fu-helper_*.deb; do
 		x=$(mktemp -d)
 		bsdtar -xOf "$d" 'data.tar*' | bsdtar -xpf - -C "$x"
-		[ -d "$x/usr" ] && bsdtar -cf - -C "$x" usr | bsdtar -xpf - -C "$T"
-		[ -d "$x/etc" ] && bsdtar -cf - -C "$x" etc | bsdtar -xpkf - -C "$T"
+		[ -d "$x/usr" ] && tar -C "$x" -cf - usr | tar -C "$T" -xpf - --keep-directory-symlink
+		[ -d "$x/etc" ] && tar -C "$x" -cf - etc | tar -C "$T" -xpf - --keep-directory-symlink --skip-old-files
 		rm -rf "$x"
 	done
 	sc enable tb323fu-helperd.service
@@ -277,11 +280,17 @@ cat > "$T/etc/fstab" <<EOF
 # (kernel + initramfs) is the device's own, nothing of the SteamOS image's BOOT
 PARTLABEL=$ROOT_PARTLABEL	/	ext4	defaults,noatime	0	1
 EOF
-# the port masks the user steamos-manager (its 7.2 kernel had no tracefs); this
-# kernel has tracefs, and without the manager steamosctl -- Steam's "Switch to
-# Desktop" and back -- fails (tested: both ways work with it running)
-[ "$(readlink "$T/etc/systemd/user/steamos-manager.service")" = /dev/null ] &&
+# the port masks the user steamos-manager (its kernel had no tracefs); without
+# the manager steamosctl -- Steam's "Switch to Desktop" and back -- fails
+kconfig() { case $KCONFIG_FROM in *.gz) gzip -dc "$KCONFIG_FROM" ;; *) cat "$KCONFIG_FROM" ;; esac 2>/dev/null; }
+if [ -r "$KCONFIG_FROM" ] && ! kconfig | grep -qx 'CONFIG_TRACING=y'; then
+	# no tracefs: the system daemon fails, and a user manager waiting for it
+	# holds the Gaming Mode session (black screen). Gaming Mode without it.
+	echo "WARNING: kernel without tracefs ($KCONFIG_FROM): no Switch to Desktop"
+	sc mask steamos-manager.service gpu-trace.service
+elif [ "$(readlink "$T/etc/systemd/user/steamos-manager.service")" = /dev/null ]; then
 	rm -f "$T/etc/systemd/user/steamos-manager.service"
+fi
 [ -n "$TIMEZONE" ] && ln -sf "../usr/share/zoneinfo/$TIMEZONE" "$T/etc/localtime"
 # the port means `steamos` to have passwordless sudo (Steam's brightness slider
 # runs `sudo tee .../brightness`), but its 99-steamos-nopasswd is read before

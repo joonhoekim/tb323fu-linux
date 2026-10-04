@@ -3,7 +3,7 @@
 DISTRO_TITLE="SteamOS (community port)"
 DISTRO_STATUS=experimental
 DISTRO_MINUTES="15-30 min after a 4.4 GB download"
-DISTRO_KERNEL_ASSETS="modules-tb323fu-t*.tar.gz"
+DISTRO_KERNEL_ASSETS="modules-tb323fu-t*.tar.gz config-tb323fu-t*"
 DISTRO_USER=steamos
 [ "$IMG_SIZE" = 24G ] && IMG_SIZE=40G
 
@@ -42,5 +42,6 @@ distro_build() { # MNT USER
 		ROOT_PARTLABEL="$ROOT_PARTLABEL" HOSTNAME_NEW=tb323fu-steamos DEV_ACCESS="$DEV_ACCESS" \
 		FIRMWARE_FROM="$FW" CONFIG_FROM="$WORK/config" DEBS_FROM="$WORK/debs" \
 		MODULES_FROM="$WORK/steamos-modules/${rel#./}" LADSPA_FROM="$WORK/steamos-ladspa/usr/lib/ladspa" \
+		KCONFIG_FROM="$WORK/kernel/$(cd "$WORK/kernel" 2>/dev/null && ls config-tb323fu-t* 2>/dev/null | sort -V | tail -1)" \
 		TIMEZONE="$(readlink /etc/localtime 2>/dev/null | sed -n 's|.*/zoneinfo/||p')" WORK_DIR="$WORK/steamos-image"
 }

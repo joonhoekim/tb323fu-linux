@@ -228,9 +228,9 @@ elif [ -n "$DEBS_FROM" ]; then
 		case ${d##*/} in tb323fu-helper-gnome_*|tb323fu-settings_*) [ "$DESKTOP" = gnome ] || continue ;; esac
 		x=$(mktemp -d)
 		bsdtar -xOf "$d" 'data.tar*' | bsdtar -xpf - -C "$x"
-		[ -d "$x/usr" ] && bsdtar -cf - -C "$x" usr | bsdtar -xpf - -C "$T"
+		[ -d "$x/usr" ] && tar -C "$x" -cf - usr | tar -C "$T" -xpf - --keep-directory-symlink
 		# the device settings copied above win over the packages' defaults in /etc
-		[ -d "$x/etc" ] && bsdtar -cf - -C "$x" etc | bsdtar -xpkf - -C "$T"
+		[ -d "$x/etc" ] && tar -C "$x" -cf - etc | tar -C "$T" -xpf - --keep-directory-symlink --skip-old-files
 		rm -rf "$x"
 	done
 fi
