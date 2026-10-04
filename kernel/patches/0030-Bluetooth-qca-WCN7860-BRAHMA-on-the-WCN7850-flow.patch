@@ -97,7 +97,7 @@ index 7089e9b63..e317a5ba2 100644
 +	if (!hu->serdev)
 +		return -ENODEV;
 +
-+	/* the controller ACKs the wake handshake even with host IBS unarmed */
++	/* safe with host IBS unarmed: the controller ACKs WAKE_IND anyway */
 +	if (send_hci_ibs_cmd(HCI_IBS_WAKE_IND, hu) < 0)
 +		return -EBUSY;
 +

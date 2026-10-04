@@ -29,8 +29,8 @@ and is not understood.
 
 Assisted-by: LLM
 ---
- drivers/cpuidle/cpuidle-psci-domain.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/cpuidle/cpuidle-psci-domain.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
 diff --git a/drivers/cpuidle/cpuidle-psci-domain.c b/drivers/cpuidle/cpuidle-psci-domain.c
 index b9e4ad7d4..08e166ccc 100644
@@ -44,11 +44,10 @@ index b9e4ad7d4..08e166ccc 100644
  #include <linux/platform_device.h>
  #include <linux/pm_domain.h>
  #include <linux/pm_runtime.h>
-@@ -71,6 +72,10 @@ static int psci_pd_init(struct device_node *np, bool use_osi)
+@@ -71,6 +72,9 @@ static int psci_pd_init(struct device_node *np, bool use_osi)
  		pd->flags |= GENPD_FLAG_ACTIVE_WAKEUP;
  		if (IS_ENABLED(CONFIG_PREEMPT_RT))
  			pd->flags |= GENPD_FLAG_RPM_ALWAYS_ON;
-+		/* from runtime idle it can leave CPUs in retention for good */
 +		if (of_machine_is_compatible("lenovo,baldur") &&
 +		    of_node_name_eq(np, "power-domain-system"))
 +			pd->flags |= GENPD_FLAG_RPM_ALWAYS_ON;

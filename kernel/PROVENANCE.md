@@ -52,7 +52,7 @@ column names the source; see that tree's history for the individual authors.
 | `0027` | input: nt36536: fixes for TB323FU | joonhoekim | this project | local | `a422c401715fb793` |
 | `0028` | backlight: aw99706: replay board registers after the HWEN reset | joonhoekim | this project | local | `d1ad9c52208bcce6` |
 | `0029` | iommu: arm-smmu-qcom: kaanapali MDSS identity domain | EYC | community / infiniti-mainline (EYC) | community, not upstream | `a85b5d13de911cd1` |
-| `0030` | Bluetooth: qca: WCN7860 (BRAHMA) on the WCN7850 flow | joonhoekim | infiniti-mainline `fecd7925d` (EYC; From: is the importer) | community, not upstream | `73634db7fc2ba66b` |
+| `0030` | Bluetooth: qca: WCN7860 (BRAHMA) on the WCN7850 flow | joonhoekim | infiniti-mainline `fecd7925d` (EYC; From: is the importer) | community, not upstream | `57b829a35d97793c` |
 | `0031` | arm64: dts: qcom: kaanapali: CPU6-7 in a PSCI cluster domain of their own | joonhoekim | this project | local | `dfe76c615b695b33` |
 | `0032` | drm/msm/dsi: phy: prepare the iface clock only while runtime active | joonhoekim | this project | local | `bf59d797d7f3eac8` |
 | `0033` | power: supply: qcom_battmgr: let the host set the USB input current limit | joonhoekim | this project | local | `e3852ec0c4a9ef38` |
@@ -128,7 +128,7 @@ column names the source; see that tree's history for the individual authors.
 | `0103` | clk: qcom: gdsc: drop the controller reference only if it was taken | joonhoekim | this project | local | `ed38bddd35bf3659` |
 | `0104` | usb: dwc3: tell xHCI that it lost its state when the core is powered off | joonhoekim | this project | sent upstream 2026-09-29, under review | `f8331ea58dd8c96d` |
 | `0105` | drm/msm/dpu: compute the CRTC bandwidth from the state being checked | joonhoekim | this project | upstream v2 2026-10-02, Reviewed-by Dmitry Baryshkov | `09aaff9bc1459c18` |
-| `0106` | cpuidle: psci-domain: baldur: use the system domain state only in system suspend | Joonhoe Kim | this project | local workaround (cpuidle system domain state only in suspend) | `21037b50b5223abf` |
+| `0106` | cpuidle: psci-domain: baldur: use the system domain state only in system suspend | Joonhoe Kim | this project | local workaround (cpuidle system domain state only in suspend) | `e5fe440e8cc5bdfb` |
 | `0107` | power: supply: qcom_battmgr: fix the battery current sign on Kaanapali | Joonhoe Kim | this project | local | `0a838c98a286a567` |
 | `0108` | arm64: dts: qcom: baldur: throttle on the board temperature like Android | Joonhoe Kim | this project | local (board DT) | `7c93f156e9234773` |
 | `0109` | drm/panel: nt36523: baldur: add 90 Hz and 164 Hz modes | joonhoekim | this project | local (panel modes) | `062b41e8202e67ad` |
