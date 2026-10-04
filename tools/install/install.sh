@@ -84,9 +84,10 @@ fi
 DISTRO=${DISTRO:-ubuntu}
 case $DISTRO in */*|*.sh) DISTRO_FILE=$(cd "$(dirname "$DISTRO")" 2>/dev/null && pwd)/$(basename "$DISTRO") ;; *) DISTRO_FILE=$here/distros/$DISTRO.sh ;; esac
 [ -f "$DISTRO_FILE" ] || { echo "no distribution module '$DISTRO' (install.sh --distros lists the built-in ones)" >&2; exit 2; }
-DISTRO_TITLE=$DISTRO DISTRO_STATUS=custom DISTRO_MINUTES="?"
+DISTRO_TITLE=$DISTRO DISTRO_STATUS=custom DISTRO_MINUTES="?" DISTRO_KERNEL_ASSETS= DISTRO_USER=
 distro_host_packages() { :; }
 distro_set_password() { $SUDO chroot "$1" passwd "$2" </dev/tty; }
+distro_growroot() { growroot_into "$1"; }
 # shellcheck source=/dev/null
 . "$DISTRO_FILE"
 declare -F distro_build >/dev/null || { echo "$DISTRO_FILE defines no distro_build" >&2; exit 2; }
@@ -511,9 +512,19 @@ check_sums() {
 }
 kernel_files() { local i; i=$(cd "$WORK/kernel" 2>/dev/null && ls Image-tb323fu-t* 2>/dev/null | grep -v '\.gz$' | sort -V | tail -1); [ -n "$i" ] && echo "$i"; }
 deb_files() { [ -f "$WORK/debs/SHA256SUMS" ] && awk '{sub(/^\*/, "", $2); print $2}' "$WORK/debs/SHA256SUMS" | grep '^tb323fu-.*\.deb$'; }
+# more files of the kernel release that the distribution module asks for (DISTRO_KERNEL_ASSETS, glob patterns)
+kernel_extra_wanted() { local p; for p in ${DISTRO_KERNEL_ASSETS:-}; do case $1 in $p) return 0 ;; esac; done; return 1; }
+kernel_extra_files() {
+	[ -f "$WORK/kernel/SHA256SUMS" ] || return 0
+	awk '{sub(/^\*/, "", $2); print $2}' "$WORK/kernel/SHA256SUMS" | while read -r n; do kernel_extra_wanted "$n" && echo "$n"; done
+	return 0
+}
 downloads_ok() {
-	local k d
+	local k d e
 	k=$(kernel_files) && check_sums "$WORK/kernel" "$k" 2>/dev/null || return 1
+	e=$(kernel_extra_files)
+	# shellcheck disable=SC2086
+	[ -z "$e" ] || check_sums "$WORK/kernel" $e 2>/dev/null || return 1
 	d=$(deb_files) && [ -n "$d" ] || return 1
 	# shellcheck disable=SC2086
 	check_sums "$WORK/debs" $d 2>/dev/null
@@ -540,6 +551,7 @@ fetch_api() {
 			case $kind:$name in
 			kernel:SHA256SUMS|kernel:Image-tb323fu-t*[0-9]) want=1 ;;
 			helper:SHA256SUMS|helper:tb323fu-*.deb) want=1 ;;
+			kernel:*) want=0; kernel_extra_wanted "$name" && want=1 ;;
 			*) want=0 ;;
 			esac
 			[ $want = 1 ] || continue
@@ -557,7 +569,8 @@ fetch_browser() {
 	cat <<EOF
 Download these files in your browser (you must be able to see the repository):
   https://github.com/$REPO_SLUG/releases
-  - from the newest "kernel-t.." release: Image-tb323fu-tNN (not the .gz) and SHA256SUMS
+  - from the newest "kernel-t.." release: Image-tb323fu-tNN (not the .gz) and SHA256SUMS${DISTRO_KERNEL_ASSETS:+
+    and, for $DISTRO_TITLE: $DISTRO_KERNEL_ASSETS}
   - from the newest "helper-v.." release: every tb323fu-*.deb and its SHA256SUMS
     (the browser may call the second one "SHA256SUMS (1)"; that is fine)
 They are looked for in $dl.
@@ -584,6 +597,10 @@ EOF
 	for c in $(deb_files); do
 		[ -f "$dl/$c" ] || { warn "missing $dl/$c"; return 1; }
 		cp "$dl/$c" "$WORK/debs/"
+	done
+	for c in $(kernel_extra_files); do
+		[ -f "$dl/$c" ] || { warn "missing $dl/$c"; return 1; }
+		cp "$dl/$c" "$WORK/kernel/"
 	done
 	st_set kernel_tag "kernel-${k#Image-tb323fu-}"
 }
@@ -751,7 +768,7 @@ The root goes into an ext4 image of $(bytes "$size_b") on this PC (the PC stays 
 not needed meanwhile). Afterwards the image is shrunk to what it holds; on the tablet's first start
 it grows to fill the partition by itself.
 EOF
-	user=${DEV_USER:-$(st_get dev_user)}
+	user=${DISTRO_USER:-${DEV_USER:-$(st_get dev_user)}}
 	[ -n "$user" ] || user=$(ask "your user name on the tablet" "$(id -un)")
 	case $user in ''|root|*[!a-z0-9_-]*) warn "user name: lower-case letters, digits, - and _ only, not root"; return 1 ;; esac
 	st_set dev_user "$user"
@@ -786,7 +803,7 @@ EOF
 		return 1
 	fi
 	[ $DRY = 1 ] || say "  built in $(( ($(date +%s) - t0) / 60 )) min"
-	growroot_into "$mnt"
+	distro_growroot "$mnt"
 	say "Set a password for $user (for sudo and the lock screen; root stays locked):"
 	run $SUDO mount --bind /dev "$mnt/dev"; run $SUDO mount -t proc proc "$mnt/proc"
 	local try=0

@@ -14,6 +14,8 @@ DISTRO=~/my-distro.sh tools/install/install.sh  # your own module, by path
 |---|---|---|
 | [`ubuntu.sh`](ubuntu.sh) | Ubuntu 26.04, GNOME | verified: followed end to end on a tablet |
 | [`arch.sh`](arch.sh) | Arch Linux ARM, GNOME | verified: followed end to end once (no sensors: `hexagonrpcd` is not packaged for Arch) |
+| [`nixos.sh`](nixos.sh) | NixOS (unstable), GNOME | experimental: builds in WSL2 with Nix (the helper is compiled through qemu) |
+| [`steamos.sh`](steamos.sh) | SteamOS, community port (Gaming Mode, KDE) | experimental: image built in WSL2, not yet booted from this path |
 
 Changing `DISTRO` after a `rootfs` step builds the root again from scratch (the image holds one system). The
 other steps are not repeated.
@@ -37,7 +39,14 @@ distro_build() {   # $1 = the mounted, empty ext4 image, $2 = the user name the 
 distro_about() { echo "What the build does, in two or three lines."; }      # optional
 distro_host_packages() { echo debootstrap; }                                 # optional: extra Debian/Ubuntu packages on the PC
 distro_set_password() { sudo chroot "$1" passwd "$2" </dev/tty; }            # optional: this is the default
+distro_growroot() { growroot_into "$1"; }                                     # optional: this is the default
+DISTRO_KERNEL_ASSETS="config-tb323fu-t*"   # optional: more files of the kernel release, fetched into $WORK/kernel
+DISTRO_USER=steamos                        # optional: a fixed user; the person is not asked for a name
 ```
+
+`distro_growroot` adds what grows the root to its partition on the first start; the default installs a small
+systemd service into `/etc`, a system whose `/etc` is generated (NixOS) does it in its own configuration instead. A
+module may also raise `IMG_SIZE` (the image before shrinking, 24G) when its root is larger (SteamOS: 40G).
 
 `run_builder SCRIPT MNT VAR=VALUE…` runs a builder as root, without a controlling terminal, from `$WORK`, and only
 prints it under `--dry-run`. A module may also run its own commands instead; `$SUDO` is `sudo` or empty, and
