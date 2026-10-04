@@ -190,6 +190,7 @@ impl Battery {
             c.battery.bypass = false;
             c.battery.saved_limit = None;
             c.thermal.bypass_auto = false;
+            c.thermal.bypass_declined = true;
         });
         invalidate(&em, Self::IFACE, Self::PROPS).await;
         Ok(())
@@ -200,13 +201,11 @@ impl Battery {
     async fn set_bypass(&self, on: bool, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
         #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
         polkit::check(conn, &hdr, "charge-limit", self.0.no_polkit).await?;
-        let auto = self.0.cfg().thermal.bypass_auto;
         self.0.set_bypass(on).map_err(failed)?;
-        if auto {
-            // the user decides now; off also stops performance from switching it back on
-            self.0.update(|c| c.thermal.bypass_auto = false);
-            self.0.rt.lock().unwrap().bypass_declined = !on;
-        }
+        self.0.update(|c| {
+            c.thermal.bypass_auto = false;
+            c.thermal.bypass_declined = !on;
+        });
         invalidate(&em, Self::IFACE, Self::PROPS).await;
         Ok(())
     }

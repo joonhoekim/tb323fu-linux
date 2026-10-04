@@ -237,6 +237,11 @@ $C emergency-key off && grep -q ENABLED=0 $R/etc/tb323fu/emergency-key.conf && o
 
 $C android --yes && sleep 0.5 && grep -q "fake back-to-android $(printf '%064d' 7)" $R/android-called && ok "android switch runs back-to-android with the hash" || bad "android switch"
 
+# Bypass turned off during performance stays off, also after a restart
+$C thermal profile performance >/dev/null && check "performance switches Bypass on" $B/charge_control_end_threshold 62
+$C bypass off && check "Bypass off during performance" $B/charge_control_end_threshold 60
+sleep 4; check "performance does not switch it back on" $B/charge_control_end_threshold 60
+
 grep -q "charge_limit = 60" $R/etc/tb323fu/helper.toml && ok "config persisted" || bad "config not persisted"
 kill $D; wait $D 2>/dev/null
 # restart: persisted settings re-applied
@@ -246,6 +251,8 @@ D=$!
 for i in 1 2 3 4 5 6 7 8 9 10; do $BIN/tb323fu-ctl --session versions >/dev/null 2>&1 && break; sleep 0.3; done
 check "restart re-applies charge limit" $B/charge_control_end_threshold 60
 check "restart re-applies usb wake" /sys/bus/platform/devices/a600000.usb/power/wakeup enabled
+sleep 4; check "Bypass stays off after a restart in performance" $B/charge_control_end_threshold 60
+$C thermal profile default >/dev/null && grep -q "bypass_declined = false" $R/etc/tb323fu/helper.toml && ok "leaving performance clears the decline" || bad "decline not cleared"
 
 [ $fail = 0 ] && echo "ALL PASSED" || { echo "SOME FAILED"; cat $R/daemon.log; }
 exit $fail

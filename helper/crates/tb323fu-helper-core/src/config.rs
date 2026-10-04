@@ -131,11 +131,13 @@ pub struct Thermal {
     pub panel_limit: bool,
     /// Bypass was switched on by performance_bypass (restored on leaving)
     pub bypass_auto: bool,
+    /// the user turned Bypass off during this performance period
+    pub bypass_declined: bool,
 }
 
 impl Default for Thermal {
     fn default() -> Self {
-        Thermal { profile: "default".into(), follow_performance: false, performance_bypass: true, panel_limit: true, bypass_auto: false }
+        Thermal { profile: "default".into(), follow_performance: false, performance_bypass: true, panel_limit: true, bypass_auto: false, bypass_declined: false }
     }
 }
 

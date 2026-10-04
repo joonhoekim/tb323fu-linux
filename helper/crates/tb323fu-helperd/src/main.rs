@@ -33,7 +33,6 @@ pub struct Runtime {
     /// thermal profile last written
     thermal_applied: Option<String>,
     /// the user switched Bypass off while performance had switched it on
-    pub bypass_declined: bool,
     /// the panel heat limit holds the backlight; the brightness to restore
     panel_limited: bool,
     panel_saved: Option<u32>,
@@ -185,9 +184,8 @@ impl Shared {
     /// (when `performance_bypass`), undone when performance ends.
     fn performance_bypass_tick(&self, perf_on: bool) {
         let c = self.cfg();
-        let declined = self.rt.lock().unwrap().bypass_declined;
         if perf_on {
-            if c.thermal.performance_bypass && !c.battery.bypass && !declined && f::battery_dir().is_some() && f::external_power() {
+            if c.thermal.performance_bypass && !c.battery.bypass && !c.thermal.bypass_declined && f::battery_dir().is_some() && f::external_power() {
                 match self.set_bypass(true) {
                     Ok(()) => {
                         self.update(|c| c.thermal.bypass_auto = true);
@@ -198,7 +196,9 @@ impl Shared {
             }
             return;
         }
-        self.rt.lock().unwrap().bypass_declined = false;
+        if c.thermal.bypass_declined {
+            self.update(|c| c.thermal.bypass_declined = false);
+        }
         if c.thermal.bypass_auto {
             if c.battery.bypass {
                 if let Err(e) = self.set_bypass(false) {
