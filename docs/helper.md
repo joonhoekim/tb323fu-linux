@@ -49,7 +49,30 @@ GNOME and apt.
   - **Open Device Helper…:** opens the settings app.
   - **Errors:** one notification per failed call (no D-Bus names); a cancelled authentication shows nothing.
   - Auto Brightness stays a separate GSettings tile.
-- **Settings app** (Rust, gtk-rs, GTK4 + libadwaita, `tb323fu-settings [--page NAME]`): pages Battery (limit, recharge gap, bypass, "charge to 100 % by" schedule, state, power, health, charger contract and measured input), Display (refresh policy, timing presets or custom idle times, panel heat protection), Performance (profile with CPU and GPU limits per profile, low-latency Wi-Fi, thermal profile, CPU boost, temperatures from `Thermal`), Lights & Vibration (torch, LED ring mode, colour (a palette of nine; `tb323fu-ctl` takes any `#rrggbb`), breathing, notification pulse, vibration strength and test), USB (wake sources, USB-C port roles, developer mode), Emergency Key, Systems (multiboot: restart into / next / default from a row's menu, opened by tapping the row; the subtitle always names the partition, then any problem in short, e.g. `baldur-root-sd · No sound or Wi-Fi`), Android, Diagnostics (export) and About (versions, firmware, About dialog with copyable debug info). Short values stay on one line, long ones (kernel, hashes, paths) sit under the row title with a copy button; the split view collapses into list → page navigation below 860 sp. The property poll runs on a worker thread, so a slow daemon answer (a Boot rescan mounts SD roots; the daemon runs it on a blocking thread too) never freezes the window. Adwaita fits GNOME; on other desktops it still runs as a plain app.
+- **Settings app** (Rust, gtk-rs, GTK4 + libadwaita; `tb323fu-settings [--page NAME]` opens a page directly). A list of
+  pages on the left, the page on the right; below 860 sp it becomes list → page navigation. Short values stay on one
+  line, long ones (kernel, hashes, paths) sit under the row title with a copy button. The pages:
+  - **Battery:** charge limit and recharge gap, Bypass Charging, "charge to 100 % by" a time (days of the week), the
+    battery's state, power, health and cycle count, the charger's contract and measured input.
+  - **Display:** refresh policy (adaptive, fixed, always 120 Hz), the idle timing presets or custom idle times, panel
+    heat protection.
+  - **Performance:** the profile (power-saver / balanced / performance) with CPU and GPU limits per profile, low-latency
+    Wi-Fi in the performance profile, the thermal profile, CPU boost, and the temperatures.
+  - **Lights & Vibration:** torch, LED ring mode and colour (a palette of nine; `tb323fu-ctl` takes any `#rrggbb`),
+    breathing, notification pulse, vibration strength with a test.
+  - **USB:** wake sources, USB-C port roles, developer mode.
+  - **Emergency Key:** on/off and how long to hold volume up + volume down.
+  - **Systems:** every system the boot loader can see; tap a row for restart into / next start / default. The subtitle
+    names the partition and any problem in short (e.g. `baldur-root-sd · No sound or Wi-Fi`).
+  - **Android:** restart into Android, and whether that asks for authentication.
+  - **Diagnostics:** an export of logs and state for bug reports.
+  - **About:** versions and firmware; **Kernel Updates** (the running, trial and good kernels, the channel, check /
+    download / install, Keep after a trial, rollback, "Install Kernel from File"; see
+    [Kernel updates](#kernel-updates)); **Helper Updates** ([below](#helper-updates)); an About dialog with copyable
+    debug information.
+
+  The daemon is polled on a worker thread, so a slow answer (a rescan of the systems mounts SD roots) never freezes
+  the window. Adwaita fits GNOME; on other desktops it still runs as a plain app.
 - **KDE Plasma applet** (later): QML plasmoid over the same D-Bus API.
 
 ## Multiboot

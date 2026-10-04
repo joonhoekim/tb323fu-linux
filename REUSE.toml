@@ -41,13 +41,6 @@ precedence = "closest"
 SPDX-FileCopyrightText = "2026 Joonhoe Kim and contributors"
 SPDX-License-Identifier = "CC-BY-SA-4.0"
 
-# Screenshots (third-party logos, wallpapers and UIs in them belong to their owners; see NOTICE).
-[[annotations]]
-path = "site/public/screenshots/**"
-precedence = "closest"
-SPDX-FileCopyrightText = "2026 Joonhoe Kim"
-SPDX-License-Identifier = "CC-BY-SA-4.0"
-
 # Helper data without room for a header (lock files).
 [[annotations]]
 path = ["helper/Cargo.lock", "helper/crates/tb323fu-settings/Cargo.lock", "helper/.gitignore"]

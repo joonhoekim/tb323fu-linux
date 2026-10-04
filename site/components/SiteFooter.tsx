@@ -5,7 +5,7 @@ export default function SiteFooter() {
   return (
     <footer className="site-footer">
       <p>
-        Documentation text and screenshots are <a href={githubUrl("LICENSES/CC-BY-SA-4.0.txt")}>CC BY-SA 4.0</a>{" "}
+        Documentation text is <a href={githubUrl("LICENSES/CC-BY-SA-4.0.txt")}>CC BY-SA 4.0</a>{" "}
         (code snippets in them also MIT). Code is <a href={githubUrl("LICENSE")}>MIT</a> unless a file says otherwise:
         the helper and Open Device Helper are GPL-3.0-or-later, kernel patches GPL-2.0-only, board device trees
         BSD-3-Clause; see <a href={githubUrl("NOTICE")}>NOTICE</a>. Firmware is not redistributed. Source on{" "}

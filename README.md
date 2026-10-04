@@ -60,7 +60,7 @@ Every file's SPDX header takes precedence; files without one are covered by [`RE
 | out-of-tree `aw882xx` driver | `GPL-2.0-only` (AWINIC's headers kept; they use the older identifier `GPL-2.0`) |
 | GNOME Shell extension | `GPL-2.0-or-later`, as GNOME Shell |
 | platform files, root filesystem builders, tools, packaging, site code | `MIT` (a few platform files follow their upstream: UCM2 `BSD-3-Clause`, libcamera tuning `CC0-1.0`, feedbackd rule `LGPL-2.1-or-later`) |
-| documentation text and screenshots | `CC-BY-SA-4.0`; code snippets and commands in the documentation are also available under `MIT` |
+| documentation text | `CC-BY-SA-4.0`; code snippets and commands in the documentation are also available under `MIT` |
 
 Firmware is not redistributed, and neither are Valve's Steam client, the SteamOS-ARM image or distribution base images: the builders download them on your machine.
 The project name, icons, update source and any signing keys are covered by the [name and trademark policy](TRADEMARKS.md); forks and modified builds use their own.

@@ -44,8 +44,8 @@ The full texts of all licenses used are in LICENSES/.
   everything else: platform files, rootfs builders, MIT
     tools, android/, packaging/, firmware scripts,
     initramfs init, site code, steam-arm64
-  documentation prose (*.md, docs/) and             CC-BY-SA-4.0; code snippets
-    screenshots (site/public/screenshots/)          and commands in the
+  documentation prose (*.md, docs/)                 CC-BY-SA-4.0; code snippets
+                                                    and commands in the
                                                     documentation are also
                                                     available under MIT
 
@@ -85,6 +85,3 @@ Not included
 - Valve's Steam client and runtime, the SteamOS-ARM image and distribution
   base images are downloaded on the user's machine by the builders and are
   not redistributed here.
-- The screenshots show third-party logos, wallpapers and user interfaces
-  (GNOME, Fedora, Ubuntu, Arch Linux, NixOS, Steam). Those elements belong to
-  their owners and are not covered by this project's licenses.

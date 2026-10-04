@@ -28,7 +28,7 @@ USB network gadget in which the tablet is **192.168.7.2** and the PC is 192.168.
 | `v4l2dec.py` | tablet | minimal V4L2 stateful (memory-to-memory) decoder client, Python standard library only; IVF input, NV12/P010 output |
 | `av1-check.sh` | tablet | AV1 (8/10-bit) hardware decode with `v4l2dec.py`, bit-exact against libdav1d; VP9 as a control |
 | `thermal-stress.sh` | tablet | CPU load with per-second clocks, temperatures and cooling states; `emul` steps the board sensor's emulated temperature |
-| `screenshots/shoot.sh` | tablet (root) | screenshots of the settings app for the docs, light and dark: a headless GNOME Shell with a 1600x2560 virtual monitor at 200 % on its own D-Bus session and empty home (the panel's desktop is not touched), the app driven through AT-SPI (`shoot.py`), "Install Kernel from File" up to its confirmation (cancelled, nothing installed); about 100 s |
+| `screenshots/shoot.sh` | tablet (root) | screenshots of the settings app (for bug reports or your own notes; the docs describe the app in text), light and dark: a headless GNOME Shell with a 1600x2560 virtual monitor at 200 % on its own D-Bus session and empty home (the panel's desktop is not touched), the app driven through AT-SPI (`shoot.py`), "Install Kernel from File" up to its confirmation (cancelled, nothing installed); about 100 s |
 
 ## Safety notes
 

@@ -1,7 +1,7 @@
 # Project website
 
 The website for this repository: a [Next.js](https://nextjs.org/) (App Router, TypeScript) site exported as static files
-for GitHub Pages. The site code is MIT-licensed; the page text and screenshots are CC BY-SA 4.0 (see `NOTICE`).
+for GitHub Pages. The site code is MIT-licensed; the page text is CC BY-SA 4.0 (see `NOTICE`).
 
 **The Markdown in the repository is the only source.** Pages are rendered at build time; nothing is copied into `site/`:
 
@@ -11,13 +11,11 @@ for GitHub Pages. The site code is MIT-licensed; the page text and screenshots a
 | `docs/<name>.md` — every file, picked up automatically | `/docs/<name>/` |
 | `kernel/README.md`, `kernel/initramfs/README.md`, `firmware/README.md`, `userspace/platform/README.md`, `helper/README.md`, `android/README.md` | `/docs/repo/<directory>/` |
 | `docs/distros.md` (first table), `docs/hardware-status.md` (status columns), README status note | facts on the landing page `/` |
-| `site/public/screenshots/` (optional `index.json`: `[{ "file", "title", "caption" }]`) | gallery on `/` |
 
 Internal checklists (`docs/photo-shotlist.md`) are not rendered; the list is `HIDDEN` in [`lib/docs.ts`](lib/docs.ts),
 which also holds the navigation order and the directory READMEs. Relative links between rendered files become site
 routes (anchors kept, GitHub-style heading ids); links to any other repository file go to its GitHub page. Images that
 Markdown references by relative path are copied to `public/_repo/` by `scripts/copy-doc-assets.mjs` before each build.
-The screenshot manifest's title and caption are also the images' alt text.
 
 ## Develop
 

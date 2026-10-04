@@ -2,9 +2,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import Link from "next/link";
-import { REPO_ROOT, REPO_URL, githubUrl, withBase } from "@/lib/config";
+import { REPO_ROOT, REPO_URL, githubUrl } from "@/lib/config";
 import { STATUS_META, getDistros, getHardwareSummary, type StatusKey } from "@/lib/facts";
-import { getScreenshots } from "@/lib/screenshots";
 import { findDocByFile } from "@/lib/docs";
 
 const ORDER: StatusKey[] = ["works", "partial", "broken", "unverified", "na"];
@@ -42,7 +41,6 @@ export default function Home() {
   const status = readmeStatus();
   const hw = getHardwareSummary();
   const distros = getDistros();
-  const shots = getScreenshots();
 
   const tree: { name: string; file?: string; text: string }[] = [
     { name: "kernel/", file: "kernel/README.md", text: "Patch series on a fixed upstream base, board device tree, config, and the built-in initramfs." },
@@ -190,36 +188,27 @@ export default function Home() {
         </section>
       )}
 
-      {shots.length > 0 && (
-        <section aria-labelledby="shots-title" className="section">
-          <h2 id="shots-title" className="section-title">
-            Screenshots
+      <section aria-labelledby="helper-title" className="section">
+        <div className="section-head">
+          <h2 id="helper-title" className="section-title">
+            Open Device Helper
           </h2>
-          <ul className="gallery">
-            {shots.map((s) => (
-              <li key={s.src}>
-                <figure>
-                  <a href={withBase(s.src)}>
-                    {/* eslint-disable-next-line @next/next/no-img-element -- static export, no optimizer */}
-                    <img
-                      src={withBase(s.src)}
-                      alt={s.caption ? `${s.title}: ${s.caption}` : s.title}
-                      width={s.width}
-                      height={s.height}
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  </a>
-                  <figcaption>
-                    <strong>{s.title}</strong>
-                    {s.caption && <span> {s.caption}</span>}
-                  </figcaption>
-                </figure>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+          <Link href="/docs/helper/">Details →</Link>
+        </div>
+        <p className="muted">
+          The tablet&apos;s own settings, in a GNOME quick-settings tile, a settings app and a command line
+          (<code>tb323fu-ctl</code>), over one D-Bus service:
+        </p>
+        <ul className="helper-list">
+          <li>Charge limit, bypass charging and a &ldquo;full by&rdquo; schedule; battery health and the charger&apos;s power</li>
+          <li>Refresh policy and panel heat protection</li>
+          <li>Performance profiles with CPU and GPU limits, CPU boost and thermal profiles</li>
+          <li>Torch, LED ring colours and effects, vibration strength</li>
+          <li>USB-C port roles and wake sources, the emergency key</li>
+          <li>Restart into Android, choose the system to boot</li>
+          <li>Kernel updates from this project&apos;s releases, tried on the next start and rolled back if it fails</li>
+        </ul>
+      </section>
 
       <section aria-labelledby="tree-title" className="section">
         <h2 id="tree-title" className="section-title">

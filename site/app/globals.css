@@ -459,38 +459,11 @@ img {
   white-space: nowrap;
 }
 
-.gallery {
-  list-style: none;
-  padding: 0;
+.helper-list {
   margin: 0;
+  padding-left: 1.2rem;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
-  gap: 1rem;
-}
-.gallery figure {
-  margin: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  background: var(--bg-subtle);
-}
-.gallery a {
-  display: block;
-  aspect-ratio: 16 / 10;
-  background: #000;
-}
-.gallery img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-.gallery figcaption {
-  padding: 0.6rem 0.8rem 0.8rem;
-  font-size: 0.9rem;
-}
-.gallery figcaption span {
-  color: var(--fg-muted);
+  gap: 0.35rem;
 }
 
 .tree {
