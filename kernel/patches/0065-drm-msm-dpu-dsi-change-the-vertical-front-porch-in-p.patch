@@ -23,31 +23,29 @@ switched in place.
 
 Signed-off-by: joonhoekim <26rote@gmail.com>
 ---
- drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c      | 46 +++++++++++++++++++
- drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c   | 33 +++++++++++++
+ drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c      | 44 +++++++++++++++++++
+ drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c   | 33 ++++++++++++++
  .../gpu/drm/msm/disp/dpu1/dpu_encoder_phys.h  |  2 +
  .../drm/msm/disp/dpu1/dpu_encoder_phys_vid.c  | 39 ++++++++++++++++
  drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.c   |  9 ++++
  drivers/gpu/drm/msm/disp/dpu1/dpu_hw_intf.h   |  6 +++
  drivers/gpu/drm/msm/dsi/dsi.c                 |  7 +++
  drivers/gpu/drm/msm/dsi/dsi.h                 |  2 +
- drivers/gpu/drm/msm/dsi/dsi_host.c            | 30 ++++++++++++
+ drivers/gpu/drm/msm/dsi/dsi_host.c            | 30 +++++++++++++
  drivers/gpu/drm/msm/msm_drv.h                 |  7 +++
- 10 files changed, 181 insertions(+)
+ 10 files changed, 179 insertions(+)
 
 diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
-index debef754b..fa5e4ba0e 100644
+index debef754b..51a90d219 100644
 --- a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
 +++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
-@@ -1543,6 +1543,46 @@ int dpu_crtc_check_mode_changed(struct drm_crtc_state *old_crtc_state,
+@@ -1543,6 +1543,44 @@ int dpu_crtc_check_mode_changed(struct drm_crtc_state *old_crtc_state,
  	return 0;
  }
  
 +/*
-+ * Modes that differ only in the vertical front porch: same pixel clock, same
-+ * horizontal timing, same active height, vsync width and back porch. A DSI
-+ * video-mode pipeline switches between them in place (the Android "DFPS"
-+ * way): no encoder/bridge/panel off-on, which the panel shows as flicker.
++ * Modes that differ only in the vertical front porch: a DSI video-mode
++ * pipeline switches between them in place, without an encoder/panel off-on.
 + */
 +static bool dpu_crtc_vfp_only(const struct drm_display_mode *a,
 +			      const struct drm_display_mode *b)
@@ -86,7 +84,7 @@ index debef754b..fa5e4ba0e 100644
  static int dpu_crtc_atomic_check(struct drm_crtc *crtc,
  		struct drm_atomic_commit *state)
  {
-@@ -1558,6 +1598,12 @@ static int dpu_crtc_atomic_check(struct drm_crtc *crtc,
+@@ -1558,6 +1596,12 @@ static int dpu_crtc_atomic_check(struct drm_crtc *crtc,
  
  	bool needs_dirtyfb = dpu_crtc_needs_dirtyfb(crtc_state);
  
@@ -296,10 +294,10 @@ index 93c028a12..322439982 100644
  				  const struct drm_display_mode *mode);
  enum drm_mode_status msm_dsi_host_check_dsc(struct mipi_dsi_host *host,
 diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
-index b8cc80c38..1ee802c60 100644
+index 9779bb889..24827025a 100644
 --- a/drivers/gpu/drm/msm/dsi/dsi_host.c
 +++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
-@@ -2630,6 +2630,36 @@ int msm_dsi_host_power_off(struct mipi_dsi_host *host)
+@@ -2627,6 +2627,36 @@ int msm_dsi_host_power_off(struct mipi_dsi_host *host)
  	return 0;
  }
  

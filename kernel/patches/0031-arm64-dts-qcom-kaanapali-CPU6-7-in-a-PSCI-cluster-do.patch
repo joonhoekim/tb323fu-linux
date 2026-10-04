@@ -15,11 +15,11 @@ a failed CPU_SUSPEND, counted by pm_genpd_inc_rejected), and the
 cluster and system domains were idle 41% and 33% of an idle screen-off
 minute. With the split: 98%, 97% (CPU6-7) and 95%, 115 rejections.
 ---
- arch/arm64/boot/dts/qcom/kaanapali.dtsi | 16 ++++++++++++++--
- 1 file changed, 14 insertions(+), 2 deletions(-)
+ arch/arm64/boot/dts/qcom/kaanapali.dtsi | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
 diff --git a/arch/arm64/boot/dts/qcom/kaanapali.dtsi b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
-index 3a3a7d562..3bb8a6494 100644
+index 3a3a7d562..ca2010bb9 100644
 --- a/arch/arm64/boot/dts/qcom/kaanapali.dtsi
 +++ b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
 @@ -309,13 +309,13 @@ cpu_pd5: power-domain-cpu5 {
@@ -38,16 +38,11 @@ index 3a3a7d562..3bb8a6494 100644
  			domain-idle-states = <&cluster1_c4>;
  		};
  
-@@ -325,6 +325,18 @@ cluster_pd: power-domain-cluster {
+@@ -325,6 +325,13 @@ cluster_pd: power-domain-cluster {
  			power-domains = <&system_pd>;
  		};
  
-+		/*
-+		 * CPU6-7 are a cluster of their own (the vendor tree: cluster-pd0
-+		 * for CPU0-5, cluster-pd1 for CPU6-7, both under the system
-+		 * domain). With one cluster for all eight, PSCI in OS-initiated
-+		 * mode denied nearly every composite cluster/system state.
-+		 */
++		/* CPU6-7 are a cluster of their own, as in the vendor tree */
 +		cluster1_pd: power-domain-cluster1 {
 +			#power-domain-cells = <0>;
 +			domain-idle-states = <&cluster_cl5>;

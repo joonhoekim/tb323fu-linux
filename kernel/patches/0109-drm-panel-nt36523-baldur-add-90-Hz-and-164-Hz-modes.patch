@@ -26,27 +26,21 @@ Not added: the vendor 144/165 (underrun) and a 143 Hz variant with the
 resetting and a noise band appears near the bottom). Those stay in a
 separate test patch behind a module parameter, outside this series.
 ---
- drivers/gpu/drm/panel/panel-novatek-nt36523.c | 46 +++++++++++++++++++
- 1 file changed, 46 insertions(+)
+ drivers/gpu/drm/panel/panel-novatek-nt36523.c | 40 +++++++++++++++++++
+ 1 file changed, 40 insertions(+)
 
 diff --git a/drivers/gpu/drm/panel/panel-novatek-nt36523.c b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
-index 4496f06d2..627bf0134 100644
+index cb2b565fe..bc0a69774 100644
 --- a/drivers/gpu/drm/panel/panel-novatek-nt36523.c
 +++ b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
-@@ -1081,6 +1081,37 @@ static void nt36523_remove(struct mipi_dsi_device *dsi)
+@@ -1081,6 +1081,31 @@ static void nt36523_remove(struct mipi_dsi_device *dsi)
  	drm_panel_remove(&pinfo->panel);
  }
  
 +/*
-+ * baldur: two more refresh rates next to the 120/60/30 Hz of the mode table
-+ * (the compositor keeps the preferred 120 Hz until one is picked):
-+ *   90 Hz   the vendor's dtiming@5 (long horizontal blanking)
-+ *   164 Hz  the 120 Hz horizontal timing with the shortest vertical total. The
-+ *           vendor's own 165/144 Hz timings (dtiming@4/@3) share an 82 px per
-+ *           link horizontal blanking the DPU cannot fetch in time: it
-+ *           underruns every frame (purple/blue noise). With 120 Hz's
-+ *           horizontal blanking the same line rate runs clean; it is named
-+ *           164 Hz so it cannot be mistaken for the vendor mode.
++ * 90 Hz is the vendor's dtiming@5. 164 Hz keeps the 120 Hz horizontal timing
++ * with the shortest vertical total: the DPU underruns on the horizontal
++ * blanking of the vendor's 165/144 Hz timings.
 + */
 +#define BALDUR_MODE(hfp, hs, hbp, vfp, vbp, hz) {				\
 +	.clock = (952 + (hfp) + (hs) + (hbp)) * 2 *				\
@@ -71,7 +65,7 @@ index 4496f06d2..627bf0134 100644
  static int nt36523_get_modes(struct drm_panel *panel,
  			       struct drm_connector *connector)
  {
-@@ -1110,6 +1141,21 @@ static int nt36523_get_modes(struct drm_panel *panel,
+@@ -1110,6 +1135,21 @@ static int nt36523_get_modes(struct drm_panel *panel,
  	connector->display_info.height_mm = pinfo->desc->height_mm;
  	connector->display_info.bpc = pinfo->desc->bpc;
  

@@ -1,21 +1,14 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur"): battery and Type-C over pmic-glink.
+ * TB323FU ("baldur"): battery and Type-C over pmic-glink, on the charger
+ * firmware's PMIC_RTR_SOCCP_APPS channel (SoCCP).
  *
- * On kaanapali the charger firmware runs on SoCCP, which XBL has already
- * started; Android shows it "attached". The PAS driver attaches to it (the
- * early_boot patch) and brings up its glink edge; the PMIC_RTR_SOCCP_APPS
- * channel then reaches this node, and qcom_battmgr / ucsi_glink hang off it.
- * Vendor DT: pmic-glink { qcom,pmic-glink-channel = "PMIC_RTR_SOCCP_APPS"; }.
- *
- * Connector graph: the vendor tree has two usb-c-connectors under
- * ucsi-glink, both into the one dwc3 (HS: dwc3 port@0 / port@1; SBU: the two
- * FSA4480s). connector@0 / ucsi port0 is the bottom port (USB 3.2 + DP);
- * ucsi port1 the side port (USB 2.0 only). Only connector@0 is wired here:
- * HS to the dwc3 (data role from ucsi) and SS to the QMP PHY (orientation
- * from the firmware). The vendor ucsi-glink "gpios" (TLMM 30) is not an
- * orientation input but the HS port select (Android: low = bottom, high =
- * side); /usr/local/sbin/baldur-usb-port drives it and the side port's role.
+ * The vendor tree has two usb-c-connectors under ucsi-glink: connector@0 /
+ * ucsi port0 is the bottom port (USB 3.2 + DP), ucsi port1 the side port
+ * (USB 2.0 only). Only connector@0 is wired here: HS to the dwc3 (data role
+ * from ucsi) and SS to the QMP PHY (orientation from the firmware). The
+ * vendor ucsi-glink "gpios" (TLMM 30) is not an orientation input but the HS
+ * port select (low = bottom, high = side).
  */
 
 / {
@@ -72,8 +65,6 @@
  * FSA4480 at i2c5 0x43 (vendor "fsa4480_i2c", into ucsi connector 0); the
  * side port's is 0x42 ("fsa4480_sub_i2c", connector 1 -- not wired, that
  * port has no connector node here). No supply in the vendor node.
- * TODO: headset path (WCD939x as typec mux + RX playback link + topology),
- * needs wired earphones to test.
  */
 &i2c5 {
 	status = "okay";

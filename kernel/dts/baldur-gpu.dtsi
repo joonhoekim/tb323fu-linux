@@ -4,11 +4,6 @@
  *
  * The SoC nodes are in kaanapali.dtsi, disabled. The zap shader is our own
  * device's blob (from /vendor, not redistributable), loaded through PAS.
- *
- * The firmware is in the initramfs; the first open of the DRM device loads
- * it and boots the GPU. (For the first bring-up it was kept off the search
- * path -- adreno_load_gpu() then gives up before touching the GPU and retries
- * on every later open -- and started by hand under a reboot timer.)
  */
 
 &gpu {

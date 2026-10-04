@@ -1,16 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur") PMIC rails.
- *
- * Only the rails something in this port actually consumes are here, not the
- * full PMIC complement. Every voltage was read out of this device's own ABL
- * devicetree, and the labels follow the
- * OnePlus 15 board DTS so the two can be compared line by line.
- *
- * Where the two boards differ, ours is used and the difference is noted. They
- * agree exactly on every storage rail; the panel rails are where our tablet
- * asks for a range and the phone pins a point, which is what a different panel
- * on the same PMIC looks like.
+ * TB323FU ("baldur") PMIC rails: the ones this board's nodes consume, with
+ * the voltages of this device's ABL devicetree. Labels follow the OnePlus 15
+ * board DTS.
  *
  * Included by kaanapali-lenovo-baldur.dts. Needs
  * <dt-bindings/regulator/qcom,rpmh-regulator.h>.
@@ -26,7 +18,7 @@
 			regulator-name = "vreg_l4b_1p8";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
-			/* AUTO, as the MTP has it; HPM kept it in high power for good */
+			/* AUTO, as on the MTP */
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
 			regulator-allow-set-load;
 			regulator-allowed-modes = <RPMH_REGULATOR_MODE_LPM
@@ -56,11 +48,7 @@
 						   RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		/*
-		 * Panel core. The OnePlus 15 pins this at 1.2 V; ours is a
-		 * 1.0-1.292 V range, which is the vendor leaving room for the
-		 * panel's own voltage stepping.
-		 */
+		/* Panel core */
 		vreg_l11b_1p0: ldo11 {
 			regulator-name = "vreg_l11b_1p0";
 			regulator-min-microvolt = <1000000>;
@@ -71,7 +59,7 @@
 						   RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		/* Panel VDDIO. OnePlus 15 pins this at 1.8 V; ours spans 1.2-1.8. */
+		/* Panel VDDIO */
 		vreg_l12b_1p8: ldo12 {
 			regulator-name = "vreg_l12b_1p8";
 			regulator-min-microvolt = <1200000>;
@@ -191,17 +179,13 @@
 		/*
 		 * WCN7860 RFA 1.3 V (vendor pmh0110_f_s7 1.224-1.372 V). Like S8F,
 		 * S1J and S2J it is in the vendor's qcom,vreg_pdc_map: the chip's own
-		 * clock request raises it, and Android's vote sits at the minimum.
+		 * clock request raises it.
 		 */
 		vreg_s7f_1p2: smps7 {
 			regulator-name = "vreg_s7f_1p2";
 			regulator-min-microvolt = <1224000>;
 			regulator-max-microvolt = <1372000>;
-			/*
-			 * AUTO (PFM when light), not HPM (always PWM): the WCN
-			 * rails sat in high power even with Wi-Fi idle. The vendor
-			 * lets the chip raise them through the PDC instead.
-			 */
+			/* AUTO: the chip raises it through the PDC */
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
 		};
 
@@ -210,11 +194,7 @@
 			regulator-name = "vreg_s8f_1p8";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2000000>;
-			/*
-			 * AUTO (PFM when light), not HPM (always PWM): the WCN
-			 * rails sat in high power even with Wi-Fi idle. The vendor
-			 * lets the chip raise them through the PDC instead.
-			 */
+			/* AUTO: the chip raises it through the PDC */
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
 		};
 	};
@@ -293,11 +273,7 @@
 			regulator-name = "vreg_s1j_0p8";
 			regulator-min-microvolt = <400000>;
 			regulator-max-microvolt = <1000000>;
-			/*
-			 * AUTO (PFM when light), not HPM (always PWM): the WCN
-			 * rails sat in high power even with Wi-Fi idle. The vendor
-			 * lets the chip raise them through the PDC instead.
-			 */
+			/* AUTO: the chip raises it through the PDC */
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
 		};
 
@@ -306,11 +282,7 @@
 			regulator-name = "vreg_s2j_0p8";
 			regulator-min-microvolt = <500000>;
 			regulator-max-microvolt = <1100000>;
-			/*
-			 * AUTO (PFM when light), not HPM (always PWM): the WCN
-			 * rails sat in high power even with Wi-Fi idle. The vendor
-			 * lets the chip raise them through the PDC instead.
-			 */
+			/* AUTO: the chip raises it through the PDC */
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
 		};
 	};

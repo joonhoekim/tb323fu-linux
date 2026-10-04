@@ -22,8 +22,6 @@
  * 29 including the two disabled boost frequencies (0 = 4.608 GHz,
  * 2 = 4.3968 GHz), the GPU devfreq 17 (0 = 1200 MHz).
  *
- * Not carried over: the LCD backlight cap at lcm 55 C (no backlight cooling
- * device) and the charging-current steps (thermal-engine_battery_N.conf).
  * The zone is an ADC channel; poll it every second like thermal-engine does
  * instead of relying on ADC_TM threshold interrupts.
  */

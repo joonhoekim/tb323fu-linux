@@ -44,10 +44,10 @@ Not meant for upstream in this form (board-specific policy, one DSI encoder only
  drivers/gpu/drm/msm/dsi/dsi.h               |   1 +
  drivers/gpu/drm/msm/dsi/dsi_host.c          |  18 +
  drivers/gpu/drm/msm/msm_drv.h               |   4 +
- 9 files changed, 557 insertions(+)
+ 9 files changed, 556 insertions(+)
 
 diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
-index 0786f09cb..4d8a1029b 100644
+index afc3ec683..2a4ae2eca 100644
 --- a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
 +++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
 @@ -297,6 +297,9 @@ static bool dpu_crtc_get_scanout_position(struct drm_crtc *crtc,
@@ -61,7 +61,7 @@ index 0786f09cb..4d8a1029b 100644
  	if (stime)
  		*stime = ktime_get();
 diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
-index 73211060c..62d82950b 100644
+index 9d8294c95..451349e6d 100644
 --- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
 +++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
 @@ -9,7 +9,10 @@
@@ -109,7 +109,7 @@ index 73211060c..62d82950b 100644
  
  out:
  	mutex_unlock(&dpu_enc->enc_lock);
-@@ -1461,6 +1477,7 @@ static void dpu_encoder_virt_atomic_disable(struct drm_encoder *drm_enc,
+@@ -1431,6 +1447,7 @@ static void dpu_encoder_virt_atomic_disable(struct drm_encoder *drm_enc,
  		return;
  
  	mutex_lock(&dpu_enc->enc_lock);
@@ -117,7 +117,7 @@ index 73211060c..62d82950b 100644
  	dpu_enc->enabled = false;
  
  	trace_dpu_enc_disable(DRMID(drm_enc));
-@@ -2168,6 +2185,462 @@ static void dpu_encoder_prep_dsc(struct dpu_encoder_virt *dpu_enc,
+@@ -2134,6 +2151,462 @@ static void dpu_encoder_prep_dsc(struct dpu_encoder_virt *dpu_enc,
   *	Delayed: Block until next trigger can be issued.
   * @drm_enc:	encoder pointer
   */
@@ -128,8 +128,8 @@ index 73211060c..62d82950b 100644
 + * The committed mode stays 120 Hz; when the screen is idle the vertical front
 + * porch of the running DSI video interface is stretched (vtotal 3400 -> 6800
 + * -> 13600 = 120 -> 60 -> 30 Hz) and the INTFs are flushed outside a commit,
-+ * so userspace never sees a mode change (no monitors-changed in mutter). The
-+ * next commit (auto policy) or an input event brings it back to the mode.
++ * so userspace never sees a mode change. The next commit (auto policy) or an
++ * input event brings it back to the mode.
 + *
 + * Knobs, /sys/module/msm/parameters/idle_refresh_*:
 + *   policy     0 off, 1 manual (idle_refresh_hz is kept across commits),
@@ -142,7 +142,7 @@ index 73211060c..62d82950b 100644
 + *              lands with the next commit), bit1 add the CTL bit (default 3)
 + *   state      read-only: current values and counters
 + * Before system suspend and on encoder disable the mode's vtotal is restored
-+ * and latched first (a 30 Hz sleep ended in a TZ err-fatal).
++ * and latched first.
 + */
 +static int idle_refresh_policy = 2;
 +static unsigned int idle_refresh_hz = 60;
@@ -580,7 +580,7 @@ index 73211060c..62d82950b 100644
  /*
   * A commit whose CRTC mode differs from the running one only in the vertical
   * front porch arrives here without a modeset (dpu_crtc_atomic_check() cleared
-@@ -2178,14 +2651,37 @@ static void dpu_encoder_update_vfp(struct drm_encoder *drm_enc)
+@@ -2144,14 +2617,37 @@ static void dpu_encoder_update_vfp(struct drm_encoder *drm_enc)
  	struct msm_drm_private *priv = drm_enc->dev->dev_private;
  	struct dpu_encoder_virt *dpu_enc = to_dpu_encoder_virt(drm_enc);
  	const struct drm_display_mode *mode;
@@ -618,7 +618,7 @@ index 73211060c..62d82950b 100644
  
  	DPU_DEBUG_ENC(dpu_enc, "seamless vtotal %d -> %d\n",
  		      dpu_enc->phys_encs[0]->cached_mode.vtotal, mode->vtotal);
-@@ -2923,6 +3419,7 @@ struct drm_encoder *dpu_encoder_init(struct drm_device *dev,
+@@ -2889,6 +3385,7 @@ struct drm_encoder *dpu_encoder_init(struct drm_device *dev,
  
  	INIT_DELAYED_WORK(&dpu_enc->delayed_off_work,
  			dpu_encoder_off_work);
@@ -714,10 +714,10 @@ index 322439982..fe4be853d 100644
  				  const struct drm_display_mode *mode);
  enum drm_mode_status msm_dsi_host_check_dsc(struct mipi_dsi_host *host,
 diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
-index 1ee802c60..bf563cf02 100644
+index 24827025a..9080c1fd0 100644
 --- a/drivers/gpu/drm/msm/dsi/dsi_host.c
 +++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
-@@ -2660,6 +2660,24 @@ void msm_dsi_host_update_vtotal(struct mipi_dsi_host *host,
+@@ -2657,6 +2657,24 @@ void msm_dsi_host_update_vtotal(struct mipi_dsi_host *host,
  	dsi_write(msm_host, REG_DSI_TOTAL, total | DSI_TOTAL_V_TOTAL(mode->vtotal - 1));
  }
  

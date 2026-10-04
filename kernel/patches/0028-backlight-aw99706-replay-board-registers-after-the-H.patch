@@ -11,11 +11,11 @@ them the backlight stays dark although every register reads "on". An
 optional "awinic,init-regs" byte-pair list is written after the table, on
 probe and on resume.
 ---
- drivers/video/backlight/aw99706.c | 21 +++++++++++++++++++++
- 1 file changed, 21 insertions(+)
+ drivers/video/backlight/aw99706.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
 
 diff --git a/drivers/video/backlight/aw99706.c b/drivers/video/backlight/aw99706.c
-index c4a66b59e..eda57dfad 100644
+index c4a66b59e..cecd411f6 100644
 --- a/drivers/video/backlight/aw99706.c
 +++ b/drivers/video/backlight/aw99706.c
 @@ -283,6 +283,9 @@ static int aw99706_hw_init(struct aw99706_device *aw)
@@ -28,15 +28,14 @@ index c4a66b59e..eda57dfad 100644
  	gpiod_set_value_cansleep(aw->hwen_gpio, 1);
  
  	for (i = 0; i < ARRAY_SIZE(aw->init_tbl); i++) {
-@@ -295,6 +298,24 @@ static int aw99706_hw_init(struct aw99706_device *aw)
+@@ -295,6 +298,23 @@ static int aw99706_hw_init(struct aw99706_device *aw)
  		}
  	}
  
 +	/*
-+	 * Board registers the properties above do not cover, as <reg val>
-+	 * byte pairs. Taking HWEN low resets the chip, so whatever the
-+	 * bootloader set (LED string and boost setup) is gone unless it is
-+	 * written again here; without it the backlight stays dark.
++	 * <reg val> byte pairs the properties above do not cover. HWEN low
++	 * resets the chip, so whatever the bootloader set has to be written
++	 * again.
 +	 */
 +	n = device_property_count_u8(aw->dev, "awinic,init-regs");
 +	if (n > 0 && n <= ARRAY_SIZE(regs) && !(n & 1) &&

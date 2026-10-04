@@ -11,23 +11,20 @@ picture and are left out.
 
 Signed-off-by: joonhoekim <26rote@gmail.com>
 ---
- drivers/gpu/drm/panel/panel-novatek-nt36523.c | 29 +++++++++++++++++++
- 1 file changed, 29 insertions(+)
+ drivers/gpu/drm/panel/panel-novatek-nt36523.c | 26 +++++++++++++++++++
+ 1 file changed, 26 insertions(+)
 
 diff --git a/drivers/gpu/drm/panel/panel-novatek-nt36523.c b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
-index 834cfbdce..4496f06d2 100644
+index 7251fb1ab..cb2b565fe 100644
 --- a/drivers/gpu/drm/panel/panel-novatek-nt36523.c
 +++ b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
-@@ -1376,6 +1376,35 @@ static const struct drm_display_mode baldur_csot_modes[] = {
+@@ -1354,6 +1354,32 @@ static const struct drm_display_mode baldur_csot_modes[] = {
  		.vsync_end = 3040 + 26 + 4,
  		.vtotal = 3040 + 26 + 4 + 330,
  	},
 +	/*
-+	 * 60 and 30 Hz: the vendor dfps timings (qcom,dfps-timings dtiming@1/2)
-+	 * -- same pixel clock and horizontal timing, only the vertical front
-+	 * porch is longer, so the display switches to them in place (msm
-+	 * dpu_crtc_vfp_only()). The vendor 165/144/90 Hz timings change the
-+	 * horizontal timing or break the picture.
++	 * 60 and 30 Hz: the vendor dfps timings, which differ from 120 Hz
++	 * only in the vertical front porch.
 +	 */
 +	{
 +		.clock = (952 + 90 + 16 + 64) * 2 * (3040 + 3426 + 4 + 330) * 60 / 1000,

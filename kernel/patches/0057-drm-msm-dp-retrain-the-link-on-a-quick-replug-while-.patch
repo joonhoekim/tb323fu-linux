@@ -26,8 +26,8 @@ picture comes back (retrain rc=0, once).
 ---
  drivers/gpu/drm/msm/dp/dp_ctrl.c    |  9 +++++++++
  drivers/gpu/drm/msm/dp/dp_ctrl.h    |  2 ++
- drivers/gpu/drm/msm/dp/dp_display.c | 19 +++++++++++++++++++
- 3 files changed, 30 insertions(+)
+ drivers/gpu/drm/msm/dp/dp_display.c | 16 ++++++++++++++++
+ 3 files changed, 27 insertions(+)
 
 diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.c b/drivers/gpu/drm/msm/dp/dp_ctrl.c
 index 59070f399..84e90d9b7 100644
@@ -63,7 +63,7 @@ index 5902cf7e7..9f5bf4c8f 100644
  				    struct msm_dp_link *link,
  				    struct drm_dp_aux *aux,
 diff --git a/drivers/gpu/drm/msm/dp/dp_display.c b/drivers/gpu/drm/msm/dp/dp_display.c
-index 65f5d829c..ac764f02b 100644
+index 65f5d829c..536530750 100644
 --- a/drivers/gpu/drm/msm/dp/dp_display.c
 +++ b/drivers/gpu/drm/msm/dp/dp_display.c
 @@ -55,6 +55,8 @@ struct msm_dp_display_private {
@@ -75,16 +75,13 @@ index 65f5d829c..ac764f02b 100644
  
  	struct drm_device *drm_dev;
  
-@@ -429,6 +431,20 @@ static int msm_dp_hpd_plug_handle(struct msm_dp_display_private *dp)
+@@ -429,6 +431,17 @@ static int msm_dp_hpd_plug_handle(struct msm_dp_display_private *dp)
  
  	ret = msm_dp_display_process_hpd_high(dp);
  
 +	/*
-+	 * A quick replug of the same sink can come back before userspace has
-+	 * reacted to the unplug: the CRTC stays enabled, no atomic_enable
-+	 * follows, and the dead link would never be trained again (no signal
-+	 * on the sink). Retrain it here, once per unplug; the Type-C side
-+	 * repeats "connected" notifications and each retrain blanks the sink.
++	 * A quick replug can come back with the CRTC still enabled and no
++	 * atomic_enable to follow: retrain here, once per unplug.
 +	 */
 +	if (!ret && dp->link_lost && dp->msm_dp_display.power_on) {
 +		int rc = msm_dp_ctrl_retrain_link(dp->ctrl, dp->panel);
@@ -96,7 +93,7 @@ index 65f5d829c..ac764f02b 100644
  	drm_dbg_dp(dp->drm_dev, "After, type=%d sink_count=%d\n",
  			dp->msm_dp_display.connector_type,
  			dp->link->sink_count);
-@@ -468,6 +484,9 @@ static int msm_dp_hpd_unplug_handle(struct msm_dp_display_private *dp)
+@@ -468,6 +481,9 @@ static int msm_dp_hpd_unplug_handle(struct msm_dp_display_private *dp)
  	if (!dp->plugged)
  		return 0;
  

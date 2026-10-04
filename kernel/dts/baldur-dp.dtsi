@@ -9,10 +9,8 @@
  * dp_p0 0x9ad4000, dp_p1 0x9ad5000; MDSS interrupt 12, phy-version 0x800).
  * HPD and orientation come from pmic-glink altmode through the PHY.
  *
- * Two lanes: msm_dp takes the lane count from DPCD and data-lanes only, not
- * from the Type-C pin assignment. A USB-C monitor with a hub (pin assignment
- * D, 2 DP lanes + USB3) failed channel EQ at 4 lanes and trains at
- * HBR2 x2 (1680x1050) with this; USB3 keeps its two lanes.
+ * Two lanes: msm_dp takes the lane count from DPCD and data-lanes, not from
+ * the Type-C pin assignment; USB3 keeps the other two.
  */
 
 &dispcc {

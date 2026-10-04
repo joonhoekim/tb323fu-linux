@@ -1,17 +1,10 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur"): panel backlight.
+ * TB323FU ("baldur"): panel backlight, an Awinic AW99706A on QUP I2C12 at
+ * 0x76 (vendor "i2c-bl"); HWEN is pmh0110 F gpio9.
  *
- * The CSOT panel's backlight is an external boost/LED driver on QUP I2C12
- * at 0x76 (vendor "i2c-bl", bl_ctrl_external); the vendor display driver
- * matches it as an Awinic AW99706A (register 0x11 == 0x07). HWEN is
- * pmh0110 F gpio9 (vendor bl_active: output high).
- *
- * The vendor driver's init table leaves CFG0-2 (dimming mode, boost
- * frequency and current limit, LED current) to the chip, and the mainline
- * driver rewrites them from DT or its defaults -- 20 mA where this panel
- * runs 28. So the values below are the ones read back from the chip as the
- * bootloader left it, before any driver touched it:
+ * The CFG values are the ones the bootloader leaves in the chip; the driver
+ * would otherwise program its defaults (20 mA, where this panel runs 28):
  *   CFG0 0x65 -> dim-mode 1 (DC)      CFG1 0x39 -> 750 kHz, 3 A limit
  *   CFG2 0x2e -> 28 mA, UVLO 2.2 V    CFG6 0x99 -> ramp 2
  *   CFG4/5 0x07ff -> brightness 2047 of 4095
@@ -43,13 +36,7 @@
 		awinic,iled-max = <28000>;
 		awinic,uvlo-thres = <2200000>;
 
-		/*
-		 * The driver resets the chip (HWEN low) when it probes, which
-		 * throws away what the bootloader set up beyond CFG0-2: the
-		 * backlight went dark with every register reading "on".
-		 * These are the bootloader's values, in the vendor driver's
-		 * order (off, 0x0c/0x06/0x07, on). Patch 0028.
-		 */
+		/* bootloader values: off, 0x0c/0x06/0x07, on */
 		awinic,init-regs = /bits/ 8 <0x0d 0x00  0x0c 0x48  0x06 0x99
 					    0x07 0x05  0x0d 0xf8>;
 	};

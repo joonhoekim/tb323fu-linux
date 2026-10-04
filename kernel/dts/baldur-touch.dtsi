@@ -4,10 +4,9 @@
  *
  * Vendor node: spi@1a80000 novatek@0, "novatek,NVT-ts-spi", 19.2 MHz,
  * INT tlmm gpio158, reset tlmm gpio66 (the driver pulses it), pen.
- * The chip is an NT36536; the driver is Novatek's own NT36536
- * host-download driver as carried in map220v/sm8850-mainline (branch
- * iceland-7.2, drivers/input/touchscreen/nt36536). It finds the register
- * set itself, follows the panel (drm_panel_follower) and loads the firmware
+ * The chip is an NT36536, driven by Novatek's NT36536 host-download driver
+ * (drivers/input/touchscreen/nt36536). It finds the register set itself,
+ * follows the panel (drm_panel_follower) and loads the firmware
  * named here. It handles neither the reset line nor the supply: reset keeps
  * the vendor's pull-up, and the touch VDD is simply left on.
  */

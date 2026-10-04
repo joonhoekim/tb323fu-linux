@@ -17,26 +17,21 @@ retrain on resume) and 5/5 s2idle cycles resume with Wi-Fi back.
 
 [rebased onto 7.3: ported by hand: 7.3 renamed qcom_pcie_set_slot_nccs() to qcom_pcie_set_slot_cap() and clears ABP there; HPC|HPS are now cleared in the same write. The 7.3 link-down recovery (qcom_pcie_reset_root_port via pci_host_handle_link_down) does not use the slot hot-plug bits and re-runs this through host_init]
 ---
- drivers/pci/controller/dwc/pcie-qcom.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ drivers/pci/controller/dwc/pcie-qcom.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
 diff --git a/drivers/pci/controller/dwc/pcie-qcom.c b/drivers/pci/controller/dwc/pcie-qcom.c
-index b58a607b7..ed1bcd497 100644
+index b58a607b7..f1ab817e6 100644
 --- a/drivers/pci/controller/dwc/pcie-qcom.c
 +++ b/drivers/pci/controller/dwc/pcie-qcom.c
-@@ -396,6 +396,17 @@ static void qcom_pcie_set_slot_cap(struct dw_pcie *pci)
+@@ -396,6 +396,12 @@ static void qcom_pcie_set_slot_cap(struct dw_pcie *pci)
  	 * Attention Button Present in Slot Capabilities.
  	 */
  	val &= ~PCI_EXP_SLTCAP_ABP;
 +
 +	/*
-+	 * The Root Port's reset value advertises a hot-plug capable slot, but
-+	 * the endpoints behind it are soldered down and powered by pwrctrl.
-+	 * A hot-plug bridge without pciehp never gets bridge_d3, so the port
-+	 * stays in D0 over system suspend, D3cold is never possible and the
-+	 * link is kept up while the endpoint sits in D3hot. The Y700 gen5's
-+	 * WCN7860 then intermittently drops the link and its first config
-+	 * read on resume takes an SError.
++	 * The endpoints are soldered down and powered by pwrctrl, and a
++	 * hot-plug bridge without pciehp never gets bridge_d3.
 +	 */
 +	val &= ~(PCI_EXP_SLTCAP_HPC | PCI_EXP_SLTCAP_HPS);
  	writel(val, pci->dbi_base + offset + PCI_EXP_SLTCAP);

@@ -1,19 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur"): USB-C as a high-speed USB device.
- *
- * The point is a way in: a CDC-ACM serial console (and NCM networking) from
- * the PC, instead of photographs of the panel. So this is the smallest USB that
- * enumerates -- peripheral only, high speed only:
- *
- *  - no SuperSpeed PHY (usb_dp_qmpphy) and no Type-C orientation, which on
- *    this SoC go through pmic-glink over the SOCCP remoteproc, not up here
- *  - no role switching; the port is a device, as it is for adb
- *
- * Same shape as the OnePlus 15 (kaanapali-oneplus-infiniti-common.dts), which
- * is the same SoC with the same eUSB2 repeater on pmih0108 at SPMI1 SID 7.
- * Android here uses a600000.dwc3 and the repeater at
- * c437000.spmi:qcom,pmih010x@7:eusb2-repeater@fd00 -- the same pair.
+ * TB323FU ("baldur"): USB-C. The eUSB2 repeater is on pmih0108 at SPMI1
+ * SID 7, as on the OnePlus 15 (kaanapali-oneplus-infiniti-common.dts).
  * Rails from this device's vendor tree: repeater vdd18 pmh0101 l15 (1.8 V),
  * vdd3 pmh0101 l5 (3.100-3.148 V); PHY vdd pmh0110 F l4 (0.880-0.912 V),
  * vdda12 pmh0110 D l1 (1.2 V).
@@ -36,10 +24,7 @@
 };
 
 &usb {
-	/*
-	 * Data role from ucsi (pmic-glink connector@0); peripheral until
-	 * it says otherwise, so the PC link comes up as before.
-	 */
+	/* data role from ucsi (connector@0); peripheral until then */
 	dr_mode = "otg";
 	usb-role-switch;
 	role-switch-default-mode = "peripheral";

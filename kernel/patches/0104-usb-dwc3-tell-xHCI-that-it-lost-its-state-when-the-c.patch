@@ -45,8 +45,8 @@ Assisted-by: LLM
 ---
  drivers/usb/dwc3/core.c |  2 ++
  drivers/usb/dwc3/core.h |  3 +++
- drivers/usb/dwc3/host.c | 20 +++++++++++++++++---
- 3 files changed, 22 insertions(+), 3 deletions(-)
+ drivers/usb/dwc3/host.c | 17 ++++++++++++++---
+ 3 files changed, 19 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/usb/dwc3/core.c b/drivers/usb/dwc3/core.c
 index fd5c2cd36..b5490b9a8 100644
@@ -85,7 +85,7 @@ index 608daeb7e..4b71a8455 100644
  
  	unsigned		disable_scramble_quirk:1;
 diff --git a/drivers/usb/dwc3/host.c b/drivers/usb/dwc3/host.c
-index c5674161b..c7143a8e3 100644
+index c5674161b..bc2951a4f 100644
 --- a/drivers/usb/dwc3/host.c
 +++ b/drivers/usb/dwc3/host.c
 @@ -14,9 +14,7 @@
@@ -99,16 +99,13 @@ index c5674161b..c7143a8e3 100644
  #include "../host/xhci-plat.h"
  #include "core.h"
  
-@@ -78,7 +76,23 @@ static void dwc3_xhci_plat_start(struct usb_hcd *hcd)
+@@ -78,7 +76,20 @@ static void dwc3_xhci_plat_start(struct usb_hcd *hcd)
  	dwc3_enable_susphy(dwc, true);
  }
  
 +/*
-+ * dwc3_suspend_common() powers the core off for system suspend in host mode
-+ * when the controller may not wake the system. The xHCI registers and its
-+ * saved internal state are gone then: tell xhci-plat, so that xhci_resume()
-+ * resets the controller instead of restoring registers and asking it to
-+ * restore a state it no longer has.
++ * dwc3_suspend_common() powers the core off in host mode when it may not wake
++ * the system: xHCI then has to reset instead of restoring its state.
 + */
 +static int dwc3_xhci_resume_quirk(struct usb_hcd *hcd)
 +{

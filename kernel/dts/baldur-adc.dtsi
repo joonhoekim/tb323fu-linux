@@ -1,19 +1,15 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur") PMIC ADC: board thermistors and PMIC die temperatures.
- * The ADC is PMK8850's PMIC5 Gen4 VADC at
- * 0x9000 (pmk8850.dtsi, upstream series 0025); it reads channels of every
- * PMIC on the bus. Channel numbers are the vendor DT's (vadc@9000) as they
- * are: bits 14:13 bus, 12:8 SID, 7:0 channel -- 0x27xx is PMIH0108 (bus 1,
- * SID 7), 0x1xx PMH0101 (SID 1), 0x0xx PMK8850.
+ * TB323FU ("baldur") PMIC ADC: board thermistors and PMIC die temperatures,
+ * through PMK8850's PMIC5 Gen4 VADC at 0x9000, which reads channels of every
+ * PMIC on the bus. Channel numbers are the vendor DT's: bits 14:13 bus, 12:8
+ * SID, 7:0 channel -- 0x27xx is PMIH0108 (bus 1, SID 7), 0x1xx PMH0101
+ * (SID 1), 0x0xx PMK8850.
  *
- * All NTCs are 100 kOhm pull-up ratiometric thermistors. The vendor DT names
- * them; where it is one we know on the board, the name says so. The vendor's
- * thermal zones on them have only 125 C placeholder trips (Android's
- * thermal-engine throttles in userspace, from skin_therm mostly), so these
- * zones get one "hot" trip each, for notification, and no cooling maps.
- * PMIC die temperatures feed the temp-alarm zones, which otherwise estimate
- * from the alarm stage (a flat 37 C).
+ * All NTCs are 100 kOhm pull-up ratiometric thermistors. Each zone gets one
+ * "hot" trip, for notification, and no cooling maps. The PMIC die
+ * temperatures feed the temp-alarm zones, which otherwise estimate from the
+ * alarm stage.
  */
 
 #include "qcom-adc5-gen4.h"

@@ -23,11 +23,11 @@ old behaviour) is a test knob.
 Tested: hub + keyboard + stick, wakeup enabled: no spurious wake,
 a keypress wakes the system (dm_hs_phy_irq 1, wake irq 226).
 ---
- drivers/usb/dwc3/dwc3-qcom.c | 54 +++++++++++++++++++++++++++++-------
- 1 file changed, 44 insertions(+), 10 deletions(-)
+ drivers/usb/dwc3/dwc3-qcom.c | 53 +++++++++++++++++++++++++++++-------
+ 1 file changed, 43 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/usb/dwc3/dwc3-qcom.c b/drivers/usb/dwc3/dwc3-qcom.c
-index ac68b4218..129a99571 100644
+index ac68b4218..b1131b8de 100644
 --- a/drivers/usb/dwc3/dwc3-qcom.c
 +++ b/drivers/usb/dwc3/dwc3-qcom.c
 @@ -85,6 +85,7 @@ struct dwc3_qcom {
@@ -42,7 +42,7 @@ index ac68b4218..129a99571 100644
  	return udev->speed;
  }
  
-+/* 0 = the QUSB2 line/edge choice even on eUSB2 (the old behaviour) */
++/* 0: the QUSB2 line/edge selection, also on eUSB2 */
 +static bool eusb2_wakeup = true;
 +module_param(eusb2_wakeup, bool, 0644);
 +
@@ -155,11 +155,10 @@ index ac68b4218..129a99571 100644
  	/* Keep wakeup interrupts disabled until suspend */
  	ret = devm_request_threaded_irq(qcom->dev, irq, NULL,
  					qcom_dwc3_resume_irq,
-@@ -623,6 +655,8 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
+@@ -623,6 +655,7 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
  		return -ENOMEM;
  
  	qcom->dev = &pdev->dev;
-+	/* eUSB2 PHY on these (upstream: PHY_TYPE_EUSB2, Kurapati v7) */
 +	qcom->has_eusb2_phy = of_device_is_compatible(pdev->dev.of_node, "qcom,kaanapali-dwc3");
  
  	qcom->resets = devm_reset_control_array_get_optional_exclusive(dev);

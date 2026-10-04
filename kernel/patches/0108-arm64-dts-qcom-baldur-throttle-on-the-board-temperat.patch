@@ -25,17 +25,17 @@ emul_temp steps 40..50..40 C give exactly the designed cooling states
 hysteresis; a 600 s all-core load held the CPU zones at 93-98 C while
 quiet-thermal rose 31.9 -> 44.8 C with the 43 and 44 C steps engaged.
 ---
- .../boot/dts/qcom/baldur-skin-thermal.dtsi    | 141 ++++++++++++++++++
+ .../boot/dts/qcom/baldur-skin-thermal.dtsi    | 139 ++++++++++++++++++
  .../qcom/kaanapali-lenovo-baldur-display.dts  |   1 +
- 2 files changed, 142 insertions(+)
+ 2 files changed, 140 insertions(+)
  create mode 100644 arch/arm64/boot/dts/qcom/baldur-skin-thermal.dtsi
 
 diff --git a/arch/arm64/boot/dts/qcom/baldur-skin-thermal.dtsi b/arch/arm64/boot/dts/qcom/baldur-skin-thermal.dtsi
 new file mode 100644
-index 000000000..3272dbe6b
+index 000000000..5fe32f481
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/baldur-skin-thermal.dtsi
-@@ -0,0 +1,141 @@
+@@ -0,0 +1,139 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * TB323FU ("baldur"): board-temperature (skin) throttling after Android's
@@ -60,8 +60,6 @@ index 000000000..3272dbe6b
 + * 29 including the two disabled boost frequencies (0 = 4.608 GHz,
 + * 2 = 4.3968 GHz), the GPU devfreq 17 (0 = 1200 MHz).
 + *
-+ * Not carried over: the LCD backlight cap at lcm 55 C (no backlight cooling
-+ * device) and the charging-current steps (thermal-engine_battery_N.conf).
 + * The zone is an ADC channel; poll it every second like thermal-engine does
 + * instead of relying on ADC_TM threshold interrupts.
 + */
@@ -178,10 +176,10 @@ index 000000000..3272dbe6b
 +	};
 +};
 diff --git a/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts b/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts
-index a993b1783..0cb46dae1 100644
+index cb5243956..ffc8f3972 100644
 --- a/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts
 +++ b/arch/arm64/boot/dts/qcom/kaanapali-lenovo-baldur-display.dts
-@@ -25,6 +25,7 @@
+@@ -19,6 +19,7 @@
  #include "pmh0101.dtsi"
  #include "baldur-haptics-flash.dtsi"
  #include "baldur-adc.dtsi"

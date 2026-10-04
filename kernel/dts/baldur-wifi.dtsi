@@ -2,20 +2,14 @@
 /*
  * TB323FU ("baldur"): Wi-Fi, WCN7860 "peach" (17cb:110e) on PCIe0, ath12k.
  *
- * The same chip and pins as the OnePlus 15 port (infiniti-mainline, which
- * follows kaanapali-mtp.dts): wlan-en gpio16, sw-ctrl gpio18, PERST gpio102,
- * CLKREQ gpio103, WAKE gpio104. The rails are this device's own, decoded from
- * its vendor cnss-peach node (qcom,pmu_vreg_map and vdd-wlan-*-supply): AON
- * 0.9 V comes from S2J here, not from S7G as on the MTP.
+ * Pins as on the OnePlus 15 port and kaanapali-mtp.dts: wlan-en gpio16,
+ * sw-ctrl gpio18, PERST gpio102, CLKREQ gpio103, WAKE gpio104. The rails are
+ * this device's own, from its vendor cnss-peach node: AON 0.9 V comes from
+ * S2J here, not from S7G as on the MTP.
  *
- * NOT WORKING YET, and not included by any board file: the chip never answers
- * link training (LTSSM loops in Detect, "Device not found").
- *
- * Bluetooth itself (UART) is left out, but its enable line is described: the
- * vendor cnss drives BT_EN low before it powers WLAN ("cnss_probe: Disabling
- * BT_EN"), and the sequencer does the same when it owns the pin. A PMIC GPIO
- * keeps its level across a warm reboot, so after Android ran with Bluetooth
- * on it would otherwise still be high here. Needs pmh0104-kaanapali.dtsi.
+ * BT_EN is described so that the sequencer drives it low before it powers
+ * WLAN, as the vendor cnss does: a PMIC GPIO keeps its level across a warm
+ * reboot. Needs pmh0104-kaanapali.dtsi.
  */
 
 &pmh0104_j_e1_gpios {
@@ -53,11 +47,9 @@
 	};
 
 	/*
-	 * Sign-of-life lines (vendor cnss_host_sol_default, wlan-host-sol-gpio
-	 * 204, wlan-dev-sol-gpio 205). Both are eGPIOs that another subsystem
-	 * owns until something selects function "gpio"; the vendor cnss does,
-	 * and drives host-SOL low, before it powers the chip. Left alone, the
-	 * chip held WAKE# low and never answered link training.
+	 * Sign-of-life lines (vendor wlan-host-sol-gpio 204, wlan-dev-sol-gpio
+	 * 205): eGPIOs that another subsystem owns until something selects
+	 * function "gpio". Host-SOL goes low before the chip is powered.
 	 */
 	wlan_sol_default: wlan-sol-default-state {
 		host-sol-pins {
@@ -170,10 +162,8 @@
 };
 
 /*
- * Experiment: WLCX/WLMX at the vendor cnss votes. The PMIC ranges start
- * at 0.4/0.5 V and the regulator core parks an unset rail at its minimum;
- * on Android the PDC raises them on the chip's clock requests, here nothing
- * may. BT (UART) answers either way -- it does not use WLCX/WLMX.
+ * WLCX/WLMX at the vendor cnss votes: the regulator core parks an unset rail
+ * at its minimum (0.4/0.5 V), and nothing raises them through the PDC here.
  */
 &vreg_s1j_0p8 {
 	regulator-min-microvolt = <892000>;
@@ -220,12 +210,10 @@
 /*
  * Bluetooth, the same chip over the 4-wire HS-UART (vendor
  * qupv3_se18_4uart @ 0x1994000 = uart18), as the OnePlus 15 port wires it.
- * First used to ask whether the WCN7860 is alive at all -- the HCI
- * version read comes before any firmware.
  */
 / {
 	aliases {
-		/* the geni UART driver wants a line number ("Invalid line -19") */
+		/* the geni UART driver wants a line number */
 		serial1 = &uart18;
 	};
 };
@@ -247,13 +235,7 @@
 		/* the rate the OnePlus 15 port runs this chip at (peri baud command) */
 		max-speed = <3200000>;
 
-		/*
-		 * This chip's own firmware from its bluetooth partition
-		 * (/vendor/bt_firmware/image, BTFW.BRAHMA.2.0.1-00238): NVM, then
-		 * the rampatch. The TLV there times out on its first segment with
-		 * the stock WCN7850 flow; the ELF goes through the BRAHMA path of
-		 * infiniti fecd7925d (0030).
-		 */
+		/* NVM, then the BRAHMA ELF rampatch */
 		firmware-name = "brhbtnv20.bin", "brhbtfw20.mbn";
 	};
 };

@@ -13,21 +13,20 @@ of input_current_limit (BATTMGR_USB_PROPERTY_SET, USB_INPUT_CURR_LIMIT,
 in uA), acked like the other set requests. On TB323FU: input 494 -> 891
 mA, the battery charging at about 740 mA with the screen off.
 ---
- drivers/power/supply/qcom_battmgr.c | 35 +++++++++++++++++++++++++++++
- 1 file changed, 35 insertions(+)
+ drivers/power/supply/qcom_battmgr.c | 34 +++++++++++++++++++++++++++++
+ 1 file changed, 34 insertions(+)
 
 diff --git a/drivers/power/supply/qcom_battmgr.c b/drivers/power/supply/qcom_battmgr.c
-index 7716eb9e1..14bc845b1 100644
+index 7716eb9e1..17ca1aff6 100644
 --- a/drivers/power/supply/qcom_battmgr.c
 +++ b/drivers/power/supply/qcom_battmgr.c
-@@ -1065,6 +1065,38 @@ static const struct power_supply_desc sc8280xp_usb_psy_desc = {
+@@ -1065,6 +1065,37 @@ static const struct power_supply_desc sc8280xp_usb_psy_desc = {
  		     BIT(POWER_SUPPLY_USB_TYPE_APPLE_BRICK_ID),
  };
  
 +/*
-+ * The input current limit is set by the host. On a
-+ * standard downstream port the firmware starts at USB 2.0's 500 mA, and
-+ * the vendor kernel raises it (900 mA on the same PC port).
++ * The host sets the input current limit: on a standard downstream port the
++ * firmware starts at 500 mA.
 + */
 +static int qcom_battmgr_usb_set_property(struct power_supply *psy,
 +					 enum power_supply_property psp,
@@ -59,7 +58,7 @@ index 7716eb9e1..14bc845b1 100644
  static const enum power_supply_property sm8350_usb_props[] = {
  	POWER_SUPPLY_PROP_ONLINE,
  	POWER_SUPPLY_PROP_VOLTAGE_NOW,
-@@ -1081,6 +1113,8 @@ static const struct power_supply_desc sm8350_usb_psy_desc = {
+@@ -1081,6 +1112,8 @@ static const struct power_supply_desc sm8350_usb_psy_desc = {
  	.properties = sm8350_usb_props,
  	.num_properties = ARRAY_SIZE(sm8350_usb_props),
  	.get_property = qcom_battmgr_usb_get_property,
@@ -68,7 +67,7 @@ index 7716eb9e1..14bc845b1 100644
  	.usb_types = BIT(POWER_SUPPLY_USB_TYPE_UNKNOWN) |
  		     BIT(POWER_SUPPLY_USB_TYPE_SDP)     |
  		     BIT(POWER_SUPPLY_USB_TYPE_DCP)     |
-@@ -1558,6 +1592,7 @@ static void qcom_battmgr_sm8350_callback(struct qcom_battmgr *battmgr,
+@@ -1558,6 +1591,7 @@ static void qcom_battmgr_sm8350_callback(struct qcom_battmgr *battmgr,
  		break;
  	case BATTMGR_REQUEST_NOTIFICATION:
  	case BATTMGR_CHG_CTRL_LIMIT_EN:

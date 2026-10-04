@@ -34,11 +34,11 @@ skips the matching release); the reset's register accesses are
 best-effort there anyway. With this the sysrq crash prints "Rebooting in
 10 seconds.." right after stopping the CPUs and the board resets.
 ---
- drivers/net/wireless/ath/ath12k/wifi7/pci.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ drivers/net/wireless/ath/ath12k/wifi7/pci.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
 diff --git a/drivers/net/wireless/ath/ath12k/wifi7/pci.c b/drivers/net/wireless/ath/ath12k/wifi7/pci.c
-index 893474de4..344e15f04 100644
+index 893474de4..2c2ba8184 100644
 --- a/drivers/net/wireless/ath/ath12k/wifi7/pci.c
 +++ b/drivers/net/wireless/ath/ath12k/wifi7/pci.c
 @@ -4,6 +4,7 @@
@@ -49,17 +49,14 @@ index 893474de4..344e15f04 100644
  #include <linux/pci.h>
  
  #include "../pci.h"
-@@ -64,6 +65,17 @@ static int ath12k_wifi7_pci_bus_wake_up(struct ath12k_base *ab)
+@@ -64,6 +65,14 @@ static int ath12k_wifi7_pci_bus_wake_up(struct ath12k_base *ab)
  {
  	struct ath12k_pci *ab_pci = ath12k_pci_priv(ab);
  
 +	/*
-+	 * The panic notifier (ath12k_pci_panic_handler -> sw_reset) reads
-+	 * and writes registers after the other CPUs are stopped, with IRQs
-+	 * off. mhi_device_get_sync() sleeps until the device reaches M0 and
-+	 * that wake may never be seen: the panic then never reaches the
-+	 * reboot (or the download mode dump). Do the accesses without it.
-+	 * Non-zero return also skips the matching release.
++	 * Panic context: the other CPUs are stopped and IRQs are off, so the M0
++	 * wake mhi_device_get_sync() waits for may never be seen. A non-zero
++	 * return also skips the matching release.
 +	 */
 +	if (panic_in_progress())
 +		return -EBUSY;

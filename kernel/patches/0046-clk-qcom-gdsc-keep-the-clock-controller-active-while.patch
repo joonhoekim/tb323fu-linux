@@ -11,12 +11,12 @@ active. Powering the GDSC before any of its clocks is prepared left MXC
 at level 0 and the GDSC stuck off (camss: "cam_cc_titan_top_gdsc status
 stuck at off").
 ---
- drivers/clk/qcom/gdsc.c | 53 +++++++++++++++++++++++++++++++++++++----
+ drivers/clk/qcom/gdsc.c | 49 +++++++++++++++++++++++++++++++++++++----
  drivers/clk/qcom/gdsc.h |  3 +++
- 2 files changed, 52 insertions(+), 4 deletions(-)
+ 2 files changed, 48 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/clk/qcom/gdsc.c b/drivers/clk/qcom/gdsc.c
-index b99d70149..fcc1ec628 100644
+index b99d70149..72b70739c 100644
 --- a/drivers/clk/qcom/gdsc.c
 +++ b/drivers/clk/qcom/gdsc.c
 @@ -12,6 +12,7 @@
@@ -49,18 +49,14 @@ index b99d70149..fcc1ec628 100644
  	int ret;
  
  	if (sc->pwrsts == PWRSTS_ON)
-@@ -389,6 +388,45 @@ static int gdsc_disable(struct generic_pm_domain *domain)
+@@ -389,6 +388,41 @@ static int gdsc_disable(struct generic_pm_domain *domain)
  	return 0;
  }
  
 +/*
-+ * A GDSC whose parents are the clock controller's own power domains (a
-+ * pd_list: MMCX and MXC for camcc on kaanapali) needs those rails at the
-+ * controller's required-opps level while it switches on. The controller only
-+ * holds that vote while it is runtime active, which is not the case when a
-+ * consumer powers the GDSC before it prepares any of the controller's clocks
-+ * ("cam_cc_titan_top_gdsc status stuck at 'off'"). Keep the
-+ * controller active for as long as the GDSC is on.
++ * A GDSC under the controller's pd_list needs the controller's required-opps
++ * vote while it switches on: keep the controller runtime active while the
++ * GDSC is on.
 + */
 +static int gdsc_enable(struct generic_pm_domain *domain)
 +{
@@ -95,7 +91,7 @@ index b99d70149..fcc1ec628 100644
  static int gdsc_set_hwmode(struct generic_pm_domain *domain, struct device *dev, bool mode)
  {
  	struct gdsc *sc = domain_to_gdsc(domain);
-@@ -649,6 +687,13 @@ int gdsc_register(struct gdsc_desc *desc,
+@@ -649,6 +683,13 @@ int gdsc_register(struct gdsc_desc *desc,
  		ret = gdsc_init(scs[i]);
  		if (ret)
  			return ret;

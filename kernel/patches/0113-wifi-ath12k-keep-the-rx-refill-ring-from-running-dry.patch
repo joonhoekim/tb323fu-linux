@@ -167,7 +167,7 @@ index bef0f2ba0..dc8001345 100644
  	struct dp_srng rxdma_err_dst_ring[MAX_RXDMA_PER_PDEV];
  	struct dp_rxdma_mon_ring rxdma_mon_buf_ring;
 diff --git a/drivers/net/wireless/ath/ath12k/dp_rx.c b/drivers/net/wireless/ath/ath12k/dp_rx.c
-index 8fa0e90b4..b5d2693f5 100644
+index 8fa0e90b4..f220c950d 100644
 --- a/drivers/net/wireless/ath/ath12k/dp_rx.c
 +++ b/drivers/net/wireless/ath/ath12k/dp_rx.c
 @@ -7,6 +7,7 @@
@@ -178,16 +178,13 @@ index 8fa0e90b4..b5d2693f5 100644
  #include <linux/skbuff.h>
  #include "core.h"
  #include "debug.h"
-@@ -111,13 +112,33 @@ int ath12k_dp_rx_bufs_replenish(struct ath12k_dp *dp,
+@@ -111,13 +112,30 @@ int ath12k_dp_rx_bufs_replenish(struct ath12k_dp *dp,
  						       num_remain);
  		spin_unlock_bh(&dp->rx_desc_lock);
  		num_remain = req_entries;
 +	} else if (num_free - req_entries > rx_ring->bufs_max / 8) {
-+		/* The callers replenish as many buffers as they reaped, so a
-+		 * buffer that was not posted back (allocation or mapping
-+		 * failure, a dropped descriptor) is never made up for, and
-+		 * once the ring runs dry nothing is reaped any more. Top up
-+		 * the deficit from the free list.
++		/* Also make up for buffers that were never posted back
++		 * (allocation or mapping failure, a dropped descriptor).
 +		 */
 +		LIST_HEAD(extra);
 +		size_t n;
@@ -213,7 +210,7 @@ index 8fa0e90b4..b5d2693f5 100644
  
  		if (!IS_ALIGNED((unsigned long)skb->data,
  				DP_RX_BUFFER_ALIGN_SIZE)) {
-@@ -129,14 +150,18 @@ int ath12k_dp_rx_bufs_replenish(struct ath12k_dp *dp,
+@@ -129,14 +147,18 @@ int ath12k_dp_rx_bufs_replenish(struct ath12k_dp *dp,
  		paddr = dma_map_single(dp->dev, skb->data,
  				       skb->len + skb_tailroom(skb),
  				       DMA_FROM_DEVICE);
@@ -234,7 +231,7 @@ index 8fa0e90b4..b5d2693f5 100644
  
  		rx_desc->skb = skb;
  		cookie = rx_desc->cookie;
-@@ -163,6 +188,7 @@ int ath12k_dp_rx_bufs_replenish(struct ath12k_dp *dp,
+@@ -163,6 +185,7 @@ int ath12k_dp_rx_bufs_replenish(struct ath12k_dp *dp,
  	dev_kfree_skb_any(skb);
  out:
  	ath12k_hal_srng_access_end(ab, srng);
@@ -242,24 +239,16 @@ index 8fa0e90b4..b5d2693f5 100644
  
  	if (!list_empty(used_list))
  		ath12k_dp_rx_enqueue_free(dp, used_list);
-@@ -173,6 +199,91 @@ int ath12k_dp_rx_bufs_replenish(struct ath12k_dp *dp,
+@@ -173,6 +196,83 @@ int ath12k_dp_rx_bufs_replenish(struct ath12k_dp *dp,
  }
  EXPORT_SYMBOL(ath12k_dp_rx_bufs_replenish);
  
 +#define ATH12K_DP_RX_REFILL_WD_MS	1000
 +
-+/* The refill ring is only replenished from the reap paths, one buffer for
-+ * each buffer reaped. If it ever runs empty, RXDMA has no buffer to write
-+ * into, nothing reaches the REO destination rings, nothing is reaped, and RX
-+ * (including the EAPOL frames of every later connection) stays dead until the
-+ * driver is reloaded. WCN7850 has no host2rxdma low-threshold interrupt to
-+ * break that loop, so check the ring from a timer.
-+ *
-+ * The timer also completes the initial fill. The setup fill is bounded by the
-+ * ring size, and with per-MAC buffer rings the firmware moves those buffers on
-+ * into the MAC rings, so the host ring and the MAC rings would circulate only
-+ * one ring's worth of buffers. Keep posting from the descriptor pool, quietly,
-+ * until a pool's worth of buffers has gone into the ring.
++/* The refill ring is only replenished from the reap paths, and WCN7850 has
++ * no host2rxdma low-threshold interrupt: once the ring runs dry nothing is
++ * reaped any more. Top it up from a timer, which also completes the initial
++ * fill from the descriptor pool.
 + */
 +static void ath12k_dp_rx_refill_wd(struct timer_list *t)
 +{
@@ -334,7 +323,7 @@ index 8fa0e90b4..b5d2693f5 100644
  static int ath12k_dp_rxdma_mon_buf_ring_free(struct ath12k_base *ab,
  					     struct dp_rxdma_mon_ring *rx_ring)
  {
-@@ -1592,6 +1703,7 @@ void ath12k_dp_rx_free(struct ath12k_base *ab)
+@@ -1592,6 +1692,7 @@ void ath12k_dp_rx_free(struct ath12k_base *ab)
  	struct dp_srng *srng;
  	int i;
  
@@ -342,7 +331,7 @@ index 8fa0e90b4..b5d2693f5 100644
  	ath12k_dp_srng_cleanup(ab, &dp->rx_refill_buf_ring.refill_buf_ring);
  
  	for (i = 0; i < ab->hw_params->num_rxdma_per_pdev; i++) {
-@@ -1760,12 +1872,21 @@ int ath12k_dp_rx_alloc(struct ath12k_base *ab)
+@@ -1760,12 +1861,21 @@ int ath12k_dp_rx_alloc(struct ath12k_base *ab)
  		}
  	}
  
@@ -377,25 +366,23 @@ index 0660db070..aac28d4c5 100644
  void ath12k_dp_rx_pdev_free(struct ath12k_base *ab, int pdev_idx);
  void ath12k_dp_rx_reo_cmd_list_cleanup(struct ath12k_base *ab);
 diff --git a/drivers/net/wireless/ath/ath12k/wifi7/dp_rx.c b/drivers/net/wireless/ath/ath12k/wifi7/dp_rx.c
-index 95d87dd67..85fa5cd6d 100644
+index 95d87dd67..926635319 100644
 --- a/drivers/net/wireless/ath/ath12k/wifi7/dp_rx.c
 +++ b/drivers/net/wireless/ath/ath12k/wifi7/dp_rx.c
-@@ -789,9 +789,11 @@ int ath12k_wifi7_dp_rx_process(struct ath12k_dp *dp, int ring_id,
+@@ -789,9 +789,9 @@ int ath12k_wifi7_dp_rx_process(struct ath12k_dp *dp, int ring_id,
  
  	spin_unlock_bh(&srng->lock);
  
 -	if (!total_msdu_reaped)
 -		goto exit;
 -
-+	/* Post the reaped buffers back even if no complete MSDU was reaped
-+	 * (only error pushes, or an MSDU whose continuation buffers are not
-+	 * written yet): skipping this lost those descriptors and buffers for
-+	 * good, and each loss shrinks the refill ring.
++	/* Post the reaped buffers back even if no complete MSDU was reaped,
++	 * or they are lost.
 +	 */
  	for (device_id = 0; device_id < ATH12K_MAX_DEVICES; device_id++) {
  		if (!num_buffs_reaped[device_id])
  			continue;
-@@ -802,6 +804,14 @@ int ath12k_wifi7_dp_rx_process(struct ath12k_dp *dp, int ring_id,
+@@ -802,6 +802,14 @@ int ath12k_wifi7_dp_rx_process(struct ath12k_dp *dp, int ring_id,
  		ath12k_dp_rx_bufs_replenish(partner_dp, rx_ring,
  					    &rx_desc_used_list[device_id],
  					    num_buffs_reaped[device_id]);

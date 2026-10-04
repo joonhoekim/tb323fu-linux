@@ -7,25 +7,28 @@ Subject: [PATCH 64/64] arm64: dts: qcom: baldur: camera orientation and
 From the vendor sensor-position: rear back / 270, front front / 90 (the vendor
 roll is clockwise, V4L2 rotation counter-clockwise).
 ---
- arch/arm64/boot/dts/qcom/baldur-camera.dtsi | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ arch/arm64/boot/dts/qcom/baldur-camera.dtsi | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/qcom/baldur-camera.dtsi b/arch/arm64/boot/dts/qcom/baldur-camera.dtsi
-index 581001931..e60ed3175 100644
+index 595e3cfe3..38cc919a7 100644
 --- a/arch/arm64/boot/dts/qcom/baldur-camera.dtsi
 +++ b/arch/arm64/boot/dts/qcom/baldur-camera.dtsi
-@@ -186,6 +186,10 @@ camera@56 {
+@@ -172,6 +172,13 @@ camera@56 {
  		compatible = "samsung,s5kjns";
  		reg = <0x56>;
  
-+		/* vendor sensor-position-yaw 180 (back), -roll 90 -- the vendor roll is clockwise, V4L2 rotation counter-clockwise (portrait was upside down with 90) */
++		/*
++		 * vendor sensor-position-yaw 180 (back), -roll 90: the vendor
++		 * roll is clockwise, the V4L2 rotation counter-clockwise
++		 */
 +		orientation = <1>;
 +		rotation = <270>;
 +
  		reset-gpios = <&pmh0110_i_e0_gpios 11 GPIO_ACTIVE_LOW>;
  
  		pinctrl-0 = <&cam_rear_mclk_default>;
-@@ -234,6 +238,10 @@ camera@31 {
+@@ -218,6 +225,10 @@ camera@31 {
  		compatible = "galaxycore,gc08a8";
  		reg = <0x31>;
  

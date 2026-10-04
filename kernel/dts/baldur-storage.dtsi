@@ -1,23 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * Stage 4 for TB323FU ("baldur"): UFS and the microSD slot.
- *
- * Included by kaanapali-lenovo-baldur.dts since 2026-09-24. It was
- * left out at first: stage 3 boots from an
- * initramfs precisely so that no block device has to come up first; bringing
- * storage in earlier would only add ways for the first boot to fail. Add
- *
- *	#include "baldur-storage.dtsi"
- *
- * at the end of the board DTS once stage 3 has produced a log. The rails it
- * uses are declared in baldur-regulators.dtsi, which has to come first.
- *
- * Every rail and GPIO here was read out of this device's own ABL devicetree
- * (its /sys/firmware/fdt under Android), and then compared against the
- * OnePlus 15 board DTS. They are the same board-for-board -- same LDOs, same
- * voltages to the microvolt, same UFS reset GPIO. That is worth knowing: the
- * storage wiring on this SoC is reference-design level, not per-vendor, so
- * the OnePlus port can be trusted here rather than merely borrowed from.
+ * TB323FU ("baldur"): UFS and the microSD slot. Rails and GPIOs from this
+ * device's ABL devicetree; they match the OnePlus 15 board DTS.
  *
  *	UFS    vcc      pmh0101 ldo17  2.504 V      (OnePlus: vreg_l17b_2p5)
  *	       vccq     pmh0110_d ldo4 1.2 V        (OnePlus: vreg_l4d_1p2)
@@ -53,10 +37,7 @@
  * drives the level shifter off vdd-io, which is why that rail spans 1.8 V to
  * 3.008 V rather than sitting at one voltage.
  *
- * Card detect is TLMM 55. Downstream gives it flag 0 (active high) and this
- * follows that, but it is the one value here with no OnePlus 15 counterpart to
- * check against -- that phone has no card slot. If the card is never seen, or
- * is seen when the slot is empty, invert this first.
+ * Card detect is TLMM 55, active high as downstream has it.
  */
 &sdhc_2 {
 	vmmc-supply = <&vreg_l9b_2p9>;
@@ -67,32 +48,19 @@
 	no-sdio;
 	no-mmc;
 
-	/*
-	 * Without these the SD pads keep whatever drive and pulls they boot
-	 * with, and the first stage-4 boot brought the host up but never
-	 * saw the card -- no "new SD card", no error.
-	 */
 	pinctrl-0 = <&sdc2_default>;
 	pinctrl-1 = <&sdc2_sleep>;
 	pinctrl-names = "default", "sleep";
 
-	/*
-	 * The card misses its first probe unless something slows the path down:
-	 * with MMC debug printing, 45 ms passed between power-on and CMD8 and it
-	 * came up every time; at the core's default 10 ms it mostly did not.
-	 * The LDO behind vmmc is switched through RPMh.
-	 */
+	/* the card needs about 45 ms between power-on and CMD8 */
 	post-power-on-delay-ms = <100>;
 
 	status = "okay";
 };
 
 /*
- * The SoC's SD states pull GPIO55 up, for boards whose card-detect switch
- * pulls it low (the MTP: ACTIVE_LOW). This one is the other way round: the
- * vendor tree says ACTIVE_HIGH, and under Android the pin reads high with a
- * card in and no pull ("gpio55 : in high func0 2mA no pull"). A pull-up here
- * would report a card whether there is one or not.
+ * Card detect is active high with no pull: the SoC's SD states pull GPIO55
+ * up for switches that pull it low.
  */
 &sdc2_default {
 	card-detect-pins {

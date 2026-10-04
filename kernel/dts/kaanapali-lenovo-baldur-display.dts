@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur"), stage 5: the board tree plus the panel.
- * Kept as its own top-level tree so the stage-4
- * image, which reads its log off the bootloader's splash buffer, stays as it
- * is: bringing MDSS up gives that buffer away.
+ * TB323FU ("baldur"): the board tree plus the display and everything else.
+ * MDSS takes the bootloader's splash buffer away from the base tree's
+ * simple-framebuffer.
  */
 
 #include "kaanapali-lenovo-baldur.dts"
@@ -11,11 +10,6 @@
 #include "pmh0110-kaanapali.dtsi"
 #include "baldur-display.dtsi"
 #include "baldur-gpu.dtsi"
-/*
- * Wi-Fi (WCN7860 on PCIe0) is written but does not come up yet: the chip
- * never answers link training. Kept out until it does.
- *
- */
 #include "pmh0104-kaanapali.dtsi"
 #include "baldur-wifi.dtsi"
 #include "baldur-backlight.dtsi"

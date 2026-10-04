@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * TB323FU ("baldur") cameras, on the kaanapali
- * CAMSS/CCI/CSIPHY series (0013, 0040, 0041). From the vendor DT (qcom,cam-sensor,
- * cci, csiphy nodes) and the CamX sensor modules in /vendor/lib64/camera
- * (slave address and chip ID from their slave-info block):
+ * TB323FU ("baldur") cameras, from the vendor DT (qcom,cam-sensor, cci,
+ * csiphy nodes) and the CamX sensor modules in /vendor/lib64/camera (slave
+ * address and chip ID from their slave-info block):
  *
  *   rear:  Samsung S5KJNS (module s5kjns_qtech_main, chip ID 0x38ee @ 0x0000),
  *          CCI0 master 0, 7-bit 0x56; CSIPHY3; VCM gt9764, EEPROM on the
@@ -17,19 +16,6 @@
  * Both MCLKs are the PMIC's divided XO (RPMH_DIV_CLK1, 19.2 MHz) out of
  * PMK8850 gpio1 (rear) and gpio8 (front), function "func2" -- not the SoC's
  * cam_mclk pins.
- *
- * No mainline driver knows either sensor. Step 1 binds the nearest ones
- * (s5kjn5: 0x38e5, gc08a3: 0x08a3 @ 0x03f0, same address) only to see the
- * chip IDs over CCI -- power, clock, reset and bus all have to be right.
- *
- * State: CAMSS/CSIPHY/CCI probe. Both sensor drivers time out on
- * CCI -- at every address on these two buses, while the empty masters
- * (cci0 bus 1, cci2 bus 0) NACK properly; also at 400 kHz. Bit-banged on
- * the same pads the buses are fine: the front ACKs at 0x31 and reads
- * 0x08a8, EEPROMs at 0x50(/0x58), the rear VCM at 0x0c. The rear sensor
- * did not ACK then (its VDIG l11b was off in that test). The front MCLK
- * (PMK8850 gpio8) does not toggle; the rear one (gpio1) does. TODO: CCI
- * vs Android (registers with the camera open), front MCLK source.
  */
 
 #include <dt-bindings/media/video-interfaces.h>
@@ -181,12 +167,15 @@
 };
 
 &cci0_i2c0 {
-	/* rear S5KJNS (s5kjns, 0045) */
+	/* rear S5KJNS */
 	camera@56 {
 		compatible = "samsung,s5kjns";
 		reg = <0x56>;
 
-		/* vendor sensor-position-yaw 180 (back), -roll 90 -- the vendor roll is clockwise, V4L2 rotation counter-clockwise (portrait was upside down with 90) */
+		/*
+		 * vendor sensor-position-yaw 180 (back), -roll 90: the vendor
+		 * roll is clockwise, the V4L2 rotation counter-clockwise
+		 */
 		orientation = <1>;
 		rotation = <270>;
 
@@ -215,9 +204,7 @@
 
 	/*
 	 * The rear lens' VCM: Giantec GT9764 (vendor "gt9764_back"), DW9719
-	 * register map; the vendor stack writes 02=02, 03/04 = position,
-	 * 06=40 (SAC 4), 07=7c, then 16-bit positions to register 3.
-	 * Its bus pull-ups sit on the sensor I/O rail, hence vio.
+	 * register map. Its bus pull-ups sit on the sensor I/O rail, hence vio.
 	 */
 	cam_rear_vcm: vcm@c {
 		compatible = "giantec,gt9764";
@@ -233,7 +220,7 @@
 };
 
 &cci2_i2c1 {
-	/* front GC08A8 (gc08a8, 0045) */
+	/* front GC08A8 */
 	camera@31 {
 		compatible = "galaxycore,gc08a8";
 		reg = <0x31>;
@@ -263,11 +250,7 @@
 	};
 };
 
-/*
- * The camera buses need the TLMM's strong I2C pull-up (bit 13, 0044), as
- * Android sets it (cfg 0x2007 on gpio109/110 with the camera open). With
- * only the weak pull-up every CCI transfer on them timed out.
- */
+/* the camera buses need the TLMM's strong I2C pull-up, as Android sets it */
 &cci0_i2c0_default {
 	scl-pins {
 		bias-pull-up = <2200>;

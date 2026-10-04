@@ -13,15 +13,15 @@ prepare count 2). The PHY now enables and prepares the clock in its
 runtime resume and drops both in runtime suspend. On TB323FU, screen
 blanked: dispcc suspended, MMCX off; screen on as before.
 ---
- drivers/gpu/drm/msm/dsi/phy/dsi_phy.c | 33 ++++++++++++++++++++-------
+ drivers/gpu/drm/msm/dsi/phy/dsi_phy.c | 31 ++++++++++++++++++++-------
  drivers/gpu/drm/msm/dsi/phy/dsi_phy.h |  1 +
- 2 files changed, 26 insertions(+), 8 deletions(-)
+ 2 files changed, 24 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c b/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
-index 1fb3899b8..f72eec3d8 100644
+index 1fb3899b8..059c0b3e7 100644
 --- a/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
 +++ b/drivers/gpu/drm/msm/dsi/phy/dsi_phy.c
-@@ -687,13 +687,15 @@ static int dsi_phy_driver_probe(struct platform_device *pdev)
+@@ -687,13 +687,13 @@ static int dsi_phy_driver_probe(struct platform_device *pdev)
  	if (ret)
  		return ret;
  
@@ -33,10 +33,8 @@ index 1fb3899b8..f72eec3d8 100644
 -	if (ret < 0)
 -		return dev_err_probe(dev, ret, "Unable to get iface clk\n");
 +	/*
-+	 * The iface (MDSS AHB) clock is prepared only while the PHY is
-+	 * runtime active. pm_clk prepares it once at pm_clk_add() and keeps
-+	 * it prepared, which holds the display clock controller runtime
-+	 * active and its MMCX vote up with the screen off.
++	 * A prepared iface clock keeps dispcc runtime active and its MMCX vote
++	 * up: prepare it only while the PHY is runtime active.
 +	 */
 +	phy->ahb_clk = devm_clk_get(dev, "iface");
 +	if (IS_ERR(phy->ahb_clk))
@@ -44,7 +42,7 @@ index 1fb3899b8..f72eec3d8 100644
  
  	if (phy->cfg->ops.pll_init) {
  		ret = phy->cfg->ops.pll_init(phy);
-@@ -711,8 +713,23 @@ static int dsi_phy_driver_probe(struct platform_device *pdev)
+@@ -711,8 +711,23 @@ static int dsi_phy_driver_probe(struct platform_device *pdev)
  	return 0;
  }
  

@@ -35,11 +35,11 @@ all work. Not yet run on the board.
 ---
  arch/arm64/Kconfig             |  30 +++++++++
  arch/arm64/kernel/Makefile     |   1 +
- arch/arm64/kernel/boot_marks.c | 116 +++++++++++++++++++++++++++++++++
+ arch/arm64/kernel/boot_marks.c | 108 +++++++++++++++++++++++++++++++++
  arch/arm64/kernel/setup.c      |   6 ++
  include/linux/boot_marks.h     |  26 ++++++++
  init/main.c                    |   8 +++
- 6 files changed, 187 insertions(+)
+ 6 files changed, 179 insertions(+)
  create mode 100644 arch/arm64/kernel/boot_marks.c
  create mode 100644 include/linux/boot_marks.h
 
@@ -98,21 +98,13 @@ index 2b98286a7..fac4ae25a 100644
  obj-$(CONFIG_ARM64_MTE)			+= mte.o
 diff --git a/arch/arm64/kernel/boot_marks.c b/arch/arm64/kernel/boot_marks.c
 new file mode 100644
-index 000000000..9b4425640
+index 000000000..4381fb518
 --- /dev/null
 +++ b/arch/arm64/kernel/boot_marks.c
-@@ -0,0 +1,116 @@
+@@ -0,0 +1,108 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Boot progress marks, painted straight into the bootloader's framebuffer.
-+ *
-+ * On a board with no serial port, a kernel that hangs before any console
-+ * driver binds leaves nothing behind: the bootloader's splash image simply
-+ * stays up, which looks the same whether the kernel died in its first
-+ * instruction or two seconds before userspace. But the display controller is
-+ * still scanning that splash buffer out (a video-mode panel re-reads it every
-+ * frame), so a store to it is on the glass one frame later -- no driver, no
-+ * clocks, no console.
 + *
 + * boot_mark(n) paints block n of a column of small blocks at the edge of the
 + * screen. The call sites are spread from the top of setup_arch() to the exec
@@ -219,7 +211,7 @@ index 000000000..9b4425640
 +	paint(n, (n & 1) ? COLOR_ODD : COLOR_EVEN, true);
 +}
 diff --git a/arch/arm64/kernel/setup.c b/arch/arm64/kernel/setup.c
-index 83229773f..f8d0d2554 100644
+index e31e62d80..993fec843 100644
 --- a/arch/arm64/kernel/setup.c
 +++ b/arch/arm64/kernel/setup.c
 @@ -27,6 +27,7 @@
@@ -230,7 +222,7 @@ index 83229773f..f8d0d2554 100644
  #include <linux/of_fdt.h>
  #include <linux/efi.h>
  #include <linux/psci.h>
-@@ -382,8 +383,10 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
+@@ -375,8 +376,10 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
  
  	early_fixmap_init();
  	early_ioremap_init();
@@ -241,7 +233,7 @@ index 83229773f..f8d0d2554 100644
  
  	/*
  	 * Initialise the static keys early as they may be enabled by the
-@@ -426,6 +429,7 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
+@@ -419,6 +422,7 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
  	arm64_memblock_init();
  
  	paging_init();
@@ -249,7 +241,7 @@ index 83229773f..f8d0d2554 100644
  
  	acpi_table_upgrade();
  
-@@ -467,6 +471,8 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
+@@ -460,6 +464,8 @@ void __init __no_sanitize_address setup_arch(char **cmdline_p)
  			"This indicates a broken bootloader or old kernel\n",
  			boot_args[1], boot_args[2], boot_args[3]);
  	}

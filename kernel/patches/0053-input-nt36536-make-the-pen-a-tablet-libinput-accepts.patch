@@ -12,12 +12,12 @@ pen reports 10x the panel pixels, 19040 x 30400 over the 118.6 x 189.4 mm
 Untested with a pen (no AES pen at hand), so
 axis orientation and the button bits are unverified. Applies after 0027.
 ---
- drivers/input/touchscreen/nt36536/nt36xxx.c | 16 ++++++++++++++++
+ drivers/input/touchscreen/nt36536/nt36xxx.c | 14 ++++++++++++++
  drivers/input/touchscreen/nt36536/nt36xxx.h |  2 ++
- 2 files changed, 18 insertions(+)
+ 2 files changed, 16 insertions(+)
 
 diff --git a/drivers/input/touchscreen/nt36536/nt36xxx.c b/drivers/input/touchscreen/nt36536/nt36xxx.c
-index acce7abe6..abd21ea08 100644
+index e15818f4e..3c0650a7a 100644
 --- a/drivers/input/touchscreen/nt36536/nt36xxx.c
 +++ b/drivers/input/touchscreen/nt36536/nt36xxx.c
 @@ -725,6 +725,8 @@ static void release_pen_event(void) {
@@ -29,7 +29,7 @@ index acce7abe6..abd21ea08 100644
  		input_sync(ts->pen_input_dev);
  	}
  }
-@@ -1037,6 +1039,8 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
+@@ -1032,6 +1034,8 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
  				input_report_abs(ts->pen_input_dev, ABS_TILT_Y, pen_tilt_y);
  				input_report_abs(ts->pen_input_dev, ABS_DISTANCE, pen_distance);
  				input_report_key(ts->pen_input_dev, BTN_TOOL_PEN, !!pen_distance || !!pen_pressure);
@@ -38,7 +38,7 @@ index acce7abe6..abd21ea08 100644
  				// TBD: pen battery event report
  				// NVT_LOG("pen_battery=%d\n", pen_battery);
  			} else if (pen_format_id == 0xF0) {
-@@ -1054,6 +1058,8 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
+@@ -1049,6 +1053,8 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
  			input_report_abs(ts->pen_input_dev, ABS_DISTANCE, 0);
  			input_report_key(ts->pen_input_dev, BTN_TOUCH, 0);
  			input_report_key(ts->pen_input_dev, BTN_TOOL_PEN, 0);
@@ -47,7 +47,7 @@ index acce7abe6..abd21ea08 100644
  		}
  
  		input_sync(ts->pen_input_dev);
-@@ -1369,11 +1375,21 @@ static int32_t nvt_ts_probe(struct spi_device *client)
+@@ -1364,11 +1370,19 @@ static int32_t nvt_ts_probe(struct spi_device *client)
  		ts->pen_input_dev->evbit[0] = BIT_MASK(EV_SYN) | BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
  		ts->pen_input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
  		ts->pen_input_dev->keybit[BIT_WORD(BTN_TOOL_PEN)] |= BIT_MASK(BTN_TOOL_PEN);
@@ -59,10 +59,8 @@ index acce7abe6..abd21ea08 100644
  		input_set_abs_params(ts->pen_input_dev, ABS_X, 0, ts->abs_x_max - 1, 0, 0);
  		input_set_abs_params(ts->pen_input_dev, ABS_Y, 0, ts->abs_y_max - 1, 0, 0);
 +		/*
-+		 * libinput ignores a tablet without BTN_STYLUS and a resolution
-+		 * ("missing tablet capabilities: btn-stylus resolution"). The pen
-+		 * reports 10x the panel pixels: 19040 x 30400 over the 8.8" 1904 x
-+		 * 3040 panel (118.6 x 189.4 mm) = 160 units/mm.
++		 * libinput needs BTN_STYLUS and a resolution. The pen reports
++		 * 10x the panel pixels.
 +		 */
 +		input_abs_set_res(ts->pen_input_dev, ABS_X, NVT_UNITS_PER_MM);
 +		input_abs_set_res(ts->pen_input_dev, ABS_Y, NVT_UNITS_PER_MM);
@@ -70,7 +68,7 @@ index acce7abe6..abd21ea08 100644
  		input_set_abs_params(ts->pen_input_dev, ABS_DISTANCE, 0, PEN_DISTANCE_MAX, 0, 0);
  		input_set_abs_params(ts->pen_input_dev, ABS_TILT_X, PEN_TILT_MIN, PEN_TILT_MAX, 0, 0);
 diff --git a/drivers/input/touchscreen/nt36536/nt36xxx.h b/drivers/input/touchscreen/nt36536/nt36xxx.h
-index bdc456ee2..0bad171cb 100644
+index 7ea2649f4..ab9989da9 100644
 --- a/drivers/input/touchscreen/nt36536/nt36xxx.h
 +++ b/drivers/input/touchscreen/nt36536/nt36xxx.h
 @@ -61,6 +61,8 @@

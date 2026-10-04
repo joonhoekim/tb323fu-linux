@@ -4,9 +4,9 @@
  *
  * kaanapali.dtsi gives every CPU sensor only a "hot" (120 C) and a "critical"
  * (125 C) trip and no cooling map, leaving everything below shutdown to the
- * firmware's LMh: eight busy cores read 107 C within 2 s. Here each zone
- * gets a passive trip at 95 C that steps its cluster's cpufreq policy down
- * (scmi-cpufreq registers the cooling device on the policy's first CPU).
+ * firmware's LMh. Here each zone gets a passive trip at 95 C that steps its
+ * cluster's cpufreq policy down (scmi-cpufreq registers the cooling device on
+ * the policy's first CPU).
  *
  * Zone names are cpu-<cluster>-<core>-<n> / cpullc-<cluster>-<n>; cluster 0
  * is cpu0-5 (policy0), cluster 1 is cpu6-7 (policy6).

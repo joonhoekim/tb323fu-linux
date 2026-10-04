@@ -33,11 +33,11 @@ is copied per device: the DSI host writes pic_width and the RC fields into
 it, which on the static const descriptor only worked before rodata went
 read-only. The PPS is packed from that copy.
 ---
- drivers/gpu/drm/panel/panel-novatek-nt36523.c | 163 ++++++++++++++++++
- 1 file changed, 163 insertions(+)
+ drivers/gpu/drm/panel/panel-novatek-nt36523.c | 141 ++++++++++++++++++
+ 1 file changed, 141 insertions(+)
 
 diff --git a/drivers/gpu/drm/panel/panel-novatek-nt36523.c b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
-index 34b9123d3..834cfbdce 100644
+index 34b9123d3..7251fb1ab 100644
 --- a/drivers/gpu/drm/panel/panel-novatek-nt36523.c
 +++ b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
 @@ -15,6 +15,8 @@
@@ -117,22 +117,14 @@ index 34b9123d3..834cfbdce 100644
  
  		ret = devm_mipi_dsi_attach(dev, pinfo->dsi[i]);
  		if (ret < 0)
-@@ -1241,7 +1279,132 @@ static int nt36523_probe(struct mipi_dsi_device *dsi)
+@@ -1241,7 +1279,110 @@ static int nt36523_probe(struct mipi_dsi_device *dsi)
  	return 0;
  }
  
 +
 +/*
-+ * Lenovo Legion Tab Y700 5th Gen (TB323FU, "baldur"): CSOT NT36523, 1904x3040,
-+ * dual-DSI (952 per link), video mode, DSC 1.2.
-+ *
-+ * The sequence below is the one this device's own bootloader passes to
-+ * Android, decoded out of qcom,mdss-dsi-on-command in /sys/firmware/fdt (26
-+ * packets, 258 bytes). It is far shorter than the elish sequences above
-+ * because most of this panel's setup lives in its own ROM; what is here is
-+ * page selects, the compression registers (0x90/0x91/0x92), one timing block,
-+ * then sleep out and display on. Every write goes to both links, as the vendor
-+ * sends them.
++ * CSOT NT36523, dual-DSI video mode with DSC 1.2. The init sequence is the
++ * bootloader's; every write goes to both links.
 + */
 +static int baldur_csot_init_sequence(struct panel_info *pinfo)
 +{
@@ -170,11 +162,7 @@ index 34b9123d3..834cfbdce 100644
 +	mipi_dsi_dual_dcs_write_seq_multi(&dsi_ctx, dsi0, dsi1, 0xb2, 0x91, 0x80);
 +	mipi_dsi_dual_dcs_write_seq_multi(&dsi_ctx, dsi0, dsi1, 0xb3, 0x40);
 +
-+	/*
-+	 * There is no dual variant of these two, so the generic mipi_dsi_dual()
-+	 * wrapper is used to run each on both links. The waits are the vendor's
-+	 * (its packets carry wait=105 and wait=40).
-+	 */
++	/* the waits are the vendor's */
 +	mipi_dsi_dual(mipi_dsi_dcs_exit_sleep_mode_multi, &dsi_ctx, dsi0, dsi1);
 +	mipi_dsi_msleep(&dsi_ctx, 105);
 +	mipi_dsi_dual(mipi_dsi_dcs_set_display_on_multi, &dsi_ctx, dsi0, dsi1);
@@ -183,11 +171,7 @@ index 34b9123d3..834cfbdce 100644
 +	return dsi_ctx.accum_err;
 +}
 +
-+/*
-+ * DSC as the vendor timing block states it: 1.2, slice 476x20, two slices per
-+ * link, 10 bits per component, compressed to 8 bits per pixel.
-+ * 476 * 2 = 952, which is one link's width.
-+ */
++/* two 476-pixel slices per 952-pixel link */
 +static const struct drm_dsc_config baldur_csot_dsc_cfg = {
 +	.dsc_version_major = 1,
 +	.dsc_version_minor = 2,
@@ -199,13 +183,7 @@ index 34b9123d3..834cfbdce 100644
 +	.block_pred_enable = true,
 +};
 +
-+/*
-+ * Horizontal values are per link in the vendor devicetree and are doubled
-+ * here, the way the himax dual-DSI panels write theirs; vertical values are
-+ * not. Only the 120 Hz mode is described: the panel advertises 165/144/90/60/30
-+ * as well, but the vendor carries one set of porches and switches refresh rate
-+ * through its own dynamic-timing nodes.
-+ */
++/* horizontal values are doubled for the two links, vertical ones are not */
 +static const struct drm_display_mode baldur_csot_modes[] = {
 +	{
 +		.clock = (952 + 90 + 16 + 64) * 2 * (3040 + 26 + 4 + 330) * 120 / 1000,
