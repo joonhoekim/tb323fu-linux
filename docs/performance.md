@@ -70,9 +70,14 @@ OpenCL compiler (rusticl on freedreno), not the kernel; few desktop applications
 | + buffers the CPU reads back allocated cached instead of write-combined | 9285 |
 | + kernels recompiled for the work-group size of each launch | 10542 |
 
-The last two are experiments in a local Mesa build, not in any release. The biggest remaining loss is in kernels
-that read the same value in every thread (for example filter coefficients): Mesa loads it once per thread,
-Qualcomm's driver once per group. A convolution kernel without that load runs as fast as on Android.
+| + uniform loads broadcast, native sin/cos under fast relaxed math, fast-math fixes, no scalar ALU on the 840 | 13615 |
+
+These are changes to a local Mesa build (ten patches prepared for upstream), not in any release; with them
+Geekbench 6 OpenCL goes from 9657 to 14163 and Geekbench 6 Vulkan from 20597 to 21583, and OpenCL-CTS shows no
+regression in the suites run. What they fix: values read at the same address by every thread were loaded once per
+thread; `sin`/`cos` went through a software implementation even under `-cl-fast-relaxed-math`; Mesa compiled
+fast-relaxed-math kernels as exact (it ignored the SPIR-V `Fast` flag); on the Adreno 840 the scalar ALU made
+uniform loops wait on every iteration.
 
 ## Storage
 
