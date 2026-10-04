@@ -32,13 +32,13 @@ const HIDDEN = new Set(["docs/photo-shotlist.md"]);
 const DOCS_ORDER = [
   "hardware-status",
   "distros",
+  "rooting",
   "install",
   "install-windows",
   "install-linux",
   "install-macos",
   "install-manual",
   "after-install",
-  "rooting",
   "recovery",
   "helper",
 ];

@@ -16,6 +16,7 @@ export default function SiteHeader() {
         </Link>
         <nav aria-label="Main" className="main-nav">
           <Link href="/docs/">Docs</Link>
+          <Link href="/docs/install/">Install</Link>
           <Link href="/docs/hardware-status/">Hardware</Link>
           <Link href="/docs/distros/" className="nav-optional">
             Distros
