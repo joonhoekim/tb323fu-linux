@@ -16,6 +16,22 @@ tablet. Single runs: expect a few percent between runs. Linux: Debian 13 with GN
 | Storage, 4K random read, 4 jobs | 459k IOPS | 386k IOPS | with MCQ (patch 0119); without it 240k |
 | Video decode, 4K | — | H.264 319 fps, HEVC 531 fps | hardware decoder (iris); 40 Mbit/s test clips |
 
+## Against published Android results
+
+Where the same benchmark runs on both, Linux on this tablet against results published for other Snapdragon 8 Elite
+Gen 5 devices (Android):
+
+| Benchmark | Linux | Published (Android) |
+|---|---|---|
+| Geekbench 6 CPU single / multi | 3641 / 11175 | about 3655–3710 / 10758–11672 |
+| Speedometer 3.1 (Chromium 150) | 22.5 | 18.1 (OnePlus 15), 23 (Xiaomi 17), 46 (Galaxy S26 Ultra) |
+| JetStream 2.2 (Chromium 150) | 389.5 | about 281–295 (Chrome) |
+| Geekbench 6 Vulkan | 18099 (Mesa 26.1.6), 20597 (Mesa main) | about 27200–29700 |
+| Geekbench 6 OpenCL | 9657 (Mesa main) | about 24000 |
+
+With Debian's Mesa 26.1.6, Geekbench 6 OpenCL fails one workload's result check (Particle Physics) and scores
+2593. So the loss is in GPU compute, not across the board.
+
 ## CPU and memory
 
 Two kernel changes closed most of the CPU gap:
