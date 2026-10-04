@@ -32,6 +32,7 @@ const HIDDEN = new Set(["docs/photo-shotlist.md"]);
 /** Preferred order of docs/*.md in the navigation; the rest follow alphabetically. */
 const DOCS_ORDER = [
   "hardware-status",
+  "performance",
   "distros",
   "rooting",
   "install",
