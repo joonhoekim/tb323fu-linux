@@ -26,6 +26,11 @@ else
 fi
 DBUSSVC=${DBUSSVC:-/usr/share/dbus-1/system-services}
 POLKIT=${POLKIT:-/usr/share/polkit-1/actions}
+# the Mesa channel's switch (docs/notes/mesa-channel-design.md): login shells source the profile
+# script, desktop sessions read environment.d; both point at /var/lib/tb323fu/mesa/env.conf
+PROFILED=${PROFILED:-/etc/profile.d}
+if [ "$PREFIX" = /usr ]; then ENVD=${ENVD:-/usr/lib/environment.d}; else ENVD=${ENVD:-/etc/environment.d}; fi
+MESADIR=/var/lib/tb323fu/mesa
 # optional minisign keys for kernel.require_signature (none shipped; the old
 # project key of the signed-index channel is removed on install)
 KEYDIR=${KEYDIR:-$PREFIX/share/tb323fu/keys}
@@ -37,6 +42,7 @@ files() {
 	echo "$LIBEXECDIR/tb323fu-kernel-fetch $UNITDIR/tb323fu-kernel-fetch.service"
 	echo "$DBUSCONF/io.github.joonhoekim.OpenDeviceHelper1.conf $DBUSSVC/io.github.joonhoekim.OpenDeviceHelper1.service"
 	echo "$POLKIT/io.github.joonhoekim.opendevicehelper.policy"
+	echo "$BINDIR/tb323fu-mesa $PROFILED/tb323fu-mesa.sh $ENVD/60-tb323fu-mesa.conf"
 }
 
 if [ "${1:-}" = --uninstall ]; then
@@ -66,6 +72,14 @@ install -Dm644 "$here/data/io.github.joonhoekim.OpenDeviceHelper1.conf" "$DESTDI
 install -Dm644 "$here/data/io.github.joonhoekim.OpenDeviceHelper1.service" "$DESTDIR$DBUSSVC/io.github.joonhoekim.OpenDeviceHelper1.service"
 install -Dm644 "$here/data/io.github.joonhoekim.opendevicehelper.policy" "$DESTDIR$POLKIT/io.github.joonhoekim.opendevicehelper.policy"
 install -Dm644 "$here/data/helper.toml.example" "$DESTDIR$PREFIX/share/doc/tb323fu-helper/helper.toml.example"
+install -Dm755 "$here/data/tb323fu-mesa" "$DESTDIR$BINDIR/tb323fu-mesa"
+install -Dm644 "$here/data/tb323fu-mesa.sh" "$DESTDIR$PROFILED/tb323fu-mesa.sh"
+install -d "$DESTDIR$ENVD"
+ln -sfn "$MESADIR/env.conf" "$DESTDIR$ENVD/60-tb323fu-mesa.conf"
+if [ -z "$DESTDIR" ] && [ ! -e "$MESADIR/env.conf" ]; then
+	install -d "$MESADIR"
+	: > "$MESADIR/env.conf"
+fi
 if [ -z "$DESTDIR" ]; then
 	sync
 	systemctl daemon-reload

@@ -49,6 +49,8 @@ pub const ALLOWED_FILES: &[&str] = &[
     "/usr/local/libexec/tb323fu-kernel-fetch",
     "/usr/local/bin/tb323fu-ctl",
     "/usr/local/bin/tb323fu-settings",
+    "/usr/local/bin/tb323fu-mesa",
+    "/etc/profile.d/tb323fu-mesa.sh",
     "/etc/systemd/system/tb323fu-helperd.service",
     "/etc/systemd/system/tb323fu-kernel-fetch.service",
     "/etc/dbus-1/system.d/io.github.joonhoekim.OpenDeviceHelper1.conf",

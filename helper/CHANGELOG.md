@@ -1,5 +1,16 @@
 # Open Device Helper changelog
 
+## 0.4.0 — unreleased
+
+- **Mesa channel:** the port's Mesa build (Turnip Vulkan, rusticl OpenCL, with the a8xx patches that are not
+  upstream yet) from `mesa-*` releases on GitHub Releases, next to the distribution's Mesa, which stays installed and
+  untouched. `tb323fu-ctl mesa check | download | install | update | on | off | keep | rollback`; switching on sets
+  the loader variables for the next login (`/etc/environment.d/60-tb323fu-mesa.conf`,
+  `/etc/profile.d/tb323fu-mesa.sh`). A version switched on is on trial: without Keep, the third start goes back to
+  the distribution's Mesa. `tb323fu-mesa run|distro COMMAND` (also `tb323fu-ctl mesa run|distro`) picks the driver
+  for one command whatever the session setting. New D-Bus object `Mesa`, polkit action `mesa-install`.
+- `tools/mesa-release.py` makes and checks the Mesa release assets.
+
 ## 0.3.1 — 2026-10-04
 
 - The GNOME quick settings tile, its menu header and the settings app's sidebar are labeled **Device** (was "Tablet",

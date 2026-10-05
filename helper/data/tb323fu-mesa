@@ -1,0 +1,40 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Joonhoe Kim
+# tb323fu-mesa -- run one command with the Mesa build of the helper's Mesa channel, or with the
+# distribution's Mesa, whatever the session setting (`tb323fu-ctl mesa on|off`) is.
+#   tb323fu-mesa run COMMAND [ARGS...]      the port's Mesa (Vulkan, OpenCL)
+#   tb323fu-mesa distro COMMAND [ARGS...]   the distribution's Mesa
+#   tb323fu-mesa env                        the variables `run` sets
+D=${TB323FU_MESA_DIR:-/var/lib/tb323fu/mesa}
+mode=${1:-}
+[ $# -gt 0 ] && shift
+ours() {
+	[ -e "$D/current" ] || { echo "tb323fu-mesa: no Mesa version installed (tb323fu-ctl mesa update)" >&2; exit 1; }
+	if [ -f "$D/icd/turnip.json" ]; then
+		export VK_DRIVER_FILES="$D/icd/turnip.json" VK_ICD_FILENAMES="$D/icd/turnip.json"
+	fi
+	if [ -f "$D/icd/opencl/rusticl.icd" ]; then
+		export OCL_ICD_VENDORS="$D/icd/opencl" RUSTICL_ENABLE=freedreno
+	fi
+}
+case $mode in
+run)
+	[ $# -gt 0 ] || { echo "usage: tb323fu-mesa run COMMAND [ARGS...]" >&2; exit 2; }
+	ours
+	exec "$@"
+	;;
+distro)
+	[ $# -gt 0 ] || { echo "usage: tb323fu-mesa distro COMMAND [ARGS...]" >&2; exit 2; }
+	unset VK_DRIVER_FILES VK_ICD_FILENAMES OCL_ICD_VENDORS RUSTICL_ENABLE
+	exec "$@"
+	;;
+env)
+	ours
+	env | grep -E '^(VK_DRIVER_FILES|VK_ICD_FILENAMES|OCL_ICD_VENDORS|RUSTICL_ENABLE)='
+	;;
+*)
+	echo "usage: tb323fu-mesa run|distro COMMAND [ARGS...] | tb323fu-mesa env" >&2
+	exit 2
+	;;
+esac

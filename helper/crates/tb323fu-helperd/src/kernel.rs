@@ -63,6 +63,8 @@ struct St {
     releases: Option<(Vec<Release>, Option<String>)>,
     /// the helper releases of the same list (self-update)
     helpers: Vec<HelperRelease>,
+    /// the Mesa releases of the same list (Mesa channel)
+    mesas: Vec<tb323fu_helper_core::mesa::MesaRelease>,
     last_check: u64,
     /// installed in this boot, waiting for a restart
     pending: String,
@@ -146,9 +148,10 @@ impl Inner {
         {
             let mut s = inner.st();
             s.last_check = sys::read_opt(&stage().join("last-check")).and_then(|v| v.parse().ok()).unwrap_or(0);
-            if let Some((r, h)) = inner.stored_releases() {
+            if let Some((r, h, m)) = inner.stored_releases() {
                 s.releases = Some(r);
                 s.helpers = h;
+                s.mesas = m;
             }
         }
         inner
@@ -182,17 +185,23 @@ impl Inner {
     }
 
     /// The last release list on disk, when it came from the configured source.
-    fn stored_releases(&self) -> Option<((Vec<Release>, Option<String>), Vec<HelperRelease>)> {
+    #[allow(clippy::type_complexity)]
+    fn stored_releases(&self) -> Option<((Vec<Release>, Option<String>), Vec<HelperRelease>, Vec<tb323fu_helper_core::mesa::MesaRelease>)> {
         let src = self.source().ok()?;
         if read_text(&stage().join("releases.source")).ok()?.trim() != src.releases_url() {
             return None;
         }
         let d = read_limited(&stage().join("releases.json"), k::MAX_RELEASES_FILE).ok()?;
-        Some((k::parse_releases(&d, &src).ok()?, hu::parse_helper_releases(&d, &src).unwrap_or_default()))
+        Some((k::parse_releases(&d, &src).ok()?, hu::parse_helper_releases(&d, &src).unwrap_or_default(),
+            tb323fu_helper_core::mesa::parse_releases(&d, &src).unwrap_or_default()))
     }
 
     pub fn helper_releases(&self) -> Vec<HelperRelease> {
         self.st().helpers.clone()
+    }
+
+    pub fn mesa_releases(&self) -> Vec<tb323fu_helper_core::mesa::MesaRelease> {
+        self.st().mesas.clone()
     }
 
     pub fn last_check(&self) -> u64 {
@@ -351,6 +360,7 @@ impl Inner {
         let data = read_limited(&cache().join("releases.json"), k::MAX_RELEASES_FILE)?;
         let (rels, helper) = k::parse_releases(&data, &src)?;
         let helpers = hu::parse_helper_releases(&data, &src)?;
+        let mesas = tb323fu_helper_core::mesa::parse_releases(&data, &src)?;
         let now = k::now();
         write_file(&stage().join("releases.json"), &data)?;
         write_file(&stage().join("releases.source"), url.as_bytes())?;
@@ -358,6 +368,7 @@ impl Inner {
         let mut s = self.st();
         s.releases = Some((rels, helper));
         s.helpers = helpers;
+        s.mesas = mesas;
         s.last_check = now;
         Ok(())
     }

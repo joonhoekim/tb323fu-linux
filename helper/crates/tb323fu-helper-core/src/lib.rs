@@ -12,6 +12,7 @@ pub mod features;
 pub mod haptics;
 pub mod helperupdate;
 pub mod kernel;
+pub mod mesa;
 pub mod perf;
 pub mod schedule;
 pub mod sys;

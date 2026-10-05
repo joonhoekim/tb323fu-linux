@@ -11,6 +11,7 @@
 mod diag;
 mod ifaces;
 mod kernel;
+mod mesa;
 mod led;
 mod nm;
 mod polkit;
@@ -567,6 +568,7 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
     }
     let hupd = selfupdate::Inner::new(shared.clone(), kern.clone());
     b = b.serve_at(selfupdate::P_HELPER_UPDATE, selfupdate::HelperUpdate(hupd))?;
+    b = b.serve_at(mesa::P_MESA, mesa::Mesa(mesa::Inner::new(shared.clone(), kern.clone())))?;
     if has_thermal {
         b = b.serve_at(P_THERMAL, Thermal(shared.clone()))?;
     }
@@ -630,9 +632,20 @@ fn main() {
     if args.iter().any(|a| a == "--apply") {
         std::process::exit(selfupdate::apply_main(&args));
     }
+    if args.iter().any(|a| a == "--mesa-boot-tick") {
+        match tb323fu_helper_core::mesa::boot_tick(&tb323fu_helper_core::sys::path("/"), &mesa::boot_id()) {
+            Ok(m) => println!("{m}"),
+            Err(e) => {
+                eprintln!("tb323fu-helperd: mesa: {e}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
     if args.iter().any(|a| a == "-h" || a == "--help") {
         println!("usage: tb323fu-helperd [--session] [--no-polkit]
-       tb323fu-helperd --apply DIR --from VERSION --to VERSION [--rollback] [--session]   (started by HelperUpdate)");
+       tb323fu-helperd --apply DIR --from VERSION --to VERSION [--rollback] [--session]   (started by HelperUpdate)
+       tb323fu-helperd --mesa-boot-tick   (count this boot for the Mesa version on trial; the daemon does it when it starts)");
         return;
     }
     let no_polkit = args.iter().any(|a| a == "--no-polkit");

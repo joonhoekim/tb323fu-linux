@@ -147,6 +147,12 @@
     <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
   </action>
 
+  <action id="io.github.joonhoekim.opendevicehelper.mesa-install">
+    <description>Change which Mesa graphics drivers applications use</description>
+    <message>Authentication is required to change the graphics drivers</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+  </action>
+
   <action id="io.github.joonhoekim.opendevicehelper.kernel-install">
     <description>Install a new kernel</description>
     <message>Authentication is required to install a new kernel</message>

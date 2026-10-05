@@ -46,7 +46,7 @@ included) and inside the daemon's `ReadWritePaths`, so no transient unit is need
   icd/turnip.json            Vulkan ICD manifest pointing into current/
   icd/opencl/rusticl.icd     OpenCL vendor file pointing into current/
   env.conf                   KEY=VALUE lines, empty when switched off
-  state                      key=value: enabled, trial, tries, max, keep, failed, good
+  state                      key=value: enabled, trial, tries, max, failed, failed_reason, boot
   staged/<tag>/              download area (tarball, SHA256SUMS, verified)
 ```
 
@@ -59,9 +59,11 @@ under `/var/lib`. Switching off empties `env.conf`; the next login uses the dist
 Mirrors the kernel trial, with the environment as the thing that is reverted:
 
 1. Enabling a version (or installing a new one while enabled) writes `trial=<version> tries=0 max=2`.
-2. `tb323fu-mesa-trial.service` runs once per boot before the display manager: with a trial pending it counts
-   the start; when `tries` exceeds `max` it empties `env.conf`, records `failed=<version>` and leaves the
-   previous state (`good`) in place.
+2. The daemon counts the start when it starts, once per boot (`boot=` holds the last counted
+   `/proc/sys/kernel/random/boot_id`; `tb323fu-helperd --mesa-boot-tick` does the same without serving). When
+   `tries` exceeds `max` it empties `env.conf` and records `failed=<version>`; `current` stays, so switching on
+   again tries the same version. The daemon starts before the display manager, so the login after the third
+   start without Keep already uses the distribution's drivers.
 3. **Keep** (settings app, `tb323fu-ctl mesa keep`) clears the trial. Phase 1 could confirm automatically after
    a health check (`vulkaninfo`/`clinfo` against the new driver); phase 2 (GL) needs the explicit Keep, because
    a broken compositor cannot press anything.
@@ -80,7 +82,7 @@ Mirrors the kernel trial, with the environment as the thing that is reverted:
 1. Self-contained build (static LLVM/clang/translator, embedded libclc), checked on Debian, Ubuntu, Arch, Fedora.
 2. `mesa-release.py`, a first `mesa-…` pre-release.
 3. Helper: core (`mesa.rs`: parse, pick, download, verify, install, enable, trial state), daemon D-Bus object
-   `…OpenDeviceHelper1.Mesa`, polkit actions, `tb323fu-ctl mesa …`, `tb323fu-mesa run`, the trial unit,
-   `install.sh` links, tests with the fake API.
+   `…OpenDeviceHelper1.Mesa`, polkit action `mesa-install`, `tb323fu-ctl mesa …`, `tb323fu-mesa run`, the boot count,
+   `install.sh` links, tests with the fake API (`helper/tests/mesa-update-test.sh`).
 4. Settings app: a "Graphics drivers" group (version, toggle, Keep banner, Rollback).
 5. GL (phase 2 above).

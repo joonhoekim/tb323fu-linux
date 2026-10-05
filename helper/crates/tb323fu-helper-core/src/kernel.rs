@@ -182,9 +182,11 @@ impl Source {
         Ok(Source { owner: owner.into(), repo: repo.into(), api: api.into() })
     }
 
-    /// The release list (newest first, 30 per page; the API default).
+    /// The release list, newest first: 100 per page on GitHub (kernel, helper
+    /// and Mesa releases share it); a test API serves the plain path.
     pub fn releases_url(&self) -> String {
-        format!("{}/repos/{}/{}/releases", self.api, self.owner, self.repo)
+        let q = if self.api == crate::config::DEFAULT_API_URL { "?per_page=100" } else { "" };
+        format!("{}/repos/{}/{}/releases{q}", self.api, self.owner, self.repo)
     }
 
     /// Every asset URL must start with this: on GitHub the release assets of
@@ -1015,7 +1017,7 @@ mod tests {
         assert_eq!(serial_of_release("7.3.0-rc4-tb323fu-t30-jh"), 0);
         assert!(KEYS.is_empty(), "no key is trusted by default");
         let s = Source::parse("github:joonhoekim/tb323fu-linux", "https://api.github.com/").unwrap();
-        assert_eq!(s.releases_url(), "https://api.github.com/repos/joonhoekim/tb323fu-linux/releases");
+        assert_eq!(s.releases_url(), "https://api.github.com/repos/joonhoekim/tb323fu-linux/releases?per_page=100");
         assert!(Source::parse("joonhoekim/tb323fu-linux", "https://api.github.com").is_err());
         assert!(Source::parse("github:a/../b", "https://api.github.com").is_err());
         assert!(Source::parse("github:a/b", "ftp://x").is_err());

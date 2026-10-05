@@ -60,6 +60,8 @@ ALLOWED_FILES = {
     "/usr/local/libexec/tb323fu-kernel-fetch",
     "/usr/local/bin/tb323fu-ctl",
     "/usr/local/bin/tb323fu-settings",
+    "/usr/local/bin/tb323fu-mesa",
+    "/etc/profile.d/tb323fu-mesa.sh",
     "/etc/systemd/system/tb323fu-helperd.service",
     "/etc/systemd/system/tb323fu-kernel-fetch.service",
     "/etc/dbus-1/system.d/io.github.joonhoekim.OpenDeviceHelper1.conf",
@@ -106,6 +108,10 @@ def glibc_of(data):
     return best
 
 
+# install.sh's link to the Mesa channel's env.conf; the updater makes it (selfupdate.rs ensure_mesa_link)
+MESA_ENV_LINK = "/etc/environment.d/60-tb323fu-mesa.conf"
+
+
 def stage(a, dest):
     env = dict(os.environ, DESTDIR=dest, PREFIX=PREFIX)
     if a.build_dir:
@@ -143,6 +149,8 @@ def collect(tree, any_arch):
         for n in sorted(names):
             full = os.path.join(d, n)
             p = "/" + os.path.relpath(full, tree).replace(os.sep, "/")
+            if p == MESA_ENV_LINK and os.path.islink(full):
+                continue
             if os.path.islink(full) or not os.path.isfile(full):
                 sys.exit(f"{p}: not a regular file")
             if not allowed(p):

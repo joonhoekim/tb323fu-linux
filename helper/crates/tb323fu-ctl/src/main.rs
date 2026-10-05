@@ -66,6 +66,16 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
   kernel auto-check on|off       daily check for a new kernel
   kernel helper-notify on|off    show when a newer helper is published
   kernel dismiss                 hide the notice after an automatic rollback
+  mesa [status]                  the port's Mesa build (Vulkan, OpenCL): installed, on/off, trial, newer release
+  mesa check|notes [VERSION]     look for a newer Mesa release in the kernel channel / its release notes
+  mesa download [VERSION]        download and check a release (default the channel's newest)
+  mesa install [VERSION]         make a downloaded version current (admin)
+  mesa update                    check, download and install the newest release
+  mesa on|off                    applications use it from the next login, or the distribution's Mesa (admin);
+                                 on starts a trial: keep it, or it is switched off after two starts
+  mesa keep                      keep the version on trial
+  mesa rollback                  go back to the previous version (admin)
+  mesa run|distro COMMAND...     run one command with the port's / the distribution's Mesa (tb323fu-mesa)
   helper [status]                helper updates: this version, the newest release, who updates it here
   helper check                   look for a newer helper release
   helper notes [VERSION]         its release notes (default the newest)
@@ -193,6 +203,65 @@ impl Ctl {
                 eprintln!("tb323fu-ctl: {obj}.{method}: {e}");
                 1
             }
+        }
+    }
+}
+
+impl Ctl {
+    fn mcall<B>(&self, method: &str, body: &B) -> Result<String, i32>
+    where
+        B: serde::ser::Serialize + zbus::zvariant::DynamicType,
+    {
+        match self.conn.call_method(Some(BUS), path("Mesa").as_str(), Some(iface("Mesa").as_str()), method, body) {
+            Ok(reply) => Ok(reply.body().deserialize::<String>().unwrap_or_default()),
+            Err(zbus::Error::MethodError(n, _, _)) if n.as_str() == "org.freedesktop.DBus.Error.UnknownObject" || n.as_str() == "org.freedesktop.DBus.Error.UnknownMethod" => {
+                eprintln!("tb323fu-ctl: this helper has no Mesa channel (update the helper)");
+                Err(1)
+            }
+            Err(zbus::Error::MethodError(_, msg, _)) => {
+                eprintln!("tb323fu-ctl: mesa {}: {}", method.to_lowercase(), msg.unwrap_or_default());
+                Err(1)
+            }
+            Err(e) => {
+                eprintln!("tb323fu-ctl: mesa {}: {e}", method.to_lowercase());
+                Err(1)
+            }
+        }
+    }
+
+    fn mesa(&self, rest: &[&str]) -> i32 {
+        let say = |r: Result<String, i32>| match r {
+            Ok(m) => {
+                println!("{m}");
+                0
+            }
+            Err(c) => c,
+        };
+        let ver = rest.get(1).copied().unwrap_or("");
+        match rest.first().copied() {
+            None | Some("status") => self.show(&["Mesa"]),
+            Some("check") => say(self.mcall("Check", &())),
+            Some("notes") => say(self.mcall("Notes", &(ver,))),
+            Some("download") => say(self.mcall("Download", &(ver,))),
+            Some("install") => say(self.mcall("Install", &(ver,))),
+            Some("update") => {
+                for (m, a) in [("Check", ""), ("Download", ""), ("Install", "")] {
+                    let r = if m == "Check" { self.mcall(m, &()) } else { self.mcall(m, &(a,)) };
+                    match r {
+                        Ok(msg) => println!("{msg}"),
+                        Err(c) => return c,
+                    }
+                    if m == "Check" && self.props("Mesa").and_then(|p| p.get("Available").and_then(|v| v.as_str()).map(str::to_string)).unwrap_or_default().is_empty() {
+                        return 0;
+                    }
+                }
+                0
+            }
+            Some("on") => say(self.mcall("SetEnabled", &(true,))),
+            Some("off") => say(self.mcall("SetEnabled", &(false,))),
+            Some("keep") => say(self.mcall("Keep", &())),
+            Some("rollback") => say(self.mcall("Rollback", &())),
+            _ => usage(),
         }
     }
 }
@@ -712,6 +781,12 @@ fn run(args: &[String]) -> i32 {
         println!("{USAGE}");
         return 0;
     }
+    if a[0] == "mesa" && matches!(a.get(1), Some(&"run") | Some(&"distro") | Some(&"env")) {
+        let i = args.iter().position(|x| x == "mesa").unwrap_or(0);
+        let err = std::os::unix::process::CommandExt::exec(std::process::Command::new("tb323fu-mesa").args(&args[i + 1..]));
+        eprintln!("tb323fu-ctl: tb323fu-mesa: {err}");
+        return 1;
+    }
     let conn = match if session { Connection::session() } else { Connection::system() } {
         Ok(c) => c,
         Err(e) => {
@@ -924,6 +999,7 @@ fn run(args: &[String]) -> i32 {
         },
         "kernel" => c.kernel(rest, args, args.iter().any(|x| x == "--reboot")),
         "helper" => c.helper(rest),
+        "mesa" => c.mesa(rest),
         "reload" => c.call("", "Reload", &()),
         _ => usage(),
     }

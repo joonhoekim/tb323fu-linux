@@ -436,6 +436,25 @@ fn health(expected: &str, session: bool) -> Result<(), String> {
 }
 
 /// `tb323fu-helperd --apply DIR --from V --to V [--rollback] [--session]`
+/// The Mesa channel's link for desktop sessions (`install.sh` makes it; a
+/// tarball cannot carry a symbolic link, so an update by tarball adds it here,
+/// where the updater may write /etc).
+fn ensure_mesa_link() {
+    let link = root().join("etc/environment.d/60-tb323fu-mesa.conf");
+    if fs::symlink_metadata(&link).is_ok() {
+        return;
+    }
+    let env = root().join("var/lib/tb323fu/mesa/env.conf");
+    if !env.exists() {
+        let _ = fs::create_dir_all(env.parent().unwrap_or(&root()));
+        let _ = fs::write(&env, "");
+    }
+    let _ = fs::create_dir_all(root().join("etc/environment.d"));
+    if let Err(e) = std::os::unix::fs::symlink("/var/lib/tb323fu/mesa/env.conf", &link) {
+        log(&format!("Mesa environment link: {e}"));
+    }
+}
+
 pub fn apply_main(args: &[String]) -> i32 {
     let get = |k: &str| args.iter().position(|a| a == k).and_then(|i| args.get(i + 1)).cloned().unwrap_or_default();
     let (src, from, to) = (PathBuf::from(get("--apply")), get("--from"), get("--to"));
@@ -494,6 +513,7 @@ fn apply_run(src: &Path, from: &str, to: &str, rollback: bool, session: bool) ->
             if src.starts_with(d.join("staged")) {
                 let _ = fs::remove_dir_all(d.join("staged"));
             }
+            ensure_mesa_link();
             set_state(&[("result", "ok"), ("from", from), ("to", to), ("kind", kind)]);
             Ok(format!("{} {from} -> {to}", if rollback { "went back" } else { "updated" }))
         }

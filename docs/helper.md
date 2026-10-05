@@ -188,6 +188,27 @@ update [VERSION] | rollback` (`update`, `install` and `rollback` wait for the re
 result). Settings app: **About** → Helper Updates (status, "Helper X Available" with Notes and Download →
 Update…, or the command when a package manager updates the helper; Go Back… to the previous version).
 
+## Graphics drivers (Mesa)
+
+The port's Mesa build — Turnip (Vulkan) and rusticl (OpenCL) with the Adreno 840 patches that are not in a Mesa
+release yet — comes from the same GitHub Releases, tagged `mesa-<date>`. It is installed under
+`/var/lib/tb323fu/mesa/` next to the distribution's Mesa, which stays installed and is what every application uses
+while the channel is off. One build for every distribution (LLVM linked in; needs glibc 2.38 or newer). GL (the
+desktop itself) still comes from the distribution.
+
+**Switching on** writes the Vulkan and OpenCL loader variables (`VK_DRIVER_FILES`, `OCL_ICD_VENDORS`,
+`RUSTICL_ENABLE`) to `/var/lib/tb323fu/mesa/env.conf`, which the session reads through
+`/etc/environment.d/60-tb323fu-mesa.conf` and login shells through `/etc/profile.d/tb323fu-mesa.sh`; applications
+started after the next login use it. A version switched on is **on trial**: it counts the starts, and without
+**Keep** the third start switches back to the distribution's Mesa (and says which version failed). **Rollback**
+goes back to the previously installed version.
+
+**One command** with either driver, whatever the session setting: `tb323fu-mesa run COMMAND` (the port's) and
+`tb323fu-mesa distro COMMAND` (the distribution's) — for comparing, or for one application that misbehaves.
+
+CLI: `tb323fu-ctl mesa [status] | check | notes [VERSION] | download [VERSION] | install [VERSION] | update |
+on | off | keep | rollback | run COMMAND… | distro COMMAND…`. D-Bus: [reference → D-Bus API](helper-reference.md#d-bus-api).
+
 ## Persistence
 
 - `android.require_auth` (bool, default `false`): whether switching to Android asks for authentication (polkit `android-switch-auth` instead of `android-switch`). Settable from the app and `tb323fu-ctl`; changing it itself requires authentication.
