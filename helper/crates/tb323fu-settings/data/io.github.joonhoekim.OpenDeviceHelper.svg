@@ -1,16 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
 <!-- Copyright (C) 2026 Joonhoe Kim -->
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <rect x="30" y="8" width="68" height="112" rx="10" fill="#2e3440"/>
-  <rect x="36" y="16" width="56" height="92" rx="4" fill="#5e81ac"/>
-  <circle cx="64" cy="114" r="2.5" fill="#d8dee9"/>
-  <g fill="none" stroke="#eceff4" stroke-width="5" stroke-linecap="round">
-    <path d="M50 40h28M50 62h28M50 84h28"/>
-  </g>
-  <g fill="#ebcb8b">
-    <circle cx="58" cy="40" r="6"/>
-    <circle cx="72" cy="62" r="6"/>
-    <circle cx="56" cy="84" r="6"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="-2 -2 16 16" shape-rendering="crispEdges">
+  <rect x="-2" y="-2" width="16" height="16" fill="#1f6feb"/>
+  <path fill="#fff" d="M0 2h12v1h-12zM0 3h3v1h-3zM11 3h1v1h-1zM0 4h3v1h-3zM4 4h1v1h-1zM11 4h1v1h-1zM0 5h3v1h-3zM5 5h1v1h-1zM11 5h1v1h-1zM0 6h1v1h-1zM2 6h1v1h-1zM6 6h1v1h-1zM11 6h1v1h-1zM0 7h3v1h-3zM5 7h1v1h-1zM11 7h1v1h-1zM0 8h3v1h-3zM4 8h1v1h-1zM7 8h3v1h-3zM11 8h1v1h-1zM0 9h3v1h-3zM11 9h1v1h-1zM0 10h12v1h-12z"/>
 </svg>
