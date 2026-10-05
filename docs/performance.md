@@ -26,7 +26,7 @@ Gen 5 devices (Android):
 | Geekbench 6 CPU single / multi | 3641 / 11175 | about 3655–3710 / 10758–11672 |
 | Speedometer 3.1 (Chromium 150) | 22.5 | 18.1 (OnePlus 15), 23 (Xiaomi 17), 46 (Galaxy S26 Ultra) |
 | JetStream 2.2 (Chromium 150) | 389.5 | about 281–295 (Chrome) |
-| Geekbench 6 Vulkan | 18099 (Mesa 26.1.6), 20597 (Mesa main) | about 27200–29700 |
+| Geekbench 6 Vulkan | 18099 (Mesa 26.1.6), 20597 (Mesa main), about 23000–23300 (local Mesa changes) | about 27200–29700 |
 | Geekbench 6 OpenCL | 9657 (Mesa main) | about 24000 |
 | GravityMark 1.89 Vulkan, 1920×1080, 200k asteroids | 5482 (32.8 fps, Mesa 26.1.6) | no Adreno 840 entries; Adreno 830: 3530–4568 |
 
@@ -80,7 +80,7 @@ OpenCL compiler (rusticl on freedreno), not the kernel; few desktop applications
 | + small private arrays kept in registers, small `__constant` lookup tables turned into selects | 13700–14200 |
 
 These are changes to a local Mesa build (thirteen patches prepared for upstream), not in any release; with them
-Geekbench 6 OpenCL goes from 9657 to 14768 and Geekbench 6 Vulkan from 20597 to 21583, and OpenCL-CTS shows no
+Geekbench 6 OpenCL goes from 9657 to 14768 and Geekbench 6 Vulkan from 20597 to about 23000–23300, and OpenCL-CTS shows no
 regression in the suites run. What they fix: values read at the same address by every thread were loaded once per
 thread; `sin`/`cos` went through a software implementation even under `-cl-fast-relaxed-math`; Mesa compiled
 fast-relaxed-math kernels as exact (it ignored the SPIR-V `Fast` flag); on the Adreno 840 the scalar ALU made
@@ -95,6 +95,13 @@ of Android): neighbouring pixels read the same table entries, which Qualcomm's d
 cache (0.27 ms per 1920×1080 frame) while Mesa's OpenCL global loads bypass it (0.57 ms; 0.40 ms when the table
 is read as an image in a test). Routing read-only buffer arguments through the texture path is a larger change in
 Mesa and has not been done.
+
+For Vulkan, Geekbench 6's shaders are the same code on Android and Linux (compared after capturing them on both
+systems). Per workload against a Samsung phone with the same chip, Linux was weakest in Particle Physics (48 %) and
+Gaussian Blur (57 %). The n-body loop of Particle Physics runs a number of iterations known only at run time, and
+Mesa did not unroll such loops, so each iteration waited for its own memory read. A local Mesa change that unrolls
+them by four (and lets the reads of the copies be issued together) raises Particle Physics from about 52000 to
+60000 and the Vulkan score from about 22000 to 23000–23300.
 
 ## Storage
 
