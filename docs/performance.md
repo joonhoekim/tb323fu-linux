@@ -80,7 +80,7 @@ OpenCL compiler (rusticl on freedreno), not the kernel; few desktop applications
 | + small private arrays kept in registers, small `__constant` lookup tables turned into selects | 13700–14200 |
 
 These are changes to a local Mesa build (thirteen patches prepared for upstream), not in any release; with them
-Geekbench 6 OpenCL goes from 9657 to 14768 and Geekbench 6 Vulkan from 20597 to about 23000–23300, and OpenCL-CTS shows no
+Geekbench 6 OpenCL goes from 9657 to about 16000 and Geekbench 6 Vulkan from 20597 to about 23000–23300, and OpenCL-CTS shows no
 regression in the suites run. What they fix: values read at the same address by every thread were loaded once per
 thread; `sin`/`cos` went through a software implementation even under `-cl-fast-relaxed-math`; Mesa compiled
 fast-relaxed-math kernels as exact (it ignored the SPIR-V `Fast` flag); on the Adreno 840 the scalar ALU made
@@ -101,7 +101,8 @@ systems). Per workload against a Samsung phone with the same chip, Linux was wea
 Gaussian Blur (57 %). The n-body loop of Particle Physics runs a number of iterations known only at run time, and
 Mesa did not unroll such loops, so each iteration waited for its own memory read. A local Mesa change that unrolls
 them by four (and lets the reads of the copies be issued together) raises Particle Physics from about 52000 to
-60000 and the Vulkan score from about 22000 to 23000–23300.
+60000 and the Vulkan score from about 22000 to 23000–23300 (Geekbench 6 OpenCL 14768 → 16067); graphics
+(GravityMark) stays the same.
 
 ## Storage
 
