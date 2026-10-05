@@ -6,9 +6,10 @@
   "description": "Project website for tb323fu-linux, rendered from the repository's Markdown",
   "scripts": {
     "assets": "node scripts/copy-doc-assets.mjs",
-    "predev": "npm run assets",
+    "licenses": "node scripts/third-party-licenses.mjs",
+    "predev": "npm run assets && npm run licenses",
     "dev": "next dev",
-    "prebuild": "npm run assets",
+    "prebuild": "npm run assets && npm run licenses",
     "build": "next build",
     "typecheck": "tsc --noEmit",
     "serve": "npx --yes serve out"

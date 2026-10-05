@@ -16,6 +16,8 @@ Internal checklists (`docs/photo-shotlist.md`) are not rendered; the list is `HI
 which also holds the navigation order and the directory READMEs. Relative links between rendered files become site
 routes (anchors kept, GitHub-style heading ids); links to any other repository file go to its GitHub page. Images that
 Markdown references by relative path are copied to `public/_repo/` by `scripts/copy-doc-assets.mjs` before each build.
+`scripts/third-party-licenses.mjs` writes `public/third-party-licenses.txt` (the license files of the site's
+production dependencies, linked from the footer) before each build.
 
 ## Develop
 
