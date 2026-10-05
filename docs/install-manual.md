@@ -38,8 +38,8 @@ distribution, the partition layout and what goes into the root yourself.
 | UFS, LUN 4 | `boot_a` | the Linux boot image |
 | | `boot_b` | a copy of your Android boot image (the way back) |
 | | `init_boot_a` | KernelSU (from rooting) |
-| UFS, LUN 0 | `userdata` | Android's data, shrunk |
-| | `baldur-root` | ext4, the default Linux root |
+| UFS, LUN 0 | `userdata` | Android's data; shrunk only for a root on the internal storage ([step 8](#8-optional-a-linux-root-on-the-internal-storage)) |
+| | `baldur-root` | optional (step 8): ext4, the default Linux root when present |
 | microSD card (optional) | `tb323fu-ubuntu`, `tb323fu-arch`, `tb323fu-nixos`, … | ext4, one root per system (multiboot) |
 | | or `baldur-root-sd` / `baldur-root` | ext4, a single root |
 
@@ -76,8 +76,7 @@ its data.
   machine (on the development tablet they ran on the tablet itself, under Linux), or an x86-64 Linux with
   `qemu-user-binfmt` (arm64 programs through qemu; the builders check that it is registered) — **on Windows,
   WSL2 with Ubuntu works**: `sudo apt install qemu-user-binfmt debootstrap libarchive-tools gpg curl e2fsprogs`.
-  Through qemu the Arch builder took about 4 min and the Ubuntu builder 18 min without a desktop on the development
-  PC (WSL2, Ubuntu 26.04), and the Ubuntu builder with GNOME 22 min; that GNOME root was booted on the tablet [verified].
+  An Ubuntu root with GNOME built this way in WSL2 booted on the tablet [verified].
 - A **microSD card**, 64 GB or more (each root takes 10–30 GB; GNOME roots are on the larger side).
 - Battery above 50 %, a USB-C data cable.
 
