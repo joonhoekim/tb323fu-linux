@@ -8,9 +8,8 @@ export default function SiteHeader() {
     <header className="site-header">
       <div className="site-header-inner">
         <Link href="/" className="brand">
-          <svg aria-hidden="true" viewBox="0 0 32 32" width="22" height="22">
-            <rect x="5" y="3" width="22" height="26" rx="4" fill="none" stroke="currentColor" strokeWidth="2.5" />
-            <circle cx="16" cy="24.5" r="1.6" fill="currentColor" />
+          <svg aria-hidden="true" viewBox="0 0 12 12" width="24" height="24" shapeRendering="crispEdges">
+            <path fill="currentColor" d="M0 2h12v1h-12zM0 3h3v1h-3zM11 3h1v1h-1zM0 4h3v1h-3zM4 4h1v1h-1zM11 4h1v1h-1zM0 5h3v1h-3zM5 5h1v1h-1zM11 5h1v1h-1zM0 6h1v1h-1zM2 6h1v1h-1zM6 6h1v1h-1zM11 6h1v1h-1zM0 7h3v1h-3zM5 7h1v1h-1zM11 7h1v1h-1zM0 8h3v1h-3zM4 8h1v1h-1zM7 8h3v1h-3zM11 8h1v1h-1zM0 9h3v1h-3zM11 9h1v1h-1zM0 10h12v1h-12z" />
           </svg>
           <span>{SITE_NAME}</span>
         </Link>
