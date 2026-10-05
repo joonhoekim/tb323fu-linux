@@ -45,7 +45,7 @@ column names the source; see that tree's history for the individual authors.
 | `0020` | drm/panel: nt36523: add DSC, and the Lenovo TB323FU CSOT panel | Joonhoe Kim | this project | local | `fe8e736091745377` |
 | `0021` | arm64: carry a devicetree inside the kernel image | Joonhoe Kim | this project | local (built-in DTB; bootloader workaround) | `c7c512f612f4fc9b` |
 | `0022` | arm64: paint boot progress marks into the bootloader's framebuffer | Joonhoe Kim | this project | local (debug: boot progress marks) | `4a5fd2e1bdd92b66` |
-| `0023` | drm/msm: video-mode DSC at 10 bpc -- make DSI and the DPU INTF agree on the line | Joonhoe Kim | this project | local | `8db55405d1433157` |
+| `0023` | drm/msm: video-mode DSC at 10 bpc -- make DSI and the DPU INTF agree on the line | Joonhoe Kim | this project | local; its DPU part sent upstream 2026-10-04 as "drm/msm/dpu: round up the compressed INTF width", reviewed ([lore](https://lore.kernel.org/all/20261004102758.84436-1-26rote@gmail.com/)) | `8db55405d1433157` |
 | `0024` | wifi: ath12k + PCI/pwrctrl: WCN7860 ("peach", 17cb:110e) | Joonhoe Kim | [infiniti-mainline](https://github.com/infiniti-mainline/linux) `oneplus-15`, several authors, imported squashed (From: is the importer) | community, not upstream | `4a680f653196e4a1` |
 | `0025` | Input: touchscreen: import NT36536 host-download SPI driver (Novatek) | Joonhoe Kim | [map220v/sm8850-mainline](https://github.com/map220v/sm8850-mainline) `iceland-7.2` (Novatek vendor driver, verbatim) | out of tree, not upstreamable | `b5aaa9031e3c009c` |
 | `0026` | input: touchscreen: NT36536 host-download SPI driver (Novatek) | Joonhoe Kim | this project | local | `309aa6832efaf287` |
@@ -119,7 +119,7 @@ column names the source; see that tree's history for the individual authors.
 | `0094` | media: iris: Don't report the picture state on decoder input buffers | Victor Fuentes | infiniti-mainline (iris kaanapali; authors as in From:) | community / pending upstream | `9b5d6b188c52580b` |
 | `0095` | arm64: dts: qcom: baldur: enable the iris video codec | Joonhoe Kim | this project | local | `a75b0c32cc1b7873` |
 | `0096` | phy: qcom: qmp-combo: Add Kaanapali USB3+DP PHY | Victor Fuentes | infiniti-mainline (Victor Fuentes) | community, not upstream | `1e0e578ff21fb961` |
-| `0097` | drm/msm/dpu: disable the slave encoder before the master | Joonhoe Kim | this project | upstream v3 2026-10-02, Reviewed-by Dmitry Baryshkov | `412d487ac73e0de4` |
+| `0097` | drm/msm/dpu: disable the slave encoder before the master | Joonhoe Kim | this project | upstream v3 2026-10-02, reviewed ([lore](https://lore.kernel.org/all/20261002130712.50612-1-26rote@gmail.com/)) | `412d487ac73e0de4` |
 | `0098` | drm/msm/dp: hold one runtime PM reference per plugged state | Joonhoe Kim | this project | sent upstream 2026-09-29, under review | `c40d7ae1222c1a85` |
 | `0099` | phy: qcom: qmp-combo: Drop the stale err_disable_pipe_clk teardown | Victor Fuentes | infiniti-mainline (Victor Fuentes) | community, not upstream | `4cc9500eb779c89d` |
 | `0100` | phy: qcom: qmp-combo: Keep the DP lanes of a USB-capable DP sink | Victor Fuentes | infiniti-mainline (Victor Fuentes) | community, not upstream | `6f508562ddb6e8ec` |
@@ -127,7 +127,7 @@ column names the source; see that tree's history for the individual authors.
 | `0102` | drm/msm/dp: reset the link caps on every DPCD read | Victor Fuentes | infiniti-mainline (Victor Fuentes) | community, not upstream | `bc3e46a9718d4891` |
 | `0103` | clk: qcom: gdsc: drop the controller reference only if it was taken | Joonhoe Kim | this project | local | `cac3ca5aa1071443` |
 | `0104` | usb: dwc3: tell xHCI that it lost its state when the core is powered off | Joonhoe Kim | this project | sent upstream 2026-09-29, under review | `241ae504c37a9442` |
-| `0105` | drm/msm/dpu: compute the CRTC bandwidth from the state being checked | Joonhoe Kim | this project | upstream v2 2026-10-02, Reviewed-by Dmitry Baryshkov | `d308e4ba73faca78` |
+| `0105` | drm/msm/dpu: compute the CRTC bandwidth from the state being checked | Joonhoe Kim | this project | upstream v2 2026-10-02, reviewed ([lore](https://lore.kernel.org/all/20261002130656.50577-1-26rote@gmail.com/)) | `d308e4ba73faca78` |
 | `0106` | cpuidle: psci-domain: baldur: use the system domain state only in system suspend | Joonhoe Kim | this project | local workaround (cpuidle system domain state only in suspend) | `e5fe440e8cc5bdfb` |
 | `0107` | power: supply: qcom_battmgr: fix the battery current sign on Kaanapali | Joonhoe Kim | this project | local | `0a838c98a286a567` |
 | `0108` | arm64: dts: qcom: baldur: throttle on the board temperature like Android | Joonhoe Kim | this project | local (board DT) | `7c93f156e9234773` |
