@@ -16,8 +16,7 @@ the individual commands.
 - A **microSD card** of 64 GB or more in the tablet. **It will be wiped.**
 - A USB-C **data** cable, battery above 50 %.
 - About **30 GB free** on the Windows drive that holds WSL (normally C:).
-- About **1–2 hours**, most of it an unattended build on the PC (the test run took a little over an hour; the build
-  was 22 minutes of it).
+- About **1–2 hours**, most of it an unattended build on the PC.
 
 ## 1. Install Ubuntu on Windows (WSL2)
 

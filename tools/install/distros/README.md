@@ -12,12 +12,14 @@ DISTRO=~/my-distro.sh tools/install/install.sh  # your own module, by path
 
 | Module | System | Status |
 |---|---|---|
-| [`ubuntu.sh`](ubuntu.sh) | Ubuntu 26.04, GNOME | verified: followed end to end on a tablet |
-| [`arch.sh`](arch.sh) | Arch Linux ARM, GNOME | verified: followed end to end once (no sensors: `hexagonrpcd` is not packaged for Arch) |
-| [`nixos.sh`](nixos.sh) | NixOS (unstable), GNOME | verified once: built in WSL2 with Nix (the first build compiles the helper through qemu, about 45 min), then boot, sound, Wi-Fi password prompt, the way to Android, and a rebuild from `/etc/nixos` on the tablet |
-| [`steamos.sh`](steamos.sh) | SteamOS, community port (Gaming Mode, KDE) | experimental: Gaming Mode, touch, sound and both ways checked on kernel t39 (needs tracefs: t39 or later); Switch to Desktop does not work yet |
-| [`armada.sh`](armada.sh) | Armada (Fedora bootc; Gaming Mode, KDE) | experimental: its OSTree deployment copied into a plain root; an image from this builder booted on the tablet with no changes by hand: Gaming Mode, touch, USB networking, Steam's first start, the x86 runtime on kernel t40 |
+| [`ubuntu.sh`](ubuntu.sh) | Ubuntu 26.04, GNOME | verified |
+| [`arch.sh`](arch.sh) | Arch Linux ARM, GNOME | verified |
+| [`nixos.sh`](nixos.sh) | NixOS (unstable), GNOME | experimental |
+| [`steamos.sh`](steamos.sh) | SteamOS, community port | experimental |
+| [`armada.sh`](armada.sh) | Armada (Fedora bootc) | experimental |
 
+The status is the module's `DISTRO_STATUS`. What was checked on the tablet for each system, and what does not work
+yet: [docs/distros.md](../../../docs/distros.md).
 What the status words mean next to those of other pages:
 [hardware-status.md → Labels on other pages](../../../docs/hardware-status.md#labels-on-other-pages).
 

@@ -7,11 +7,7 @@ Windows `adb.exe`; a native Linux PC works the same way with its own `adb`; on a
 to follow start at [docs/install.md](../../docs/install.md) (one per PC); the individual commands are in
 [docs/install-manual.md](../../docs/install-manual.md).
 
-> **Status:** every step was run against a tablet on 2026-10-04, from WSL2 (Ubuntu 26.04 on Windows 11): rooted
-> Android to Ubuntu with GNOME on the card, first start, both ways back to Android and back to Linux
-> ([install-windows.md](../../docs/install-windows.md)). From Linux (NixOS, through an Ubuntu container) and from a Mac (Lima
-> VM, Ubuntu 26.04 arm64) every step ran on 2026-10-04, up to the first start into GNOME. Arch, NixOS and SteamOS
-> went through it on the tablet as well (modules in [distros/](distros/README.md)).
+> **Status** per PC: [docs/install.md → Your PC](../../docs/install.md#your-pc); per system: [distros/](distros/README.md).
 
 ```sh
 tools/install/install.sh              # every step, asking before each
@@ -49,6 +45,6 @@ into `-s`, since Windows programs do not see WSL's environment.
 
 ## Not covered
 
-Distributions without a module ([distros/](distros/README.md) has Ubuntu, Arch, NixOS and SteamOS), a card reader on the PC,
+Distributions without a module ([distros/](distros/README.md)), a card reader on the PC,
 a kernel you build yourself, and a root on the internal storage (which wipes Android's data) are manual:
 [docs/install-manual.md](../../docs/install-manual.md).

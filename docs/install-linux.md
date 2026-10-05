@@ -124,8 +124,7 @@ container sees the tablet through the PC's own `adb` server, as the Mac's VM doe
    - `rootfs`: the user name suggested is `root`, which the script refuses; type your own.
    - The work directory is `/root/tb323fu-install` in the container. `docker start -ai tb323fu` takes you back in
      after an exit; `docker rm tb323fu` frees the space once the tablet runs Linux.
-5. Times on 2026-10-04 (Intel Core Ultra 9 285H, 16 threads): `rootfs` 23 min for Ubuntu with GNOME through qemu
-   (image 4.9 GiB, packed 772 MiB), `write` about 2 min (the push at 375 MB/s, the card at 50 MB/s).
+5. `rootfs` builds through qemu and takes the longest, as on Windows ([what the script asks](install-windows.md#5-what-the-script-asks)).
 
 Rooting and recovery tools on NixOS:
 
