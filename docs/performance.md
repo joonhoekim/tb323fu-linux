@@ -79,7 +79,7 @@ OpenCL compiler (rusticl on freedreno), not the kernel; few desktop applications
 | + uniform loads broadcast, native sin/cos under fast relaxed math, fast-math fixes, no scalar ALU on the 840 | 13615 |
 | + small private arrays kept in registers, small `__constant` lookup tables turned into selects | 13700–14200 |
 
-These are changes to a local Mesa build (thirteen patches prepared for upstream), not in any release; with them
+These are changes to a local Mesa build (patches being prepared for upstream), not in any release; with them
 Geekbench 6 OpenCL goes from 9657 to about 16000 and Geekbench 6 Vulkan from 20597 to about 23000–23300, and OpenCL-CTS shows no
 regression in the suites run. What they fix: values read at the same address by every thread were loaded once per
 thread; `sin`/`cos` went through a software implementation even under `-cl-fast-relaxed-math`; Mesa compiled
