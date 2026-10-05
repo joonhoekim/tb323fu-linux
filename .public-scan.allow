@@ -23,3 +23,5 @@
 ^serial\|(\./)?kernel/initramfs/init:[0-9]+:.*"baldur-0001"
 # vendor driver source keeps its original author lines (GPL copyright headers)
 ^email\|(\./)?kernel/out-of-tree/aw882xx/[^|]*:[0-9]+:.*Author:
+# lore links to the project's own patches: the Message-ID ends in the sender address, already public on lore
+^email\|[^|]*:[0-9]+:.*https://lore\.kernel\.org/all/[0-9]{14}\.[0-9]+-[0-9]+-[^)@ ]+@[a-z.]+/?\)
