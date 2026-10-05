@@ -5,12 +5,9 @@ Everything happens in that terminal; the script tells you what it is doing, asks
 after any failure. [Installing Linux](install.md) shows where this fits; [Installing by hand](install-manual.md) has
 the individual commands.
 
-> **Status:** followed end to end ([labels](hardware-status.md#labels-on-other-pages)) on 2026-10-04: Windows 11, WSL2 Ubuntu 26.04, a rooted TB323FU with an empty
-> 64 GB partition on the card, kernel release `kernel-t38`. Every step below ran, and the first start, Wi-Fi, the
-> speakers, both ways back to Android and the way back to Linux were checked on the tablet. That run found five bugs,
-> which are fixed: no sound card, Wi-Fi asking for no password, the way back to Android failing on Ubuntu, a
-> script that was not executable, and firmware files owned by the PC user. If something does not match what you
-> see, stop and open an issue.
+> **Status: followed end to end** ([labels](hardware-status.md#labels-on-other-pages)) on 2026-10-04 from Windows 11 with WSL2 Ubuntu 26.04.
+> The first start, Wi-Fi, the speakers and switching to Android and back were checked on the tablet.
+> If something does not match what you see, stop and open an issue.
 
 ## What you need
 

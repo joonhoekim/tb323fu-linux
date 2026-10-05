@@ -8,7 +8,7 @@ on the PC and a root on the internal storage.
 > **For a first install, use the guide for your PC instead:** [Installing Linux](install.md) picks the page
 > (Windows, Linux or macOS); they run one script that does steps 1–7 below.
 
-> **Current releases:** `kernel-t40`, `helper-v0.3.1` (GitHub Releases). A kernel release is a kernel `Image` (with all
+> **Releases** are on [GitHub Releases](https://github.com/joonhoekim/tb323fu-linux/releases). A kernel release is a kernel `Image` (with all
 > its modules inside) and a repack tool — never a ready-made `boot.img` ([why](#why-there-is-no-ready-made-bootimg)); you
 > pack it into your own stock boot image (step 3a) or build the kernel yourself (3b), and put together a root filesystem
 > with the scripts in this repository. This page was **reconstructed from the development records** of one
@@ -26,25 +26,22 @@ Every step carries one of these labels:
 How these compare with the labels on other pages: [hardware-status.md → Labels on other pages](hardware-status.md#labels-on-other-pages).
 
 The guided script [`tools/install/install.sh`](../tools/install/README.md) does steps 1–7 for the most common case
-(a distribution on the microSD card, partitioned from Android). It was followed end to end from Windows (WSL2), macOS and
-Linux on 2026-10-04 ([Installing Linux](install.md)).
+(a distribution on the microSD card, partitioned from Android). Its status per PC is on [Installing Linux](install.md#your-pc).
 
 If you know your way around Linux, this page is the better choice: every step is visible, and you decide the
 distribution, the partition layout and what goes into the root yourself.
 
 ## What you end up with
 
-```
- UFS (internal storage)                                microSD card (optional, multiboot)
- ┌──────────────────────────────────────────────┐      ┌──────────────────────────────────────┐
- │ LUN 4: boot_a  ← Linux boot image             │      │ GPT                                   │
- │        boot_b  ← copy of your Android boot    │      │  tb323fu-ubuntu   ext4  (a root)      │
- │                  image (the way back)         │      │  tb323fu-arch     ext4  (a root)      │
- │        init_boot_a ← KernelSU (from rooting)  │      │  tb323fu-nixos    ext4  (a root)      │
- │ LUN 0: … userdata (Android data, shrunk)      │      │  …                                    │
- │        baldur-root  ext4 (default Linux root) │      │  or: baldur-root-sd / baldur-root     │
- └──────────────────────────────────────────────┘      └──────────────────────────────────────┘
-```
+| Where | Partition | Holds |
+|---|---|---|
+| UFS, LUN 4 | `boot_a` | the Linux boot image |
+| | `boot_b` | a copy of your Android boot image (the way back) |
+| | `init_boot_a` | KernelSU (from rooting) |
+| UFS, LUN 0 | `userdata` | Android's data, shrunk |
+| | `baldur-root` | ext4, the default Linux root |
+| microSD card (optional) | `tb323fu-ubuntu`, `tb323fu-arch`, `tb323fu-nixos`, … | ext4, one root per system (multiboot) |
+| | or `baldur-root-sd` / `baldur-root` | ext4, a single root |
 
 The bootloader always boots slot `_a`. `boot_a` holds either Android's boot image or the Linux one; switching
 copies one or the other into it. The Linux boot image carries its own device tree, command line and initramfs; the

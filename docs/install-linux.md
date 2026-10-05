@@ -1,18 +1,13 @@
 # Installing from Linux
 
-> **Followed end to end once, from NixOS, up to the first start** ([labels](hardware-status.md#labels-on-other-pages)). On 2026-10-04 an x86-64 PC with NixOS 26.11 ran
-> the install script in an Ubuntu 26.04 container (below, [NixOS](#nixos)) against a rooted tablet: every step
-> passed, Ubuntu with GNOME was built through qemu in 23 min and written to the card in under 2 min, and the tablet
-> then started from the card into the GNOME desktop (seen by a person). Inside the container the script runs as it
-> would on an Ubuntu PC, so a Debian or Ubuntu PC should behave the same; that, Arch and Fedora were not tried.
-> Sound, Wi-Fi and the way back to Android were not checked again from Linux; they are the same on the tablet
-> whichever PC installed it ([Installing from Windows](install-windows.md)). LTBox 3.3.3 (the Linux tarball) started
-> on NixOS; rooting with it and the `edl` recovery tool were not tried from Linux and are described from their own
-> documentation. If something does not match, stop and open an issue.
-
 The same path as on Windows ([Installing Linux](install.md)): root the tablet, then one script on the PC takes it to
 Ubuntu with GNOME on the microSD card. What differs on Linux is how the tools are installed and that the script uses
 your own `adb`.
+
+> **Status: followed end to end once, up to the first start** ([labels](hardware-status.md#labels-on-other-pages)) on 2026-10-04 from NixOS 26.11 (x86-64),
+> with the script in an Ubuntu 26.04 container ([NixOS](#nixos)). A Debian, Ubuntu, Arch or Fedora PC was not tried.
+> Rooting with LTBox and the `edl` recovery tool were not tried from Linux; those steps follow their own documentation.
+> If something does not match, stop and open an issue.
 
 ## 1. Tools for rooting
 
