@@ -24,7 +24,6 @@ const cells = (row: TableRow) => row.children.map((c) => toString(c).replace(SUP
 
 export interface Distro {
   system: string;
-  boot: string;
 }
 
 export function getDistros(): Distro[] {
@@ -34,12 +33,8 @@ export function getDistros(): Distro[] {
   if (!table) return [];
   const head = cells(table.children[0]).map((h) => h.toLowerCase());
   const iSys = head.findIndex((h) => h.startsWith("system"));
-  const iBoot = head.findIndex((h) => h.includes("boot"));
   if (iSys < 0) return [];
-  return table.children.slice(1).map((r) => {
-    const c = cells(r);
-    return { system: c[iSys] ?? "", boot: iBoot >= 0 ? (c[iBoot] ?? "") : "" };
-  });
+  return table.children.slice(1).map((r) => ({ system: cells(r)[iSys] ?? "" }));
 }
 
 export type StatusKey = "works" | "partial" | "broken" | "unverified" | "na";

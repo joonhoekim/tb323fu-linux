@@ -12,11 +12,11 @@ const ORDER: StatusKey[] = ["works", "partial", "broken", "unverified", "na"];
 function readmeStatus(): { head: string; body: string } {
   const fallback = {
     head: "Work in progress — not ready for everyday use.",
-    body: "The install guide was followed end to end on the development tablet; the kernel and helper releases are on GitHub Releases.",
+    body: "",
   };
   try {
     const text = fs.readFileSync(path.join(REPO_ROOT, "README.md"), "utf8");
-    const m = /^>\s*\*\*Status:\s*(.+?)\*\*\s*(.*(?:\n>.*)*)/m.exec(text);
+    const m = /^>\s*\*\*Status:\s*(.+?)\*\*[ \t]*(.*(?:\n>.*)*)/m.exec(text);
     if (!m) return fallback;
     const head = m[1].trim();
     const body = m[2]
@@ -176,12 +176,6 @@ export default function Home() {
             {distros.map((d) => (
               <li key={d.system}>
                 <span className="distro-name">{d.system}</span>
-                {d.boot && (
-                  <span className="distro-boot" title="Boot to desktop (kernel + userspace, automatic login)">
-                    {d.boot}
-                    <span className="sr-only"> to the desktop</span>
-                  </span>
-                )}
               </li>
             ))}
           </ul>

@@ -235,10 +235,9 @@ img {
   color: var(--fg-muted);
   font-size: 0.875rem;
   padding: 1.5rem 1rem 2rem;
-  text-align: center;
 }
 .site-footer p {
-  max-width: 48rem;
+  max-width: 72rem;
   margin: 0.4rem auto;
 }
 
@@ -451,12 +450,6 @@ img {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 0.7rem 0.9rem;
-}
-.distro-boot {
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  color: var(--fg-muted);
-  white-space: nowrap;
 }
 
 .helper-list {

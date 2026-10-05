@@ -3,10 +3,7 @@
 Mainline Linux on the **Lenovo Legion Tab Gen 5 / Legion Y700 5th Gen** (model **TB323FU**, Snapdragon 8 Elite Gen 5, SM8850 "kaanapali", board "baldur").
 The same model number is used in China and elsewhere; the firmware region (PRC / ROW) differs, not the hardware.
 
-> **Status: work in progress — not ready for everyday use.** The [install guide](docs/install.md) was followed end to end
-> on the development tablet from Windows, macOS and Linux ([what the status labels
-> mean](docs/hardware-status.md#labels-on-other-pages)); the kernel and helper releases are on GitHub Releases.
-> Everything here is published so the kernel work can be reviewed and reused.
+> **Status: work in progress — not ready for everyday use.**
 
 ## What this is
 
@@ -36,7 +33,7 @@ the kernel does not assume a particular distribution or desktop.
 |---|---|
 | `kernel/` | patch series, base commit, config, board DT, [`PROVENANCE.md`](kernel/PROVENANCE.md) (where every imported patch came from), [`initramfs/`](kernel/initramfs/) (the built-in initramfs: USB way in, boot summary, multiboot root selection) |
 | `firmware/` | manifest (file, sha256, source on the device) and a script that extracts the firmware from your own tablet — no firmware files are stored here |
-| `rootfs/` | optional: scripts that build root filesystems for the multiboot partitions (Ubuntu, Arch Linux ARM, Fedora, NixOS) — status in [docs/distros.md](docs/distros.md) |
+| `rootfs/` | optional: scripts that build root filesystems for the multiboot partitions (Ubuntu, Arch Linux ARM, Fedora, NixOS, and the experimental SteamOS community port and Armada) — status in [docs/distros.md](docs/distros.md) |
 | `userspace/` | `platform/`: distribution-neutral platform files every install needs (udev, systemd units, audio/UCM, sensors, emergency key) with `install.sh`; `desktop/`: optional desktop extras |
 | `helper/` | Open Device Helper: `tb323fu-helperd` (system D-Bus), `tb323fu-ctl`, the `tb323fu-settings` app ([docs/helper.md](docs/helper.md)) |
 | `packaging/` | Debian (`build-debs.sh`), Arch (`PKGBUILD`) and Nix (`flake.nix` at the root) recipes |
@@ -49,6 +46,8 @@ the kernel does not assume a particular distribution or desktop.
 If this project is useful to you, you can support the work:
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/K1S6284A4H)
+
+Starring the repository on GitHub helps too: it makes the project easier for other TB323FU owners to find.
 
 ## License
 
@@ -73,4 +72,5 @@ This is an independent community project, not affiliated with Lenovo, Qualcomm o
 ## Acknowledgements
 
 Built on the community [kaanapali-mainline](https://github.com/kaanapali-mainline) tree and the work referenced in `kernel/PROVENANCE.md`.
-This project was developed with the help of AI coding assistants (Claude Code); every change was tested on the device before being marked as working.
+The code and documentation were written with the help of large language models.
+Every change was reviewed by the author, and a feature is marked as working only after it was checked on the device.

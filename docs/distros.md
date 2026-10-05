@@ -19,7 +19,7 @@ side on the card.
 | SteamOS (arm64, community handheld port⁵) | `tb323fu-spare` | `rootfs/steamos` | 14.1 s | Gaming Mode (landscape, seen on the panel; touch lands where tapped after a calibration matrix), Wi-Fi, speakers (protection filter), helper; with the old port release v1.3-odin3-beta1 also Desktop Mode (KDE) both ways. Current release v1.3-8elite-beta2 through the guided installer on kernel t39: Gaming Mode, touch, speakers, both ways to Android and back; Switch to Desktop does not work ([known problems](#known-problems)) |
 | Armada 20260926 (Fedora bootc, experimental⁶) | `baldur-root-sd` | `rootfs/armada` | – | through the guided installer on kernel t39 (built in WSL2): boots (a long first-start splash), Gaming Mode with touch after a calibration matrix, Steam's first-start setup; x86 runtime for FEX mounts on kernel t40 (zstd squashfs) ([Armada notes](#armada-notes)) |
 
-¹ `systemd-analyze` "Startup finished" (kernel + userspace), with automatic login.\
+¹ `systemd-analyze` "Startup finished" (kernel + userspace), with automatic login. The time changes with the kernel; these values are not kept up to date.\
 ² graphical.target; "Startup finished" is 15 s while first-boot timer jobs (plocate, fstrim) still run. iSCSI and plymouth are masked (see the builder).\
 ³ Needs the netfilter set in [kernel/config/baldur-netfilter.fragment](../kernel/config/).\
 ⁴ Steam's own client, run with `FEXBash -c "~/steam-launcher/steam -no-cef-sandbox"`; games not tried yet.\
