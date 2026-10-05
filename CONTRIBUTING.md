@@ -20,13 +20,6 @@ Every commit must carry a `Signed-off-by:` line with your real name, certifying 
 `git commit -s` adds it. Kernel patches meant for upstream follow the kernel's
 [submitting-patches](https://docs.kernel.org/process/submitting-patches.html) rules in addition.
 
-## AI-assisted contributions
-
-Name the tool in an `Assisted-by:` trailer, as the kernel's
-[coding-assistants guidelines](https://docs.kernel.org/process/coding-assistants.html) do
-(`Assisted-by: AGENT_NAME:MODEL_VERSION`). The person who signs off is responsible for the change:
-they have read it, tested it on the device where it matters, and certify the DCO for it.
-
 ## Names
 
 Forks and modified builds have to use their own name, icons, IDs, update source and any signing key;

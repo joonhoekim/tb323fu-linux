@@ -18,14 +18,14 @@ the kernel does not assume a particular distribution or desktop.
 | know what works | [Hardware status](docs/hardware-status.md) — a feature is marked as working only after it was checked on the device (measured, or seen/heard by a person); "the driver probes" does not count |
 | see which distributions boot | [Distributions](docs/distros.md) |
 | start: root the tablet (step 1 of the install) | **[Rooting](docs/rooting.md)**: back up the whole tablet, root Android without unlocking (LTBox, KernelSU); host setup per OS. When something goes wrong: [Recovery](docs/recovery.md) |
-| install Linux after rooting | **[Installing Linux](docs/install.md)** — the whole path, then one guided script ([`tools/install/`](tools/install/README.md)) from your PC: [Windows](docs/install-windows.md) (followed end to end), [Linux](docs/install-linux.md) (followed end to end from NixOS) or [macOS](docs/install-macos.md) (followed end to end); result: Ubuntu with GNOME on the microSD card |
+| install Linux after rooting | **[Installing Linux](docs/install.md)** — the whole path, then one guided script ([`tools/install/`](tools/install/README.md)) from your PC: [Windows](docs/install-windows.md), [Linux](docs/install-linux.md) or [macOS](docs/install-macos.md); result: Ubuntu with GNOME on the microSD card |
 | switch, update or remove Linux once it runs | [After installing](docs/after-install.md): switching to Android and back, kernel and helper updates, more systems on the card, going back to stock, a symptom index |
 | install another distribution, your own kernel or a root on the internal storage | [Installing by hand](docs/install-manual.md) (every step as commands, each marked verified / from records / untested) |
 | build or review the kernel | [kernel/](kernel/README.md), [PROVENANCE.md](kernel/PROVENANCE.md), [initramfs](kernel/initramfs/README.md) |
 | put together a root filesystem | [platform files](userspace/platform/README.md), [firmware](firmware/README.md), [`rootfs/`](rootfs/) builders (arm64 host, or x86-64 Linux with qemu-user-binfmt — WSL2 with Ubuntu works, see [install](docs/install-manual.md#prerequisites)) |
-| change the tablet's own settings | [Open Device Helper](docs/helper.md): charge limit, "full by" charging schedule and bypass, refresh rate and panel heat protection, performance profiles with CPU/GPU limits and CPU boost, thermal profiles, low-latency Wi-Fi, LED ring effects and colors, vibration strength, charger wake, multiboot, and kernel updates from this repository's releases (testing / stable channel, tried on the next start and rolled back if it does not come up) or from a file |
+| change the tablet's own settings | [Open Device Helper](docs/helper.md): charging, refresh rate, performance and thermal profiles, LED ring, multiboot, kernel updates, … |
 | look up a term (`boot_b`, state root, trial, EDL, …) | [Glossary](docs/glossary.md) |
-| know the open problems | [Known issues](docs/hardware-status.md#known-issues): runtime idle leaves out the CPU cluster idle state, which made the tablet reset when idle (patch 0118); the LED ring goes dark for about 45 ms on each color change; 165 / 144 Hz, DisplayPort MST, GNSS |
+| know the open problems | [Known issues](docs/hardware-status.md#known-issues): CPU cluster idle state (worked around), 165 / 144 Hz, DisplayPort MST, GNSS, low-speed USB devices, … |
 
 ## Layout
 
@@ -49,6 +49,12 @@ If this project is useful to you, you can support the work:
 
 Starring the repository on GitHub helps too: it makes the project easier for other TB323FU owners to find.
 
+## Contributing
+
+Issues and pull requests are welcome. Reports from your own tablet — what works and what does not, with logs — are as useful
+as code: use the [bug or hardware report](https://github.com/joonhoekim/tb323fu-linux/issues/new?template=bug-report.yml) form.
+Contributions are taken under the license of the file they change, with a DCO sign-off; see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 Every file's SPDX header takes precedence; files without one are covered by [`REUSE.toml`](REUSE.toml), otherwise by the MIT [`LICENSE`](LICENSE). The repository passes `reuse lint` ([REUSE](https://reuse.software/) 3.3).
@@ -66,7 +72,6 @@ Every file's SPDX header takes precedence; files without one are covered by [`RE
 
 Firmware is not redistributed, and neither are Valve's Steam client, the SteamOS-ARM image or distribution base images: the builders download them on your machine.
 The project name, icons, update source and any signing keys are covered by the [name and trademark policy](TRADEMARKS.md); forks and modified builds use their own.
-Contributions are taken under the license of the file they change, with a DCO sign-off ([CONTRIBUTING.md](CONTRIBUTING.md)).
 This is an independent community project, not affiliated with Lenovo, Qualcomm or Valve; their names are used only to identify the device and the software it works with.
 
 ## Acknowledgements

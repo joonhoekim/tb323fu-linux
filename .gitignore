@@ -17,3 +17,5 @@ site/out/
 site/public/_repo/
 site/next-env.d.ts
 site/*.tsbuildinfo
+# macOS Finder metadata
+.DS_Store
