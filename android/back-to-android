@@ -88,6 +88,13 @@ echo "boot_a sha256 $ha"
 
 echo "boot_a is Android again; rebooting"
 sync
+# A shell on the USB serial gadget ignores SIGTERM and blocks in tcsetattr() while the PC
+# does not read the port; "systemctl reboot --force" then waits 90 s for it.
+sid=$(cut -d' ' -f6 /proc/$$/stat)
+for d in /proc/[0-9]*; do
+	ls -l "$d/fd" 2>/dev/null | grep -q '/dev/ttyGS' || continue
+	[ "$(cut -d' ' -f6 "$d/stat" 2>/dev/null)" = "$sid" ] || kill -KILL "${d#/proc/}" 2>/dev/null
+done
 # busybox's reboot in the initramfs; systemd's in a root. Run by the helper
 # (a sandboxed service: ProtectSystem=strict) systemd's "reboot -f" cannot
 # write /run and gives up without rebooting (seen 2026-10-02) -- then ask the
