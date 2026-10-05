@@ -10,7 +10,7 @@ tablet. Single runs: expect a few percent between runs. Linux: Debian 13 with GN
 | CPU, Geekbench 7 single / multi | 3142 / 10520 | 3096 / 10121 (98 % / 96 %) | with memlat (patches 0120-0127); `kernel-t40` without it: 3038 / 9951 |
 | Memory bandwidth (copy) | 25.7 GB/s | 25.6 GB/s | same |
 | Memory latency, 64 MB random | 68 ns | 69 ns | `kernel-t40` without memlat: 127 ns |
-| GPU compute, Geekbench 7 OpenCL | 19204 | 7559 (39 %) | Mesa 26.1.6 (Debian); see [GPU](#gpu) |
+| GPU compute, Geekbench 7 OpenCL | 19204 | 7559 (39 %) | Mesa 26.1.6 (Debian); about 14000 (73 %) with local Mesa changes, see [GPU](#gpu) |
 | GPU raw throughput (clpeak) | — | FP32 3.05 TFLOPS, 66 GB/s | about 83 % of the theoretical 3.7 TFLOPS |
 | Storage, sequential read / write | 2.7 / 1.8 GB/s | 4.3 / 2.0 GB/s | Android's /data is encrypted (inline crypto) |
 | Storage, 4K random read QD1 / 4 jobs | 13.6k / 459k IOPS | 16.1k / 448k IOPS | with MCQ (patch 0119) |
@@ -54,6 +54,13 @@ Two kernel changes closed most of the CPU gap:
 Earlier Geekbench 6 runs on Linux: 2288 / 10359 (before 0117), 3590 / 11016 (with 0117), 3572 / 10857
 (`kernel-t40`). Android results published for this tablet are about 3655–3710 / 10758–11672.
 
+Per workload (Geekbench 7, memlat kernel against Android on the same tablet), single-core is uniformly about 97 %
+of Android. Multi-core is level except three long all-core workloads: Asset Compression 83 %, Clang 89 %, Ray
+Tracer 91 %. During them all eight cores are busy while the clocks fall within a second or two to 2.0–2.9 GHz
+(small cores, 3.63 GHz maximum) and 2.7–3.1 GHz (large cores, 4.61 GHz) at about 100 °C; the operating system
+reports no throttling, so the limit comes from the firmware. Whether Android sustains higher clocks there has not
+been measured yet.
+
 ## GPU
 
 The GPU itself runs as it should: clocks up to 1200 MHz (Android's limit too), FP32 3.05 TFLOPS and 66 GB/s
@@ -69,15 +76,25 @@ OpenCL compiler (rusticl on freedreno), not the kernel; few desktop applications
 | Mesa main (26.3-devel) | 8632 |
 | + buffers the CPU reads back allocated cached instead of write-combined | 9285 |
 | + kernels recompiled for the work-group size of each launch | 10542 |
-
 | + uniform loads broadcast, native sin/cos under fast relaxed math, fast-math fixes, no scalar ALU on the 840 | 13615 |
+| + small private arrays kept in registers, small `__constant` lookup tables turned into selects | 13700–14200 |
 
-These are changes to a local Mesa build (ten patches prepared for upstream), not in any release; with them
-Geekbench 6 OpenCL goes from 9657 to 14163 and Geekbench 6 Vulkan from 20597 to 21583, and OpenCL-CTS shows no
+These are changes to a local Mesa build (thirteen patches prepared for upstream), not in any release; with them
+Geekbench 6 OpenCL goes from 9657 to 14768 and Geekbench 6 Vulkan from 20597 to 21583, and OpenCL-CTS shows no
 regression in the suites run. What they fix: values read at the same address by every thread were loaded once per
 thread; `sin`/`cos` went through a software implementation even under `-cl-fast-relaxed-math`; Mesa compiled
 fast-relaxed-math kernels as exact (it ignored the SPIR-V `Fast` flag); on the Adreno 840 the scalar ALU made
-uniform loops wait on every iteration.
+uniform loops wait on every iteration; a private array initialized through a decayed pointer stayed in scratch
+memory; an indexed read of a small `__constant` table became a memory load depending on another load.
+
+The same kernels, run in a small test program on both systems (Qualcomm's driver on Android, the local Mesa on
+Linux), now come out close: Mesa takes 1.17–1.25 times Qualcomm's time on the slowest of them (a particle loop,
+tiled matrix multiply, convolution, edge thinning), is faster on others, and starts work faster (one launch and
+wait: about 50 µs against 95 µs). The largest remaining gap is a colour lookup table (Geekbench's Video Filter, 41 %
+of Android): neighbouring pixels read the same table entries, which Qualcomm's driver serves from the texture
+cache (0.27 ms per 1920×1080 frame) while Mesa's OpenCL global loads bypass it (0.57 ms; 0.40 ms when the table
+is read as an image in a test). Routing read-only buffer arguments through the texture path is a larger change in
+Mesa and has not been done.
 
 ## Storage
 
