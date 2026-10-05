@@ -75,6 +75,14 @@ Third-party code
 - userspace/desktop/steam/steam-arm64: an independent reimplementation; the
   procedure follows ROCKNIX's "Install Steam" script (no code copied).
   https://github.com/ROCKNIX/distribution/blob/next/projects/ROCKNIX/packages/virtual/emulators/sources/Install%20Steam.sh
+- Kernel releases: the initramfs built into each Image carries BusyBox
+  (GPL-2.0-only; its source is attached to the release), regulatory.db from
+  wireless-regdb (ISC) and the console font Lat15-Terminus28x14 from
+  console-setup (Terminus Font, OFL-1.1). Their copyright and license texts
+  are in THIRD-PARTY-NOTICES.txt of each release.
+- Helper releases and Debian packages: the binaries are built with Rust crates
+  from crates.io (mostly MIT or Apache-2.0); their license files are in
+  share/doc/<package>/THIRD-PARTY-LICENSES (tools/third-party-licenses.py).
 
 
 Not included

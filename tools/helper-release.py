@@ -7,7 +7,9 @@ A helper release (a GitHub Release, tag helper-vX.Y.Z) carries:
 
     tb323fu-helper-X.Y.Z-aarch64.tar.gz   MANIFEST + root/<path>: what helper/install.sh,
                                           crates/tb323fu-settings/install.sh and the GNOME
-                                          extension install with PREFIX=/usr/local
+                                          extension install with PREFIX=/usr/local, plus
+                                          COPYING and THIRD-PARTY-LICENSES (Rust crates,
+                                          tools/third-party-licenses.py) in share/doc
     SHA256SUMS                            sha256sum of every file of the release
     SHA256SUMS.minisig                    optional (helpers with kernel.require_signature)
     the release body                      the notes (Markdown); a line
@@ -114,6 +116,16 @@ def stage(a, dest):
         if a.settings_build_dir:
             env["BUILD_DIR"] = os.path.abspath(a.settings_build_dir)
         subprocess.run(["sh", os.path.join(REPO, "helper", "crates", "tb323fu-settings", "install.sh")], env=env, check=True, stdout=subprocess.DEVNULL)
+    doc = os.path.join(dest, "usr", "local", "share", "doc", "tb323fu-helper")
+    os.makedirs(doc, exist_ok=True)
+    shutil.copyfile(os.path.join(REPO, "LICENSES", "GPL-3.0-or-later.txt"), os.path.join(doc, "COPYING"))
+    workspaces = [os.path.join(REPO, "helper")]
+    if not a.no_settings:
+        workspaces.append(os.path.join(REPO, "helper", "crates", "tb323fu-settings"))
+    subprocess.run([sys.executable, os.path.join(HERE, "third-party-licenses.py"), os.path.join(doc, "THIRD-PARTY-LICENSES"), *workspaces],
+                   check=True, stdout=subprocess.DEVNULL)
+    for n in ("COPYING", "THIRD-PARTY-LICENSES"):
+        os.chmod(os.path.join(doc, n), 0o644)
     if not a.no_extension:
         src = os.path.join(REPO, "userspace", "desktop", "gnome", "extension", UUID)
         dst = os.path.join(dest, "usr", "local", "share", "gnome-shell", "extensions", UUID)

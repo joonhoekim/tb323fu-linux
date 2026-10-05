@@ -110,6 +110,8 @@ build tb323fu-platform "$ARCH"
 # ---- tb323fu-helper
 DESTDIR=$work/tb323fu-helper PREFIX=/usr LIBEXECDIR=/usr/libexec/tb323fu sh "$root/helper/install.sh" > /dev/null
 copyright tb323fu-helper GPL-3.0-or-later
+python3 "$root/tools/third-party-licenses.py" "$work/tb323fu-helper/usr/share/doc/tb323fu-helper/THIRD-PARTY-LICENSES" "$root/helper" > /dev/null
+echo " Rust crates built into the binaries: THIRD-PARTY-LICENSES in this directory." >> "$work/tb323fu-helper/usr/share/doc/tb323fu-helper/copyright"
 control tb323fu-helper "$ARCH" "dbus, polkitd | policykit-1, systemd, curl" "tb323fu-platform" \
 	"TB323FU device helper (charge limit, refresh, torch, LED ring, GPU, ...)" \
 	"tb323fu-helperd owns the device knobs behind one system D-Bus service
@@ -127,6 +129,8 @@ build tb323fu-helper "$ARCH"
 # ---- tb323fu-settings
 (cd "$root/helper/crates/tb323fu-settings" && DESTDIR=$work/tb323fu-settings PREFIX=/usr sh ./install.sh > /dev/null)
 copyright tb323fu-settings GPL-3.0-or-later
+python3 "$root/tools/third-party-licenses.py" "$work/tb323fu-settings/usr/share/doc/tb323fu-settings/THIRD-PARTY-LICENSES" "$root/helper/crates/tb323fu-settings" > /dev/null
+echo " Rust crates built into the binaries: THIRD-PARTY-LICENSES in this directory." >> "$work/tb323fu-settings/usr/share/doc/tb323fu-settings/copyright"
 control tb323fu-settings "$ARCH" "libgtk-4-1 (>= 4.12), libadwaita-1-0 (>= 1.5), tb323fu-helper" "" \
 	"Settings app for the TB323FU helper (GTK4/libadwaita)"
 build tb323fu-settings "$ARCH"
