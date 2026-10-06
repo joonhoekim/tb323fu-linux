@@ -3,6 +3,8 @@
 Mainline Linux on the **Lenovo Legion Tab Gen 5 / Legion Y700 5th Gen** (model **TB323FU**, Snapdragon 8 Elite Gen 5, SM8850 "kaanapali", board "baldur").
 The same model number is used in China and elsewhere; the firmware region (PRC / ROW) differs, not the hardware.
 
+**Website: [joonhoekim.github.io/tb323fu-linux](https://joonhoekim.github.io/tb323fu-linux/)**
+
 ![Debian 13 with GNOME on the TB323FU: fastfetch in a terminal, Open Device Helper's display settings next to it](docs/images/tablet-fastfetch.jpg)
 
 > **Status: work in progress — not ready for everyday use.**
