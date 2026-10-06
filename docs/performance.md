@@ -76,7 +76,8 @@ downloaded from the project's `mesa-*` releases. See [Graphics drivers](helper.m
 | Geekbench 6 OpenCL | 2593 (fails one result check) | 23034 | about 24000 (published, other devices) |
 | Geekbench 6 Vulkan | 18342 | 26977 | about 27200–29700 (published, other devices) |
 
-Default GPU clock settings (performance profile), no clock pinning. With Debian's Mesa, OpenCL was the weak spot
+Default GPU clock settings (performance profile), no clock pinning. Measured on one tablet (the author's): for
+orientation only, results on other units may differ. With Debian's Mesa, OpenCL was the weak spot
 (39 % of Android in Geekbench 7); the cause was in Mesa's OpenCL and compute paths, not in the kernel. The project's
 build is checked against OpenCL-CTS and the Vulkan CTS (dEQP-VK) groups that cover compute and synchronization,
 with the same results as upstream Mesa.

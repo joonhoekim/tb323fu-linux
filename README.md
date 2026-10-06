@@ -23,6 +23,7 @@ the kernel does not assume a particular distribution or desktop.
 | install another distribution, your own kernel or a root on the internal storage | [Installing by hand](docs/install-manual.md) (every step as commands, each marked verified / from records / untested) |
 | build or review the kernel | [kernel/](kernel/README.md), [PROVENANCE.md](kernel/PROVENANCE.md), [initramfs](kernel/initramfs/README.md) |
 | put together a root filesystem | [platform files](userspace/platform/README.md), [firmware](firmware/README.md), [`rootfs/`](rootfs/) builders (arm64 host, or x86-64 Linux with qemu-user-binfmt — WSL2 with Ubuntu works, see [install](docs/install-manual.md#prerequisites)) |
+| make Vulkan and OpenCL faster (optional) | [After installing → the project's Mesa](docs/after-install.md#optional-the-projects-mesa-for-vulkan-and-opencl): its own Mesa build for this GPU, switched on in Open Device Helper; the default stays the distribution's Mesa |
 | change the tablet's own settings | [Open Device Helper](docs/helper.md): charging, refresh rate, performance and thermal profiles, LED ring, multiboot, kernel updates, … |
 | look up a term (`boot_b`, state root, trial, EDL, …) | [Glossary](docs/glossary.md) |
 | know the open problems | [Known issues](docs/hardware-status.md#known-issues): CPU cluster idle state (worked around), 165 / 144 Hz, DisplayPort MST, GNSS, low-speed USB devices, … |

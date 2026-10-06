@@ -69,7 +69,7 @@ keep`) confirms it. A kernel that is not confirmed by its third start is replace
 restarts. A kernel that dies before the initramfs runs cannot be caught this way; then the way back is EDL
 ([recovery](recovery.md#linux-does-not-boot)). Details: [helper.md → Kernel updates](helper.md#kernel-updates).
 
-**Helper.** Releases tagged `helper-vX.Y.Z` (`helper-v0.3.1` is the current stable one) show in **About** → Helper
+**Helper.** Releases tagged `helper-vX.Y.Z` (`helper-v0.4.0` is the current stable one) show in **About** → Helper
 Updates and in `tb323fu-ctl helper`. Who installs them depends on who installed the helper
 ([helper.md → Helper updates](helper.md#helper-updates)):
 
@@ -83,6 +83,29 @@ On other systems Open Device Helper shows the command when a package manager own
 
 **The distribution** updates the usual way (`apt`, `pacman`, `nixos-rebuild`, …). The kernel and its modules come
 with the boot image, not from the distribution's packages.
+
+## Optional: the project's Mesa for Vulkan and OpenCL
+
+After the install, every application uses the distribution's Mesa, and nothing changes that by itself. The project
+also offers its own Mesa build for this GPU — Turnip (Vulkan) and rusticl (OpenCL) — which is much faster for GPU
+compute (OpenCL programs, Vulkan compute; on this tablet Geekbench 7 OpenCL about 20000 instead of about 7500).
+OpenGL and the desktop itself keep using the distribution's Mesa either way. It is optional and comes as a binary
+release only.
+
+> The scores were measured on one tablet (the author's) and are for orientation only; yours may differ.
+
+- **Try it:** Open Device Helper → **Performance** → Graphics Drivers → **Check Now**, then Download and Install…, and
+  switch on **Use the Project's Mesa**; or `tb323fu-ctl mesa update` and `tb323fu-ctl mesa on`. It is used by
+  applications started after the next login. The distribution's Mesa stays installed next to it.
+- **On trial:** a version you switch on has to be confirmed with **Keep** (the banner on the Performance page, or
+  `tb323fu-ctl mesa keep`). Without Keep, the third start switches back to the distribution's Mesa by itself.
+- **Going back:** switch it off (`tb323fu-ctl mesa off`, used from the next login), or **Go Back…** to the previously
+  installed version.
+- **One program only:** `tb323fu-mesa run COMMAND` runs one program with the project's Mesa and `tb323fu-mesa distro
+  COMMAND` with the distribution's, whatever the setting — handy for comparing, or when one application misbehaves.
+
+Details, and using a release without the helper: [helper.md → Graphics drivers](helper.md#graphics-drivers-mesa).
+Measured results: [Performance → GPU](performance.md#gpu).
 
 ## Another system on the card
 
