@@ -3,7 +3,7 @@
 // (`pnpm licenses list --prod`) with the license files of its package, identical
 // texts once. Wider than what reaches the browser (most packages only run at build
 // time), which is fine for a notice. Runs before `next dev` / `next build`.
-import { execFileSync } from "node:child_process";
+import { execSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -13,7 +13,10 @@ const site = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.join(site, "public", "third-party-licenses.txt");
 const LICENSE_FILE = /^(licen[cs]e|copying|notice|copyright)([-._].*)?$/i;
 
-const list = JSON.parse(execFileSync("pnpm", ["licenses", "list", "--prod", "--json"], { cwd: site, encoding: "utf8" }));
+// through the shell: on Windows pnpm is a .cmd shim, which Node does not start directly
+const list = JSON.parse(
+  execSync("pnpm licenses list --prod --json", { cwd: site, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }),
+);
 const pkgs = [];
 for (const [license, entries] of Object.entries(list)) {
   for (const e of entries) {
