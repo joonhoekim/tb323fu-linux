@@ -4,7 +4,7 @@
 # Untested: no Arch Linux ARM system was available when this was written.
 pkgbase=tb323fu-linux
 pkgname=(tb323fu-platform tb323fu-helper tb323fu-settings tb323fu-helper-gnome)
-pkgver=0.3.1
+pkgver=0.4.0
 pkgrel=1
 arch=(aarch64)
 url=https://github.com/joonhoekim/tb323fu-linux

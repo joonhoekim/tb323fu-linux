@@ -817,7 +817,7 @@ dependencies = [
 
 [[package]]
 name = "tb323fu-ctl"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -826,7 +826,7 @@ dependencies = [
 
 [[package]]
 name = "tb323fu-helper-core"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "flate2",
  "minisign",
@@ -839,7 +839,7 @@ dependencies = [
 
 [[package]]
 name = "tb323fu-helperd"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "async-io",
  "blocking",

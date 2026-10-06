@@ -6,7 +6,7 @@ let
 in
 rustPlatform.buildRustPackage {
   pname = "tb323fu-settings";
-  version = "0.3.1";
+  version = "0.4.0";
   src = tree;
   cargoLock.lockFile = "${tree}/Cargo.lock";
   nativeBuildInputs = [ pkg-config wrapGAppsHook4 ];

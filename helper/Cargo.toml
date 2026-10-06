@@ -7,7 +7,7 @@ members = ["crates/tb323fu-helper-core", "crates/tb323fu-helperd", "crates/tb323
 exclude = ["crates/tb323fu-settings"]
 
 [workspace.package]
-version = "0.3.1"
+version = "0.4.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/joonhoekim/tb323fu-linux"

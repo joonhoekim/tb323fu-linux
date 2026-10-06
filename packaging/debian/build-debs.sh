@@ -6,7 +6,7 @@
 #   (cd helper && cargo build --release --locked)
 #   (cd helper/crates/tb323fu-settings && cargo build --release --locked)
 #   sh packaging/debian/build-debs.sh [OUTDIR]          # default ./out/deb
-# Environment: VERSION (default 0.3.1), ARCH (default: dpkg --print-architecture).
+# Environment: VERSION (default 0.4.0), ARCH (default: dpkg --print-architecture).
 #
 # Packages:
 #   tb323fu-platform      layer 1: udev rules, systemd units, audio/UCM, sensors,
@@ -17,7 +17,7 @@
 set -eu
 root=$(cd "$(dirname "$0")/../.." && pwd)
 OUT=${1:-$root/out/deb}
-VERSION=${VERSION:-0.3.1}
+VERSION=${VERSION:-0.4.0}
 ARCH=${ARCH:-$(dpkg --print-architecture)}
 MAINT="Joonhoe Kim <26rote@gmail.com>"
 HOME_URL=https://github.com/joonhoekim/tb323fu-linux

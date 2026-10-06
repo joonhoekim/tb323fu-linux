@@ -6,7 +6,7 @@ let
 in
 rustPlatform.buildRustPackage {
   pname = "tb323fu-helper";
-  version = "0.3.1";
+  version = "0.4.0";
   src = tree;
   cargoLock.lockFile = "${tree}/Cargo.lock";
   # tests start a private D-Bus daemon; run them outside the sandbox

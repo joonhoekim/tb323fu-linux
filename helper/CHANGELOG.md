@@ -1,6 +1,6 @@
 # Open Device Helper changelog
 
-## 0.4.0 — unreleased
+## 0.4.0 — 2026-10-06
 
 - **Mesa channel:** the project's Mesa build for the Adreno 840 (Turnip Vulkan, rusticl OpenCL, binary releases)
   from `mesa-*` releases on GitHub Releases, next to the distribution's Mesa, which stays installed and
@@ -11,6 +11,12 @@
   for one command whatever the session setting. New D-Bus object `Mesa`, polkit action `mesa-install`. Settings
   app: Performance → Graphics Drivers, with a Keep banner while a version is on trial.
 - `tools/mesa-release.py` makes and checks the Mesa release assets.
+- **Settings survive a restart:** Bypass turned off during the performance thermal profile stays off
+  (`thermal.bypass_declined`); Bypass on is applied again at start; the brightness the panel heat limit lowered and
+  the Wi-Fi interfaces whose power saving the helper switched off are given back after a restart; a config file that
+  does not parse is kept as `helper.toml.bad` before the defaults are used.
+- The app icon is the site's pixel tablet on a blue tile.
+- Release tarballs and packages carry the license notices of the Rust crates (`THIRD-PARTY-LICENSES`).
 
 ## 0.3.1 — 2026-10-04
 
