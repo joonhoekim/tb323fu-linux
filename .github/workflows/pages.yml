@@ -47,7 +47,7 @@ jobs:
           fi
       - id: pages
         if: steps.check.outputs.enabled == 'true'
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
         env:
