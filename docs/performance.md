@@ -10,7 +10,7 @@ tablet. Single runs: expect a few percent between runs. Linux: Debian 13 with GN
 | CPU, Geekbench 7 single / multi | 3142 / 10520 | 3096 / 10121 (98 % / 96 %) | with memlat (patches 0120-0127); `kernel-t40` without it: 3038 / 9951 |
 | Memory bandwidth (copy) | 25.7 GB/s | 25.6 GB/s | same |
 | Memory latency, 64 MB random | 68 ns | 69 ns | `kernel-t40` without memlat: 127 ns |
-| GPU compute, Geekbench 7 OpenCL | 19204 | 20104 (105 %) | the project's Mesa build; Debian's Mesa 26.1.6: 7559 (39 %), see [GPU](#gpu) |
+| GPU compute, Geekbench 7 OpenCL | 19204 | 20167 (105 %) | the project's Mesa build; Debian's Mesa 26.1.6: 7559 (39 %), see [GPU](#gpu) |
 | GPU raw throughput (clpeak) | — | FP32 3.05 TFLOPS, 66 GB/s | about 83 % of the theoretical 3.7 TFLOPS |
 | Storage, sequential read / write | 2.7 / 1.8 GB/s | 4.3 / 2.0 GB/s | Android's /data is encrypted (inline crypto) |
 | Storage, 4K random read QD1 / 4 jobs | 13.6k / 459k IOPS | 16.1k / 448k IOPS | with MCQ (patch 0119) |
@@ -26,8 +26,8 @@ Gen 5 devices (Android):
 | Geekbench 6 CPU single / multi | 3641 / 11175 | about 3655–3710 / 10758–11672 |
 | Speedometer 3.1 (Chromium 150) | 22.5 | 18.1 (OnePlus 15), 23 (Xiaomi 17), 46 (Galaxy S26 Ultra) |
 | JetStream 2.2 (Chromium 150) | 389.5 | about 281–295 (Chrome) |
-| Geekbench 6 Vulkan | about 26900 (the project's Mesa build), 18099 (Debian's Mesa 26.1.6) | about 27200–29700 |
-| Geekbench 6 OpenCL | about 23000 (the project's Mesa build), 9657 (Mesa main) | about 24000 |
+| Geekbench 6 Vulkan | 26977 (the project's Mesa build), 18099 (Debian's Mesa 26.1.6) | about 27200–29700 |
+| Geekbench 6 OpenCL | 23034 (the project's Mesa build), 9657 (Mesa main) | about 24000 |
 | GravityMark 1.89 Vulkan, 1920×1080, 200k asteroids | 5482 (32.8 fps, Mesa 26.1.6) | no Adreno 840 entries; Adreno 830: 3530–4568 |
 
 With Debian's Mesa 26.1.6, Geekbench 6 OpenCL fails one workload's result check (Particle Physics) and scores
@@ -70,11 +70,11 @@ compute the project provides its own Mesa build (Turnip and rusticl for the Adre
 distribution's Mesa through Open Device Helper (Performance → Graphics Drivers, or `tb323fu-ctl mesa update`), or
 downloaded from the project's `mesa-*` releases. See [Graphics drivers](helper.md#graphics-drivers-mesa).
 
-| Benchmark | Debian's Mesa 26.1.6 | the project's Mesa (2026.10.06.2) | Android |
+| Benchmark | Debian's Mesa 26.1.6 | the project's Mesa (2026.10.06.3) | Android |
 |---|---|---|---|
-| Geekbench 7 OpenCL | 7559 | 20104 | 19204 |
-| Geekbench 6 OpenCL | 2593 (fails one result check) | about 23000 | about 24000 (published, other devices) |
-| Geekbench 6 Vulkan | 18342 | about 26900 | about 27200–29700 (published, other devices) |
+| Geekbench 7 OpenCL | 7559 | 20167 | 19204 |
+| Geekbench 6 OpenCL | 2593 (fails one result check) | 23034 | about 24000 (published, other devices) |
+| Geekbench 6 Vulkan | 18342 | 26977 | about 27200–29700 (published, other devices) |
 
 Default GPU clock settings (performance profile), no clock pinning. With Debian's Mesa, OpenCL was the weak spot
 (39 % of Android in Geekbench 7); the cause was in Mesa's OpenCL and compute paths, not in the kernel. The project's
