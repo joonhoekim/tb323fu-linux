@@ -207,7 +207,9 @@ goes back to the previously installed version.
 `tb323fu-mesa distro COMMAND` (the distribution's) — for comparing, or for one application that misbehaves.
 
 CLI: `tb323fu-ctl mesa [status] | check | notes [VERSION] | download [VERSION] | install [VERSION] | update |
-on | off | keep | rollback | run COMMAND… | distro COMMAND…`. D-Bus: [reference → D-Bus API](helper-reference.md#d-bus-api).
+on | off | keep | rollback | run COMMAND… | distro COMMAND…`. Settings app: **Performance** → Graphics Drivers
+(status, "Use the Project's Mesa", "Mesa X Available" with Notes and Download → Install…, Check Now, Go Back…; a
+Keep banner on the page while a version is on trial). D-Bus: [reference → D-Bus API](helper-reference.md#d-bus-api).
 
 ## Persistence
 

@@ -47,7 +47,7 @@ const DAY_LETTERS: [&str; 7] = ["M", "T", "W", "T", "F", "S", "S"];
 const KNOWN_FEATURES: usize = 13;
 const DEBOUNCE: Duration = Duration::from_millis(400);
 /// The objects refresh() polls (the root object is polled first).
-const OBJECTS: [&str; 14] = ["Battery", "Refresh", "Gpu", "Torch", "LedRing", "Haptics", "Usb", "EmergencyKey", "Android", "Diagnostics", "Boot", "Thermal", "Kernel", "HelperUpdate"];
+const OBJECTS: [&str; 15] = ["Battery", "Refresh", "Gpu", "Torch", "LedRing", "Haptics", "Usb", "EmergencyKey", "Android", "Diagnostics", "Boot", "Thermal", "Kernel", "HelperUpdate", "Mesa"];
 
 const CSS: &str = "
 .tag { font-size: smaller; font-weight: bold; padding: 2px 8px; border-radius: 999px;
@@ -507,6 +507,8 @@ struct Ui {
     kn: KernelUi,
     // Helper updates (About)
     hu: HelperUi,
+    // Graphics drivers (Performance)
+    me: MesaUi,
 }
 
 /// Limits of one performance profile: GPU min/max and CPU little/big min/max.
@@ -556,6 +558,25 @@ struct HelperUi {
     command: LongInfo,
     back: adw::ActionRow,
     back_btn: gtk::Button,
+    /// what the action button does now: (verb, version)
+    next: RefCell<(&'static str, String)>,
+    busy: Cell<bool>,
+}
+
+/// The Mesa channel widgets (Performance): status, on/off, the newer release with
+/// Notes and one action (Download -> Install…), Check Now, Go Back, and a Keep
+/// banner while a version is on trial.
+struct MesaUi {
+    group: adw::PreferencesGroup,
+    state: gtk::Label,
+    on: adw::SwitchRow,
+    avail: adw::ActionRow,
+    notes: gtk::Button,
+    action: gtk::Button,
+    check_btn: gtk::Button,
+    back: adw::ActionRow,
+    back_btn: gtk::Button,
+    banner: adw::Banner,
     /// what the action button does now: (verb, version)
     next: RefCell<(&'static str, String)>,
     busy: Cell<bool>,
@@ -725,6 +746,31 @@ impl Ui {
         let th_throttle = info(&th_group, "Throttling");
         let th_all = adw::ExpanderRow::builder().title("All Sensors").build();
         th_group.add(&th_all);
+        let me_group = group(&b, "Graphics Drivers", "The project's Mesa build for Vulkan and OpenCL, from its GitHub releases. Your distribution's Mesa stays installed.");
+        group_help(&me_group, "Switched on, applications started after the next login use it for Vulkan and OpenCL; the desktop and GL stay on \
+            the distribution's Mesa. A version switched on is on trial: keep it once your applications work, or the third start without \
+            Keep switches back by itself. For a single program, either way: tb323fu-mesa run COMMAND, tb323fu-mesa distro COMMAND.");
+        let me_state = info(&me_group, "Status");
+        let me_on = switch(&me_group, "Use the Project's Mesa", "From the next login");
+        let me_avail = adw::ActionRow::builder().title("New Version").build();
+        me_avail.set_subtitle_lines(1);
+        let me_notes = gtk::Button::with_label("Notes");
+        me_notes.set_valign(gtk::Align::Center);
+        me_notes.add_css_class("flat");
+        let me_action = gtk::Button::with_label("Download");
+        me_action.set_valign(gtk::Align::Center);
+        me_action.add_css_class("suggested-action");
+        me_avail.add_suffix(&me_notes);
+        me_avail.add_suffix(&me_action);
+        me_avail.set_visible(false);
+        me_group.add(&me_avail);
+        let (_, me_check_btn) = button(&me_group, "New Versions", "", "Check Now");
+        let (me_back, me_back_btn) = button(&me_group, "Previous Version", "", "Go Back…");
+        me_back_btn.add_css_class("destructive-action");
+        me_back.set_visible(false);
+        me_group.set_visible(false);
+        let me_banner = adw::Banner::new("");
+        me_banner.set_button_label(Some("Keep"));
 
         // Torch & LED ring
         let (p_led, b) = page_box();
@@ -901,7 +947,7 @@ impl Ui {
         let defs: [(&str, &str, &'static [&'static str], &gtk::ScrolledWindow, Option<&adw::Banner>); 10] = [
             ("Battery", "battery-good-symbolic", &["Battery"], &p_bat, None),
             ("Display", "video-display-symbolic", &["Refresh", "Thermal"], &p_ref, None),
-            ("Performance", "power-profile-balanced-symbolic", &["Gpu", "Thermal"], &p_gpu, None),
+            ("Performance", "power-profile-balanced-symbolic", &["Gpu", "Thermal"], &p_gpu, Some(&me_banner)),
             ("Lights & Vibration", "display-brightness-symbolic", &["Torch", "LedRing", "Haptics"], &p_led, None),
             ("USB", "media-removable-symbolic", &["Usb"], &p_usb, None),
             ("Emergency Key", "dialog-warning-symbolic", &["EmergencyKey"], &p_ek, None),
@@ -1113,11 +1159,26 @@ impl Ui {
                 next: RefCell::new(("", String::new())),
                 busy: Cell::new(false),
             },
+            me: MesaUi {
+                group: me_group,
+                state: me_state,
+                on: me_on,
+                avail: me_avail,
+                notes: me_notes,
+                action: me_action,
+                check_btn: me_check_btn,
+                back: me_back,
+                back_btn: me_back_btn,
+                banner: me_banner,
+                next: RefCell::new(("", String::new())),
+                busy: Cell::new(false),
+            },
         });
         ui.connect(gpu_buttons, rescan, diag_open, retry);
         ui.connect_more(led_pulse, hap_buttons);
         ui.connect_kernel(kn_back_btn);
         ui.connect_helper();
+        ui.connect_mesa();
         ui
     }
 
@@ -1772,6 +1833,17 @@ impl Ui {
             Some(None) if !self.hu.busy.get() => self.hu.group.set_visible(false),
             _ => {}
         }
+        match props.get("Mesa") {
+            Some(Some(m)) => {
+                self.me.group.set_visible(true);
+                self.update_mesa(m);
+            }
+            Some(None) if !self.me.busy.get() => {
+                self.me.group.set_visible(false);
+                self.me.banner.set_revealed(false);
+            }
+            _ => {}
+        }
         self.updating.set(false);
     }
 
@@ -2295,6 +2367,175 @@ impl Ui {
 
     /// The release notes (Markdown, the release body on GitHub), rendered, in
     /// a dialog that can be large (a bottom sheet on a narrow window).
+    fn update_mesa(&self, p: &Props) {
+        let s = |k: &str| dbus::s(p, k).unwrap_or_default();
+        let (installed, prev, avail, downloaded, trial, failed, state) =
+            (s("Installed"), s("Previous"), s("Available"), s("Downloaded"), s("Trial"), s("Failed"), s("State"));
+        let enabled = dbus::b(p, "Enabled").unwrap_or(false);
+        let drivers: Vec<&str> = dbus::strs(p, "Drivers").iter().map(|d| match d.as_str() {
+            "vulkan" => "Vulkan",
+            "opencl" => "OpenCL",
+            "gl" => "GL",
+            _ => "other",
+        }).collect();
+        let warn = !enabled && !failed.is_empty();
+        let label = match state.as_str() {
+            "checking" => "Checking…".to_string(),
+            "downloading" => format!("Downloading… {} %", dbus::u(p, "Progress").unwrap_or(0)),
+            "verifying" => "Verifying…".into(),
+            "installing" => "Installing…".into(),
+            "switching" => "Switching…".into(),
+            "keeping" => "Keeping…".into(),
+            "rolling-back" => "Going back…".into(),
+            _ if installed.is_empty() => "Not installed; the distribution's Mesa is used".into(),
+            _ if warn => format!("Mesa {failed} was switched off ({}); the distribution's Mesa is used", s("FailedReason")),
+            _ if enabled && !trial.is_empty() => format!("Mesa {installed} ({}), on trial", drivers.join(", ")),
+            _ if enabled => format!("Mesa {installed} ({})", drivers.join(", ")),
+            _ => format!("Mesa {installed} installed, switched off"),
+        };
+        set_text(&self.me.state, &label);
+        set_class(&self.me.state, "warning", warn);
+        if !self.me.busy.get() {
+            set_switch(&self.me.on, Some(enabled));
+        }
+        self.me.on.set_sensitive(!installed.is_empty());
+
+        let next: (&'static str, String) = if !downloaded.is_empty() {
+            ("install", downloaded.clone())
+        } else if !avail.is_empty() {
+            ("download", avail.clone())
+        } else {
+            ("", String::new())
+        };
+        self.me.avail.set_visible(!next.0.is_empty());
+        if !next.0.is_empty() {
+            let title = if next.0 == "install" { format!("Mesa {} Downloaded", next.1) } else { format!("Mesa {} Available", next.1) };
+            if self.me.avail.title() != title {
+                self.me.avail.set_title(&title);
+            }
+            let btn = if next.0 == "install" { "Install…" } else { "Download" };
+            if self.me.action.label().as_deref() != Some(btn) {
+                self.me.action.set_label(btn);
+            }
+        }
+        *self.me.next.borrow_mut() = next;
+        self.me.back.set_visible(!prev.is_empty());
+        if !prev.is_empty() {
+            let sub = format!("Back to {prev}");
+            if self.me.back.subtitle().as_deref() != Some(sub.as_str()) {
+                self.me.back.set_subtitle(&sub);
+            }
+        }
+        let keep = enabled && !trial.is_empty();
+        if keep {
+            let text = format!("Trying Mesa {trial}: keep it once your applications work");
+            if self.me.banner.title() != text {
+                self.me.banner.set_title(&text);
+            }
+        }
+        if self.me.banner.is_revealed() != keep {
+            self.me.banner.set_revealed(keep);
+        }
+    }
+
+    fn mesa_sensitive(&self, on: bool) {
+        self.me.action.set_sensitive(on);
+        self.me.back_btn.set_sensitive(on);
+        self.me.check_btn.set_sensitive(on);
+        self.me.banner.set_sensitive(on);
+    }
+
+    /// A long Mesa call on a worker thread (like helper_call); the poll shows
+    /// State and Progress meanwhile.
+    fn mesa_call<B>(self: &Rc<Self>, method: &'static str, body: B)
+    where
+        B: serde::ser::Serialize + zbus::zvariant::DynamicType + Send + 'static,
+    {
+        if self.me.busy.replace(true) {
+            return;
+        }
+        self.mesa_sensitive(false);
+        let client = self.client.borrow().clone();
+        let ui = self.clone();
+        glib::spawn_future_local(async move {
+            let res = gio::spawn_blocking(move || client.call("Mesa", method, &body))
+                .await
+                .unwrap_or_else(|_| Err("Something went wrong".into()));
+            ui.me.busy.set(false);
+            ui.mesa_sensitive(true);
+            match &res {
+                Ok(Some(m)) if !m.is_empty() => ui.toast(m),
+                Err(e) => ui.toast(&format!("Graphics drivers: {e}")),
+                _ => {}
+            }
+            ui.refresh();
+        });
+    }
+
+    fn connect_mesa(self: &Rc<Self>) {
+        let ui = self.clone();
+        self.me.on.connect_active_notify(move |r| {
+            if !ui.updating.get() && !ui.me.busy.get() {
+                ui.mesa_call("SetEnabled", (r.is_active(),));
+            }
+        });
+        let ui = self.clone();
+        self.me.check_btn.connect_clicked(move |_| ui.mesa_call("Check", ()));
+        let ui = self.clone();
+        self.me.banner.connect_button_clicked(move |_| ui.mesa_call("Keep", ()));
+        let ui = self.clone();
+        self.me.action.connect_clicked(move |_| {
+            let (verb, v) = ui.me.next.borrow().clone();
+            match verb {
+                "download" => ui.mesa_call("Download", (v,)),
+                "install" => {
+                    let body = if ui.me.on.is_active() {
+                        "Applications use it from the next login, on trial: keep it once they work."
+                    } else {
+                        "It is installed switched off; switch it on to use it from the next login."
+                    };
+                    let d = adw::AlertDialog::new(Some(&format!("Install Mesa {v}?")), Some(body));
+                    d.add_response("cancel", "Cancel");
+                    d.add_response("go", "Install");
+                    d.set_response_appearance("go", adw::ResponseAppearance::Suggested);
+                    d.set_default_response(Some("go"));
+                    d.set_close_response("cancel");
+                    let ui2 = ui.clone();
+                    d.connect_response(None, move |_, r| {
+                        if r == "go" {
+                            ui2.mesa_call("Install", (v.clone(),));
+                        }
+                    });
+                    d.present(Some(&ui.window));
+                }
+                _ => {}
+            }
+        });
+        let ui = self.clone();
+        self.me.notes.connect_clicked(move |_| {
+            let v = ui.me.next.borrow().1.clone();
+            ui.notes_dialog("Mesa", &v, format!("Mesa {v}"));
+        });
+        let ui = self.clone();
+        self.me.back_btn.connect_clicked(move |_| {
+            let prev = ui.me.back.subtitle().map(|t| t.trim_start_matches("Back to ").to_string()).unwrap_or_default();
+            let d = adw::AlertDialog::new(Some(&format!("Go Back to Mesa {prev}?")),
+                Some("Applications use the previous version from the next login."));
+            d.add_response("cancel", "Cancel");
+            d.add_response("go", "Go Back");
+            d.set_response_appearance("go", adw::ResponseAppearance::Destructive);
+            d.set_default_response(Some("cancel"));
+            d.set_close_response("cancel");
+            let ui2 = ui.clone();
+            d.connect_response(None, move |_, r| {
+                if r == "go" {
+                    ui2.mesa_call("Rollback", ());
+                }
+            });
+            d.present(Some(&ui.window));
+        });
+    }
+
     fn show_notes(self: &Rc<Self>, tag: &str) {
         self.notes_dialog("Kernel", tag, format!("Kernel {}", short_tag(tag)));
     }

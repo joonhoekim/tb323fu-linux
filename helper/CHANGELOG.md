@@ -8,7 +8,8 @@
   the loader variables for the next login (`/etc/environment.d/60-tb323fu-mesa.conf`,
   `/etc/profile.d/tb323fu-mesa.sh`). A version switched on is on trial: without Keep, the third start goes back to
   the distribution's Mesa. `tb323fu-mesa run|distro COMMAND` (also `tb323fu-ctl mesa run|distro`) picks the driver
-  for one command whatever the session setting. New D-Bus object `Mesa`, polkit action `mesa-install`.
+  for one command whatever the session setting. New D-Bus object `Mesa`, polkit action `mesa-install`. Settings
+  app: Performance → Graphics Drivers, with a Keep banner while a version is on trial.
 - `tools/mesa-release.py` makes and checks the Mesa release assets.
 
 ## 0.3.1 — 2026-10-04
