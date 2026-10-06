@@ -152,3 +152,10 @@ CONFIG_DEVFREQ_GOV_REMOTE=y
 # pages or lengths, and msm maps imported dma-bufs from those, so every foreign
 # buffer the GPU imports (camera, video decoder, dma-heap) maps to nothing
 # CONFIG_DMABUF_DEBUG is not set
+
+# libcamera takes the global CMA area (dma-heap "reserved") first when it may;
+# 1080p buffers for the rear camera do not fit in the 32 MB default
+CONFIG_CMA_SIZE_MBYTES=256
+
+# a 4 MB printk ring, so a crash dump or a long boot keeps its log
+CONFIG_LOG_BUF_SHIFT=22
