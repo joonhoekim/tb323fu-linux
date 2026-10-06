@@ -12,8 +12,8 @@ tablet. Single runs: expect a few percent between runs. Linux: Debian 13 with GN
 | Memory latency, 64 MB random | 68 ns | 69 ns | `kernel-t40` without memlat: 127 ns |
 | GPU compute, Geekbench 7 OpenCL | 19204 | 20167 (105 %) | the project's Mesa build; Debian's Mesa 26.1.6: 7559 (39 %), see [GPU](#gpu) |
 | GPU raw throughput (clpeak) | — | FP32 3.05 TFLOPS, 66 GB/s | about 83 % of the theoretical 3.7 TFLOPS |
-| Storage, sequential read / write | 2.7 / 1.8 GB/s | 4.3 / 2.0 GB/s | Android's /data is encrypted (inline crypto) |
-| Storage, 4K random read QD1 / 4 jobs | 13.6k / 459k IOPS | 16.1k / 448k IOPS | with MCQ (patch 0119) |
+| Storage, sequential read / write | 2.7 / 1.8 GB/s | 4.4 / 1.9 GB/s | Android's /data is encrypted (inline crypto) |
+| Storage, 4K random read QD1 / 4 jobs | 13.6k / 459k IOPS | 13.1k / 401k IOPS | with MCQ (patch 0119); see [Storage](#storage) for how they were measured |
 | Video decode, 4K | — | H.264 319 fps, HEVC 531 fps | hardware decoder (iris); 40 Mbit/s test clips |
 
 ## Against published Android results
@@ -84,17 +84,22 @@ with the same results as upstream Mesa.
 
 ## Storage
 
-UFS 4.1, `fio` with `io_uring` on both, 8 GB file, direct I/O; Linux with patches 0119-0127.
+UFS 4.1, `fio` with `io_uring`, an 8 GB file, direct I/O, 20 s per test (the commands are under
+[Running it yourself](#running-it-yourself)). Linux: `kernel-t42`, the median of four runs. Android: measured
+earlier with the same engine and file size, but options that were not recorded; not measured again.
 
 | Test | Android | Linux |
 |---|---|---|
-| Sequential read, 1 MB, QD32 | 2686 MB/s | 4265 MB/s |
-| Sequential write, 1 MB, QD32 | 1819 MB/s | 2001 MB/s |
-| 4K random read, QD1 / QD32 / 4 jobs | 13.6k / 208k / 459k | 16.1k / 209k / 448k |
-| 4K random write, QD1 / QD32 / 4 jobs | 25.9k / 50.8k / 48.2k | 28.6k / 38.5k / 49.1k |
+| Sequential read, 1 MB, QD32 | 2686 MB/s | 4421 MB/s |
+| Sequential write, 1 MB, QD32 | 1819 MB/s | 1906 MB/s (one run of four: 2481) |
+| 4K random read, QD1 / QD32 / 4 jobs × QD32 | 13.6k / 208k / 459k | 13.1k / 231k / 401k |
+| 4K random write, QD1 / QD32 / 4 jobs × QD32 | 25.9k / 50.8k / 48.2k | 28.4k / 38.6k / 48.9k |
 
-Patch 0119 turns on the controller's multi-queue mode (MCQ): random reads with 4 jobs went from 240k to 448k IOPS.
-The I/O engine matters at low queue depth: with `libaio` the same Linux system does 11.5k random reads at QD1.
+Patch 0119 turns on the controller's multi-queue mode (MCQ). With the same commands, `kernel-t40` (without 0119
+and the memlat patches 0120-0127) does 8.5k random reads at QD1 and 178k with 4 jobs.
+The I/O engine matters at low queue depth: `libaio` is slower than `io_uring` at QD1.
+An earlier version of this page gave 16.1k and 448k for Linux; those came from fio options that were not recorded,
+and the kernel they were measured on gives the numbers above with these commands.
 
 ## Running it yourself
 
@@ -104,6 +109,14 @@ sudo apt install ocl-icd-libopencl1 clinfo clpeak    # the OpenCL loader; the dr
 tb323fu-mesa run ./geekbench7 --gpu OpenCL          # with the project's Mesa (or log in again after `tb323fu-ctl mesa on`)
 tb323fu-mesa run clpeak
 sudo apt install tinymembench fio
+tinymembench                                         # copy bandwidth; latency in the 67108864 row
+F=/var/tmp/fio.dat                                   # storage: 8 GB test file, written first
+fio --name=prep --filename=$F --size=8G --rw=write --bs=1M --direct=1 --ioengine=io_uring --iodepth=32
+fio --name=t --filename=$F --size=8G --direct=1 --ioengine=io_uring --runtime=20 --time_based \
+    --group_reporting --rw=randread --bs=4k --iodepth=1 --numjobs=1
+#   sequential: --rw=read|write --bs=1M --iodepth=32; random: --rw=randread|randwrite --bs=4k
+#   with --iodepth=1, --iodepth=32, or --iodepth=32 --numjobs=4
+rm $F
 ```
 
 The Geekbench preview builds need an Internet connection and upload every result to the Geekbench Browser.
