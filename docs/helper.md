@@ -190,8 +190,8 @@ Update…, or the command when a package manager updates the helper; Go Back… 
 
 ## Graphics drivers (Mesa)
 
-The port's Mesa build — Turnip (Vulkan) and rusticl (OpenCL) with the Adreno 840 patches that are not in a Mesa
-release yet — comes from the same GitHub Releases, tagged `mesa-<date>`. It is installed under
+The project's Mesa build for the Adreno 840 — Turnip (Vulkan) and rusticl (OpenCL) — comes from the same GitHub
+Releases, tagged `mesa-<date>`; it is provided as a binary release only. It is installed under
 `/var/lib/tb323fu/mesa/` next to the distribution's Mesa, which stays installed and is what every application uses
 while the channel is off. One build for every distribution (LLVM linked in; needs glibc 2.38 or newer). GL (the
 desktop itself) still comes from the distribution.
@@ -205,6 +205,17 @@ goes back to the previously installed version.
 
 **One command** with either driver, whatever the session setting: `tb323fu-mesa run COMMAND` (the port's) and
 `tb323fu-mesa distro COMMAND` (the distribution's) — for comparing, or for one application that misbehaves.
+
+**Without the helper**, a release can be used directly (any directory; nothing is installed system-wide):
+
+```sh
+sha256sum -c SHA256SUMS                         # next to tb323fu-mesa-<version>-aarch64.tar.gz
+tar xf tb323fu-mesa-<version>-aarch64.tar.gz    # MANIFEST and tree/lib/…
+D=$PWD/tree/lib
+printf '{"file_format_version": "1.0.1", "ICD": {"library_path": "%s/libvulkan_freedreno.so", "api_version": "1.4.0"}}\n' "$D" > turnip.json
+mkdir -p opencl && echo "$D/libRusticlOpenCL.so.1" > opencl/rusticl.icd
+VK_DRIVER_FILES=$PWD/turnip.json OCL_ICD_VENDORS=$PWD/opencl RUSTICL_ENABLE=freedreno COMMAND
+```
 
 CLI: `tb323fu-ctl mesa [status] | check | notes [VERSION] | download [VERSION] | install [VERSION] | update |
 on | off | keep | rollback | run COMMAND… | distro COMMAND…`. Settings app: **Performance** → Graphics Drivers

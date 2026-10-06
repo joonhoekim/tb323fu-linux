@@ -2,8 +2,8 @@
 
 ## 0.4.0 — unreleased
 
-- **Mesa channel:** the port's Mesa build (Turnip Vulkan, rusticl OpenCL, with the a8xx patches that are not
-  upstream yet) from `mesa-*` releases on GitHub Releases, next to the distribution's Mesa, which stays installed and
+- **Mesa channel:** the project's Mesa build for the Adreno 840 (Turnip Vulkan, rusticl OpenCL, binary releases)
+  from `mesa-*` releases on GitHub Releases, next to the distribution's Mesa, which stays installed and
   untouched. `tb323fu-ctl mesa check | download | install | update | on | off | keep | rollback`; switching on sets
   the loader variables for the next login (`/etc/environment.d/60-tb323fu-mesa.conf`,
   `/etc/profile.d/tb323fu-mesa.sh`). A version switched on is on trial: without Keep, the third start goes back to

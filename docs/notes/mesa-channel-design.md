@@ -5,11 +5,9 @@
 
 ## 1. The problem
 
-The port's Mesa changes (patches being prepared for upstream: OpenCL and Vulkan compute, ir3 compiler) are worth
-a lot on this GPU — Geekbench 6 Vulkan about 26.9k against 24.5k with Mesa main, Geekbench 7 OpenCL about 17.7k
-against 14.7k ([performance](../performance.md)). Distributions will not carry them for a long time: Debian 13
-gets no Mesa feature updates (backports 26.1.x), and even after the patches are merged upstream it takes months
-to reach a release. The helper already delivers kernels to every root; it should deliver this Mesa too.
+The project's Mesa build is worth a lot on this GPU — Geekbench 7 OpenCL about 20k against 7.6k with Debian's
+Mesa, Geekbench 6 Vulkan about 26.9k against 18.3k ([performance](../performance.md)). Distributions will not
+carry it: Debian 13 gets no Mesa feature updates (backports 26.1.x), and its changes are not in upstream Mesa. The helper already delivers kernels to every root; it should deliver this Mesa too.
 
 What makes Mesa different from a kernel or the helper itself:
 
@@ -74,8 +72,8 @@ Mirrors the kernel trial, with the environment as the thing that is reverted:
 `tools/mesa-release.py` (like `helper-release.py`): stages a `DESTDIR` install of the Mesa build, writes
 `tb323fu-mesa-<version>-aarch64.tar.gz` with a `MANIFEST` (`format=1`, `version=`, `mesa_commit=`, `base=`
 (the upstream Mesa commit), `min_glibc=`, `drivers=vulkan,opencl`, then `file SHA MODE SIZE PATH` lines) and
-`SHA256SUMS`. The release body carries the patch list (with links to the upstream merge requests) and
-`<!-- tb323fu: min_helper=… -->`. Built on the Debian 13 tablet; no CI yet.
+`SHA256SUMS`. The release body carries the measured results, the requirements and
+`<!-- tb323fu: min_helper=… -->` when needed; the build's sources are not published. Built on the Debian 13 tablet; no CI yet.
 
 ## 6. Phases
 
