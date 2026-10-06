@@ -213,7 +213,7 @@ class DeviceToggle extends QuickMenuToggle {
         this._refSection = new PopupMenu.PopupMenuSection();
         this._refSection.addMenuItem(new PopupMenu.PopupSeparatorMenuItem('Refresh Rate'));
         this._policyItems = {};
-        for (const [pol, label] of [['auto', 'Adaptive'], ['manual', 'Fixed'], ['off', 'Always 120 Hz']]) {
+        for (const [pol, label] of [['auto', 'Adaptive'], ['manual', 'Fixed'], ['off', 'Full Rate']]) {
             const it = stayItem(label, this._policyItems, pol,
                 () => this._helper.call('Refresh', 'SetPolicy', 's', [pol]));
             this._policyItems[pol] = it;

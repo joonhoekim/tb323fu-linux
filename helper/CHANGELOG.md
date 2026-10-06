@@ -1,5 +1,11 @@
 # Open Device Helper changelog
 
+## 0.4.1 — unreleased
+
+- **Refresh follows the display mode:** in the 164 Hz panel mode the fixed rate goes up to 164 Hz and Full Rate
+  (was "Always 120 Hz") means the mode's rate. New `MaxHz` property on the `Refresh` object, read from the kernel's
+  `idle_refresh_state`.
+
 ## 0.4.0 — 2026-10-06
 
 - **Mesa channel:** the project's Mesa build for the Adreno 840 (Turnip Vulkan, rusticl OpenCL, binary releases)

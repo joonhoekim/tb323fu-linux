@@ -491,10 +491,10 @@ pub struct Refresh(pub Arc<Shared>);
 
 impl Snapshot for Refresh {
     const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Refresh";
-    const PROPS: &'static [&'static str] = &["Policy", "Rate", "IdleMs60", "IdleMs30", "MinHz", "InputWakes", "LiveRate"];
+    const PROPS: &'static [&'static str] = &["Policy", "Rate", "IdleMs60", "IdleMs30", "MinHz", "InputWakes", "LiveRate", "MaxHz"];
     fn snapshot(&self) -> String {
         format!("{:?}", ["policy", "hz", "ms60", "ms30", "min_hz", "input"].map(f::refresh_get))
-            + &format!(" {:?}", f::refresh_state_field("hz"))
+            + &format!(" {:?} {:?}", f::refresh_state_field("hz"), f::refresh_mode_hz())
     }
 }
 
@@ -528,6 +528,11 @@ impl Refresh {
     fn live_rate(&self) -> u32 {
         f::refresh_state_field("hz").unwrap_or(0) as u32
     }
+    /// The full rate of the current display mode (120, or e.g. 164 when that mode is chosen).
+    #[zbus(property)]
+    fn max_hz(&self) -> u32 {
+        f::refresh_mode_hz().unwrap_or(120)
+    }
 
     async fn set_policy(&self, policy: String, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
         #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
@@ -543,8 +548,9 @@ impl Refresh {
         #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
         polkit::check(conn, &hdr, "refresh", self.0.no_polkit).await?;
         let min = f::refresh_get("min_hz").unwrap_or(30) as u32;
-        if hz < min || hz > 120 {
-            return Err(invalid(format!("rate must be {min}..120 Hz")));
+        let max = f::refresh_mode_hz().unwrap_or(120);
+        if hz < min || hz > max {
+            return Err(invalid(format!("rate must be {min}..{max} Hz")));
         }
         f::refresh_set("hz", hz).map_err(failed)?;
         self.0.update(|c| c.refresh.hz = Some(hz));

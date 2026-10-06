@@ -444,6 +444,16 @@ pub fn refresh_state_field(key: &str) -> Option<i64> {
     None
 }
 
+/// The full rate of the current display mode: the live rate scaled by how far the vertical
+/// total is stretched (`hz * live / base` from `idle_refresh_state`).
+pub fn refresh_mode_hz() -> Option<u32> {
+    let (hz, live, base) = (refresh_state_field("hz")?, refresh_state_field("live")?, refresh_state_field("base")?);
+    if hz <= 0 || live <= 0 || base <= 0 {
+        return None;
+    }
+    Some(((hz * live + base / 2) / base) as u32)
+}
+
 /// Named idle-time presets (ms before 60 Hz, ms before 30 Hz).
 pub fn refresh_preset(name: &str) -> Res<(u32, u32)> {
     match name {

@@ -45,7 +45,7 @@ GNOME and apt.
   - **Arrow:** opens the menu. It stays open while choices are made and scrolls on a landscape screen; without the daemon it says the helper is not running.
   - **Menu header:** battery charge and state (`80% · Charging`), plus the charger when plugged in: the contract, or type and measured power (`99% · Bypass · PPS · ~40 W`).
   - **Charge Limit:** a heading with 60% / 80% / 100%; a limit set in the app (e.g. 75%) shows in the heading (`Charge Limit · 75%`). Below it, Bypass Charging.
-  - **Refresh policy:** Adaptive, Fixed (N Hz), Always 120 Hz.
+  - **Refresh policy:** Adaptive, Fixed (N Hz), Full Rate (the current display mode's rate: 120 Hz, or 164 Hz when that mode is chosen).
   - **Torch:** on/off with a brightness slider.
   - **Open Device Helper…:** opens the settings app.
   - **Errors:** one notification per failed call (no D-Bus names); a canceled authentication shows nothing.
@@ -55,7 +55,7 @@ GNOME and apt.
   line, long ones (kernel, hashes, paths) sit under the row title with a copy button. The pages:
   - **Battery:** charge limit and recharge gap, Bypass Charging, "charge to 100 % by" a time (days of the week), the
     battery's state, power, health and cycle count, the charger's contract and measured input.
-  - **Display:** refresh policy (adaptive, fixed, always 120 Hz), the idle timing presets or custom idle times, panel
+  - **Display:** refresh policy (adaptive, fixed, full rate of the current mode), the idle timing presets or custom idle times, panel
     heat protection.
   - **Performance:** the profile (power-saver / balanced / performance) with CPU and GPU limits per profile, low-latency
     Wi-Fi in the performance profile, the thermal profile, CPU boost, and the temperatures.

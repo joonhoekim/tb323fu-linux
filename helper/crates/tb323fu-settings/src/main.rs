@@ -28,7 +28,7 @@ const APP_ID: &str = "io.github.joonhoekim.OpenDeviceHelper";
 const REPO: &str = "https://github.com/joonhoekim/tb323fu-linux";
 /// D-Bus ids and the labels shown for them (same order).
 const REFRESH_POLICIES: [&str; 3] = ["off", "auto", "manual"];
-const REFRESH_POLICY_LABELS: [&str; 3] = ["Always 120 Hz", "Adaptive", "Fixed Rate"];
+const REFRESH_POLICY_LABELS: [&str; 3] = ["Full Rate", "Adaptive", "Fixed Rate"];
 /// (id, label, ms before 60 Hz, ms before 30 Hz) as in docs/helper-reference.md.
 const TIMINGS: [(&str, &str, u32, u32); 3] =
     [("power-saver", "Power Saver", 500, 2000), ("balanced", "Balanced", 1000, 5000), ("smooth", "Smooth", 3000, 15000)];
@@ -423,6 +423,8 @@ struct Ui {
     ref_group: adw::PreferencesGroup,
     ref_policy: adw::ComboRow,
     ref_rate: adw::SpinRow,
+    /// full rate of the current display mode (MaxHz)
+    ref_max: Cell<u32>,
     ref_timing: adw::ComboRow,
     ref_custom: Cell<bool>,
     ref_s60: adw::SpinRow,
@@ -655,7 +657,7 @@ impl Ui {
         let (p_ref, b) = page_box();
         // the description follows the mode (sync_refresh_rows)
         let g = group(&b, "Refresh Rate", "");
-        group_help(&g, "Adaptive: the panel stays in its 120 Hz mode. When nothing changes on screen the kernel lowers the rate, and any update or touch brings 120 Hz back at once.");
+        group_help(&g, "Adaptive: the panel stays in its display mode (120 Hz, or 164 Hz when chosen in the display settings). When nothing changes on screen the kernel lowers the rate, and any update or touch brings the full rate back at once.");
         let ref_group = g.clone();
         let ref_policy = combo(&g, "Mode", &REFRESH_POLICY_LABELS);
         let ref_rate = spin(&g, "Fixed Rate (Hz)", "", 30.0, 120.0, 30.0);
@@ -676,7 +678,7 @@ impl Ui {
             l
         };
         let ref_input = {
-            let row = adw::ActionRow::builder().title("Input Wakes to 120 Hz").build();
+            let row = adw::ActionRow::builder().title("Input Wakes to Full Rate").build();
             let l = gtk::Label::new(Some("…"));
             l.add_css_class("dim-label");
             row.add_suffix(&l);
@@ -1057,6 +1059,7 @@ impl Ui {
             ref_group,
             ref_policy,
             ref_rate,
+            ref_max: Cell::new(120),
             ref_timing,
             ref_custom: Cell::new(false),
             ref_s60,
@@ -2803,7 +2806,7 @@ impl Ui {
         let desc = match pol {
             1 => "Slows to 60, then 30 Hz while the screen is still.".to_string(),
             2 => format!("Always {} Hz.", self.ref_rate.value().round()),
-            _ => String::new(), // "Always 120 Hz" is the mode's own name
+            _ => format!("Always {} Hz, the rate of the current display mode.", self.ref_max.get()),
         };
         if self.ref_group.description().as_deref().unwrap_or("") != desc {
             self.ref_group.set_description(if desc.is_empty() { None } else { Some(&desc) });
@@ -2820,6 +2823,10 @@ impl Ui {
         let live = dbus::u(p, "LiveRate").map(|h| format!("Now {h} Hz")).unwrap_or_default();
         if self.ref_policy.subtitle().as_deref().unwrap_or("") != live {
             self.ref_policy.set_subtitle(&live);
+        }
+        let max = dbus::u(p, "MaxHz").unwrap_or(120);
+        if self.ref_max.replace(max) != max {
+            self.ref_rate.adjustment().set_upper(f64::from(max));
         }
         set_spin(&self.ref_rate, dbus::u(p, "Rate").map(f64::from));
         let (a, b) = (dbus::u(p, "IdleMs60"), dbus::u(p, "IdleMs30"));
