@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: MIT
+# name	color	description
+bug	d73a4a	Something isn't working
+regression	b60205	Worked in an earlier release
+documentation	0075ca	Improvements or additions to documentation
+enhancement	a2eeef	New feature or request
+needs-info	fbca04	Waiting for logs or details from the reporter
+upstream	5319e7	The fix belongs in the upstream kernel, Mesa or a distribution
+duplicate	cfd3d7	This issue or pull request already exists
+invalid	e4e669	This doesn't seem right
+wontfix	ffffff	This will not be worked on
+good first issue	7057ff	Good for newcomers
+help wanted	008672	Extra attention is needed
+accessibility	f143ab	Barrier affecting people with disabilities
+area: display	c5def5	Panel, refresh rates, external display
+area: gpu	c5def5	Adreno, Mesa, OpenGL, Vulkan
+area: video	c5def5	Video decode and encode
+area: audio	c5def5	Speakers, microphones, routing
+area: camera	c5def5	Cameras, torch, flash
+area: connectivity	c5def5	Wi-Fi, Bluetooth, GNSS, USB
+area: power	c5def5	Suspend, battery, charging, thermal
+area: input	c5def5	Touch, pen, keys, keyboard cover
+area: helper	c5def5	Open Device Helper
+area: install	c5def5	Install, rooting, switching back to Android
+area: rootfs	c5def5	Root filesystem images and distribution modules

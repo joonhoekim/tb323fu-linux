@@ -1,7 +1,8 @@
 # Contributing
 
-Issues and pull requests are welcome. Hardware reports ("this works / does not work on my tablet") are as useful as code;
-say which release or commit you ran and what you saw.
+Issues are for bugs you can reproduce; questions, ideas and hardware reports go to [Discussions](https://github.com/joonhoekim/tb323fu-linux/discussions).
+Hardware reports ("this works / does not work on my tablet", in [Device reports](https://github.com/joonhoekim/tb323fu-linux/discussions/categories/device-reports))
+are as useful as code; say which release or commit you ran, your firmware region and what you saw. Pull requests are welcome.
 
 ## Licensing of contributions (inbound = outbound)
 

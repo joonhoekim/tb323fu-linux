@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: MIT
+title: "[report] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        What works and what does not on your tablet. Reports from other tablets are how [Hardware status](https://github.com/joonhoekim/tb323fu-linux/blob/main/docs/hardware-status.md) learns about other firmware regions and builds.
+        Something broken that you can reproduce? Open an [issue](https://github.com/joonhoekim/tb323fu-linux/issues/new/choose) as well.
+        Remove anything that identifies your tablet or network: the S/N, mobile identifiers, Wi-Fi network names, MAC addresses.
+  - type: input
+    id: kernel
+    attributes:
+      label: Kernel
+      description: "`uname -r`, and the release tag (for example kernel-t41)"
+    validations:
+      required: true
+  - type: input
+    id: root
+    attributes:
+      label: Root filesystem
+      description: "Distribution and version, and where it boots from"
+    validations:
+      required: true
+  - type: dropdown
+    id: region
+    attributes:
+      label: Firmware region
+      options:
+        - PRC
+        - ROW
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: build
+    attributes:
+      label: Android build
+      description: "The Android build the firmware was extracted from (Settings → About tablet)"
+  - type: input
+    id: helper
+    attributes:
+      label: Open Device Helper version
+      description: "`tb323fu-ctl versions`, or \"not installed\""
+  - type: textarea
+    id: features
+    attributes:
+      label: Features
+      description: "Mark each line ✅ works, 🟡 partly, ❌ broken, or leave it blank if you did not try. Add a note on how you checked."
+      value: |
+        - Display / refresh rates:
+        - Touch / pen:
+        - GPU (OpenGL, Vulkan):
+        - Video decode / encode:
+        - Speakers / microphones:
+        - Cameras / torch:
+        - Wi-Fi / Bluetooth:
+        - USB-C (data, display out, charging):
+        - Suspend / resume:
+        - Battery / charging:
+        - Keyboard cover / keys:
+        - Back to Android:
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes, logs, benchmarks
+      description: "Anything else: logs as text (`journalctl -b`, `dmesg`), benchmark scores with the command you ran, photos."

@@ -32,6 +32,12 @@ USB network gadget in which the tablet is **192.168.7.2** and the PC is 192.168.
 | `thermal-stress.sh` | tablet | CPU load with per-second clocks, temperatures and cooling states; `emul` steps the board sensor's emulated temperature |
 | `screenshots/shoot.sh` | tablet (root) | screenshots of Open Device Helper's settings app (for bug reports or your own notes; the docs describe the app in text), light and dark: a headless GNOME Shell with a 1600x2560 virtual monitor at 200 % on its own D-Bus session and empty home (the panel's desktop is not touched), the app driven through AT-SPI (`shoot.py`), "Install Kernel from File" up to its confirmation (canceled, nothing installed); about 100 s |
 
+## Repository
+
+| Script | What it does |
+|---|---|
+| `labels-sync.sh` | create or update the GitHub labels from [`.github/labels.tsv`](../.github/labels.tsv) |
+
 ## Safety notes
 
 - Writing `boot_a` is only safe when the way back exists: the stock Android boot image in `boot_b` (see [android/README.md](../android/README.md)).

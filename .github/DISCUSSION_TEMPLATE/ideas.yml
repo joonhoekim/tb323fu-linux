@@ -1,7 +1,4 @@
 # SPDX-License-Identifier: MIT
-name: Feature request
-description: Something the kernel, the helper or the documentation should do
-labels: [enhancement]
 body:
   - type: textarea
     id: what
@@ -14,4 +11,4 @@ body:
     id: notes
     attributes:
       label: Anything else
-      description: Links, the vendor sysfs node or driver, related issues.
+      description: Links, the vendor sysfs node or driver, related issues or discussions.

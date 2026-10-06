@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: MIT
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [install guide](https://github.com/joonhoekim/tb323fu-linux/blob/main/docs/install.md), [recovery](https://github.com/joonhoekim/tb323fu-linux/blob/main/docs/recovery.md) and [hardware status](https://github.com/joonhoekim/tb323fu-linux/blob/main/docs/hardware-status.md) first.
+        Remove anything that identifies your tablet or network: the S/N, mobile identifiers, Wi-Fi network names, MAC addresses.
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Where are you
+      options:
+        - Rooting / Android side
+        - Installing Linux
+        - Booting Linux
+        - Using Linux
+        - Going back to Android
+        - Building from source
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: setup
+    attributes:
+      label: Setup
+      description: "Firmware region (PRC / ROW), kernel release tag, distribution, and the OS of your PC if it matters"
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: "What you did, what you expected, what you saw. Logs as text, not screenshots."
+    validations:
+      required: true

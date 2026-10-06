@@ -52,8 +52,10 @@ Starring the repository on GitHub helps too: it makes the project easier for oth
 
 ## Contributing
 
-Issues and pull requests are welcome. Reports from your own tablet — what works and what does not, with logs — are as useful
-as code: use the [bug or hardware report](https://github.com/joonhoekim/tb323fu-linux/issues/new?template=bug-report.yml) form.
+Reports from your own tablet — what works and what does not, with logs — are as useful as code: post them in
+[Device reports](https://github.com/joonhoekim/tb323fu-linux/discussions/categories/device-reports). Questions go to
+[Q&A](https://github.com/joonhoekim/tb323fu-linux/discussions/categories/q-a), bugs you can reproduce to
+[issues](https://github.com/joonhoekim/tb323fu-linux/issues/new?template=bug-report.yml), and pull requests are welcome.
 Contributions are taken under the license of the file they change, with a DCO sign-off; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License

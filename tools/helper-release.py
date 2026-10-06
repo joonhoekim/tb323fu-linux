@@ -35,7 +35,7 @@ helper refuses a release whose min_glibc is newer than the system's).
                                       MANIFEST, allowed paths, every file's hash
 
 Publishing (maintainer):
-  gh release create helper-vX.Y.Z OUT/* --title "Open Device Helper X.Y.Z" --notes-file NOTES
+  gh release create helper-vX.Y.Z OUT/* --discussion-category Announcements --title "Open Device Helper X.Y.Z" --notes-file NOTES
 Test stand-in for the GitHub API: kernel-release.py fake-api ROOT --repo O/R --helper X.Y.Z --dir OUT
 """
 import argparse
@@ -239,7 +239,7 @@ def cmd_assets(a):
     open(os.path.join(a.out, name), "wb").write(tar_gz(mtext, files))
     write_sums(a.out)
     print(f"{name}: {len(files)} files, min_glibc {'.'.join(map(str, glibc)) if glibc else '-'}")
-    print(f"publish: gh release create helper-v{version} {a.out}/* --title \"Open Device Helper {version}\" --notes-file NOTES")
+    print(f"publish: gh release create helper-v{version} {a.out}/* --discussion-category Announcements --title \"Open Device Helper {version}\" --notes-file NOTES")
 
 
 def cmd_check(a):
