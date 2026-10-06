@@ -250,6 +250,43 @@ img {
 }
 .hero {
   padding: 3.5rem 0 2rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "eyebrow" "title" "lead" "photo" "status" "cta";
+}
+.hero > .eyebrow { grid-area: eyebrow; }
+.hero > h1 { grid-area: title; }
+.hero > .lead { grid-area: lead; }
+.hero > .status-badge { grid-area: status; }
+.hero > .cta { grid-area: cta; }
+.hero-photo {
+  grid-area: photo;
+  margin: 0 0 1.75rem;
+}
+.hero-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.35);
+}
+.hero-photo figcaption {
+  margin-top: 0.5rem;
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+}
+@media (min-width: 1000px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto 1fr;
+    grid-template-areas: "eyebrow photo" "title photo" "lead photo" "status photo" "cta photo";
+    column-gap: 2.5rem;
+  }
+  .hero-photo {
+    margin: 0;
+    align-self: center;
+  }
 }
 .eyebrow {
   margin: 0 0 0.75rem;

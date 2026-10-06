@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import Link from "next/link";
-import { REPO_ROOT, REPO_URL, githubUrl } from "@/lib/config";
+import { REPO_ROOT, REPO_URL, githubUrl, withBase } from "@/lib/config";
 import { STATUS_META, getDistros, getHardwareSummary, type StatusKey } from "@/lib/facts";
 import { findDocByFile } from "@/lib/docs";
 
@@ -67,6 +67,17 @@ export default function Home() {
             <strong>{status.head}</strong> {status.body}
           </div>
         </div>
+        <figure className="hero-photo">
+          <img
+            src={withBase("/_repo/docs/images/tablet-fastfetch.jpg")}
+            width={1600}
+            height={1007}
+            alt="The tablet in landscape running GNOME: a terminal with fastfetch (Lenovo Legion Tab Y700 5th Gen, kernel 7.3.0-rc4-tb323fu-t42, Adreno 840, 3040x1904 at 164 Hz) and Open Device Helper's refresh rate settings"
+            fetchPriority="high"
+            decoding="async"
+          />
+          <figcaption>Debian 13 with GNOME on the TB323FU, kernel t42: fastfetch and Open Device Helper.</figcaption>
+        </figure>
         <div className="cta">
           <Link className="button primary" href="/docs/">
             Read the docs
