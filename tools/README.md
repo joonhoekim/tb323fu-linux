@@ -16,6 +16,7 @@ USB network gadget in which the tablet is **192.168.7.2** and the PC is 192.168.
 | `helper-release.py` | the asset set of an Open Device Helper release (`tb323fu-helper-X.Y.Z-aarch64.tar.gz` with `MANIFEST`, `SHA256SUMS`) for the helper's self-update, and a check of it ([docs/helper-reference.md](../docs/helper-reference.md#helper-updates)) |
 | `third-party-licenses.py` | the license files of the Rust crates built into the helper binaries, one text file for the helper release and the Debian packages |
 | `kernel-release.py` | the asset set of a kernel release on GitHub Releases as the helper expects it (`Image-tb323fu-tNN`, `.gz`, `SHA256SUMS`, optional minisign), a check of it, and a local stand-in of the GitHub API for tests ([docs/custom-kernel.md](../docs/custom-kernel.md)) |
+| `kernel-config-check.py` | a kernel `.config` (or `/proc/config.gz`) against the board fragments in merge order, and a list of debug options that change driver behavior (`DMABUF_DEBUG` broke every dma-buf the GPU imported in t38–t40); the release build stops on a FAIL |
 | `flash-boot.sh` | write a boot image to `boot_a` from the running Linux over SSH, verify by read-back, reboot |
 | `cycle.sh` | the same through Android: back to Android, write `boot_a` with root over adb, reboot, wait for Linux |
 
