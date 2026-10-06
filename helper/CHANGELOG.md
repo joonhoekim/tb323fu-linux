@@ -1,6 +1,6 @@
 # Open Device Helper changelog
 
-## 0.4.1 — unreleased
+## 0.4.1 — 2026-10-06
 
 - **Refresh follows the display mode:** in the 164 Hz panel mode the fixed rate goes up to 164 Hz and Full Rate
   (was "Always 120 Hz") means the mode's rate. New `MaxHz` property on the `Refresh` object, read from the kernel's

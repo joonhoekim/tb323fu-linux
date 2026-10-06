@@ -5,7 +5,7 @@
 # libraries. Build it from this directory: cargo build --release
 [package]
 name = "tb323fu-settings"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/joonhoekim/tb323fu-linux"
