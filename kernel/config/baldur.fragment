@@ -147,3 +147,8 @@ CONFIG_SQUASHFS_ZSTD=y
 CONFIG_QCOM_SCMI_GENERIC_EXT=y
 CONFIG_SCMI_QCOM_MEMLAT_DEVFREQ=y
 CONFIG_DEVFREQ_GOV_REMOTE=y
+
+# DEBUG_KERNEL turns this on by default; it hands importers sg tables without
+# pages or lengths, and msm maps imported dma-bufs from those, so every foreign
+# buffer the GPU imports (camera, video decoder, dma-heap) maps to nothing
+# CONFIG_DMABUF_DEBUG is not set
