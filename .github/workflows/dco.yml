@@ -17,10 +17,14 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           fail=0
           for c in $(git rev-list --no-merges "$BASE..$HEAD"); do
             author="$(git log -1 --format='%an <%ae>' "$c")"
+            if [ "$PR_AUTHOR" = "dependabot[bot]" ] && [ "$(git log -1 --format=%an "$c")" = "dependabot[bot]" ]; then
+              continue
+            fi
             if ! git log -1 --format=%B "$c" | grep -qiF "Signed-off-by: $author"; then
               echo "::error::$(git log -1 --format='%h %s' "$c"): no 'Signed-off-by: $author' (git commit -s)"
               fail=1

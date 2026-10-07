@@ -21,6 +21,8 @@ Every commit must carry a `Signed-off-by:` line with your real name, certifying 
 `git commit -s` adds it. Kernel patches meant for upstream follow the kernel's
 [submitting-patches](https://docs.kernel.org/process/submitting-patches.html) rules in addition.
 
+Dependency updates opened by Dependabot are exempt: they change version numbers only.
+
 ## Names
 
 Forks and modified builds have to use their own name, icons, IDs, update source and any signing key;
