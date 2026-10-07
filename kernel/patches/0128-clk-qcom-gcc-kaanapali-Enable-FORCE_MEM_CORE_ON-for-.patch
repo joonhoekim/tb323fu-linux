@@ -1,0 +1,43 @@
+From f4cf1ea2859de41ac3155b99ca065111121c2cad Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Wed, 7 Oct 2026 14:12:53 +0000
+Subject: [PATCH] clk: qcom: gcc-kaanapali: Enable FORCE_MEM_CORE_ON for UFS
+ AXI PHY clock
+
+Like on SM8650, SM8750 and Eliza, the UFS AXI PHY clock on Kaanapali
+needs FORCE_MEM_CORE_ON for the UFS controller in MCQ mode. Without it
+the MCQ configuration (queue base addresses and attributes) does not
+survive system suspend: with MCQ enabled, every resume from s2idle
+starts with the controller fetching from garbage addresses, an SMMU
+fault, a fatal bus error and a host reset, and some of those resets
+fail and end in a panic.
+
+The UFS PHY ICE core clock already has the bit set; set it for the UFS
+PHY AXI clock as well.
+
+Tested on a Lenovo Legion Tab Y700 Gen 5 with MCQ enabled: the MCQ
+registers keep their values over s2idle, and 7 suspend cycles resumed
+without a UFS error.
+
+Fixes: d1919c375f21 ("clk: qcom: Add support for Global clock controller on Kaanapali")
+Assisted-by: LLM
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/clk/qcom/gcc-kaanapali.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/clk/qcom/gcc-kaanapali.c b/drivers/clk/qcom/gcc-kaanapali.c
+index 21335cd56..bd3fbef8a 100644
+--- a/drivers/clk/qcom/gcc-kaanapali.c
++++ b/drivers/clk/qcom/gcc-kaanapali.c
+@@ -3484,6 +3484,7 @@ static void clk_kaanapali_regs_configure(struct device *dev, struct regmap *regm
+ 
+ 	/* FORCE_MEM_CORE_ON for ufs phy ice core clocks */
+ 	qcom_branch_set_force_mem_core(regmap, gcc_ufs_phy_ice_core_clk, true);
++	qcom_branch_set_force_mem_core(regmap, gcc_ufs_phy_axi_clk, true);
+ 
+ 	qcom_branch_set_force_mem_core(regmap, gcc_pcie_0_pipe_clk, true);
+ 	qcom_branch_set_force_periph_on(regmap, gcc_pcie_0_pipe_clk, true);
+-- 
+2.43.0
+

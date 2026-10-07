@@ -97,6 +97,9 @@ earlier with the same engine and file size, but options that were not recorded; 
 
 Patch 0119 turns on the controller's multi-queue mode (MCQ). With the same commands, `kernel-t40` (without 0119
 and the memlat patches 0120-0127) does 8.5k random reads at QD1 and 178k with 4 jobs.
+In `kernel-t42` the MCQ state was lost over suspend: after each resume the controller went through an error reset,
+ran on without its per-queue interrupts (about 254k with 4 jobs) and now and then failed to resume.
+Patch 0128 (from `kernel-t43`) keeps that state, so the numbers above hold after suspend too.
 The I/O engine matters at low queue depth: `libaio` is slower than `io_uring` at QD1.
 An earlier version of this page gave 16.1k and 448k for Linux; those came from fio options that were not recorded,
 and the kernel they were measured on gives the numbers above with these commands.
