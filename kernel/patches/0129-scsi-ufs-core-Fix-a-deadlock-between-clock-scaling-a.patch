@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Thu, 8 Oct 2026 18:30:07 +0900
+Subject: [PATCH] scsi: ufs: core: Fix a deadlock between clock scaling and
+ device commands
+
+Commit 08b12cda6c44 ("scsi: ufs: core: Switch to scsi_get_internal_cmd()")
+switched device management commands to blk_execute_rq() on
+hba->host->pseudo_sdev->request_queue, which shares the host tagset with
+the logical units. ufshcd_dev_man_lock() holds clk_scaling_lock for
+reading until the command has completed.
+
+ufshcd_clock_scaling_prepare() and ufshcd_pause_command_processing() call
+blk_mq_quiesce_tagset() before down_write(&hba->clk_scaling_lock). If a
+device management command holds the lock for reading at that moment, its
+request is added to the quiesced pseudo_sdev queue and never dispatched,
+while the writer waits for that reader. The request is never started, so
+it never times out, and all logical units stay quiesced. On a Lenovo
+Legion Tab Gen 5 (TB323FU) this ended in a hung task panic, with the
+devfreq worker blocked in ufshcd_devfreq_scale() and
+ufshcd_exception_event_handler() waiting in blk_execute_rq() under
+ufshcd_query_attr_retry().
+
+Take clk_scaling_lock before quiescing the tagset, so that a device
+management command in progress completes first and later ones wait for
+the lock. In ufshcd_clock_scaling_prepare() this means taking wb_mutex
+before the quiesce as well, since wb_mutex is always taken before
+clk_scaling_lock (see also ufshcd_clk_scaling_allow()).
+
+Fixes: 08b12cda6c44 ("scsi: ufs: core: Switch to scsi_get_internal_cmd()")
+Cc: stable@vger.kernel.org
+Link: https://lore.kernel.org/all/20260723124733.341789-1-manivannan.sadhasivam@oss.qualcomm.com/
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/ufs/core/ufshcd.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/ufs/core/ufshcd.c b/drivers/ufs/core/ufshcd.c
+index 2ba244cf4..9eb991552 100644
+--- a/drivers/ufs/core/ufshcd.c
++++ b/drivers/ufs/core/ufshcd.c
+@@ -1360,8 +1360,8 @@ int ufshcd_pause_command_processing(struct ufs_hba *hba, u64 timeout_us)
+ 	int ret = 0;
+ 
+ 	mutex_lock(&hba->host->scan_mutex);
+-	blk_mq_quiesce_tagset(&hba->host->tag_set);
+ 	down_write(&hba->clk_scaling_lock);
++	blk_mq_quiesce_tagset(&hba->host->tag_set);
+ 
+ 	if (ufshcd_wait_for_pending_cmds(hba, timeout_us)) {
+ 		ret = -EBUSY;
+@@ -1461,9 +1461,9 @@ static int ufshcd_clock_scaling_prepare(struct ufs_hba *hba, u64 timeout_us)
+ 	 * clock scaling is in progress
+ 	 */
+ 	mutex_lock(&hba->host->scan_mutex);
+-	blk_mq_quiesce_tagset(&hba->host->tag_set);
+ 	mutex_lock(&hba->wb_mutex);
+ 	down_write(&hba->clk_scaling_lock);
++	blk_mq_quiesce_tagset(&hba->host->tag_set);
+ 
+ 	if (!hba->clk_scaling.is_allowed ||
+ 	    ufshcd_wait_for_pending_cmds(hba, timeout_us)) {
+-- 
+2.47.3
+
