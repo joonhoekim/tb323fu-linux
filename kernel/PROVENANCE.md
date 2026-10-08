@@ -19,7 +19,7 @@ column names the source; see that tree's history for the individual authors.
 ## Patches
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114, 0116-0119, 0128 and 0129 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
+0111-0114, 0116-0119 and 0128-0130 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -151,6 +151,7 @@ column names the source; see that tree's history for the individual authors.
 | `0127` | arm64: dts: qcom: kaanapali: Enable LLCC/DDR/DDR_QOS DVFS | Jia Yang | mailing list: Qualcomm Generic Vendor Extensions RFC v8, 2026-07-24 (Pragnesh Papaniya) (10/10) | pending upstream (RFC) | `756aac29f1b60aad` |
 | `0128` | clk: qcom: gcc-kaanapali: Enable FORCE_MEM_CORE_ON for UFS AXI PHY clock | Joonhoe Kim | this project | upstream candidate (fixes s2idle resume with MCQ, 0119) | `339344f78c87f8df` |
 | `0129` | scsi: ufs: core: Fix a deadlock between clock scaling and device commands | Joonhoe Kim | this project | upstream candidate (fixes a hung task panic: UFS I/O stops for good) | `b36fb8b36b0b0baf` |
+| `0130` | Bluetooth: qca: check the device address on every setup | Joonhoe Kim | this project | upstream candidate (keeps the configured Bluetooth address over power off/on) | `48c51137866a015b` |
 
 ## Out-of-tree
 

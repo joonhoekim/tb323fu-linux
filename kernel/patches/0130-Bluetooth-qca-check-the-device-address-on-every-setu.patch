@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Fri, 9 Oct 2026 00:31:55 +0900
+Subject: [PATCH] Bluetooth: qca: check the device address on every setup
+
+qca_check_bdaddr() sets HCI_QUIRK_USE_BDADDR_PROPERTY when the controller
+reports the default address from its NVM file. The controller then starts
+unconfigured unless devicetree provides an address, and
+hci_dev_setup_sync() programs the configured address again on every
+later setup, which controllers with HCI_QUIRK_NON_PERSISTENT_SETUP need.
+The check is skipped once hdev->public_addr has been set.
+
+That leaves the quirk unset when the first setup does not reach the
+check. If the rampatch or NVM file cannot be loaded, for instance because
+the driver is built in and the firmware is not in the initramfs, setup
+continues with the ROM firmware (QCA_ROM_FW) and the controller comes up
+configured. When user space then sets the address with
+MGMT_OP_SET_PUBLIC_ADDRESS, the next setup loads the NVM file and the
+address is programmed once because HCI_CONFIG is set. Every later power
+on runs setup again without the quirk, so the controller falls back to
+the default address from the NVM file and devices bonded to the
+configured address no longer connect. Seen with a WCN7850-type controller
+on a Lenovo Legion Tab Gen 5 (TB323FU) after powering the adapter off and
+on.
+
+Read the address back on every setup, so that the quirk is set whenever
+the controller uses the default address. This costs one Read BD_ADDR
+command per setup. Setting the quirk while hdev->public_addr is set does
+not make the controller unconfigured, as is_configured() only considers
+it while no address has been set.
+
+Controllers with a valid address of their own still lose an address set
+by user space on the next setup; that is not changed here.
+
+Fixes: 32868e126c78 ("Bluetooth: qca: fix invalid device address check")
+Cc: stable@vger.kernel.org	# 6.5
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/bluetooth/btqca.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/bluetooth/btqca.c b/drivers/bluetooth/btqca.c
+index 64ecf052e..f15340fa8 100644
+--- a/drivers/bluetooth/btqca.c
++++ b/drivers/bluetooth/btqca.c
+@@ -696,9 +696,6 @@ static int qca_check_bdaddr(struct hci_dev *hdev, const struct qca_fw_config *co
+ 	struct sk_buff *skb;
+ 	int err;
+ 
+-	if (bacmp(&hdev->public_addr, BDADDR_ANY))
+-		return 0;
+-
+ 	skb = __hci_cmd_sync(hdev, HCI_OP_READ_BD_ADDR, 0, NULL,
+ 			     HCI_INIT_TIMEOUT);
+ 	if (IS_ERR(skb)) {
+-- 
+2.47.3
+

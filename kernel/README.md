@@ -22,7 +22,7 @@ The series by subsystem. Origin, author and status of each patch: [PROVENANCE.md
 | Storage (UFS) | 0119 (MCQ: multiple I/O queues), 0128 (keeps the MCQ state over suspend), 0129 (clock scaling deadlock) |
 | Memory bus scaling | 0120-0127 (memlat in CPUCP firmware over the SCMI Qualcomm vendor protocol: DDR, LLCC, DDR_QOS) |
 | Clocks and power domains | 0046, 0070-0073, 0103 |
-| Wi-Fi, Bluetooth, PCIe | 0024, 0058, 0113 (ath12k), 0030 (Bluetooth), 0049, 0056 (PCIe), 0078 |
+| Wi-Fi, Bluetooth, PCIe | 0024, 0058, 0113 (ath12k), 0030, 0130 (Bluetooth), 0049, 0056 (PCIe), 0078 |
 | Remoteproc and QRTR | 0067, 0068, 0114 (QRTR name service; the modem) |
 | Input, haptics, LEDs | 0025-0027, 0053 (NT36536 touch and pen), 0038 (AW86937 haptics), 0048 (AW22127 LED ring) |
 | Storage | 0012 (UFS) |
@@ -55,7 +55,7 @@ The **Status** column of PROVENANCE.md says where a patch stands upstream:
 ```sh
 git clone --depth 1 -b v7.3-rc4 https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux-tb323fu
 cd linux-tb323fu
-git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0129, in order (no 0115)
+git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0130, in order (no 0115)
 ```
 
 ## Configuration
