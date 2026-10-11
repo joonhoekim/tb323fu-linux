@@ -9,6 +9,10 @@ The same model number is used in China and elsewhere; the firmware region (PRC /
 
 > **Status: work in progress — not ready for everyday use.**
 
+> **Android firmware: stay on ZUI 18.0.12.104.** The kernel has only been tested on that firmware. On 18.0.12.187
+> it hangs during boot ([#9](https://github.com/joonhoekim/tb323fu-linux/issues/9)), and a firmware update cannot be
+> undone. Keep the OTA apps disabled ([Rooting](docs/rooting.md#3-root-on-android-kernelsu)).
+
 ## What this is
 
 The main product is the **kernel port**: a patch series on top of a fixed upstream base, the board device tree, and the kernel config.

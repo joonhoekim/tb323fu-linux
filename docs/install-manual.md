@@ -96,7 +96,9 @@ mkdir -p fw && tar -C fw -xf tb323fu-firmware.tar     # → fw/tb323fu-firmware/
 cp firmware/audio/LENOVO-TB323FU-tplg.bin fw/tb323fu-firmware/lib/firmware/qcom/kaanapali/
 ```
 
-A hash mismatch is a warning (another firmware version), a missing file an error. Without the topology the root
+A hash mismatch is a warning, a missing file an error. A mismatch means another Android firmware version: the kernel
+has only been tested on ZUI 18.0.12.104 and hangs during boot on 18.0.12.187
+([#9](https://github.com/joonhoekim/tb323fu-linux/issues/9)). Without the topology the root
 boots but has no sound card.
 
 ## 2. The way back: Android's boot image in `boot_b`

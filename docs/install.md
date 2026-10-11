@@ -12,6 +12,10 @@ tablet as the way back. This page is the whole path in order; the steps on your 
 | 3 | **First start**, then switch between the systems | the tablet | [After installing](after-install.md#first-start) |
 | 4 | Keep it up to date: kernel releases, the helper; remove Linux again if you want | Linux, Open Device Helper | [After installing](after-install.md#updates) |
 
+> **Android firmware: stay on ZUI 18.0.12.104.** The kernel has only been tested on that firmware. On 18.0.12.187
+> it hangs during boot ([#9](https://github.com/joonhoekim/tb323fu-linux/issues/9)), and a firmware update cannot be
+> undone. Keep the OTA apps disabled ([Rooting](rooting.md#3-root-on-android-kernelsu)).
+
 If something goes wrong on the way: [Recovery](recovery.md). The tablet always keeps Android's boot image in `boot_b`:
 holding **volume up + volume down for 10 s** in Linux puts it back and starts Android.
 
