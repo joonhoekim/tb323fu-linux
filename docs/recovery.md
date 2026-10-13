@@ -117,7 +117,8 @@ Partitions with `efisp` set to Erase (or write your all-zero `efisp.img` from th
 
 ## Updating Android firmware later
 
-Not done on the development unit since rooting. The order prepared from the LTBox source:
+Not done on the development unit since rooting. **Linux has only been tested on ZUI 18.0.12.104; on 18.0.12.187 the
+kernel hangs during boot ([#9](https://github.com/joonhoekim/tb323fu-linux/issues/9)).** The order prepared from the LTBox source:
 
 1. Confirm the new firmware's ABL still loads `efisp` (otherwise you cannot root again, and the update cannot be undone).
 2. Restore the stock `boot_a` and unroot.

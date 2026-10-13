@@ -339,8 +339,8 @@ adb_state() {
 
 step_tablet() {
 	head_ "tablet: rooted Android on USB (1 min)"
-	[ $DRY = 1 ] && { say "  [dry-run] adb devices; getprop ro.product.model / ro.boot.slot_suffix; su -c id; the microSD card"; return 0; }
-	local st model slot vb id lvl sd
+	[ $DRY = 1 ] && { say "  [dry-run] adb devices; getprop ro.product.model / ro.build.display.id / ro.boot.slot_suffix; su -c id; the microSD card"; return 0; }
+	local st model slot vb fw id lvl sd
 	while :; do
 		st=$(adb_state)
 		case $st in
@@ -368,6 +368,17 @@ EOF
 	vb=$(adb_ shell getprop ro.boot.verifiedbootstate)
 	say "  model $model, slot $slot, verified boot $vb"
 	case $model in *TB323FU*) ;; *) warn "this is not a TB323FU ($model)"; return 1 ;; esac
+	fw=$(adb_ shell getprop ro.build.display.id)
+	say "  firmware $fw"
+	case $fw in
+	*_ZUI_18.0.12.104_*) ;;
+	*_ZUI_18.0.12.187_*)
+		warn "the kernel hangs during boot on this firmware (https://github.com/joonhoekim/tb323fu-linux/issues/9)"
+		yesno "Install anyway?" || return 1 ;;
+	*)
+		warn "the kernel has only been tested on ZUI 18.0.12.104; this firmware is untested"
+		yesno "Install anyway?" || return 1 ;;
+	esac
 	[ "$slot" = _a ] || { warn "Android runs from slot $slot; everything here assumes slot _a (docs/recovery.md)"; return 1; }
 	while :; do
 		id=$(su_ id)

@@ -55,7 +55,8 @@ The bootloader stays **locked** the whole time (`ro.boot.flash.locked=1`, verifi
 | GBL EFI written by LTBox | `miner7222/gbl_root_baldur` release `5.3.120-mod5`, `generic_superfastboot_row.efi`, 135,168 bytes, SHA-256 `90b16cacc4f2f6aded2c5bf0eed7d20b6a294115f6cf09dab555b4a4496e2628` |
 
 LTBox also checked the bootloader of the earlier firmware `18.0.10.039` (passed), but rooting was done on
-`18.0.12.104`. Other firmware versions: not checked.
+`18.0.12.104`. Other firmware versions: not checked. The Linux kernel releases have also only been tested on
+`18.0.12.104`; on `18.0.12.187` the kernel hangs during boot ([#9](https://github.com/joonhoekim/tb323fu-linux/issues/9)).
 
 ## What you need
 
