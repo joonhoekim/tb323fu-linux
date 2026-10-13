@@ -115,6 +115,11 @@ CONFIG_NTSYNC=m
 # debug info drops it). Modules are installed stripped, BTF stays.
 # CONFIG_DEBUG_INFO_REDUCED is not set
 CONFIG_DEBUG_INFO_BTF=y
+# No module BTF: the Image is linked again with the modules image inside, and
+# pahole (before 1.26 at least, -j) gives the new vmlinux different type ids,
+# so the kernel rejects every module ("BTF: -22") and boots without UFS, USB
+# or touch.
+# CONFIG_DEBUG_INFO_BTF_MODULES is not set
 CONFIG_IKHEADERS=m
 CONFIG_KPROBES=y
 CONFIG_KPROBE_EVENTS=y
