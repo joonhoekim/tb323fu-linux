@@ -111,13 +111,17 @@ CONFIG_ANDROID_BINDERFS=y
 CONFIG_NTSYNC=m
 
 # --- Observability --------------------------------------------------------------
-# BTF needs pahole on the build host; without it the option silently drops.
+# BTF needs pahole on the build host and full DWARF (the defconfig's reduced
+# debug info drops it). Modules are installed stripped, BTF stays.
+# CONFIG_DEBUG_INFO_REDUCED is not set
 CONFIG_DEBUG_INFO_BTF=y
 CONFIG_IKHEADERS=m
 CONFIG_KPROBES=y
 CONFIG_KPROBE_EVENTS=y
 CONFIG_UPROBE_EVENTS=y
 CONFIG_FUNCTION_TRACER=y
+# Replaced by the function tracer (baldur.fragment turns it on for trace events).
+# CONFIG_ENABLE_DEFAULT_TRACERS is not set
 CONFIG_FTRACE_SYSCALLS=y
 CONFIG_BPF_EVENTS=y
 CONFIG_SCHED_CLASS_EXT=y
