@@ -1,0 +1,135 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Everyday devices, file systems and debugging tools that distros expect, and
+# virtual devices for automated tests (2026-10-13). Merge after
+# baldur-netfilter.fragment.
+#
+# Nothing here costs anything until it is used: modules load only when a
+# device, mount or modprobe asks for them, and the built-in parts below are off
+# by default (zswap, BTF/kprobes/ftrace hooks, the LSMs not in CONFIG_LSM).
+# The exceptions are MGLRU, the page reclaim of Android and ChromeOS kernels,
+# and Yama (below).
+
+# --- Virtual devices for tests -------------------------------------------
+# vkms: a second KMS device; /sys/kernel/config/vkms adds connectors and
+# plugs/unplugs them (connector "status").
+CONFIG_DRM_VKMS=m
+CONFIG_DRM_VGEM=m
+CONFIG_UDMABUF=y
+# The dummy IIO device has one accel axis (X), not enough for iio-sensor-proxy.
+CONFIG_IIO_CONFIGFS=m
+CONFIG_IIO_SW_DEVICE=m
+CONFIG_IIO_SW_TRIGGER=m
+CONFIG_IIO_SIMPLE_DUMMY=m
+CONFIG_IIO_SIMPLE_DUMMY_EVENTS=y
+CONFIG_IIO_SIMPLE_DUMMY_BUFFER=y
+# Audio without the ADSP.
+CONFIG_SND_DUMMY=m
+# USB devices without hardware: dummy_hcd + raw-gadget or configfs gadgets.
+CONFIG_USB_DUMMY_HCD=m
+CONFIG_USB_RAW_GADGET=m
+CONFIG_GPIO_SIM=m
+CONFIG_MEDIA_TEST_SUPPORT=y
+CONFIG_V4L_TEST_DRIVERS=y
+CONFIG_VIDEO_VIVID=m
+CONFIG_VIDEO_VIMC=m
+
+# --- USB gadget functions --------------------------------------------------
+# The tablet as a webcam or a MIDI device for a PC.
+CONFIG_USB_CONFIGFS_F_UVC=y
+CONFIG_USB_CONFIGFS_F_MIDI=y
+CONFIG_USB_CONFIGFS_F_PRINTER=y
+
+# --- File systems ---------------------------------------------------------
+# exFAT: most SD cards and USB sticks over 32 GB.
+CONFIG_EXFAT_FS=m
+CONFIG_NTFS3_FS=m
+CONFIG_NTFS3_FS_POSIX_ACL=y
+# Fedora, SteamOS and Armada images use btrfs.
+CONFIG_BTRFS_FS=m
+CONFIG_BTRFS_FS_POSIX_ACL=y
+CONFIG_CIFS=m
+CONFIG_ISO9660_FS=m
+CONFIG_JOLIET=y
+CONFIG_ZISOFS=y
+CONFIG_UDF_FS=m
+CONFIG_EROFS_FS=m
+CONFIG_EROFS_FS_ZIP_LZMA=y
+CONFIG_EROFS_FS_ZIP_ZSTD=y
+CONFIG_FS_ENCRYPTION=y
+CONFIG_FS_VERITY=y
+
+# --- Input ------------------------------------------------------------------
+CONFIG_INPUT_JOYSTICK=y
+CONFIG_JOYSTICK_XPAD=m
+CONFIG_JOYSTICK_XPAD_FF=y
+CONFIG_JOYSTICK_XPAD_LEDS=y
+CONFIG_HID_PLAYSTATION=m
+CONFIG_PLAYSTATION_FF=y
+CONFIG_HID_SONY=m
+CONFIG_SONY_FF=y
+CONFIG_HID_NINTENDO=m
+CONFIG_NINTENDO_FF=y
+CONFIG_HID_STEAM=m
+CONFIG_STEAM_FF=y
+CONFIG_HID_LOGITECH=m
+CONFIG_HID_LOGITECH_DJ=m
+CONFIG_HID_LOGITECH_HIDPP=m
+CONFIG_HID_APPLE=m
+CONFIG_HID_MICROSOFT=m
+CONFIG_HID_WACOM=m
+CONFIG_USB_HIDDEV=y
+
+# --- USB host ----------------------------------------------------------------
+CONFIG_USB_UAS=m
+CONFIG_USB_PRINTER=m
+# Android phones' USB tethering.
+CONFIG_USB_NET_RNDIS_HOST=m
+CONFIG_USB_SERIAL_CH341=m
+CONFIG_USB_SERIAL_PL2303=m
+
+# --- Network ----------------------------------------------------------------
+CONFIG_TCP_CONG_BBR=m
+CONFIG_NET_SCH_FQ=m
+CONFIG_NET_SCH_FQ_CODEL=m
+CONFIG_NET_SCH_CAKE=m
+CONFIG_TLS=m
+CONFIG_MPTCP=y
+
+# --- Memory -------------------------------------------------------------------
+CONFIG_LRU_GEN=y
+CONFIG_LRU_GEN_ENABLED=y
+CONFIG_ZSWAP=y
+CONFIG_ZRAM_BACKEND_LZ4=y
+CONFIG_ZRAM_BACKEND_ZSTD=y
+CONFIG_ZRAM_MULTI_COMP=y
+# Android's ART garbage collector and CRIU.
+CONFIG_USERFAULTFD=y
+
+# --- Containers, Android, Wine ---------------------------------------------
+# Waydroid mounts binderfs.
+CONFIG_ANDROID_BINDERFS=y
+CONFIG_NTSYNC=m
+
+# --- Observability --------------------------------------------------------------
+# BTF needs pahole on the build host; without it the option silently drops.
+CONFIG_DEBUG_INFO_BTF=y
+CONFIG_IKHEADERS=m
+CONFIG_KPROBES=y
+CONFIG_KPROBE_EVENTS=y
+CONFIG_UPROBE_EVENTS=y
+CONFIG_FUNCTION_TRACER=y
+CONFIG_FTRACE_SYSCALLS=y
+CONFIG_BPF_EVENTS=y
+CONFIG_SCHED_CLASS_EXT=y
+CONFIG_THERMAL_STATISTICS=y
+
+# --- Security modules ------------------------------------------------------------
+# SELinux and AppArmor are built in but not in CONFIG_LSM, so inactive: the
+# roots' policies (Fedora SELinux, Ubuntu AppArmor) are untested on this
+# kernel. Yama and the BPF LSM are in CONFIG_LSM already and become active:
+# Yama's default ptrace_scope 1 lets a debugger attach only to its children
+# (or as root), as on Ubuntu and Fedora.
+CONFIG_SECURITY_SELINUX=y
+CONFIG_SECURITY_APPARMOR=y
+CONFIG_SECURITY_YAMA=y
+CONFIG_BPF_LSM=y
