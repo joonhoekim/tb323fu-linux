@@ -47,6 +47,34 @@ pub struct Runtime {
     /// stall rescue: since when charging has stood still below the start threshold
     stall_since: Option<std::time::Instant>,
     stall_rescued: Option<std::time::Instant>,
+    /// "current" Bypass: since when the charger has not been charging
+    bypass_idle_since: Option<std::time::Instant>,
+    bypass_armed: Option<std::time::Instant>,
+    /// a charging restart in progress (charge_tick)
+    arm: Option<Arm>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum ArmFor {
+    Bypass,
+    Stall,
+}
+
+/// The firmware starts charging again only with a full charge current limit
+/// and after its limit has crossed the charge: Raise (limit up, full current),
+/// Low (limit below the charge), Wait (limit back), one step per tick.
+#[derive(Debug, Clone, Copy)]
+struct Arm {
+    what: ArmFor,
+    stage: ArmStage,
+    at: std::time::Instant,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum ArmStage {
+    Raise,
+    Low,
+    Wait,
 }
 
 pub struct Shared {
@@ -220,9 +248,10 @@ impl Shared {
             let info = f::battery_info()?;
             let current = f::bypass_uses_current(&cfg.battery.bypass_method);
             let saved_ua = if current {
-                let (now, _) = f::charge_current().ok_or("no charge current limit in this kernel")?;
+                let (now, max) = f::charge_current().ok_or("no charge current limit in this kernel")?;
+                f::set_charge_current(max)?;
                 f::set_charge_limit(100, cfg.battery.recharge_gap)?;
-                f::set_charge_current(cfg.battery.bypass_current_ma * 1000)?;
+                self.arm(ArmFor::Bypass);
                 Some(now)
             } else {
                 f::set_charge_limit(info.capacity.max(f::CHARGE_LIMIT_MIN).min(100), cfg.battery.recharge_gap)?;
@@ -261,42 +290,113 @@ impl Shared {
         self.update(|c| c.battery.saved_current_ua = None);
     }
 
-    /// Stall rescue: on external power, below the start threshold and not
-    /// charging for 3 minutes, the firmware has stopped by itself (seen after
-    /// a 0 charge current limit, and on its own); it starts again once the
-    /// limit has crossed the charge. At most every 30 minutes.
-    pub fn stall_tick(&self) {
+    fn arm(&self, what: ArmFor) {
+        self.rt.lock().unwrap().arm = Some(Arm { what, stage: ArmStage::Raise, at: std::time::Instant::now() });
+    }
+
+    /// Charging the firmware should be doing but is not (one step per tick):
+    /// - "current" Bypass: once the charger charges, the charge current goes
+    ///   down to `bypass_current_ma` (the firmware does not start charging
+    ///   under a small limit); 20 s not charging on external power (a
+    ///   replugged charger) starts it again, at most every 2 minutes;
+    /// - stall rescue: 3 minutes on external power, below the start threshold
+    ///   and "Not charging" (the firmware stopped by itself), at most every
+    ///   30 minutes.
+    pub fn charge_tick(&self) {
         use std::time::{Duration, Instant};
         let c = self.cfg();
-        let stalled = c.battery.stall_rescue && !c.battery.bypass && f::external_power()
-            && f::battery_info().is_ok_and(|i| i.status == "Not charging" && f::charge_start().is_some_and(|s| i.capacity < s));
+        let Ok(i) = f::battery_info() else { return };
+        let now = Instant::now();
+        let current_bypass = c.battery.bypass && c.battery.saved_current_ua.is_some();
+        let charging = i.status == "Charging";
+        let target_ua = c.battery.bypass_current_ma * 1000;
         let mut rt = self.rt.lock().unwrap();
+        if let Some(a) = rt.arm {
+            if a.what == ArmFor::Bypass && !current_bypass {
+                rt.arm = None;
+                return;
+            }
+            let back = match a.what {
+                ArmFor::Bypass => 100,
+                ArmFor::Stall if rt.full_by_target.is_some() => 100,
+                ArmFor::Stall => c.battery.charge_limit,
+            };
+            if charging && a.stage != ArmStage::Low {
+                rt.arm = None;
+                drop(rt);
+                if a.what == ArmFor::Bypass {
+                    if let Err(e) = f::set_charge_current(target_ua) {
+                        eprintln!("tb323fu-helperd: Bypass: {e}");
+                    }
+                } else {
+                    eprintln!("tb323fu-helperd: stalled charging restarted through the limit at {} %", i.capacity);
+                }
+                return;
+            }
+            let wait = now - a.at;
+            let next = match a.stage {
+                ArmStage::Raise if wait >= Duration::from_secs(6) => {
+                    if i.capacity <= 55 {
+                        eprintln!("tb323fu-helperd: charging does not start at {} %: too low to restart through the limit", i.capacity);
+                        None
+                    } else {
+                        let _ = f::set_charge_limit(55, c.battery.recharge_gap.min(5));
+                        Some(ArmStage::Low)
+                    }
+                }
+                ArmStage::Low if wait >= Duration::from_secs(4) => {
+                    let _ = f::set_charge_limit(back, c.battery.recharge_gap);
+                    Some(ArmStage::Wait)
+                }
+                ArmStage::Wait if wait >= Duration::from_secs(30) => {
+                    eprintln!("tb323fu-helperd: charging did not start again at {} %", i.capacity);
+                    None
+                }
+                _ => return,
+            };
+            rt.arm = next.map(|stage| Arm { stage, at: now, ..a });
+            if rt.arm.is_none() && a.what == ArmFor::Bypass {
+                drop(rt);
+                let _ = f::set_charge_current(target_ua);
+            }
+            return;
+        }
+        if current_bypass {
+            rt.stall_since = None;
+            if charging || !f::external_power() {
+                rt.bypass_idle_since = None;
+                drop(rt);
+                if charging && f::charge_current().is_some_and(|(ua, _)| ua != target_ua) {
+                    let _ = f::set_charge_current(target_ua);
+                }
+                return;
+            }
+            let since = *rt.bypass_idle_since.get_or_insert(now);
+            if now - since >= Duration::from_secs(20) && rt.bypass_armed.is_none_or(|t| now - t >= Duration::from_secs(120)) {
+                rt.bypass_armed = Some(now);
+                rt.bypass_idle_since = None;
+                drop(rt);
+                if let Some((_, max)) = f::charge_current() {
+                    let _ = f::set_charge_current(max);
+                }
+                eprintln!("tb323fu-helperd: Bypass: the charger stopped at {} %, starting it again", i.capacity);
+                self.arm(ArmFor::Bypass);
+            }
+            return;
+        }
+        rt.bypass_idle_since = None;
+        let stalled = c.battery.stall_rescue && !c.battery.bypass && f::external_power()
+            && i.status == "Not charging" && f::charge_start().is_some_and(|s| i.capacity < s);
         if !stalled {
             rt.stall_since = None;
             return;
         }
-        let now = Instant::now();
         let since = *rt.stall_since.get_or_insert(now);
-        if now - since < Duration::from_secs(180) || rt.stall_rescued.is_some_and(|t| now - t < Duration::from_secs(1800)) {
-            return;
-        }
-        rt.stall_rescued = Some(now);
-        rt.stall_since = None;
-        drop(rt);
-        let Ok(i) = f::battery_info() else { return };
-        if i.capacity <= 55 {
-            eprintln!("tb323fu-helperd: charging stalled at {} % below the start threshold; too low to restart through the limit", i.capacity);
-            return;
-        }
-        let end = if self.full_by_active() { 100 } else { c.battery.charge_limit };
-        let r = f::set_charge_limit(55, c.battery.recharge_gap.min(5))
-            .and_then(|()| {
-                std::thread::sleep(Duration::from_secs(4));
-                f::set_charge_limit(end, c.battery.recharge_gap)
-            });
-        match r {
-            Ok(()) => eprintln!("tb323fu-helperd: charging stalled at {} % below the start threshold: restarted through the limit", i.capacity),
-            Err(e) => eprintln!("tb323fu-helperd: stall rescue: {e}"),
+        if now - since >= Duration::from_secs(180) && rt.stall_rescued.is_none_or(|t| now - t >= Duration::from_secs(1800)) {
+            rt.stall_rescued = Some(now);
+            rt.stall_since = None;
+            // the limit is already up: go straight to crossing it
+            rt.arm = Some(Arm { what: ArmFor::Stall, stage: ArmStage::Raise, at: now - Duration::from_secs(6) });
         }
     }
 
@@ -512,9 +612,10 @@ fn apply_startup(s: &Shared) {
             eprintln!("tb323fu-helperd: charge limit: {e}");
         }
         if current {
-            if let Err(e) = f::set_charge_current(c.battery.bypass_current_ma * 1000) {
-                eprintln!("tb323fu-helperd: Bypass: {e}");
+            if let Some((_, max)) = f::charge_current() {
+                let _ = f::set_charge_current(max);
             }
+            s.arm(ArmFor::Bypass);
         } else {
             s.restore_charge_current();
         }
@@ -664,7 +765,7 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
         shared.panel_tick();
         shared.haptics_tick();
         shared.full_by_tick();
-        shared.stall_tick();
+        shared.charge_tick();
         let want = shared.cfg().usb.wake;
         if f::usb_wake().is_some_and(|w| w != want) {
             let _ = f::set_usb_wake(want);

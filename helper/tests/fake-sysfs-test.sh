@@ -85,6 +85,7 @@ mkdir -p $R/sys/class/typec/port0-partner
 for n in 5 6; do mk /sys/class/input/event$n/device/name aw86927-haptics; mkdir -p $R/dev/input; : > $R/dev/input/event$n; done
 # wait until a file has the value (the 5 s poller)
 waitfor() { for i in $(seq 1 30); do [ "$(cat "$R$1" 2>/dev/null)" = "$2" ] && return 0; sleep 0.3; done; return 1; }
+waitlong() { for i in $(seq 1 100); do [ "$(cat "$R$1" 2>/dev/null)" = "$2" ] && return 0; sleep 0.3; done; return 1; }	# the 5 s poller, a few steps
 
 $BIN/tb323fu-helperd --session --no-polkit > $R/daemon.log 2>&1 &
 D=$!
@@ -111,15 +112,23 @@ $C bypass off && check "bypass off restores" $B/charge_control_end_threshold 60
 # charge current limit (series 0132): Bypass = limit 100 %, a small charge current
 mk $B/constant_charge_current 8400000; mk $B/constant_charge_current_max 12400000
 $C bypass on && check "current bypass: limit 100" $B/charge_control_end_threshold 100
-check "current bypass: 100 mA" $B/constant_charge_current 100000
+check "current bypass starts at the full current" $B/constant_charge_current 12400000
+waitfor $B/constant_charge_current 100000 && ok "current bypass: 100 mA once charging" || bad "current bypass did not lower the current"
 $C --json battery | grep -q '"ChargeLimit": 60' && ok "current bypass shows the saved limit" || bad "current bypass limit shown"
 $C bypass current 300 && check "bypass current while on" $B/constant_charge_current 300000
 $C bypass current 0 2>/dev/null && bad "bypass current 0 accepted" || ok "bypass current 0 refused"
 $C bypass method limit && check "method limit while on: limit = capacity" $B/charge_control_end_threshold 62
 check "method limit gives the current back" $B/constant_charge_current 8400000
-$C bypass method auto && check "method auto while on: current again" $B/constant_charge_current 300000
+$C bypass method auto && waitfor $B/constant_charge_current 300000 && ok "method auto while on: current again" || bad "method auto while on"
 $C bypass off && check "current bypass off restores the limit" $B/charge_control_end_threshold 60
 check "current bypass off restores the current" $B/constant_charge_current 8400000
+# not charging during a current Bypass: full current, the limit crosses the charge, then the small current
+mk $B/status "Not charging"; $C bypass on >/dev/null
+waitlong $B/charge_control_end_threshold 55 && ok "not charging: limit taken below the charge" || bad "no crossing"
+waitlong $B/charge_control_end_threshold 100 && ok "limit back to 100" || bad "limit not back"
+mk $B/status Charging
+waitlong $B/constant_charge_current 300000 && ok "charging again: the bypass current (300 mA)" || bad "current not lowered after the restart"
+$C bypass off >/dev/null
 $C charge-limit 60 >/dev/null
 rm $R$B/constant_charge_current $R$B/constant_charge_current_max
 $C bypass method current 2>/dev/null && bad "method current without the kernel knob accepted" || ok "method current refused without the knob"
