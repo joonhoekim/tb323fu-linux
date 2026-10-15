@@ -1,5 +1,25 @@
 # Open Device Helper changelog
 
+## 0.4.2 — 2026-10-15
+
+- **Bypass keeps the charger at full power:** with a kernel that has the charge current limit (series patch 0132,
+  kernel t51), Bypass raises the limit to 100 % and holds the battery with a small charge current instead of lowering
+  the limit to the charge, so the USB PD contract stays at 9 V instead of dropping to 5 V (~12 W) — measured 8.97 V in,
+  ~85 mA into the battery, and the battery still helps when the load is over what the charger gives. It starts at the
+  full current until the charger charges (the firmware does not start under a small limit), and starts a charger that
+  stopped (replugged) again. New settings: `battery.bypass_method` (`auto` / `current` / `limit`),
+  `battery.bypass_current_ma` (50..1000, default 100); `tb323fu-ctl bypass method|current`; D-Bus `BypassMethod`,
+  `BypassMethodActive`, `BypassCurrentMa`, `ChargeCurrentMa`, `SetBypassMethod`, `SetBypassCurrent`; app rows under
+  Charging.
+- **Stalled charging is restarted:** on a charger, below the start threshold and "Not charging" for 3 minutes (the
+  firmware stops by itself at times), the limit is taken below the charge for a moment and back, which starts it
+  again; at most every 30 minutes, above 55 %. `battery.stall_rescue` (default on), `tb323fu-ctl battery stall-rescue`,
+  D-Bus `StallRescue`, app switch "Restart Stalled Charging".
+- **A Bluetooth mouse's battery is no longer taken for the tablet's:** power supplies with `scope` Device are skipped
+  (a connected mouse showed its charge, and a 100 % charge limit, as the tablet's).
+- About shows the patch series again: `SeriesTag` falls back to the tag of a `-tb323fu-TAG` kernel release (it said
+  `unknown`).
+
 ## 0.4.1 — 2026-10-06
 
 - **Refresh follows the display mode:** in the 164 Hz panel mode the fixed rate goes up to 164 Hz and Full Rate
