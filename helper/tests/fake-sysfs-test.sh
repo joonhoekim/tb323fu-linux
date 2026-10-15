@@ -22,6 +22,9 @@ B=/sys/class/power_supply/qcom-battmgr-bat
 mk $B/type Battery; mk $B/status Charging; mk $B/capacity 62; mk $B/current_now 1500000
 mk $B/voltage_now 4100000; mk $B/temp 305; mk $B/health Good; mk $B/cycle_count 5
 mk $B/charge_control_end_threshold 100; mk $B/charge_control_start_threshold 95
+# a Bluetooth mouse's battery sorts first and must not be taken for the tablet's
+H=/sys/class/power_supply/hidpp_battery_0
+mk $H/type Battery; mk $H/scope Device; mk $H/status Discharging; mk $H/capacity 40; mk $H/online 1
 U=/sys/class/power_supply/ucsi-source-psy-pmic_glink.ucsi.01
 mk $U/type USB; mk $U/online 1; mk $U/usb_type "C [PD] PD_PPS"; mk $U/voltage_now 9000000; mk $U/current_max 3000000
 mk /proc/sys/kernel/osrelease 7.3.0-rc4-tb323fu-t51

@@ -15,13 +15,15 @@ fn werr(what: &str, e: std::io::Error) -> String {
 
 // ---------------------------------------------------------------- battery
 
-/// The battery power supply: the first `type == Battery` (qcom-battmgr-bat).
+/// The battery power supply: the first `type == Battery` (qcom-battmgr-bat)
+/// that is not a peripheral's (`scope == Device`: a Bluetooth mouse, a pen).
 pub fn battery_dir() -> Option<PathBuf> {
     let base = sys::path("/sys/class/power_supply");
     sys::list_dir(&base)
         .into_iter()
         .map(|n| base.join(n))
-        .find(|p| sys::read_opt(&p.join("type")).as_deref() == Some("Battery"))
+        .find(|p| sys::read_opt(&p.join("type")).as_deref() == Some("Battery")
+            && sys::read_opt(&p.join("scope")).as_deref() != Some("Device"))
 }
 
 #[derive(Debug, Clone, PartialEq)]
