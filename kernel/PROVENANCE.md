@@ -19,7 +19,7 @@ column names the source; see that tree's history for the individual authors.
 ## Patches
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114, 0116-0119 and 0128-0130 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
+0111-0114, 0116-0119 and 0128-0132 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -45,7 +45,7 @@ column names the source; see that tree's history for the individual authors.
 | `0020` | drm/panel: nt36523: add DSC, and the Lenovo TB323FU CSOT panel | Joonhoe Kim | this project | local | `fe8e736091745377` |
 | `0021` | arm64: carry a devicetree inside the kernel image | Joonhoe Kim | this project | local (built-in DTB; bootloader workaround) | `c7c512f612f4fc9b` |
 | `0022` | arm64: paint boot progress marks into the bootloader's framebuffer | Joonhoe Kim | this project | local (debug: boot progress marks) | `4a5fd2e1bdd92b66` |
-| `0023` | drm/msm: video-mode DSC at 10 bpc -- make DSI and the DPU INTF agree on the line | Joonhoe Kim | this project | local; its DPU part sent upstream 2026-10-04 as "drm/msm/dpu: round up the compressed INTF width", reviewed ([lore](https://lore.kernel.org/all/20261004102758.84436-1-26rote@gmail.com/)) | `8db55405d1433157` |
+| `0023` | drm/msm: video-mode DSC at 10 bpc -- make DSI and the DPU INTF agree on the line | Joonhoe Kim | this project | local; its DPU part sent upstream 2026-10-04 as "drm/msm/dpu: round up the compressed INTF width", reviewed ([lore](https://lore.kernel.org/all/20261004102758.84436-1-26rote@gmail.com/)) | `08b85820784bba6e` |
 | `0024` | wifi: ath12k + PCI/pwrctrl: WCN7860 ("peach", 17cb:110e) | Joonhoe Kim | [infiniti-mainline](https://github.com/infiniti-mainline/linux) `oneplus-15`, several authors, imported squashed (From: is the importer) | community, not upstream | `4a680f653196e4a1` |
 | `0025` | Input: touchscreen: import NT36536 host-download SPI driver (Novatek) | Joonhoe Kim | [map220v/sm8850-mainline](https://github.com/map220v/sm8850-mainline) `iceland-7.2` (Novatek vendor driver, verbatim) | out of tree, not upstreamable | `b5aaa9031e3c009c` |
 | `0026` | input: touchscreen: NT36536 host-download SPI driver (Novatek) | Joonhoe Kim | this project | local | `309aa6832efaf287` |
@@ -152,6 +152,8 @@ column names the source; see that tree's history for the individual authors.
 | `0128` | clk: qcom: gcc-kaanapali: Enable FORCE_MEM_CORE_ON for UFS AXI PHY clock | Joonhoe Kim | this project | upstream candidate (fixes s2idle resume with MCQ, 0119) | `339344f78c87f8df` |
 | `0129` | scsi: ufs: core: Fix a deadlock between clock scaling and device commands | Joonhoe Kim | this project | upstream candidate (fixes a hung task panic: UFS I/O stops for good) | `b36fb8b36b0b0baf` |
 | `0130` | Bluetooth: qca: check the device address on every setup | Joonhoe Kim | this project | upstream candidate (keeps the configured Bluetooth address over power off/on) | `48c51137866a015b` |
+| `0131` | drm/msm/dpu: only force a modeset for colour management when a DSPP is missing | Joonhoe Kim | this project | upstream candidate (no blank when a CTM is set or cleared) | `f4094c5ae87118e0` |
+| `0132` | power: supply: qcom_battmgr: expose the charge current limit | Joonhoe Kim | this project | upstream candidate (bypass at the full PD contract) | `851c1884bc15b107` |
 
 ## Out-of-tree
 

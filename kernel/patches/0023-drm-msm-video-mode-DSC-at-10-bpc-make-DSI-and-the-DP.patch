@@ -1,8 +1,8 @@
-From ecfabe7a4da707e7f14223515588e0736219a4e0 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:26:17 +0000
-Subject: [PATCH 23/56] drm/msm: video-mode DSC at 10 bpc -- make DSI and the
- DPU INTF agree on the line
+Subject: [PATCH] drm/msm: video-mode DSC at 10 bpc -- make DSI and the DPU
+ INTF agree on the line
 
 TB323FU's panel is one NT36523 on two bonded DSI links, video mode, DSC 1.2
 at 10 bpc (bpp 8). The screen stayed black with the DSI reporting FIFO
@@ -18,19 +18,17 @@ fed the DSI about 15% faster than it drained.
   24 kept for CMD mode.
 - dpu_encoder_phys_vid.c: round the compressed width up, as DSI does
   (254, not 253).
-- bring-up aids: print the pclk/byteclk set on each enable, and the raw
-  FIFO_STATUS (rate limited) -- "status=4" alone does not say which FIFO.
+- bring-up aid: print the raw FIFO_STATUS (rate limited) -- "status=4"
+  alone does not say which FIFO.
 
 Expected: 254 active pclk per link on both sides, ~1297 Mbps/lane against
 the vendor's 1300.49 (qcom,mdss-dsi-panel-clockrate). Found with a review
 that pointed at the same bug fixed for the Legion Y700 Gen4 (SM8750),
 ac47870fd795 and follow-ups.
-
-[rebased onto 7.3: debug print hunk re-placed by hand: 7.3 rounds byte_clk_rate before the DBG line]
 ---
- .../drm/msm/disp/dpu1/dpu_encoder_phys_vid.c  |  4 +--
- drivers/gpu/drm/msm/dsi/dsi_host.c            | 25 +++++++++++++------
- 2 files changed, 19 insertions(+), 10 deletions(-)
+ .../drm/msm/disp/dpu1/dpu_encoder_phys_vid.c  |  4 ++--
+ drivers/gpu/drm/msm/dsi/dsi_host.c            | 21 +++++++++++++------
+ 2 files changed, 17 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c
 index ba810f26e..2ac517db5 100644
@@ -48,20 +46,9 @@ index ba810f26e..2ac517db5 100644
  		timing->dce_bytes_per_line = msm_dsc_get_bytes_per_line(dsc);
  	}
 diff --git a/drivers/gpu/drm/msm/dsi/dsi_host.c b/drivers/gpu/drm/msm/dsi/dsi_host.c
-index d6bb2f482..9779bb889 100644
+index d6bb2f482..81326f884 100644
 --- a/drivers/gpu/drm/msm/dsi/dsi_host.c
 +++ b/drivers/gpu/drm/msm/dsi/dsi_host.c
-@@ -396,8 +396,8 @@ int dsi_link_clk_set_rate_6g(struct msm_dsi_host *msm_host)
- 
- 	msm_host->byte_clk_rate = rounded_byte_clk_rate;
- 
--	DBG("Set clk rates: pclk=%lu, byteclk=%lu",
--	    msm_host->pixel_clk_rate, msm_host->byte_clk_rate);
-+	pr_info("dsi%d: pclk=%lu byteclk=%lu\n", msm_host->id,
-+		msm_host->pixel_clk_rate, msm_host->byte_clk_rate);
- 
- 	ret = dev_pm_opp_set_rate(&msm_host->pdev->dev,
- 				  msm_host->byte_clk_rate);
 @@ -603,7 +603,7 @@ void dsi_link_clk_disable_v2(struct msm_dsi_host *msm_host)
  static unsigned long
  dsi_adjust_pclk_for_compression(const struct drm_display_mode *mode,
@@ -132,5 +119,5 @@ index d6bb2f482..9779bb889 100644
  		msm_host->err_work_state |= DSI_ERR_STATE_FIFO;
  		if (status & DSI_FIFO_STATUS_CMD_MDP_FIFO_UNDERFLOW)
 -- 
-2.43.0
+2.47.3
 

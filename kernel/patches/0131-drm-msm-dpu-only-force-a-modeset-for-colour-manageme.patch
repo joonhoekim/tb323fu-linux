@@ -1,0 +1,98 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Thu, 15 Oct 2026 17:46:04 +0900
+Subject: [PATCH 1/2] drm/msm/dpu: only force a modeset for colour management
+ when a DSPP is missing
+
+msm_atomic_check() forces a full modeset, and sets allow_modeset, whenever
+the CRTC CTM goes from NULL to a blob or back, so that the DPU can reserve
+or release a DSPP. Once the CRTC has its DSPP this blanks the panel for
+nothing: a night-light style user that sets a CTM and later clears it sees
+the display go off and on at both ends, while the CTM value changes in
+between are plain commits.
+
+Do the check in dpu_crtc_check_mode_changed() instead, and only when CTM,
+GAMMA_LUT or SPR need a DSPP that the CRTC does not have. Keep the DSPPs of
+an enabled CRTC when its colour management is cleared without a modeset;
+the cleared CTM/GAMMA_LUT then just disable PCC/GC as before. Only the DPU
+exposes CTM, so msm_atomic_check() loses nothing for MDP4/MDP5.
+
+On the Lenovo TB323FU (Kaanapali), two night-light on/off rounds (218
+legacy CTM property sets) took four DSI power off/on cycles before and one
+after: the first CTM after boot, when the CRTC has no DSPP yet.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c | 13 ++++++++++++-
+ drivers/gpu/drm/msm/msm_atomic.c         | 17 +----------------
+ 2 files changed, 13 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
+index 2a4ae2eca..deb13530e 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_crtc.c
+@@ -1450,7 +1450,9 @@ static struct msm_display_topology dpu_crtc_get_topology(
+ 		topology.num_lm = 1;
+ 
+ 	if (crtc_state->ctm || crtc_state->gamma_lut ||
+-	    dpu_crtc_needs_spr(crtc_state))
++	    dpu_crtc_needs_spr(crtc_state) ||
++	    (!drm_atomic_crtc_needs_modeset(crtc_state) &&
++	     to_dpu_crtc_state(crtc_state)->mixers[0].hw_dspp))
+ 		topology.num_dspp = topology.num_lm;
+ 
+ 	return topology;
+@@ -1528,6 +1530,7 @@ int dpu_crtc_check_mode_changed(struct drm_crtc_state *old_crtc_state,
+ {
+ 	struct drm_encoder *drm_enc;
+ 	struct drm_crtc *crtc = new_crtc_state->crtc;
++	struct dpu_crtc_state *cstate = to_dpu_crtc_state(new_crtc_state);
+ 	bool clone_mode_enabled = drm_crtc_in_clone_mode(old_crtc_state);
+ 	bool clone_mode_requested = drm_crtc_in_clone_mode(new_crtc_state);
+ 
+@@ -1543,6 +1546,14 @@ int dpu_crtc_check_mode_changed(struct drm_crtc_state *old_crtc_state,
+ 	    (!clone_mode_requested && clone_mode_enabled))
+ 		new_crtc_state->mode_changed = true;
+ 
++	/* a DSPP can only be added to the pipeline on a modeset */
++	if (new_crtc_state->enable && !cstate->mixers[0].hw_dspp &&
++	    (new_crtc_state->ctm || new_crtc_state->gamma_lut ||
++	     dpu_crtc_needs_spr(new_crtc_state))) {
++		new_crtc_state->mode_changed = true;
++		new_crtc_state->state->allow_modeset = true;
++	}
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/msm/msm_atomic.c b/drivers/gpu/drm/msm/msm_atomic.c
+index a8babf1db..7b480981b 100644
+--- a/drivers/gpu/drm/msm/msm_atomic.c
++++ b/drivers/gpu/drm/msm/msm_atomic.c
+@@ -185,22 +185,7 @@ int msm_atomic_check(struct drm_device *dev, struct drm_atomic_commit *state)
+ {
+ 	struct msm_drm_private *priv = dev->dev_private;
+ 	struct msm_kms *kms = priv->kms;
+-	struct drm_crtc_state *old_crtc_state, *new_crtc_state;
+-	struct drm_crtc *crtc;
+-	int i, ret = 0;
+-
+-	/*
+-	 * FIXME: stop setting allow_modeset and move this check to the DPU
+-	 * driver.
+-	 */
+-	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state,
+-				      new_crtc_state, i) {
+-		if ((old_crtc_state->ctm && !new_crtc_state->ctm) ||
+-		    (!old_crtc_state->ctm && new_crtc_state->ctm)) {
+-			new_crtc_state->mode_changed = true;
+-			state->allow_modeset = true;
+-		}
+-	}
++	int ret = 0;
+ 
+ 	if (kms && kms->funcs && kms->funcs->check_mode_changed)
+ 		ret = kms->funcs->check_mode_changed(kms, state);
+-- 
+2.47.3
+
