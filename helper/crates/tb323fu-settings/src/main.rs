@@ -26,6 +26,7 @@ use std::time::Duration;
 
 const APP_ID: &str = "io.github.joonhoekim.OpenDeviceHelper";
 const REPO: &str = "https://github.com/joonhoekim/tb323fu-linux";
+const BYPASS_METHODS: [&str; 3] = ["auto", "current", "limit"];
 /// D-Bus ids and the labels shown for them (same order).
 const REFRESH_POLICIES: [&str; 3] = ["off", "auto", "manual"];
 const REFRESH_POLICY_LABELS: [&str; 3] = ["Full Rate", "Adaptive", "Fixed Rate"];
@@ -403,6 +404,9 @@ struct Ui {
     // Battery
     bat_limit: adw::SpinRow,
     bat_bypass: adw::SwitchRow,
+    bat_bp_method: adw::ComboRow,
+    bat_bp_current: adw::SpinRow,
+    bat_stall: adw::SwitchRow,
     bat_state: gtk::Label,
     bat_cap: gtk::Label,
     bat_power: gtk::Label,
@@ -613,6 +617,10 @@ impl Ui {
         let bat_limit = spin(&g, "Charge Limit (%)", "80% keeps the battery healthier", 20.0, 100.0, 5.0);
         let bat_gap = spin(&g, "Recharge Gap (%)", "", 3.0, 20.0, 1.0);
         let bat_bypass = switch(&g, "Bypass Charging", "Run from the charger, battery idle");
+        let bat_bp_method = combo(&g, "Bypass Method", &["Automatic", "Charge Current", "Charge Limit"]);
+        bat_bp_method.set_subtitle("Charge Current keeps the charger at full power; Charge Limit drops it to 5 V");
+        let bat_bp_current = spin(&g, "Bypass Current (mA)", "What the battery still takes during Bypass", 50.0, 1000.0, 50.0);
+        let bat_stall = switch(&g, "Restart Stalled Charging", "When charging stops by itself below the limit");
         let g = group(&b, "Scheduled Charging", "");
         group_help(&g, "The limit goes up to 100% early enough to be full at this time, estimated from the charge left and the charger. Two hours later, or when you unplug after it, the limit comes back.");
         let bat_fullby = adw::ExpanderRow::builder().title("Charge to 100% by").show_enable_switch(true).enable_expansion(false).build();
@@ -1040,6 +1048,9 @@ impl Ui {
             daemon_up: Cell::new(None),
             bat_limit,
             bat_bypass,
+            bat_bp_method,
+            bat_bp_current,
+            bat_stall,
             bat_state,
             bat_cap,
             bat_power,
@@ -1399,6 +1410,15 @@ impl Ui {
         // Battery
         self.spin_sends(&self.bat_limit, "limit", "Battery", "SetChargeLimit");
         self.switch_sends(&self.bat_bypass, "Battery", "SetBypass");
+        let ui = self.clone();
+        self.bat_bp_method.connect_selected_notify(move |r| {
+            if !ui.updating.get() {
+                let m = BYPASS_METHODS[r.selected() as usize % BYPASS_METHODS.len()];
+                ui.call_simple("Battery", "SetBypassMethod", (m.to_string(),));
+            }
+        });
+        self.spin_sends(&self.bat_bp_current, "bpcur", "Battery", "SetBypassCurrent");
+        self.switch_sends(&self.bat_stall, "Battery", "SetStallRescue");
 
         // Refresh
         let ui = self.clone();
@@ -2732,6 +2752,12 @@ impl Ui {
         }
         let bypass = dbus::b(p, "Bypass");
         set_switch(&self.bat_bypass, bypass);
+        set_combo(&self.bat_bp_method, &BYPASS_METHODS, dbus::s(p, "BypassMethod"));
+        set_spin(&self.bat_bp_current, dbus::u(p, "BypassCurrentMa").map(f64::from));
+        set_switch(&self.bat_stall, dbus::b(p, "StallRescue"));
+        let has_current = dbus::i(p, "ChargeCurrentMa").is_some_and(|ma| ma >= 0);
+        self.bat_bp_method.set_visible(has_current);
+        self.bat_bp_current.set_visible(has_current && dbus::s(p, "BypassMethodActive").as_deref() == Some("current"));
         let state = dbus::s(p, "State").unwrap_or_default();
         let st = match state.as_str() {
             "charging" => "Charging",

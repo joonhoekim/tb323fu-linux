@@ -53,7 +53,7 @@ GNOME and apt.
 - **Settings app** (Rust, gtk-rs, GTK4 + libadwaita; `tb323fu-settings [--page NAME]` opens a page directly). A list of
   pages on the left, the page on the right; below 860 sp it becomes list → page navigation. Short values stay on one
   line, long ones (kernel, hashes, paths) sit under the row title with a copy button. The pages:
-  - **Battery:** charge limit and recharge gap, Bypass Charging, "charge to 100 % by" a time (days of the week), the
+  - **Battery:** charge limit and recharge gap, Bypass Charging (method: Charge Current keeps the charger at full power, Charge Limit lets it drop to 5 V; the current the battery still takes), Restart Stalled Charging, "charge to 100 % by" a time (days of the week), the
     battery's state, power, health and cycle count, the charger's contract and measured input.
   - **Display:** refresh policy (adaptive, fixed, full rate of the current mode), the idle timing presets or custom idle times, panel
     heat protection.

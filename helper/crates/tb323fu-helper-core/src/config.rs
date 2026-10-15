@@ -45,6 +45,17 @@ pub struct Battery {
     pub full_by: String,
     /// days for full_by ("mon".."sun"); empty = every day
     pub full_by_days: Vec<String>,
+    /// how Bypass holds the battery: "current" (limit 100 %, charge current
+    /// `bypass_current_ma`: the charger keeps its full contract), "limit"
+    /// (limit = capacity: the firmware drops PD to 5 V), "auto" (current
+    /// when the kernel has the charge current limit)
+    pub bypass_method: String,
+    /// charge current while Bypass runs the "current" way, mA
+    pub bypass_current_ma: u32,
+    /// the charge current limit to restore when Bypass ends, µA
+    pub saved_current_ua: Option<u32>,
+    /// restart charging the firmware stopped below the start threshold
+    pub stall_rescue: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -230,7 +241,18 @@ pub struct Usb {
 
 impl Default for Battery {
     fn default() -> Self {
-        Battery { charge_limit: 80, bypass: false, saved_limit: None, recharge_gap: 10, full_by: String::new(), full_by_days: Vec::new() }
+        Battery {
+            charge_limit: 80,
+            bypass: false,
+            saved_limit: None,
+            recharge_gap: 10,
+            full_by: String::new(),
+            full_by_days: Vec::new(),
+            bypass_method: "auto".into(),
+            bypass_current_ma: 100,
+            saved_current_ua: None,
+            stall_rescue: true,
+        }
     }
 }
 impl Default for Torch {

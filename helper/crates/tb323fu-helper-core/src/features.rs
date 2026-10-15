@@ -140,6 +140,44 @@ pub fn set_charge_limit(pct: u32, gap: u32) -> Res<()> {
     Ok(())
 }
 
+/// Bypass current: the battery takes this much while the charger keeps its
+/// full contract (the firmware drops PD to 5 V at a limit of 0).
+pub const BYPASS_CURRENT_RANGE: std::ops::RangeInclusive<u32> = 50..=1000;
+pub const BYPASS_METHODS: [&str; 3] = ["auto", "current", "limit"];
+
+/// The battery's charge current limit and its maximum, µA
+/// (`constant_charge_current`, series patch 0132).
+pub fn charge_current() -> Option<(u32, u32)> {
+    let b = battery_dir()?;
+    let now = sys::read_i64(&b.join("constant_charge_current"))?;
+    let max = sys::read_i64(&b.join("constant_charge_current_max"))?;
+    Some((now.max(0) as u32, max.max(0) as u32))
+}
+
+/// Write the charge current limit, µA; never 0 (the firmware then stops
+/// charging until the limit crosses the charge).
+pub fn set_charge_current(ua: u32) -> Res<()> {
+    if ua == 0 {
+        return Err("charge current 0 is not allowed".into());
+    }
+    let b = battery_dir().ok_or("no battery power supply")?;
+    sys::write(&b.join("constant_charge_current"), &ua.to_string()).map_err(|e| werr("charge current", e))
+}
+
+/// `auto` resolves to `current` when the kernel has the charge current limit.
+pub fn bypass_uses_current(method: &str) -> bool {
+    match method {
+        "current" => true,
+        "limit" => false,
+        _ => charge_current().is_some(),
+    }
+}
+
+/// The charge control start threshold, percent (None without one).
+pub fn charge_start() -> Option<u32> {
+    sys::read_i64(&battery_dir()?.join("charge_control_start_threshold")).map(|v| v.max(0) as u32)
+}
+
 /// The active charger as the kernel reports it.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ChargerInfo {
@@ -806,7 +844,14 @@ pub fn kernel_version() -> String {
 pub fn series_tag() -> String {
     sys::read_opt(&sys::path("/etc/tb323fu/series"))
         .or_else(|| sys::read_opt(&sys::path("/usr/share/tb323fu/series")))
+        .or_else(|| sys::read_opt(&sys::path("/proc/sys/kernel/osrelease")).and_then(|r| series_from_release(&r)))
         .unwrap_or_else(|| "unknown".into())
+}
+
+/// "7.3.0-rc4-tb323fu-t49" -> "t49".
+pub fn series_from_release(release: &str) -> Option<String> {
+    let tag = release.trim().rsplit_once("-tb323fu-")?.1;
+    (!tag.is_empty()).then(|| tag.to_string())
 }
 
 const MANIFESTS: [&str; 2] = ["/usr/share/tb323fu/firmware/manifest.tsv", "/etc/tb323fu/firmware-manifest.tsv"];
@@ -841,6 +886,14 @@ pub fn firmware_check() -> BTreeMap<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn series_from_kernel_release() {
+        assert_eq!(series_from_release("7.3.0-rc4-tb323fu-t49\n").as_deref(), Some("t49"));
+        assert_eq!(series_from_release("7.3.0-rc4-tb323fu-t50b").as_deref(), Some("t50b"));
+        assert_eq!(series_from_release("6.12.0-1-arm64"), None);
+        assert_eq!(series_from_release("7.3.0-tb323fu-"), None);
+    }
 
     #[test]
     fn crash_records_first_run_and_new() {

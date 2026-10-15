@@ -24,6 +24,7 @@ mk $B/voltage_now 4100000; mk $B/temp 305; mk $B/health Good; mk $B/cycle_count 
 mk $B/charge_control_end_threshold 100; mk $B/charge_control_start_threshold 95
 U=/sys/class/power_supply/ucsi-source-psy-pmic_glink.ucsi.01
 mk $U/type USB; mk $U/online 1; mk $U/usb_type "C [PD] PD_PPS"; mk $U/voltage_now 9000000; mk $U/current_max 3000000
+mk /proc/sys/kernel/osrelease 7.3.0-rc4-tb323fu-t51
 # LEDs
 mk /sys/class/leds/white:flash/brightness 0; mk /sys/class/leds/white:flash/max_brightness 255
 L=/sys/class/leds/aw22127:rgb:indicator
@@ -104,6 +105,23 @@ mk $B/current_now 185000	# firmware still says Charging (t26)
 $C --json battery | grep -q '"State": "bypass"' && ok "bypass on, 185 mA: bypass" || bad "bypass state"
 mk $B/current_now 1500000
 $C bypass off && check "bypass off restores" $B/charge_control_end_threshold 60
+# charge current limit (series 0132): Bypass = limit 100 %, a small charge current
+mk $B/constant_charge_current 8400000; mk $B/constant_charge_current_max 12400000
+$C bypass on && check "current bypass: limit 100" $B/charge_control_end_threshold 100
+check "current bypass: 100 mA" $B/constant_charge_current 100000
+$C --json battery | grep -q '"ChargeLimit": 60' && ok "current bypass shows the saved limit" || bad "current bypass limit shown"
+$C bypass current 300 && check "bypass current while on" $B/constant_charge_current 300000
+$C bypass current 0 2>/dev/null && bad "bypass current 0 accepted" || ok "bypass current 0 refused"
+$C bypass method limit && check "method limit while on: limit = capacity" $B/charge_control_end_threshold 62
+check "method limit gives the current back" $B/constant_charge_current 8400000
+$C bypass method auto && check "method auto while on: current again" $B/constant_charge_current 300000
+$C bypass off && check "current bypass off restores the limit" $B/charge_control_end_threshold 60
+check "current bypass off restores the current" $B/constant_charge_current 8400000
+$C charge-limit 60 >/dev/null
+rm $R$B/constant_charge_current $R$B/constant_charge_current_max
+$C bypass method current 2>/dev/null && bad "method current without the kernel knob accepted" || ok "method current refused without the knob"
+$C bypass current 100 >/dev/null
+$C --json versions | grep -q '"SeriesTag": "t51"' && ok "series tag from the kernel release" || bad "series tag"
 # PD/PPS charger: UCSI reports no contract, battmgr measures the input
 mk $U/voltage_now 0; mk $U/current_max 0
 UB=/sys/class/power_supply/qcom-battmgr-usb

@@ -44,6 +44,9 @@ pub struct Runtime {
     haptics_seen: Vec<std::path::PathBuf>,
     /// "full by": the target (local week minute) of the window in progress
     pub full_by_target: Option<i32>,
+    /// stall rescue: since when charging has stood still below the start threshold
+    stall_since: Option<std::time::Instant>,
+    stall_rescued: Option<std::time::Instant>,
 }
 
 pub struct Shared {
@@ -215,14 +218,24 @@ impl Shared {
         let cfg = self.cfg();
         if on && !cfg.battery.bypass {
             let info = f::battery_info()?;
-            let hold = info.capacity.max(f::CHARGE_LIMIT_MIN).min(100);
-            f::set_charge_limit(hold, cfg.battery.recharge_gap)?;
+            let current = f::bypass_uses_current(&cfg.battery.bypass_method);
+            let saved_ua = if current {
+                let (now, _) = f::charge_current().ok_or("no charge current limit in this kernel")?;
+                f::set_charge_limit(100, cfg.battery.recharge_gap)?;
+                f::set_charge_current(cfg.battery.bypass_current_ma * 1000)?;
+                Some(now)
+            } else {
+                f::set_charge_limit(info.capacity.max(f::CHARGE_LIMIT_MIN).min(100), cfg.battery.recharge_gap)?;
+                None
+            };
             let prev = cfg.battery.charge_limit;
             self.update(|c| {
                 c.battery.saved_limit = Some(prev);
+                c.battery.saved_current_ua = saved_ua;
                 c.battery.bypass = true;
             });
         } else if !on && cfg.battery.bypass {
+            self.restore_charge_current();
             let back = cfg.battery.saved_limit.unwrap_or(cfg.battery.charge_limit);
             f::set_charge_limit(back, cfg.battery.recharge_gap)?;
             self.update(|c| {
@@ -232,6 +245,59 @@ impl Shared {
             });
         }
         Ok(())
+    }
+
+    /// Give the charge current limit back after the "current" Bypass (a
+    /// saved 0, or none, restores the maximum).
+    pub fn restore_charge_current(&self) {
+        let Some(saved) = self.cfg().battery.saved_current_ua else { return };
+        if let Some((_, max)) = f::charge_current() {
+            let ua = if saved == 0 { max } else { saved };
+            if let Err(e) = f::set_charge_current(ua) {
+                eprintln!("tb323fu-helperd: Bypass: {e}");
+                return;
+            }
+        }
+        self.update(|c| c.battery.saved_current_ua = None);
+    }
+
+    /// Stall rescue: on external power, below the start threshold and not
+    /// charging for 3 minutes, the firmware has stopped by itself (seen after
+    /// a 0 charge current limit, and on its own); it starts again once the
+    /// limit has crossed the charge. At most every 30 minutes.
+    pub fn stall_tick(&self) {
+        use std::time::{Duration, Instant};
+        let c = self.cfg();
+        let stalled = c.battery.stall_rescue && !c.battery.bypass && f::external_power()
+            && f::battery_info().is_ok_and(|i| i.status == "Not charging" && f::charge_start().is_some_and(|s| i.capacity < s));
+        let mut rt = self.rt.lock().unwrap();
+        if !stalled {
+            rt.stall_since = None;
+            return;
+        }
+        let now = Instant::now();
+        let since = *rt.stall_since.get_or_insert(now);
+        if now - since < Duration::from_secs(180) || rt.stall_rescued.is_some_and(|t| now - t < Duration::from_secs(1800)) {
+            return;
+        }
+        rt.stall_rescued = Some(now);
+        rt.stall_since = None;
+        drop(rt);
+        let Ok(i) = f::battery_info() else { return };
+        if i.capacity <= 55 {
+            eprintln!("tb323fu-helperd: charging stalled at {} % below the start threshold; too low to restart through the limit", i.capacity);
+            return;
+        }
+        let end = if self.full_by_active() { 100 } else { c.battery.charge_limit };
+        let r = f::set_charge_limit(55, c.battery.recharge_gap.min(5))
+            .and_then(|()| {
+                std::thread::sleep(Duration::from_secs(4));
+                f::set_charge_limit(end, c.battery.recharge_gap)
+            });
+        match r {
+            Ok(()) => eprintln!("tb323fu-helperd: charging stalled at {} % below the start threshold: restarted through the limit", i.capacity),
+            Err(e) => eprintln!("tb323fu-helperd: stall rescue: {e}"),
+        }
     }
 
     /// Hold the backlight at 178/255 while the panel is hot; give back the
@@ -434,13 +500,23 @@ async fn ppd_active_profile(conn: &zbus::Connection) -> Option<String> {
 fn apply_startup(s: &Shared) {
     let c = s.cfg();
     if f::battery_dir().is_some() {
-        let limit = if c.battery.bypass {
+        let current = c.battery.bypass && c.battery.saved_current_ua.is_some();
+        let limit = if current {
+            Ok(100)
+        } else if c.battery.bypass {
             f::battery_info().map(|i| i.capacity.clamp(f::CHARGE_LIMIT_MIN, 100))
         } else {
             Ok(c.battery.charge_limit)
         };
         if let Err(e) = limit.and_then(|l| f::set_charge_limit(l, c.battery.recharge_gap)) {
             eprintln!("tb323fu-helperd: charge limit: {e}");
+        }
+        if current {
+            if let Err(e) = f::set_charge_current(c.battery.bypass_current_ma * 1000) {
+                eprintln!("tb323fu-helperd: Bypass: {e}");
+            }
+        } else {
+            s.restore_charge_current();
         }
     }
     if f::refresh_available() {
@@ -588,6 +664,7 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
         shared.panel_tick();
         shared.haptics_tick();
         shared.full_by_tick();
+        shared.stall_tick();
         let want = shared.cfg().usb.wake;
         if f::usb_wake().is_some_and(|w| w != want) {
             let _ = f::set_usb_wake(want);

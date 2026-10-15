@@ -64,16 +64,17 @@ impl Snapshot for Battery {
     const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Battery";
     const PROPS: &'static [&'static str] = &["ChargeLimit", "Bypass", "Status", "State", "Capacity", "CurrentMa", "VoltageMv",
         "TemperatureC", "Health", "CycleCount", "DesignCapacityMah", "ChargerType", "ChargerContract", "ChargerAdapter", "InputVoltageMv", "InputCurrentMa",
-        "RechargeGap", "FullBy", "FullByDays", "FullByActive", "StateOfHealth", "OcvMv"];
+        "RechargeGap", "FullBy", "FullByDays", "FullByActive", "StateOfHealth", "OcvMv",
+        "BypassMethod", "BypassMethodActive", "BypassCurrentMa", "ChargeCurrentMa", "StallRescue"];
     fn snapshot(&self) -> String {
         // current/voltage/temperature move all the time: only state-like values
         // trigger a signal (clients poll the live values while showing them)
         let i = f::battery_info().ok();
         let bypass = self.0.cfg().battery.bypass;
         let c = self.0.cfg().battery;
-        format!("{:?} {bypass} {:?} {} {} {} {:?} {}", i.as_ref().map(|i| (i.charge_limit, i.capacity, &i.status, &i.health, i.state_of_health)),
+        format!("{:?} {bypass} {:?} {} {} {} {:?} {} {} {} {}", i.as_ref().map(|i| (i.charge_limit, i.capacity, &i.status, &i.health, i.state_of_health)),
             i.as_ref().map(|i| f::battery_state(i, bypass)), f::charger_info().stable_key(), c.recharge_gap, c.full_by, c.full_by_days,
-            self.0.full_by_active())
+            self.0.full_by_active(), c.bypass_method, c.bypass_current_ma, c.stall_rescue)
     }
 }
 
@@ -81,8 +82,12 @@ impl Snapshot for Battery {
 impl Battery {
     #[zbus(property)]
     fn charge_limit(&self) -> u32 {
+        let c = self.0.cfg().battery;
         if self.0.full_by_active() {
-            return self.0.cfg().battery.charge_limit;
+            return c.charge_limit;
+        }
+        if c.bypass && c.saved_current_ua.is_some() {
+            return c.saved_limit.unwrap_or(c.charge_limit);
         }
         f::battery_info().map(|i| i.charge_limit).unwrap_or(100)
     }
@@ -119,6 +124,31 @@ impl Battery {
     #[zbus(property)]
     fn bypass(&self) -> bool {
         self.0.cfg().battery.bypass
+    }
+    /// how Bypass holds the battery: "auto", "current", "limit"
+    #[zbus(property)]
+    fn bypass_method(&self) -> String {
+        self.0.cfg().battery.bypass_method
+    }
+    /// what "auto" means on this kernel: "current" or "limit"
+    #[zbus(property)]
+    fn bypass_method_active(&self) -> String {
+        if f::bypass_uses_current(&self.0.cfg().battery.bypass_method) { "current" } else { "limit" }.into()
+    }
+    /// charge current while Bypass runs the "current" way, mA
+    #[zbus(property)]
+    fn bypass_current_ma(&self) -> u32 {
+        self.0.cfg().battery.bypass_current_ma
+    }
+    /// the battery's charge current limit now, mA (-1 without one)
+    #[zbus(property)]
+    fn charge_current_ma(&self) -> i32 {
+        f::charge_current().map(|(ua, _)| (ua / 1000) as i32).unwrap_or(-1)
+    }
+    /// restart charging the firmware stopped below the start threshold
+    #[zbus(property)]
+    fn stall_rescue(&self) -> bool {
+        self.0.cfg().battery.stall_rescue
     }
     #[zbus(property)]
     fn status(&self) -> String {
@@ -185,6 +215,7 @@ impl Battery {
         polkit::check(conn, &hdr, "charge-limit", self.0.no_polkit).await?;
         self.0.full_by_end(false);
         f::set_charge_limit(percent, self.0.cfg().battery.recharge_gap).map_err(invalid)?;
+        self.0.restore_charge_current();
         self.0.update(|c| {
             c.battery.charge_limit = percent;
             c.battery.bypass = false;
@@ -196,8 +227,8 @@ impl Battery {
         Ok(())
     }
 
-    /// Bypass: hold the battery where it is (limit = current capacity) while
-    /// external power feeds the system; off restores the previous limit.
+    /// Bypass: hold the battery while external power feeds the system
+    /// (`BypassMethod`); off restores the previous limit and charge current.
     async fn set_bypass(&self, on: bool, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
         #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
         polkit::check(conn, &hdr, "charge-limit", self.0.no_polkit).await?;
@@ -206,6 +237,52 @@ impl Battery {
             c.thermal.bypass_auto = false;
             c.thermal.bypass_declined = !on;
         });
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+
+    /// "auto", "current" or "limit"; a running Bypass switches over.
+    async fn set_bypass_method(&self, method: String, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "charge-limit", self.0.no_polkit).await?;
+        if !f::BYPASS_METHODS.contains(&method.as_str()) {
+            return Err(invalid("bypass method must be auto, current or limit".into()));
+        }
+        if method == "current" && f::charge_current().is_none() {
+            return Err(invalid("this kernel has no charge current limit (series patch 0132)".into()));
+        }
+        let running = self.0.cfg().battery.bypass;
+        if running {
+            self.0.set_bypass(false).map_err(failed)?;
+        }
+        self.0.update(|c| c.battery.bypass_method = method);
+        if running {
+            self.0.set_bypass(true).map_err(failed)?;
+        }
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+
+    /// Charge current while Bypass runs the "current" way, mA (50..1000).
+    async fn set_bypass_current(&self, ma: u32, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "charge-limit", self.0.no_polkit).await?;
+        if !f::BYPASS_CURRENT_RANGE.contains(&ma) {
+            return Err(invalid("bypass current must be 50..1000 mA".into()));
+        }
+        let c = self.0.cfg().battery;
+        if c.bypass && c.saved_current_ua.is_some() {
+            f::set_charge_current(ma * 1000).map_err(failed)?;
+        }
+        self.0.update(|c| c.battery.bypass_current_ma = ma);
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+
+    async fn set_stall_rescue(&self, on: bool, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "charge-limit", self.0.no_polkit).await?;
+        self.0.update(|c| c.battery.stall_rescue = on);
         invalidate(&em, Self::IFACE, Self::PROPS).await;
         Ok(())
     }

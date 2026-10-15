@@ -15,10 +15,15 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
   status                         all features
   battery                        battery, charger, charge limit and health (SOH, cycles)
   battery recharge-gap PERCENT   charging resumes this far below the limit (3..20, default 10)
+  battery stall-rescue on|off    restart charging the firmware stopped below the start threshold (default on)
   battery full-by HH:MM [DAY...]|off
                                  be at 100 % by this time (days mon..sun, default every day), then back to the limit
   charge-limit [PERCENT]         show or set the charge limit (20..100)
   bypass on|off                  hold the battery at its current charge on external power
+  bypass method auto|current|limit
+                                 current: limit 100 %, a small charge current (the charger keeps its full
+                                 contract); limit: limit = charge (PD drops to 5 V); auto: current when the kernel has it
+  bypass current MA              charge current for the current way (50..1000, default 100)
   android [--yes]                show, or with --yes restart into Android now
   android require-auth on|off    ask for authentication before switching (admin)
   torch [on|off|toggle|level N]
@@ -805,6 +810,10 @@ fn run(args: &[String]) -> i32 {
                 Some(n) => c.call("Battery", "SetRechargeGap", &(n,)),
                 None => usage(),
             },
+            Some("stall-rescue") => match onoff(rest.get(1)) {
+                Some(b) => c.call("Battery", "SetStallRescue", &(b,)),
+                None => usage(),
+            },
             Some("full-by") => match rest.get(1).copied() {
                 Some("off") => c.call("Battery", "SetFullBy", &("", Vec::<String>::new())),
                 Some(t) => {
@@ -820,9 +829,16 @@ fn run(args: &[String]) -> i32 {
             None if rest.is_empty() => c.show(&["Battery"]),
             None => usage(),
         },
-        "bypass" => match onoff(rest.first()) {
-            Some(b) => c.call("Battery", "SetBypass", &(b,)),
-            None => usage(),
+        "bypass" => match (rest.first().copied(), rest.get(1).copied()) {
+            (Some("method"), Some(m)) => c.call("Battery", "SetBypassMethod", &(m,)),
+            (Some("current"), _) => match num(rest.get(1)) {
+                Some(n) => c.call("Battery", "SetBypassCurrent", &(n,)),
+                None => usage(),
+            },
+            _ => match onoff(rest.first()) {
+                Some(b) => c.call("Battery", "SetBypass", &(b,)),
+                None => usage(),
+            },
         },
         "android" => match rest.first().copied() {
             None => c.show(&["Android"]),
