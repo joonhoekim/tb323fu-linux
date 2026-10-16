@@ -59,14 +59,14 @@ column names the source; see that tree's history for the individual authors.
 | `0034` | ASoC: qcom: sc8280xp: optional S32_LE on MI2S backends | Joonhoe Kim | this project | local | `038b4173d04f1010` |
 | `0035` | ASoC: codecs: lpass-tx-macro: board tuning of the decimator filter block | Joonhoe Kim | this project | local | `f0a158037081bfd3` |
 | `0036` | usb: gadget: f_ncm: restart the TX timer when the freelist is empty | Joonhoe Kim | this project | local | `28d91effadbce995` |
-| `0037` | ASoC: codecs: wcd939x: read the ADC/DMIC switches per channel | Joonhoe Kim | this project | sent upstream 2026-10-07, under review ([lore](https://lore.kernel.org/all/20261007123954.1709-1-26rote@gmail.com/)) | `5ce05d3dd63814a5` |
+| `0037` | ASoC: codecs: wcd939x: read the ADC/DMIC switches per channel | Joonhoe Kim | this project | applied upstream 2026-10-12 (ASoC `for-7.4`, `e7860dc5d8d4`, [lore](https://lore.kernel.org/all/20261007123954.1709-1-26rote@gmail.com/)) | `5ce05d3dd63814a5` |
 | `0038` | Input: aw86927 - accept the AW86937 | Joonhoe Kim | this project | local | `ea100d2b380e8526` |
 | `0039` | pmic5-gen4-adc: mailing-list series (squashed) | Joonhoe Kim | mailing list: PMIC5 Gen4 ADC series (Jishnu Prakash), squashed | pending upstream | `2f6cc13f96ce7e3d` |
 | `0040` | media-qcom-camss-kaanapali-v16: mailing-list series (squashed) | Joonhoe Kim | mailing list: CAMSS kaanapali v16 (Hangxiang Ma), squashed | pending upstream | `4dcde6bf785b8443` |
 | `0041` | media-i2c-s5kjn5-v4: mailing-list series (squashed) | Joonhoe Kim | mailing list: S5KJN5 sensor v4 (Wenmeng Liu), squashed | pending upstream | `1a3368f0d213631f` |
 | `0042` | media: qcom: camss: Add support for PHY API devices | Bryan O'Donoghue | mailing list: camss PHY API series 4/5 (Bryan O'Donoghue) | pending upstream | `b10dc4cce7742860` |
 | `0043` | media: qcom: camss: Use data-lanes starting at 1 for new CSIPHY mode | Bryan O'Donoghue | mailing list: camss PHY API series 5/5 (Bryan O'Donoghue) | pending upstream | `36389bd9fd734fa3` |
-| `0044` | pinctrl: qcom: kaanapali: add the I2C strong pull-up bit | Joonhoe Kim | this project | applied upstream 2026-10-10 (`1df7f369075d`, [lore](https://lore.kernel.org/all/20261007124001.1724-1-26rote@gmail.com/)) | `35a9002e127b36f7` |
+| `0044` | pinctrl: qcom: kaanapali: add the I2C strong pull-up bit | Joonhoe Kim | this project | applied upstream 2026-10-10 (`1df7f369075d`, in the v7.3 pinctrl fixes; [lore](https://lore.kernel.org/all/20261007124001.1724-1-26rote@gmail.com/)) | `35a9002e127b36f7` |
 | `0045` | media: i2c: add Samsung S5KJNS and GalaxyCore GC08A8 sensor drivers | Joonhoe Kim | this project | local | `f9ef91a7def5c204` |
 | `0046` | clk: qcom: gdsc: keep the clock controller active while a GDSC is on | Joonhoe Kim | this project | local | `6808ab9547be6d0a` |
 | `0047` | media: i2c: dw9719: add Giantec GT9764, optional vio supply | Joonhoe Kim | this project | local | `5391af9522093811` |
@@ -129,14 +129,14 @@ column names the source; see that tree's history for the individual authors.
 | `0104` | usb: dwc3: tell xHCI that it lost its state when the core is powered off | Joonhoe Kim | this project | sent upstream 2026-09-29, under review | `241ae504c37a9442` |
 | `0105` | drm/msm/dpu: compute the CRTC bandwidth from the state being checked | Joonhoe Kim | this project | applied to msm-next 2026-10-06 (`480ba24aa340`, [lore](https://lore.kernel.org/all/20261002130656.50577-1-26rote@gmail.com/)) | `d308e4ba73faca78` |
 | `0106` | cpuidle: psci-domain: baldur: use the system domain state only in system suspend | Joonhoe Kim | this project | local workaround (cpuidle system domain state only in suspend) | `e5fe440e8cc5bdfb` |
-| `0107` | power: supply: qcom_battmgr: fix the battery current sign on Kaanapali | Joonhoe Kim | this project | local | `0a838c98a286a567` |
+| `0107` | power: supply: qcom_battmgr: fix the battery current sign on Kaanapali | Joonhoe Kim | this project | sent upstream 2026-10-16 (1/2 with 0132, [lore](https://lore.kernel.org/all/20261016124806.1789-1-26rote@gmail.com/)) | `0a838c98a286a567` |
 | `0108` | arm64: dts: qcom: baldur: throttle on the board temperature like Android | Joonhoe Kim | this project | local (board DT) | `7c93f156e9234773` |
 | `0109` | drm/panel: nt36523: baldur: add 90 Hz and 164 Hz modes | Joonhoe Kim | this project | local (panel modes) | `8ca0860580fae17d` |
 | `0110` | drm/msm/dpu: baldur: lower the refresh rate in the kernel when idle | Joonhoe Kim | this project | local, not intended for upstream | `ac0d9c10b697a395` |
 | `0111` | media: iris: vpu4x: size the decoder OPB line buffer for 10-bit output | Joonhoe Kim | this project | upstream candidate | `4e1ca9889fbbc5ea` |
 | `0112` | media: iris: don't wait for the threaded IRQ handler under core->lock | Joonhoe Kim | this project | upstream candidate | `09cb4d1e2ba7c805` |
-| `0113` | wifi: ath12k: keep the RX refill ring from running dry | Joonhoe Kim | this project | upstream candidate | `b7e380ed216b2ebe` |
-| `0114` | net: qrtr: ns: retry announcements the new node is not ready for yet | Joonhoe Kim | this project | upstream candidate | `e1a306db29173484` |
+| `0113` | wifi: ath12k: keep the RX refill ring from running dry | Joonhoe Kim | this project | its RX buffer leak fix sent upstream 2026-10-16 as "wifi: ath12k: replenish the RX buffers reaped without a complete MSDU" ([lore](https://lore.kernel.org/all/20261016124620.76-1-26rote@gmail.com/)); the rest local | `b7e380ed216b2ebe` |
+| `0114` | net: qrtr: ns: retry announcements the new node is not ready for yet | Joonhoe Kim | this project | sent upstream 2026-10-16 as "net: qrtr: ns: retry service announcements on -EAGAIN" (the posted version bounds the retry by a 10 s deadline, [lore](https://lore.kernel.org/all/20261016124600.31-1-26rote@gmail.com/)) | `e1a306db29173484` |
 | `0116` | media: qcom: camss: hold the bandwidth vote while TITAN_TOP is powered | Joonhoe Kim | this project | upstream candidate (0115 is a debugging aid kept out of the series) | `3b8ea94fd19e5fc5` |
 | `0117` | arm64: dts: qcom: kaanapali: add CPU capacity-dmips-mhz | Joonhoe Kim | this project | upstream candidate | `cde3fbe0e37a205a` |
 | `0118` | cpuidle: psci-domain: add allow_cluster_off to refuse cluster idle states | Joonhoe Kim | this project | local workaround: no cluster idle state in runtime idle on baldur, where its power-down reset the SoC when idle (set by the config fragment's command line; the cause is not fixed) | `9c63e2de94b80582` |
@@ -149,11 +149,11 @@ column names the source; see that tree's history for the individual authors.
 | `0125` | PM / devfreq: Add a governor for tracking remote device frequencies | Sibi Sankar | mailing list: Qualcomm Generic Vendor Extensions RFC v8, 2026-07-24 (Pragnesh Papaniya) (6/10) | pending upstream (RFC) | `c66b5228106f6d14` |
 | `0126` | PM / devfreq: Introduce the QCOM SCMI Memlat devfreq driver | Sibi Sankar | mailing list: Qualcomm Generic Vendor Extensions RFC v8, 2026-07-24 (Pragnesh Papaniya) (7/10) | pending upstream (RFC) | `b6766bbbfd86a173` |
 | `0127` | arm64: dts: qcom: kaanapali: Enable LLCC/DDR/DDR_QOS DVFS | Jia Yang | mailing list: Qualcomm Generic Vendor Extensions RFC v8, 2026-07-24 (Pragnesh Papaniya) (10/10) | pending upstream (RFC) | `756aac29f1b60aad` |
-| `0128` | clk: qcom: gcc-kaanapali: Enable FORCE_MEM_CORE_ON for UFS AXI PHY clock | Joonhoe Kim | this project | sent upstream 2026-10-07, reviewed ([lore](https://lore.kernel.org/all/20261007143716.2161-1-26rote@gmail.com/)) | `339344f78c87f8df` |
-| `0129` | scsi: ufs: core: Fix a deadlock between clock scaling and device commands | Joonhoe Kim | this project | upstream candidate (fixes a hung task panic: UFS I/O stops for good) | `b36fb8b36b0b0baf` |
-| `0130` | Bluetooth: qca: check the device address on every setup | Joonhoe Kim | this project | upstream candidate (keeps the configured Bluetooth address over power off/on) | `48c51137866a015b` |
-| `0131` | drm/msm/dpu: only force a modeset for colour management when a DSPP is missing | Joonhoe Kim | this project | upstream candidate (no blank when a CTM is set or cleared) | `f4094c5ae87118e0` |
-| `0132` | power: supply: qcom_battmgr: expose the charge current limit | Joonhoe Kim | this project | upstream candidate (bypass at the full PD contract) | `851c1884bc15b107` |
+| `0128` | clk: qcom: gcc-kaanapali: Enable FORCE_MEM_CORE_ON for UFS AXI PHY clock | Joonhoe Kim | this project | sent upstream 2026-10-07, reviewed by Abel Vesa and Taniya Das ([lore](https://lore.kernel.org/all/20261007143716.2161-1-26rote@gmail.com/)) | `339344f78c87f8df` |
+| `0129` | scsi: ufs: core: Fix a deadlock between clock scaling and device commands | Joonhoe Kim | this project | sent upstream 2026-10-16 (the posted version also releases the locks in reverse order, [lore](https://lore.kernel.org/all/20261016124608.46-1-26rote@gmail.com/)) | `b36fb8b36b0b0baf` |
+| `0130` | Bluetooth: qca: check the device address on every setup | Joonhoe Kim | this project | sent upstream 2026-10-16 ([lore](https://lore.kernel.org/all/20261016124615.61-1-26rote@gmail.com/)) | `48c51137866a015b` |
+| `0131` | drm/msm/dpu: only force a modeset for colour management when a DSPP is missing | Joonhoe Kim | this project | not sent: Dmitry Baryshkov's "drm/msm: fix SMMU fault dumps" v4 7/10 and 9/10 do the same; Tested-by sent 2026-10-16 ([lore](https://lore.kernel.org/all/20261016124055.1232-1-26rote@gmail.com/)) | `f4094c5ae87118e0` |
+| `0132` | power: supply: qcom_battmgr: expose the charge current limit | Joonhoe Kim | this project | sent upstream 2026-10-16 (2/2 with 0107; the posted version names the properties charge_control_limit and charge_control_limit_max, [lore](https://lore.kernel.org/all/20261016124806.1789-2-26rote@gmail.com/)) | `851c1884bc15b107` |
 
 ## Out-of-tree
 
