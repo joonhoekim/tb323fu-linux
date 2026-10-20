@@ -15,6 +15,7 @@ tablet. Single runs: expect a few percent between runs. Linux: Debian 13 with GN
 | Storage, sequential read / write | 2.7 / 1.8 GB/s | 4.4 / 1.9 GB/s | Android's /data is encrypted (inline crypto) |
 | Storage, 4K random read QD1 / 4 jobs | 13.6k / 459k IOPS | 13.1k / 401k IOPS | with MCQ (patch 0119); see [Storage](#storage) for how they were measured |
 | Video decode, 4K | — | H.264 319 fps, HEVC 531 fps | hardware decoder (iris); 40 Mbit/s test clips |
+| NPU, ResNet50 INT8 / Llama 3.2 3B Q4_0 | — | 1.5 ms / 1732 tok/s prompt, 28 tok/s generation | Hexagon NPU with Qualcomm's runtimes; see [NPU](#npu) |
 
 ## Against published Android results
 
@@ -81,6 +82,32 @@ orientation only, results on other units may differ. With Debian's Mesa, OpenCL 
 (39 % of Android in Geekbench 7); the cause was in Mesa's OpenCL and compute paths, not in the kernel. The project's
 build is checked against OpenCL-CTS and the Vulkan CTS (dEQP-VK) groups that cover compute and synchronization,
 with the same results as upstream Mesa.
+
+## NPU
+
+The Hexagon NPU (HTP v81) in the compute DSP runs on the mainline kernel as it is (FastRPC; no project patch) with
+the open [fastrpc](https://github.com/quic/fastrpc) library, in an unsigned protection domain. The runtimes are
+Qualcomm's and are not part of the project: the QNN SDK (QAIRT) for neural networks, and llama.cpp's Hexagon backend
+for language models. Measured on `kernel-t47`, on one tablet (the author's): for orientation only. Power was not
+measured, and there is no Android comparison.
+
+| Model (QNN, `qnn-net-run`) | Per inference, with the RPC | Accelerator time |
+|---|---|---|
+| MobileNetV2 FP16 | 1.35 ms | 1.06 ms |
+| MobileNetV2 INT8 | 1.31 ms | 1.03 ms |
+| ResNet50 FP16 | 2.19 ms | 1.85 ms |
+| ResNet50 INT8 | 1.52 ms | 1.23 ms |
+
+Average of 208 back-to-back runs; backend settings `vtcm_mb: 0` and graph optimization level 3 (INT8) or 2 (FP16).
+
+| Language model, Q4_0 (llama.cpp, Hexagon backend) | Prompt (pp512) | Generation (tg64) |
+|---|---|---|
+| Llama 3.2 3B Instruct | 1732 tok/s | 28.4 tok/s |
+| Qwen3 4B Instruct 2507 | 1408 tok/s | 24.0 tok/s |
+| Qwen3 8B | 824 tok/s | 13.6 tok/s |
+
+llama.cpp needs `GGML_HEXAGON_DMA64=0`: with 64-bit DMA it maps the weights with a fastrpc flag that the open
+library does not have yet.
 
 ## Storage
 

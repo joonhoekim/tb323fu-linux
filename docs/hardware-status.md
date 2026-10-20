@@ -1,13 +1,13 @@
 # Hardware status
 
 Lenovo Legion Tab Gen 5 / Legion Y700 5th Gen (TB323FU), mainline Linux 7.3 plus this project's patch series
-(release kernel `kernel-t40`; most entries were checked on the development kernels before it, with the same patches).
+(release kernel `kernel-t52`; most entries were checked on the development kernels before it, with the same patches).
 Tested mostly with Debian 13 and GNOME 48 on the device, the guided install with Ubuntu 26.04 and GNOME 50, and booted
 with five other distributions ([distros.md](distros.md)); the kernel itself does not depend on any of them.
 How fast it is compared with Android: [Performance](performance.md).
 Android firmware: everything here is on ZUI 18.0.12.104; on 18.0.12.187 the kernel hangs during boot
 ([#9](https://github.com/joonhoekim/tb323fu-linux/issues/9)).
-Last updated 2026-10-04.
+Last updated 2026-10-21.
 
 ## How to read this page
 
@@ -22,7 +22,8 @@ Every row carries one of these evidence levels:
 | **probe only** | driver, node or element present; never actually used |
 | **untested** | never tried |
 
-Status: ✅ works · 🟡 partial or conditional · ❌ does not work · ❓ not verified · — not applicable / not implemented.
+Status: ✅ works · 🟡 partial or conditional · ❌ does not work · ❓ not verified · — not applicable, not implemented,
+or a limit of the device itself that Android has as well ([Device limits](#device-limits-same-on-android)).
 
 A feature that needs a human to judge (display, sound, LEDs, vibration) is never marked ✅ without an observation.
 Repeated or probabilistic results (suspend, mode sets) are counted as N/M.
@@ -70,7 +71,8 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Display off / on (with and without an external display) | ✅ | measured | |
 | GPU OpenGL 4.6 / GLES 3.2 (Adreno 840, freedreno) | ✅ | measured + observed | up to 1200 MHz |
 | GPU idle power collapse (IFPC) | ✅ | measured | |
-| Vulkan (turnip) | ✅ | measured | Vulkan 1.4; SteamOS's gamescope runs on it; heavy workloads not tried yet |
+| Vulkan (turnip) | ✅ | measured | Vulkan 1.4; SteamOS's gamescope runs on it; numbers with Debian's Mesa and the project's Mesa build in [Performance](performance.md#gpu) |
+| GPU compute, OpenCL (rusticl) | ✅ | measured | with the project's Mesa build from the helper; Debian's Mesa is much slower. Numbers in [Performance](performance.md#gpu) |
 | Video decode H.264 / HEVC / VP9 / AV1 (iris) | ✅ | measured | output bit-exact against software decoders, 1080p and 4K |
 | Video decode 10-bit (HEVC Main10, VP9 profile 2, AV1 Main 10-bit) | ✅ | measured | bit-exact, 1080p and 4K; needs this project's iris line-buffer fix |
 | Video encode H.264 / HEVC (8-bit) | ✅ | measured | NV12 input |
@@ -102,22 +104,22 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Feature | Status | Evidence | Notes |
 |---|:-:|---|---|
 | Wi-Fi (WCN7860, ath12k) | ✅ | measured | used daily; a receive stall under sustained heavy traffic is fixed by this project's ath12k patch (30-minute 2.4 and 5 GHz soaks clean); the PCIe link trains at x2 but runs at x1; 6 GHz / 320 MHz / MLO not checked |
-| Bluetooth LE input devices | ✅ | observed | |
+| Bluetooth LE input devices | ✅ | measured + observed | the controller keeps its address across power off/on and rfkill (patch 0130), so paired devices reconnect |
 | Bluetooth audio (A2DP) | ✅ | observed | the first syllable of a stream can be clipped |
 | Bluetooth HFP | ❓ | untested | |
 | Accelerometer / auto-rotate | ✅ | measured + observed | via the sensor hub (SSC) |
 | Ambient light / auto-brightness | ✅ | measured + observed | |
 | Proximity | ✅ | measured | |
-| Compass | 🟡 | measured + observed | relative rotation is right (about 90° per quarter turn); absolute heading is about 30° off compared with a phone. Android's map apps are 90–180° off on this device too, so the sensor is uncalibrated on the stock OS as well. GNOME's sensor proxy only lets authorized clients read it |
+| Compass | ✅ | measured + observed | relative rotation is right (about 90° per quarter turn); the absolute heading is about 30° off compared with a phone, and Android's map apps are 90–180° off on this device too: the sensor is uncalibrated on the stock OS as well ([Device limits](#device-limits-same-on-android)). GNOME's sensor proxy only lets authorized clients read it |
 | Gyroscope, SAR | — | untested | behind the sensor hub, not wired to iio-sensor-proxy |
 | Hall sensor (cover) | ❓ | measured | needs the original folio case |
-| GNSS / GPS | ❌ | measured | the modem, location service and a location session run, but no satellites are ever seen; Android on the same device gets no GPS fix either — most likely no antenna (Lenovo's spec sheet lists GPS) |
+| GNSS / GPS | — | measured | the modem, location service and a location session run, but no satellites are ever seen; Android on the same device gets no GPS fix either — most likely no antenna, although Lenovo's spec sheet lists GPS ([Device limits](#device-limits-same-on-android)) |
 | Modem (MPSS) | 🟡 | measured | boots and stays up when rmtfs and tqftpserv start before it; if its initialization stalls, the SoC firmware resets the whole tablet and Linux cannot contain it. Kept off (rmtfs and tqftpserv masked): no cellular, no usable GNSS |
 | Thermal throttling | ✅ | measured | CPU (95 °C) and GPU (105 °C) chip limits, plus board-temperature steps from 43 °C following Android's policy; checked under a 10-minute full load |
-| Battery readings | ✅ | measured | while bypass charging, `status` still reads "Charging" (display only) |
+| Battery readings | ✅ | measured | while bypass charging with the Charge Limit method, `status` still reads "Charging" (display only); the firmware does not report the design or full capacity |
 | USB PD charging, PPS | ✅ | measured | about 40 W into the battery on PPS with a 65 W charger (about 9.25 V in). The USB-C controller reports the negotiated voltage and current as 0 |
-| Charge limit, bypass charging | ✅ | measured + observed | bypass cuts the battery current (9 A → 185 mA) and it comes back when turned off; the kernel `status` stays "Charging", so the helper derives its State from the current ("Bypass" at ≤ 300 mA; logic tested, not yet re-checked on the charger) |
-| Suspend (s2idle) and resume | 🟡 | measured | works (9 of 9 RTC cycles: Wi-Fi, sensors, sound, USB and video decode back each time); suspend still uses the CPU cluster idle state that runtime idle leaves out (next rows) |
+| Charge limit, bypass charging | ✅ | measured + observed | bypass with the Charge Current method (patch 0132) holds the charger at about 9 V with about 85 mA into the battery; under full CPU load the input stops at about 2.4 A (about 21 W) and the battery makes up the rest. The Charge Limit method cuts the battery current (9 A → 185 mA) but lets the charger drop to 5 V; the kernel `status` then stays "Charging", so the helper derives its State from the current |
+| Suspend (s2idle) and resume | 🟡 | measured | works (9 of 9 RTC cycles with Wi-Fi, sensors, sound, USB and video decode back each time; 15 more with storage checked after patch 0128; with a USB-C monitor connected, 5 power-key resumes); suspend still uses the CPU cluster idle state that runtime idle leaves out (next rows) |
 | Deep sleep (CX / DDR power collapse) | ✅ | measured | |
 | CPU cluster idle state in runtime idle | 🟡 | measured | left out by default since patch 0118 (`cpuidle_psci_domain.allow_cluster_off=0` on the built-in command line; switch at run time with `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off`, 1 = allowed). With it allowed the tablet reset when idle (2 resets in 78 min, no error message); refused, 3 h idle without one, at the same display-off power (658 / 659 / 621 mW allowed / refused / allowed). Why the cluster's power-down resets the SoC is not fixed; s2idle still uses the state (the system state needs it). The release kernels since t38 run with it refused |
 | Wake sources | ✅ | measured | power key, RTC; USB wake off by default |
@@ -131,14 +133,14 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | USB gadget (network, serial) | ✅ | measured | |
 | DisplayPort alt mode | ✅ | measured + observed | 4 lanes HBR3 with pin assignment C: a 5120×2160 USB-C monitor at 75 Hz, its USB 2.0 hub working after replugs and across suspend (sinks in pin assignment D, which keep USB 3, are untested). Earlier, with 2 lanes HBR2: a TV through a USB-C to HDMI adapter, extended desktop at 4K 30, no flicker on either screen while the internal panel idles down to 30 Hz, unplug/replug 3/3. The adapter's own low-speed USB device fails to enumerate (harmless) |
 | DisplayPort MST (daisy chain / "extend" on MST hubs) | ❌ | measured | waiting for upstream MST support |
-| UFS storage | ✅ | measured | |
+| UFS storage | ✅ | measured | multi-queue mode (patch 0119), kept over suspend (0128); fixed a deadlock that rebooted the tablet after hours of use (0129) and the recovery after a controller reset (0141 and Linux 7.3); numbers in [Performance](performance.md#storage) |
 | microSD | ✅ | measured | UHS-I SDR104; also used for the multiboot roots |
 | Multiboot (systems on microSD partitions) | ✅ | measured + observed | six systems boot with this kernel, picked by the initramfs (falls back to the internal root); see [distros.md](distros.md) |
 | Firewall (nftables, iptables-nft, firewalld) | ✅ | measured | firewalld including IPv6 reverse-path filtering, NixOS's default firewall; legacy iptables tables are not built |
 | Audio DSP (ADSP) | ✅ | measured | |
-| Compute DSP / NPU | ❓ | probe only | |
+| Compute DSP / NPU (Hexagon HTP v81) | ✅ | measured | Qualcomm's QNN runtime and llama.cpp's Hexagon backend run with the open fastrpc library (unsigned PD); not packaged by the project. Numbers in [Performance](performance.md#npu) |
 | CPU frequency scaling, boost | ✅ | measured | 6 cores up to 3.63 GHz and 2 up to 4.61 GHz (boost), the same maximum frequencies as Android; the helper sets limits per performance profile and can turn boost off |
-| CPU capacity, energy-aware scheduling | ✅ | measured | patch 0117 gives the scheduler the two core sizes (`cpu_capacity` 799 / 1024; before it all eight read 1024, so a busy single thread stayed on a small core) and energy-aware scheduling turns on. Geekbench 6 without pinning: single-core 3590 / multi-core 11016 on a development kernel with 0117 and 0118 (before 0117: 2288 / 10359); Android's published results for this tablet are about 3655 / 10758 |
+| CPU capacity, energy-aware scheduling | ✅ | measured | patch 0117 gives the scheduler the two core sizes (`cpu_capacity` 799 / 1024; before it all eight read 1024, so a busy single thread stayed on a small core) and energy-aware scheduling turns on (Geekbench 6 single-core without pinning: 2288 before 0117, at Android's level after; numbers in [Performance](performance.md)) |
 | Switching between Android and Linux | ✅ | measured + observed | about 40 s |
 | Boot time | ✅ | measured | about 6 s from kernel start to the desktop (Debian, automatic login); 7–15 s on the other distributions |
 
@@ -147,14 +149,23 @@ script drives the feature. A kernel change resets confidence: after a large reba
 - **CPU cluster idle state left out of runtime idle** (patch 0118): with it the tablet reset when idle, without an error message. Leaving it out avoids that at the same idle power; the cause in the cluster's power-down path is not fixed, and suspend still uses the state (knob: `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off`).
 - **165 Hz / 144 Hz**: the vendor timings underrun the display controller. 164 Hz (120 Hz horizontal timing) is offered instead; 144 Hz needs a different timing.
 - **No DisplayPort MST** yet: monitors that need MST for "extend" only mirror.
-- **GNSS**: no satellites on Linux, and no GPS fix on Android either — treated as not usable on this device.
-- **Compass**: only relative rotation can be trusted; the absolute heading is off on Android as well.
-- **Bypass charging** works; the kernel battery `status` still reads "Charging" while it is on (the helper shows "Bypass" from the current instead).
+- **Bypass charging** works; with the Charge Limit method the kernel battery `status` still reads "Charging" and the charger drops to 5 V (the Charge Current method keeps 9 V).
+- **Charging can stop below the limit**: the firmware stops at 5 V and resumes only when the limit is moved below the current charge and back; the helper's Restart Stalled Charging does this automatically. Cause not found.
 - **Modem**: a stalled modem start resets the whole SoC, so rmtfs and tqftpserv stay masked on every root (see [distros.md](distros.md)).
 - **Low-speed USB devices** (some keyboards, adapters) fail to enumerate.
 - **SteamOS (systemd 257.7)** can hang a shutdown when the USB serial console is connected to a PC that is not reading it (the tty reset waits for output to drain, then the watchdog resets the tablet). The SteamOS builder turns that tty reset off; fixed in systemd 257.8 and later; other distributions are not affected.
 - Do not force higher display bandwidth votes: it resets the SoC.
 - Do not stop the audio DSP at runtime: it takes the SoC down.
+
+## Device limits (same on Android)
+
+These come from the hardware or its firmware; the stock Android on the same tablet behaves the same way, so they are not
+gaps in the Linux port.
+
+- **GNSS**: no satellites are seen on Linux, and Android gets no GPS fix either — most likely no antenna.
+- **Compass**: relative rotation is right, the absolute heading is off; Android's map apps are off on this device too.
+- **Fast USB-C replugs**: replugging a USB-C monitor within about a second sometimes ends without a power-delivery
+  contract (no picture, no hub); unplug and plug again. Android shows "Check the charger connection" in the same case.
 
 ## Still to test
 
@@ -167,9 +178,10 @@ In rough order of value. Rows above marked user-reported, ❓ or 🟡, and rows 
 | Long idle with patch 0118 | hours of idle and display-off time without a reset, against the 78-minute baseline with the cluster state allowed | no (scripted) |
 | AV1 in applications | newer GStreamer / FFmpeg on Arch, Fedora or NixOS, compared bit-exact with a software decoder | no (scripted) |
 | 144 Hz | another vertical-porch variant, underruns and touch | eyes, hands |
-| From the spec sheet | battery design capacity, OpenCL, heavy Vulkan, full-resolution (50 MP) rear capture, touch report rate (up to 480 Hz), HBM (800 nit) and HDR, 8K and film-grain video | mostly no; touch rate needs a finger |
+| From the spec sheet | full-resolution (50 MP) rear capture, touch report rate (up to 480 Hz), HBM (800 nit) and HDR, 8K and film-grain video | mostly no; touch rate needs a finger |
 | Flash strobe | trigger the strobe control and watch | eyes |
 | Board thermal above 45 °C | 20–30 minutes of CPU + GPU load, steps and frequencies logged, desktop smoothness watched | eyes (optional) |
+| Charging stall and the 2.4 A input cap | battery and charger values logged until the next stall; the input limit on other chargers | no (scripted) |
 | Needs hardware not at hand | pen, Bluetooth LE Audio, USB audio adapters, the original folio case, the 68 W charger, a 6 GHz / 320 MHz / MLO access point | hands |
 
 ## Spec sheet vs status
@@ -185,11 +197,12 @@ Sources: Lenovo PSREF "Legion Tab (8.8", 5)" and datasheet, Qualcomm Snapdragon 
 | External display | USB-C DisplayPort; SoC up to 4K 120 / 8K 30 | 5120×2160 75 Hz, 4 lanes HBR3 ✅; MST ❌ |
 | Video decode | H.264, H.265, VP9, AV1, 10-bit | all ✅ in the driver (1080p and 4K); 8K untested |
 | Video encode | HEVC 10-bit | H.264 / HEVC 8-bit ✅; 10-bit untested |
-| GPU | GLES 3.2, Vulkan 1.3, OpenCL 3.0 | GL ✅, Vulkan ✅, OpenCL untested |
+| GPU | GLES 3.2, Vulkan 1.3, OpenCL 3.0 | GL ✅, Vulkan ✅, OpenCL ✅ (the project's Mesa build) |
+| NPU | Hexagon NPU | QNN and llama.cpp run ✅ |
 | Audio | 2 speakers, 2 microphones | ✅ |
 | Cameras | 50 MP rear with AF and flash, 8 MP front | ✅ at 1080p; AF manual only; full resolution untested |
-| Sensors | accelerometer + gyro, hall, proximity + light, compass, GPS | accelerometer, light, proximity ✅; compass 🟡 (relative only); gyro not wired; GPS ❌ |
-| Charging | 68 W PD 3.0 / PPS, bypass charging | about 40 W on PPS ✅, bypass ✅ |
+| Sensors | accelerometer + gyro, hall, proximity + light, compass, GPS | accelerometer, light, proximity ✅; compass ✅ (absolute heading off, as on Android); gyro not wired; GPS — (no fix on Android either) |
+| Charging | 68 W PD 3.0 / PPS, bypass charging | about 40 W on PPS ✅, bypass ✅ (charger kept at 9 V) |
 | USB | USB-C 10 Gbps + DP, second port USB 2.0 | ✅ |
 | Storage | UFS 4.1, microSD up to 2 TB | ✅ |
 | Wi-Fi / Bluetooth | Wi-Fi 7, Bluetooth 6.0 | Wi-Fi ✅ (2.4 / 5 GHz; 6 GHz untested), BT ✅ (HFP and LE Audio untested) |
