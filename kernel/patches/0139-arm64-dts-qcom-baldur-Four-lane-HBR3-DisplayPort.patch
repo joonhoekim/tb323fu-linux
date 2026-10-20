@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Sun, 18 Oct 2026 15:55:57 +0900
+Subject: [PATCH 139/139] arm64: dts: qcom: baldur: Four-lane HBR3 DisplayPort
+
+Allow all four lanes and link rates up to HBR3 on the USB-C
+DisplayPort output. With the combo PHY acting as a mode switch, pin
+assignment C now gets four lanes. A sink in pin assignment D (USB3 kept)
+has to fall back to two lanes in link training; that case is untested.
+
+Make the USB controller a mode switch as well, so it can move off the
+USB3 PIPE clock before the PHY stops it in DP-only modes and keep the
+USB 2.0 port of a USB-C monitor working.
+
+A 40" 5120x2160 USB-C monitor now runs at 75 Hz over HBR3 x4 instead
+of 2560x1440 over HBR2 x2.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ arch/arm64/boot/dts/qcom/baldur-dp.dtsi  | 6 ++----
+ arch/arm64/boot/dts/qcom/baldur-usb.dtsi | 1 +
+ 2 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm64/boot/dts/qcom/baldur-dp.dtsi b/arch/arm64/boot/dts/qcom/baldur-dp.dtsi
+index 943e62d7a..6b366a467 100644
+--- a/arch/arm64/boot/dts/qcom/baldur-dp.dtsi
++++ b/arch/arm64/boot/dts/qcom/baldur-dp.dtsi
+@@ -8,9 +8,6 @@
+  * 0x9ad2000, dp_aux +0x200, dp_link 0x9ad3000 (0xb78 long, sm8750 0x770),
+  * dp_p0 0x9ad4000, dp_p1 0x9ad5000; MDSS interrupt 12, phy-version 0x800).
+  * HPD and orientation come from pmic-glink altmode through the PHY.
+- *
+- * Two lanes: msm_dp takes the lane count from DPCD and data-lanes, not from
+- * the Type-C pin assignment; USB3 keeps the other two.
+  */
+ 
+ &dispcc {
+@@ -108,7 +105,8 @@ port@1 {
+ 				reg = <1>;
+ 
+ 				mdss_dp0_out: endpoint {
+-					data-lanes = <0 1>;
++					data-lanes = <0 1 2 3>;
++					link-frequencies = /bits/ 64 <1620000000 2700000000 5400000000 8100000000>;
+ 					remote-endpoint = <&usb_dp_qmpphy_dp_in>;
+ 				};
+ 			};
+diff --git a/arch/arm64/boot/dts/qcom/baldur-usb.dtsi b/arch/arm64/boot/dts/qcom/baldur-usb.dtsi
+index 6e0c5f288..c242507e8 100644
+--- a/arch/arm64/boot/dts/qcom/baldur-usb.dtsi
++++ b/arch/arm64/boot/dts/qcom/baldur-usb.dtsi
+@@ -28,6 +28,7 @@ &usb {
+ 	dr_mode = "otg";
+ 	usb-role-switch;
+ 	role-switch-default-mode = "peripheral";
++	mode-switch;
+ 
+ 	/delete-property/ snps,usb3_lpm_capable;
+ 
+-- 
+2.47.3
+

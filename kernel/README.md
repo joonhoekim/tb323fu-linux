@@ -10,8 +10,8 @@ The series by subsystem. Origin, author and status of each patch: [PROVENANCE.md
 |---|---|
 | Display: DPU, DSI, MDSS | 0007, 0008, 0009 (display clocks), 0023, 0029 (MDSS SMMU), 0032, 0050, 0052, 0065, 0079, 0081-0083 (INT2 GDSC), 0097, 0105, 0110 (idle refresh rate), 0131 (colour management without a modeset) |
 | DSI panel and backlight | 0019 (second DSI in the SoC DT), 0020, 0066, 0109 (NT36523 CSOT panel modes), 0028 (AW99706 backlight) |
-| DisplayPort and the USB-C combo PHY | 0051, 0057, 0098, 0101, 0102; PHY 0096, 0099, 0100 |
-| USB and Type-C | 0036 (NCM gadget), 0059 (USB GDSCs), 0060 (pmic_glink altmode), 0061 (UCSI), 0062, 0104 (dwc3) |
+| DisplayPort and the USB-C combo PHY | 0051, 0057, 0098, 0101, 0102, 0137 (no re-probe of a set-up sink), 0138, 0139 (four-lane HBR3, e.g. 5120×2160 (21:9) at 75 Hz); PHY 0096, 0099, 0100, 0133 (DP-only mode across suspend) |
+| USB and Type-C | 0036 (NCM gadget), 0059 (USB GDSCs), 0060 (pmic_glink altmode), 0061 (UCSI), 0062, 0104 (dwc3), 0134 (FSA4480 in DP-only modes), 0135, 0136 (dwc3 UTMI clock in DP-only modes) |
 | Power, charging, ADC | 0033, 0107, 0132 (qcom_battmgr), 0039 (PMIC5 Gen4 ADC) |
 | Audio | 0034, 0035, 0037 (ASoC), 0075-0077 (GPR/APM); the amplifier driver is [out of tree](#out-of-tree-module) |
 | Camera | 0013-0018 (CSI2 PHY, linux-next), 0040, 0042, 0043 (CAMSS), 0041, 0045 (sensors), 0044 (CCI pull-up), 0047 (focus motor), 0063, 0064, 0074 (camera PLL), 0116 |
@@ -55,7 +55,7 @@ The **Status** column of PROVENANCE.md says where a patch stands upstream:
 ```sh
 git clone --depth 1 -b v7.3 https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux-tb323fu
 cd linux-tb323fu
-git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0132, in order (no 0067-0071, 0115)
+git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0139, in order (no 0067-0071, 0115)
 ```
 
 ## Configuration

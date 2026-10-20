@@ -129,7 +129,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | USB host (SuperSpeed+, hubs) | ✅ | measured | the second port is USB 2.0 only |
 | USB low-speed devices | ❌ | measured | enumeration fails |
 | USB gadget (network, serial) | ✅ | measured | |
-| DisplayPort alt mode | ✅ | measured + observed | 2 lanes HBR2, up to 3840×2160 at 30 Hz. Checked with a TV through a USB-C to HDMI adapter: extended desktop at 4K 30, no flicker on either screen while the internal panel idles down to 30 Hz, unplug/replug 3/3. The adapter's own low-speed USB device fails to enumerate (harmless) |
+| DisplayPort alt mode | ✅ | measured + observed | 4 lanes HBR3 with pin assignment C: a 5120×2160 USB-C monitor at 75 Hz, its USB 2.0 hub working after replugs and across suspend (sinks in pin assignment D, which keep USB 3, are untested). Earlier, with 2 lanes HBR2: a TV through a USB-C to HDMI adapter, extended desktop at 4K 30, no flicker on either screen while the internal panel idles down to 30 Hz, unplug/replug 3/3. The adapter's own low-speed USB device fails to enumerate (harmless) |
 | DisplayPort MST (daisy chain / "extend" on MST hubs) | ❌ | measured | waiting for upstream MST support |
 | UFS storage | ✅ | measured | |
 | microSD | ✅ | measured | UHS-I SDR104; also used for the multiboot roots |
@@ -182,7 +182,7 @@ Sources: Lenovo PSREF "Legion Tab (8.8", 5)" and datasheet, Qualcomm Snapdragon 
 | Area | Lenovo / Qualcomm | Status here |
 |---|---|---|
 | Display | 8.8" 3040×1904, up to 165 Hz, HBM 800 nit, HDR | 120 / 90 / 60 / 30 / 164 Hz ✅; 165 ❌; HBM and HDR untested |
-| External display | USB-C DisplayPort; SoC up to 4K 120 / 8K 30 | 4K 30, 2 lanes ✅; MST ❌ |
+| External display | USB-C DisplayPort; SoC up to 4K 120 / 8K 30 | 5120×2160 75 Hz, 4 lanes HBR3 ✅; MST ❌ |
 | Video decode | H.264, H.265, VP9, AV1, 10-bit | all ✅ in the driver (1080p and 4K); 8K untested |
 | Video encode | HEVC 10-bit | H.264 / HEVC 8-bit ✅; 10-bit untested |
 | GPU | GLES 3.2, Vulkan 1.3, OpenCL 3.0 | GL ✅, Vulkan ✅, OpenCL untested |

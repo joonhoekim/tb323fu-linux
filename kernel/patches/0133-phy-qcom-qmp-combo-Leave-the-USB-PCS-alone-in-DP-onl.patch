@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Sun, 18 Oct 2026 15:08:15 +0900
+Subject: [PATCH 133/139] phy: qcom: qmp-combo: Leave the USB PCS alone in
+ DP-only mode
+
+In DP-only mode (pin assignments C and E) the four lanes belong to the
+DisplayPort PHY and the mux switch has already powered the USB PCS
+down. The USB controller can still init and exit its PHY in this state,
+e.g. across a system suspend that loses power: qmp_combo_usb_init()
+then programs the USB serdes tables over the DP configuration and times
+out waiting for PHYSTATUS, and qmp_combo_usb_exit() decrements
+usb_init_count a second time.
+
+Only take and drop the common reference in DP-only mode. The USB PCS is
+powered up by the mux switch when the port leaves DP-only mode.
+
+On a Lenovo TB323FU (Kaanapali) with a USB-C monitor in pin assignment
+C, resume from s2idle failed with "phy initialization timed-out", the
+dwc3 resume returned -110 and the following xHCI resume hung the
+system.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/phy/qualcomm/phy-qcom-qmp-combo.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+index 7381d7483..28be336ab 100644
+--- a/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
++++ b/drivers/phy/qualcomm/phy-qcom-qmp-combo.c
+@@ -4341,6 +4341,9 @@ static int qmp_combo_usb_init(struct phy *phy)
+ 	if (ret)
+ 		goto out_unlock;
+ 
++	if (qmp->qmpphy_mode == QMPPHY_MODE_DP_ONLY)
++		goto out_unlock;
++
+ 	ret = qmp_combo_usb_power_on(phy);
+ 	if (ret) {
+ 		qmp_combo_com_exit(qmp, false);
+@@ -4360,6 +4363,11 @@ static int qmp_combo_usb_exit(struct phy *phy)
+ 	int ret;
+ 
+ 	mutex_lock(&qmp->phy_mutex);
++	if (qmp->qmpphy_mode == QMPPHY_MODE_DP_ONLY) {
++		ret = qmp_combo_com_exit(qmp, false);
++		goto out_unlock;
++	}
++
+ 	ret = qmp_combo_usb_power_off(phy);
+ 	if (ret)
+ 		goto out_unlock;
+-- 
+2.47.3
+

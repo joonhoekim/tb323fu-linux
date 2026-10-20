@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Sun, 18 Oct 2026 15:55:33 +0900
+Subject: [PATCH 135/139] dt-bindings: usb: qcom,snps-dwc3: Add mode-switch
+
+The QMP USB3-DP combo PHY stops the USB3 PIPE clock when a Type-C
+DisplayPort pin assignment gives it all four lanes. The controller has
+to switch to the UTMI clock before that happens, so it needs the Type-C
+mux state as well. Allow the controller node to be a mode switch in the
+connector graph.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ Documentation/devicetree/bindings/usb/qcom,snps-dwc3.yaml | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/usb/qcom,snps-dwc3.yaml b/Documentation/devicetree/bindings/usb/qcom,snps-dwc3.yaml
+index ea60f7220..bd7bf381a 100644
+--- a/Documentation/devicetree/bindings/usb/qcom,snps-dwc3.yaml
++++ b/Documentation/devicetree/bindings/usb/qcom,snps-dwc3.yaml
+@@ -155,6 +155,13 @@ properties:
+       HS/FS/LS modes are supported.
+     type: boolean
+ 
++  mode-switch:
++    description:
++      The controller receives the Type-C mux state, so that it can stop
++      depending on the USB3 PIPE clock while the combo PHY drives all
++      lanes for DisplayPort.
++    type: boolean
++
+   wakeup-source: true
+ 
+ required:
+-- 
+2.47.3
+

@@ -21,7 +21,7 @@ column names the source; see that tree's history for the individual authors.
 Numbers 0067-0071 are free: those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114, 0116-0119, 0128-0132 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
+0111-0114, 0116-0119, 0128-0139 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -151,6 +151,13 @@ Numbers 0067-0071 are free: those patches are in v7.3 and were dropped when the 
 | `0130` | Bluetooth: qca: check the device address on every setup | Joonhoe Kim | this project | sent upstream 2026-10-16 ([lore](https://lore.kernel.org/all/20261016124615.61-1-26rote@gmail.com/)) | `48c51137866a015b` |
 | `0131` | drm/msm/dpu: only force a modeset for colour management when a DSPP is missing | Joonhoe Kim | this project | not sent: Dmitry Baryshkov's "drm/msm: fix SMMU fault dumps" v4 7/10 and 9/10 do the same; Tested-by sent 2026-10-16 ([lore](https://lore.kernel.org/all/20261016124055.1232-1-26rote@gmail.com/)) | `f4094c5ae87118e0` |
 | `0132` | power: supply: qcom_battmgr: expose the charge current limit | Joonhoe Kim | this project | sent upstream 2026-10-16 (2/2 with 0107; the posted version names the properties charge_control_limit and charge_control_limit_max, [lore](https://lore.kernel.org/all/20261016124806.1789-2-26rote@gmail.com/)) | `851c1884bc15b107` |
+| `0133` | phy: qcom: qmp-combo: Leave the USB PCS alone in DP-only mode | Joonhoe Kim | this project | upstream candidate (QMP USB3-DP PHY in DP-only mode across suspend) | `42c2d1fb7e272778` |
+| `0134` | usb: typec: mux: fsa4480: keep the USB 2.0 switch on in DP-only modes | Joonhoe Kim | this project | upstream candidate | `01df61c2e5316d99` |
+| `0135` | dt-bindings: usb: qcom,snps-dwc3: Add mode-switch | Joonhoe Kim | this project | upstream candidate (with 0136 and the kaanapali.dtsi `mode-switch` on the controller) | `cf97f1558faf70e2` |
+| `0136` | usb: dwc3: qcom: Use the UTMI clock as PIPE clock in DisplayPort-only modes | Joonhoe Kim | this project | upstream candidate | `b7f97844b153535c` |
+| `0137` | drm/msm/dp: Don't redo the plug handling for a sink that is set up | Joonhoe Kim | this project | local: overlaps DisplayPort series under review upstream | `9be60b68082aad79` |
+| `0138` | arm64: dts: qcom: kaanapali: Mark the USB3-DP PHY as a Type-C mode switch | Joonhoe Kim | this project | local: Balaji Kalkonda's "arm64: dts: qcom: kaanapali: Add DisplayPort controller" v2 3/5 adds the same property | `0638783454475b80` |
+| `0139` | arm64: dts: qcom: baldur: Four-lane HBR3 DisplayPort | Joonhoe Kim | this project | local (board device tree: four-lane HBR3 DisplayPort) | `37ba64504abf7868` |
 
 ## Out-of-tree
 

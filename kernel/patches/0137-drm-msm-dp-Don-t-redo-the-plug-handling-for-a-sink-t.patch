@@ -1,0 +1,86 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Sun, 18 Oct 2026 15:57:05 +0900
+Subject: [PATCH 137/139] drm/msm/dp: Don't redo the plug handling for a sink
+ that is set up
+
+Every "connected" notification runs the whole plug sequence: DPCD and
+LTTPR caps, a full EDID read over AUX, the sink's D0 write and a reset
+of the drive levels. With a DP alt-mode sink these notifications are
+frequent while nothing changes: each Type-C HPD event is followed by the
+compositor's forced probe, which calls .hpd_notify() again, and the
+firmware repeats HPD a few seconds after the sink comes up. On a Lenovo
+TB323FU with a 5120x2160 USB-C monitor each replug read the caps and
+EDID five times, about 160 ms of AUX traffic each.
+
+Remember when the caps and EDID of the current sink have been read and
+skip the plug handling until it is unplugged, detect() loses it, or the
+link was lost while streaming. A replug (ISR_HPD_REPLUG_COUNT) goes
+through the unplug handler first, and IRQ_HPD is handled separately, so
+real changes still get processed. A failed EDID read is retried on the
+next notification.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/gpu/drm/msm/dp/dp_display.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_display.c b/drivers/gpu/drm/msm/dp/dp_display.c
+index e20c381f1..fc3f97aa8 100644
+--- a/drivers/gpu/drm/msm/dp/dp_display.c
++++ b/drivers/gpu/drm/msm/dp/dp_display.c
+@@ -55,6 +55,7 @@ struct msm_dp_display_private {
+ 
+ 	struct mutex plugged_lock;
+ 	bool plugged;
++	bool sink_configured;
+ 	/* unplugged while the stream was on: retrain on the next plug */
+ 	bool link_lost;
+ 
+@@ -278,6 +279,8 @@ static int msm_dp_display_process_hpd_high(struct msm_dp_display_private *dp)
+ 	u8 dpcd[DP_RECEIVER_CAP_SIZE];
+ 	const struct drm_edid *drm_edid = NULL;
+ 
++	dp->sink_configured = false;
++
+ 	rc = drm_dp_read_dpcd_caps(dp->aux, dpcd);
+ 	if (rc)
+ 		goto end;
+@@ -319,6 +322,8 @@ static int msm_dp_display_process_hpd_high(struct msm_dp_display_private *dp)
+ 
+ 	msm_dp_link_reset_phy_params_vx_px(dp->link);
+ 
++	dp->sink_configured = drm_edid;
++
+ end:
+ 	drm_edid_free(drm_edid);
+ 	return rc;
+@@ -419,6 +424,9 @@ static int msm_dp_hpd_plug_handle(struct msm_dp_display_private *dp)
+ 
+ 	guard(mutex)(&dp->plugged_lock);
+ 
++	if (dp->plugged && dp->sink_configured && !dp->link_lost)
++		return 0;
++
+ 	/*
+ 	 * The plugged state holds one runtime PM reference, dropped by the
+ 	 * unplug handler. The Type-C side repeats "connected" notifications,
+@@ -520,6 +528,7 @@ static int msm_dp_hpd_unplug_handle(struct msm_dp_display_private *dp)
+ 		pm_runtime_put_sync(&pdev->dev);
+ 		dp->plugged = false;
+ 	}
++	dp->sink_configured = false;
+ 
+ 	return 0;
+ }
+@@ -984,6 +993,7 @@ enum drm_connector_status msm_dp_bridge_detect(struct drm_bridge *bridge,
+ 	 * lose the state.
+ 	 */
+ 	if (!priv->plugged) {
++		priv->sink_configured = false;
+ 		if (phy_deinit) {
+ 			msm_dp_aux_enable_xfers(priv->aux, false);
+ 			msm_dp_display_host_phy_exit(priv);
+-- 
+2.47.3
+

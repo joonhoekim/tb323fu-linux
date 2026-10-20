@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Sun, 18 Oct 2026 15:55:57 +0900
+Subject: [PATCH 138/139] arm64: dts: qcom: kaanapali: Mark the USB3-DP PHY as
+ a Type-C mode switch
+
+The QMP USB3-DP combo PHY switches between USB3 + 2-lane DP and 4-lane
+DP from the Type-C mux state, but on Kaanapali it only receives the
+orientation. Without "mode-switch" the PHY stays in USB3 + DP mode and
+DisplayPort is limited to two lanes even when the sink uses pin
+assignment C. SM8750, the closest relative, already has the property.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ arch/arm64/boot/dts/qcom/kaanapali.dtsi | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/kaanapali.dtsi b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+index 11c313b83..fcf02b1b5 100644
+--- a/arch/arm64/boot/dts/qcom/kaanapali.dtsi
++++ b/arch/arm64/boot/dts/qcom/kaanapali.dtsi
+@@ -3736,6 +3736,7 @@ usb_dp_qmpphy: phy@88e8000 {
+ 			#clock-cells = <1>;
+ 			#phy-cells = <1>;
+ 
++			mode-switch;
+ 			orientation-switch;
+ 
+ 			status = "disabled";
+-- 
+2.47.3
+
