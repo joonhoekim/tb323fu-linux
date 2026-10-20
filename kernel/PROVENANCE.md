@@ -9,17 +9,19 @@ column names the source; see that tree's history for the individual authors.
 
 | What | Where |
 |---|---|
-| upstream base | torvalds/linux `v7.3-rc4` = `93f51579e7df248780214094418f205253383cc5` |
+| upstream base | torvalds/linux `v7.3` = `c03c1a14507dfaf8b856c2608f9ac216021fc222` |
 | qcom kaanapali GPU DT | qcom `arm64-for-7.4` (patches 0001-0006) |
 | linux-next picks | `next-20260925` (patches 0012-0018) |
 | community tree | [kaanapali-mainline/linux](https://github.com/kaanapali-mainline/linux) `testing` at `37a76066` (patches 0007-0011) |
-| community tree | [infiniti-mainline/linux](https://github.com/infiniti-mainline/linux) `oneplus-15` / `master` (patches 0024, 0029, 0030, 0070-0077, 0084-0094, 0096, 0099-0102) |
+| community tree | [infiniti-mainline/linux](https://github.com/infiniti-mainline/linux) `oneplus-15` / `master` (patches 0024, 0029, 0030, 0072-0077, 0084-0094, 0096, 0099-0102) |
 | touch driver | [map220v/sm8850-mainline](https://github.com/map220v/sm8850-mainline) `iceland-7.2` (0025) |
 
 ## Patches
 
+Numbers 0067-0071 are free: those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
+
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114, 0116-0119 and 0128-0132 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
+0111-0114, 0116-0119, 0128-0132 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -66,7 +68,7 @@ column names the source; see that tree's history for the individual authors.
 | `0041` | media-i2c-s5kjn5-v4: mailing-list series (squashed) | Joonhoe Kim | mailing list: S5KJN5 sensor v4 (Wenmeng Liu), squashed | pending upstream | `1a3368f0d213631f` |
 | `0042` | media: qcom: camss: Add support for PHY API devices | Bryan O'Donoghue | mailing list: camss PHY API series 4/5 (Bryan O'Donoghue) | pending upstream | `b10dc4cce7742860` |
 | `0043` | media: qcom: camss: Use data-lanes starting at 1 for new CSIPHY mode | Bryan O'Donoghue | mailing list: camss PHY API series 5/5 (Bryan O'Donoghue) | pending upstream | `36389bd9fd734fa3` |
-| `0044` | pinctrl: qcom: kaanapali: add the I2C strong pull-up bit | Joonhoe Kim | this project | applied upstream 2026-10-10 (`1df7f369075d`, in the v7.3 pinctrl fixes; [lore](https://lore.kernel.org/all/20261007124001.1724-1-26rote@gmail.com/)) | `35a9002e127b36f7` |
+| `0044` | pinctrl: qcom: kaanapali: add the I2C strong pull-up bit | Joonhoe Kim | this project | applied upstream 2026-10-10 (`1df7f369075d`, pinctrl tree; not in v7.3; [lore](https://lore.kernel.org/all/20261007124001.1724-1-26rote@gmail.com/)) | `35a9002e127b36f7` |
 | `0045` | media: i2c: add Samsung S5KJNS and GalaxyCore GC08A8 sensor drivers | Joonhoe Kim | this project | local | `f9ef91a7def5c204` |
 | `0046` | clk: qcom: gdsc: keep the clock controller active while a GDSC is on | Joonhoe Kim | this project | local | `6808ab9547be6d0a` |
 | `0047` | media: i2c: dw9719: add Giantec GT9764, optional vio supply | Joonhoe Kim | this project | local | `5391af9522093811` |
@@ -89,11 +91,6 @@ column names the source; see that tree's history for the individual authors.
 | `0064` | arm64: dts: qcom: baldur: camera orientation and rotation | Joonhoe Kim | this project | local | `4e42ca6a5f0cc11c` |
 | `0065` | drm/msm/dpu+dsi: change the vertical front porch in place | Joonhoe Kim | this project | local | `dbaab7f50a61bd72` |
 | `0066` | drm/panel: nt36523: baldur CSOT 60 and 30 Hz modes | Joonhoe Kim | this project | local | `87a8e139b054a9b0` |
-| `0067` | remoteproc: qcom: q6v5_pas: Don't enable handover IRQ on attach | Shawn Guo | upstream fix `34b8b2d78b62` | upstream | `f2fb167212f57bb6` |
-| `0068` | remoteproc: qcom_q6v5_pas: Fix error masking in qcom_pas_stop() | Vignesh Viswanathan | upstream fix `9db31edf92dd` | upstream | `83e78cd75d11594a` |
-| `0069` | thermal: gov_step_wise: Fix stale mitigation vote with non-zero lower bounds | Manaf Meethalavalappu Pallikunhi | upstream fix `ec0d89150a93` | upstream | `34d6b208c1d26fd2` |
-| `0070` | clk: qcom: gcc-kaanapali: Fix always-enabling PCIE_RSCC clocks | Luca Weiss | qcom clk-fixes `0bfb542fc336` (via infiniti-mainline) | upstream | `e57a889ec9ea4bd7` |
-| `0071` | clk: qcom: gpucc-kaanapali: Mark the GPU CX GDSC as votable | Taniya Das | qcom clk-fixes `55981579b27b` (via infiniti-mainline) | upstream | `b197d959b736973b` |
 | `0072` | clk: qcom: gcc: Set FORCE_MEM_CORE_ON/FORCE_PERIPH_CORE_ON for PCIe pipe clocks | Qiang Yu | mailing list v1 (Qiang Yu), via infiniti-mainline | pending upstream | `d76ccb2d9a1a8ad4` |
 | `0073` | clk: qcom: branch: Turn off a branch that failed to enable | Victor Fuentes | infiniti-mainline (Victor Fuentes) | community, not upstream | `b93730c4e02756b5` |
 | `0074` | clk: qcom: Fix camera rivian PLL configuration settings | Jagadeesh Kona | upstream (Jagadeesh Kona), via infiniti-mainline | upstream | `9c5950781293f3ab` |

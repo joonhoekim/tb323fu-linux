@@ -1,6 +1,6 @@
 # Hardware status
 
-Lenovo Legion Tab Gen 5 / Legion Y700 5th Gen (TB323FU), mainline Linux 7.3-rc4 plus this project's patch series
+Lenovo Legion Tab Gen 5 / Legion Y700 5th Gen (TB323FU), mainline Linux 7.3 plus this project's patch series
 (release kernel `kernel-t40`; most entries were checked on the development kernels before it, with the same patches).
 Tested mostly with Debian 13 and GNOME 48 on the device, the guided install with Ubuntu 26.04 and GNOME 50, and booted
 with five other distributions ([distros.md](distros.md)); the kernel itself does not depend on any of them.

@@ -18,12 +18,12 @@ The series by subsystem. Origin, author and status of each patch: [PROVENANCE.md
 | Video (iris) | 0084-0095, 0111, 0112 |
 | GPU | 0001-0006 (GPU DT, queued for v7.4), 0010 and its revert 0080 |
 | CPU idle and capacity | 0031, 0106, 0118 (PSCI domains and cluster idle), 0117 (capacity-dmips-mhz) |
-| Thermal | 0069, 0108 |
+| Thermal | 0108 |
 | Storage (UFS) | 0119 (MCQ: multiple I/O queues), 0128 (keeps the MCQ state over suspend), 0129 (clock scaling deadlock) |
 | Memory bus scaling | 0120-0127 (memlat in CPUCP firmware over the SCMI Qualcomm vendor protocol: DDR, LLCC, DDR_QOS) |
-| Clocks and power domains | 0046, 0070-0073, 0103 |
+| Clocks and power domains | 0046, 0072, 0073, 0103 |
 | Wi-Fi, Bluetooth, PCIe | 0024, 0058, 0113 (ath12k), 0030, 0130 (Bluetooth), 0049, 0056 (PCIe), 0078 |
-| Remoteproc and QRTR | 0067, 0068, 0114 (QRTR name service; the modem) |
+| Remoteproc and QRTR | 0114 (QRTR name service; the modem) |
 | Input, haptics, LEDs | 0025-0027, 0053 (NT36536 touch and pen), 0038 (AW86937 haptics), 0048 (AW22127 LED ring) |
 | Storage | 0012 (UFS) |
 | Board device tree, config, boot | 0054 (board DTs), 0055 (config fragments), 0011 (defconfig fragment), 0021 (built-in DTB), 0022 (boot progress marks, debug) |
@@ -41,11 +41,11 @@ The **Status** column of PROVENANCE.md says where a patch stands upstream:
 | local workaround | avoids a problem without fixing its cause (0106, 0118) |
 | superseded | a newer upstream or linux-next change (named in the column) does the same |
 
-"0115" is missing on purpose: it is a debugging aid kept out of the series.
+"0115" is missing on purpose: it is a debugging aid kept out of the series. 0067-0071 are in v7.3 and were dropped with the move from v7.3-rc4.
 
 ## Base
 
-- **Upstream:** torvalds/linux `v7.3-rc4` (`93f51579e7df248780214094418f205253383cc5`).
+- **Upstream:** torvalds/linux `v7.3` (`c03c1a14507dfaf8b856c2608f9ac216021fc222`).
 - **Carried on top, as patches in this series:** the qcom `arm64-for-7.4` kaanapali GPU device tree (0001-0006), picks from the
   [kaanapali-mainline](https://github.com/kaanapali-mainline/linux) community tree (0007-0011), linux-next `next-20260925` picks (0012-0018),
   and further community / mailing-list work — every patch's origin is listed in [PROVENANCE.md](PROVENANCE.md).
@@ -53,9 +53,9 @@ The **Status** column of PROVENANCE.md says where a patch stands upstream:
 ## Reproduce the tree
 
 ```sh
-git clone --depth 1 -b v7.3-rc4 https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux-tb323fu
+git clone --depth 1 -b v7.3 https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux-tb323fu
 cd linux-tb323fu
-git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0132, in order (no 0115)
+git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0132, in order (no 0067-0071, 0115)
 ```
 
 ## Configuration

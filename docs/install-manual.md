@@ -182,7 +182,7 @@ console-setup's `Lat15-Terminus28x14` font and wireless-regdb's `regulatory.db`.
 
 ```sh
 # kernel tree: upstream base + this series
-git clone --depth 1 -b v7.3-rc4 https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux-tb323fu
+git clone --depth 1 -b v7.3 https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux-tb323fu
 cd linux-tb323fu
 git am ../tb323fu-linux/kernel/patches/*.patch
 make ARCH=arm64 LLVM=1 O=out defconfig
