@@ -18,10 +18,10 @@ column names the source; see that tree's history for the individual authors.
 
 ## Patches
 
-Numbers 0067-0071 are free: those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
+Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114, 0116-0119, 0128-0139 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
+0111-0114, 0116-0119, 0128-0139 and 0141 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -158,6 +158,7 @@ Numbers 0067-0071 are free: those patches are in v7.3 and were dropped when the 
 | `0137` | drm/msm/dp: Don't redo the plug handling for a sink that is set up | Joonhoe Kim | this project | local: overlaps DisplayPort series under review upstream | `9be60b68082aad79` |
 | `0138` | arm64: dts: qcom: kaanapali: Mark the USB3-DP PHY as a Type-C mode switch | Joonhoe Kim | this project | local: Balaji Kalkonda's "arm64: dts: qcom: kaanapali: Add DisplayPort controller" v2 3/5 adds the same property | `0638783454475b80` |
 | `0139` | arm64: dts: qcom: baldur: Four-lane HBR3 DisplayPort | Joonhoe Kim | this project | local (board device tree: four-lane HBR3 DisplayPort) | `37ba64504abf7868` |
+| `0141` | scsi: ufs: qcom: Reprogram ESI after a host controller reset | Joonhoe Kim | this project | upstream candidate | `2762555a465d4702` |
 
 ## Out-of-tree
 
