@@ -8,6 +8,8 @@
 ^email\|[^|]*:[0-9]+:.*extensions/[A-Za-z0-9._-]+@[A-Za-z0-9._-]+/
 # this repository's GNOME Shell extension UUID
 ^email\|[^|]*:[0-9]+:.*tb323fu@joonhoekim\.github\.io
+# .mailmap maps the author's commit identities (the same public address as in commits)
+^email\|\.mailmap:[0-9]+:
 # package maintainer field (the author's public address, same as in commits)
 ^email\|packaging/[^|]*:[0-9]+:MAINT=
 # systemd template units (name@instance.service/.d) look like e-mail addresses
