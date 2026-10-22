@@ -31,6 +31,10 @@ the Debian 13 tablet, the oldest glibc of the supported roots.
 
 Publishing (maintainer):
   gh release create mesa-VERSION OUT/* --prerelease --title "Mesa VERSION" --notes-file NOTES
+  gh release create mesa-VERSION OUT/* --latest=false --title "Mesa VERSION" --notes-file NOTES
+        the second for a full release: kernel, helper and Mesa releases share this
+        repository's one "Latest" mark, which stays on the helper. The helper's Mesa
+        channel offers pre-releases on testing only.
 """
 import argparse
 import datetime
