@@ -30,6 +30,8 @@ const BYPASS_METHODS: [&str; 3] = ["auto", "current", "limit"];
 /// D-Bus ids and the labels shown for them (same order).
 const REFRESH_POLICIES: [&str; 3] = ["off", "auto", "manual"];
 const REFRESH_POLICY_LABELS: [&str; 3] = ["Full Rate", "Adaptive", "Fixed Rate"];
+/// Fixed rates offered, as far as the current display mode allows (MinHz..MaxHz).
+const FIXED_RATES: [u32; 6] = [30, 60, 90, 120, 144, 164];
 /// (id, label, ms before 60 Hz, ms before 30 Hz) as in docs/helper-reference.md.
 const TIMINGS: [(&str, &str, u32, u32); 3] =
     [("power-saver", "Power Saver", 500, 2000), ("balanced", "Balanced", 1000, 5000), ("smooth", "Smooth", 3000, 15000)];
@@ -426,7 +428,9 @@ struct Ui {
     // Refresh
     ref_group: adw::PreferencesGroup,
     ref_policy: adw::ComboRow,
-    ref_rate: adw::SpinRow,
+    ref_rate: adw::ComboRow,
+    /// the rates listed in `ref_rate`, in order
+    ref_rates: RefCell<Vec<u32>>,
     /// full rate of the current display mode (MaxHz)
     ref_max: Cell<u32>,
     ref_timing: adw::ComboRow,
@@ -665,10 +669,10 @@ impl Ui {
         let (p_ref, b) = page_box();
         // the description follows the mode (sync_refresh_rows)
         let g = group(&b, "Refresh Rate", "");
-        group_help(&g, "Adaptive: the panel stays in its display mode (120 Hz, or 164 Hz when chosen in the display settings). When nothing changes on screen the kernel lowers the rate, and any update or touch brings the full rate back at once.");
+        group_help(&g, "Adaptive: the panel stays in its display mode (120 Hz, or 90, 144 or 164 Hz when chosen in the display settings). When nothing changes on screen the kernel lowers the rate, and any update or touch brings the full rate back at once.");
         let ref_group = g.clone();
         let ref_policy = combo(&g, "Mode", &REFRESH_POLICY_LABELS);
-        let ref_rate = spin(&g, "Fixed Rate (Hz)", "", 30.0, 120.0, 30.0);
+        let ref_rate = combo(&g, "Fixed Rate", &[]);
         let mut timing_labels: Vec<&str> = TIMINGS.iter().map(|t| t.1).collect();
         timing_labels.push("Custom");
         let ref_timing = combo(&g, "Timing", &timing_labels);
@@ -1070,6 +1074,7 @@ impl Ui {
             ref_group,
             ref_policy,
             ref_rate,
+            ref_rates: RefCell::new(Vec::new()),
             ref_max: Cell::new(120),
             ref_timing,
             ref_custom: Cell::new(false),
@@ -1428,7 +1433,16 @@ impl Ui {
                 ui.call_simple("Refresh", "SetPolicy", (p.to_string(),));
             }
         });
-        self.spin_sends(&self.ref_rate, "rate", "Refresh", "SetRate");
+        let ui = self.clone();
+        self.ref_rate.connect_selected_notify(move |r| {
+            if ui.updating.get() {
+                return;
+            }
+            let hz = ui.ref_rates.borrow().get(r.selected() as usize).copied();
+            if let Some(hz) = hz {
+                ui.call_simple("Refresh", "SetRate", (hz,));
+            }
+        });
         let ui = self.clone();
         self.ref_timing.connect_selected_notify(move |r| {
             if ui.updating.get() {
@@ -2831,7 +2845,7 @@ impl Ui {
         let pol = self.ref_policy.selected();
         let desc = match pol {
             1 => "Slows to 60, then 30 Hz while the screen is still.".to_string(),
-            2 => format!("Always {} Hz.", self.ref_rate.value().round()),
+            2 => self.ref_rates.borrow().get(self.ref_rate.selected() as usize).map(|hz| format!("Always {hz} Hz.")).unwrap_or_default(),
             _ => format!("Always {} Hz, the rate of the current display mode.", self.ref_max.get()),
         };
         if self.ref_group.description().as_deref().unwrap_or("") != desc {
@@ -2851,10 +2865,25 @@ impl Ui {
             self.ref_policy.set_subtitle(&live);
         }
         let max = dbus::u(p, "MaxHz").unwrap_or(120);
-        if self.ref_max.replace(max) != max {
-            self.ref_rate.adjustment().set_upper(f64::from(max));
+        self.ref_max.set(max);
+        let min = dbus::u(p, "MinHz").unwrap_or(30);
+        let rate = dbus::u(p, "Rate");
+        let mut rates: Vec<u32> = FIXED_RATES.into_iter().filter(|hz| (min..=max).contains(hz)).collect();
+        if let Some(hz) = rate.filter(|hz| (min..=max).contains(hz) && !rates.contains(hz)) {
+            rates.push(hz);
+            rates.sort_unstable();
         }
-        set_spin(&self.ref_rate, dbus::u(p, "Rate").map(f64::from));
+        if *self.ref_rates.borrow() != rates {
+            let labels: Vec<String> = rates.iter().map(|hz| format!("{hz} Hz")).collect();
+            let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
+            self.ref_rate.set_model(Some(&gtk::StringList::new(&labels)));
+            self.ref_rates.replace(rates);
+        }
+        if let Some(i) = rate.and_then(|hz| self.ref_rates.borrow().iter().position(|x| *x == hz)) {
+            if self.ref_rate.selected() != i as u32 {
+                self.ref_rate.set_selected(i as u32);
+            }
+        }
         let (a, b) = (dbus::u(p, "IdleMs60"), dbus::u(p, "IdleMs30"));
         let preset = TIMINGS.iter().position(|t| Some(t.2) == a && Some(t.3) == b);
         let sel = if self.ref_custom.get() { None } else { preset };

@@ -1,5 +1,11 @@
 # Open Device Helper changelog
 
+## 0.4.3 — 2026-10-22
+
+- **Fixed Rate is a list:** the app offers 30, 60, 90, 120, 144 and 164 Hz, as far as the current display mode
+  allows, instead of a number in 30 Hz steps (which could not reach 144 and offered 150). A rate set another way
+  (`tb323fu-ctl refresh manual HZ`) still shows. The kernel side is unchanged.
+
 ## 0.4.2 — 2026-10-15
 
 - **Bypass keeps the charger at full power:** with a kernel that has the charge current limit (series patch 0132,
