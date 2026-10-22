@@ -17,6 +17,7 @@ SPDX-FileCopyrightText = "2026 Joonhoe Kim and contributors"
 [[annotations]]
 path = [
   ".gitattributes",
+  ".mailmap",
   ".gitignore",
   ".public-scan.allow",
   "**/.gitkeep",
