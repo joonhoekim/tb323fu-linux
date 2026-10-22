@@ -64,9 +64,8 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | 120 Hz | ✅ | measured + observed | default mode |
 | Idle refresh 60 / 30 Hz | ✅ | measured + observed | done in the kernel: the mode stays 120 Hz and only the vertical porch is stretched, so the desktop sees no mode change. No flicker; back to 120 Hz before suspend and display off |
 | 90 Hz | ✅ | measured + observed | vendor timing; screen and touch fine, no underruns |
-| 164 Hz (instead of 165) | ✅ | measured + observed | 120 Hz horizontal timing; screen and touch fine, no underruns. SteamOS picks it by default; long sessions not yet watched |
-| 165 Hz (vendor timing) | ❌ | measured + observed | horizontal blanking too short → display underruns every frame. Not exposed by default |
-| 144 Hz | ❌ | measured + observed | vendor timing underruns; a variant with the 120 Hz horizontal timing breaks touch. Not exposed by default |
+| 165 Hz (offered as 164 Hz) | ✅ | measured + observed | 164 Hz uses the 120 Hz horizontal timing; screen and touch fine, no underruns. SteamOS picks it by default; long sessions not yet watched. The vendor's 165 Hz timing has too short a horizontal blanking and underruns every frame, so it is not offered |
+| 144 Hz | ✅ | measured + observed | kernel t53 (patch 0142): the 164 Hz horizontal timing with a longer vertical front porch; no underruns, screen and touch fine. One of six switches once showed the picture shifted up, not seen again. The vendor timing underruns |
 | Backlight | ✅ | measured + observed | |
 | Display off / on (with and without an external display) | ✅ | measured | |
 | GPU OpenGL 4.6 / GLES 3.2 (Adreno 840, freedreno) | ✅ | measured + observed | up to 1200 MHz |
@@ -128,8 +127,8 @@ script drives the feature. A kernel change resets confidence: after a large reba
 
 | Feature | Status | Evidence | Notes |
 |---|:-:|---|---|
-| USB host (SuperSpeed+, hubs) | ✅ | measured | the second port is USB 2.0 only |
-| USB low-speed devices | ❌ | measured | enumeration fails |
+| USB host (SuperSpeed+, hubs) | ✅ | measured | the second port is USB 2.0 only. A USB 3 flash drive directly on the bottom port: SuperSpeed 5 Gbps, stays attached across a suspend, 4/4 replugs |
+| USB low-speed devices | ✅ | measured | the low-speed device inside a USB-C to HDMI cable enumerates 4/4 with kernel t52; earlier kernels sometimes failed with `-71`/`-110`, not seen since |
 | USB gadget (network, serial) | ✅ | measured | |
 | DisplayPort alt mode | ✅ | measured + observed | 4 lanes HBR3 with pin assignment C: a 5120×2160 USB-C monitor at 75 Hz, its USB 2.0 hub working after replugs and across suspend (sinks in pin assignment D, which keep USB 3, are untested). Earlier, with 2 lanes HBR2: a TV through a USB-C to HDMI adapter, extended desktop at 4K 30, no flicker on either screen while the internal panel idles down to 30 Hz, unplug/replug 3/3. The adapter's own low-speed USB device fails to enumerate (harmless) |
 | DisplayPort MST (daisy chain / "extend" on MST hubs) | ❌ | measured | waiting for upstream MST support |
@@ -147,12 +146,10 @@ script drives the feature. A kernel change resets confidence: after a large reba
 ## Known issues
 
 - **CPU cluster idle state left out of runtime idle** (patch 0118): with it the tablet reset when idle, without an error message. Leaving it out avoids that at the same idle power; the cause in the cluster's power-down path is not fixed, and suspend still uses the state (knob: `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off`).
-- **165 Hz / 144 Hz**: the vendor timings underrun the display controller. 164 Hz (120 Hz horizontal timing) is offered instead; 144 Hz needs a different timing.
 - **No DisplayPort MST** yet: monitors that need MST for "extend" only mirror.
 - **Bypass charging** works; with the Charge Limit method the kernel battery `status` still reads "Charging" and the charger drops to 5 V (the Charge Current method keeps 9 V).
 - **Charging can stop below the limit**: the firmware stops at 5 V and resumes only when the limit is moved below the current charge and back; the helper's Restart Stalled Charging does this automatically. Cause not found.
 - **Modem**: a stalled modem start resets the whole SoC, so rmtfs and tqftpserv stay masked on every root (see [distros.md](distros.md)).
-- **Low-speed USB devices** (some keyboards, adapters) fail to enumerate.
 - **SteamOS (systemd 257.7)** can hang a shutdown when the USB serial console is connected to a PC that is not reading it (the tty reset waits for output to drain, then the watchdog resets the tablet). The SteamOS builder turns that tty reset off; fixed in systemd 257.8 and later; other distributions are not affected.
 - Do not force higher display bandwidth votes: it resets the SoC.
 - Do not stop the audio DSP at runtime: it takes the SoC down.
@@ -177,7 +174,7 @@ In rough order of value. Rows above marked user-reported, ❓ or 🟡, and rows 
 | Bluetooth HFP | headset call profile, microphone loopback | ears, voice |
 | Long idle with patch 0118 | hours of idle and display-off time without a reset, against the 78-minute baseline with the cluster state allowed | no (scripted) |
 | AV1 in applications | newer GStreamer / FFmpeg on Arch, Fedora or NixOS, compared bit-exact with a software decoder | no (scripted) |
-| 144 Hz | another vertical-porch variant, underruns and touch | eyes, hands |
+| 144 Hz | long sessions, after suspend and with idle refresh; the shifted picture seen once | eyes, hands |
 | From the spec sheet | full-resolution (50 MP) rear capture, touch report rate (up to 480 Hz), HBM (800 nit) and HDR, 8K and film-grain video | mostly no; touch rate needs a finger |
 | Flash strobe | trigger the strobe control and watch | eyes |
 | Board thermal above 45 °C | 20–30 minutes of CPU + GPU load, steps and frequencies logged, desktop smoothness watched | eyes (optional) |
@@ -193,7 +190,7 @@ Sources: Lenovo PSREF "Legion Tab (8.8", 5)" and datasheet, Qualcomm Snapdragon 
 
 | Area | Lenovo / Qualcomm | Status here |
 |---|---|---|
-| Display | 8.8" 3040×1904, up to 165 Hz, HBM 800 nit, HDR | 120 / 90 / 60 / 30 / 164 Hz ✅; 165 ❌; HBM and HDR untested |
+| Display | 8.8" 3040×1904, up to 165 Hz, HBM 800 nit, HDR | 120 / 90 / 60 / 30 / 144 Hz and 165 (as 164) ✅; HBM and HDR untested |
 | External display | USB-C DisplayPort; SoC up to 4K 120 / 8K 30 | 5120×2160 75 Hz, 4 lanes HBR3 ✅; MST ❌ |
 | Video decode | H.264, H.265, VP9, AV1, 10-bit | all ✅ in the driver (1080p and 4K); 8K untested |
 | Video encode | HEVC 10-bit | H.264 / HEVC 8-bit ✅; 10-bit untested |

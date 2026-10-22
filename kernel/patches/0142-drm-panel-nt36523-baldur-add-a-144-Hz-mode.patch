@@ -1,0 +1,35 @@
+From a63453e9f3cecaea7c85891c1e0015b043bfdc51 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Thu, 22 Oct 2026 12:33:18 +0000
+Subject: [PATCH] drm/panel: nt36523: baldur: add a 144 Hz mode
+
+The vendor's 144 Hz timing shares the horizontal blanking of its 165 Hz
+timing and underruns the DPU on every frame. Lowering the pixel clock of
+the 164 Hz mode instead keeps the display clean but makes the TDDI touch
+firmware reset.
+
+Keep the pixel clock and horizontal timing of the 164 Hz mode and
+stretch the vertical front porch, so the panel runs at the line rate it
+already has at 164 Hz. With this mode there are no underruns and no
+touch firmware resets.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/gpu/drm/panel/panel-novatek-nt36523.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/gpu/drm/panel/panel-novatek-nt36523.c b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
+index bc0a697742..3ee8acb846 100644
+--- a/drivers/gpu/drm/panel/panel-novatek-nt36523.c
++++ b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
+@@ -1102,6 +1102,7 @@ static void nt36523_remove(struct mipi_dsi_device *dsi)
+ static const struct drm_display_mode baldur_csot_extra_modes[] = {
+ 	BALDUR_MODE(218, 16, 128, 26, 50,  90),
+ 	BALDUR_MODE( 90, 16,  64, 26, 50, 164),
++	BALDUR_MODE( 90, 16,  64, 459, 50, 144),
+ };
+ 
+ static const struct panel_desc baldur_csot_desc;
+-- 
+2.43.0
+

@@ -34,7 +34,7 @@ the kernel does not assume a particular distribution or desktop.
 | make Vulkan and OpenCL faster (optional) | [After installing → the project's Mesa](docs/after-install.md#optional-the-projects-mesa-for-vulkan-and-opencl): its own Mesa build for this GPU, switched on in Open Device Helper; the default stays the distribution's Mesa |
 | change the tablet's own settings | [Open Device Helper](docs/helper.md): charging, refresh rate, performance and thermal profiles, LED ring, multiboot, kernel updates, … |
 | look up a term (`boot_b`, state root, trial, EDL, …) | [Glossary](docs/glossary.md) |
-| know the open problems | [Known issues](docs/hardware-status.md#known-issues): CPU cluster idle state (worked around), 165 / 144 Hz, DisplayPort MST, GNSS, low-speed USB devices, … |
+| know the open problems | [Known issues](docs/hardware-status.md#known-issues): CPU cluster idle state (worked around), DisplayPort MST, GNSS, … |
 
 ## Layout
 
