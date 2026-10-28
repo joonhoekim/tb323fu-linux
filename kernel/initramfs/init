@@ -435,7 +435,11 @@ if [ "$end" = "hold" ]; then
 	# The selection from the state root. The hash from the state root too, or
 	# when it does not mount, from the first other root that does.
 	for name in $order; do
-		dev=$(partdev $name) && mkdir -p /sel && mount -t ext4 -o ro $dev /sel 2>/dev/null || continue
+		dev=$(partdev $name) && mkdir -p /sel || continue
+		if ! mount -t ext4 -o ro $dev /sel 2>/dev/null; then
+			[ "$name" = "$state" ] && say " state root $name ($dev): does not mount read-only, boot-next, boot-default and boot-menu not read (check it with e2fsck)"
+			continue
+		fi
 		roothash
 		if [ "$name" = "$state" ]; then
 			[ -s /sel/etc/tb323fu/boot-next ] && next=$(head -n1 /sel/etc/tb323fu/boot-next | tr -d ' \r\t')
