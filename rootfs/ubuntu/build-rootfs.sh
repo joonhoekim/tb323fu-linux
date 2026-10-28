@@ -116,6 +116,20 @@ ch systemctl mask rmtfs.service tqftpserv.service >/dev/null 2>&1 || true
 # qbootctl marks Android A/B slots and fails here. Neither applies to this setup.
 ch systemctl mask droid-juicer.service qbootctl.service >/dev/null 2>&1 || true
 
+# 3b. sensors: libssc and an iio-sensor-proxy with the SSC backend (not packaged
+# by Ubuntu), built from pinned sources; the sensor hub's files are made on the
+# tablet at first start (tb323fu-sensors-tree)
+if [ ! -x "$T/usr/local/libexec/iio-sensor-proxy" ]; then
+	say "sensors: libssc + iio-sensor-proxy with SSC (a few minutes)"
+	here=$(cd "$(dirname "$0")/.." && pwd)
+	rm -rf "$T/tmp/iio-ssc"; mkdir -p "$T/tmp/iio-ssc"
+	cp "$here/ubuntu/iio-ssc.sh" "$here"/patches/iio-sensor-proxy/*.patch "$T/tmp/iio-ssc/"
+	ch $NICE sh /tmp/iio-ssc/iio-ssc.sh /tmp/iio-ssc
+	rm -rf "$T/tmp/iio-ssc"
+fi
+install -Dm644 "$(dirname "$0")/../../userspace/platform/optional/debian/iio-sensor-proxy.service.d/tb323fu-libssc.conf" \
+	"$T/etc/systemd/system/iio-sensor-proxy.service.d/tb323fu-libssc.conf"
+
 # 4. kernel modules and firmware of the kernel that boots it
 if [ -d "$MODULES_FROM" ]; then
 	v=$(basename "$MODULES_FROM")

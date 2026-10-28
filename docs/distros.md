@@ -12,7 +12,7 @@ side on the card.
 | System | Partition (example) | Builder | Boot to desktop¹ | Checked on the device |
 |---|---|---|---|---|
 | Debian 13 (trixie) | `baldur-root` (UFS) | the original development image | 5.8 s | everything in [hardware-status.md](hardware-status.md) |
-| Ubuntu 26.04 LTS | `tb323fu-ubuntu` | `rootfs/ubuntu` | 8.3 s | GNOME 50 autologin, touch, Wi-Fi, speakers (protection filter, both amplifiers), helper + GNOME extension |
+| Ubuntu 26.04 LTS | `tb323fu-ubuntu` | `rootfs/ubuntu` | 8.3 s | GNOME 50 autologin, touch, Wi-Fi, speakers (protection filter, both amplifiers), helper + GNOME extension, sensors (4, also after suspend; first start builds their files) |
 | Arch Linux ARM | `tb323fu-arch` | `rootfs/arch` | 7.5 s | autologin, touch, Wi-Fi, speakers, sensors (4), helper; through the guided installer (2026-10-04, built in WSL2): GNOME, speakers, Wi-Fi password prompt, helper, both ways to Android and back, no sensors |
 | Fedora 44 Workstation + FEX | `tb323fu-fedora` | `rootfs/fedora` | 7.5 s² | GNOME 50 autologin, Wi-Fi, speakers, sensors (4), firewalld³, FEX x86-64, Steam client starts⁴ |
 | NixOS 26.11 (unstable) | `tb323fu-nixos` | `rootfs/nixos` + `flake.nix` | 11.2 s | stage 2 straight from our initramfs, GNOME autologin, Wi-Fi, speakers, sensors, helper |
@@ -48,7 +48,8 @@ top of the file.
 Everything a distribution needed on this tablet so far is done by its builder; nothing has to be done by hand after
 the build. Besides the list in [What every root needs](#what-every-root-needs):
 
-- **Ubuntu:** snapd pinned away; `droid-juicer` and `qbootctl` masked; `gnome-keyring` (without it the Wi-Fi password
+- **Ubuntu:** snapd pinned away; `droid-juicer` and `qbootctl` masked; libssc and an iio-sensor-proxy with the SSC
+  backend built from pinned sources (a few minutes); `gnome-keyring` (without it the Wi-Fi password
   prompt never appears); the GDM hook that ends the boot splash after automatic login; `ssh` enabled for developer
   access (Ubuntu leaves it off).
 - **Arch Linux ARM:** the distribution kernel and mkinitcpio removed; the platform files and helper unpacked from the
@@ -163,7 +164,9 @@ The builders in [`rootfs/`](../rootfs/) do all of it.
 - **Mobile-distribution helpers masked** when present: `droid-juicer` (holds the boot forever), `qbootctl`,
   `bootmac-bluetooth`, ModemManager.
 - **Sensors:** `hexagonrpcd` with a `fastrpc` system user and its udev rule, and an `iio-sensor-proxy` built with
-  the SSC backend (libssc) — Fedora's has none, so the builder copies one.
+  the SSC backend (libssc) — Ubuntu's and Fedora's have none: the Ubuntu builder builds one, the Fedora builder
+  copies one. The sensor hub's own files are made on the tablet at first start (`tb323fu-sensors-tree` in the
+  platform files).
 - **Platform files and helper** (`userspace/platform`, `helper/`, or the packages in `packaging/`).
 - **A distribution's own disk plumbing masked** when it comes from an image: SteamOS's `systemd-repart` (its `repart.d` wants to add
   a home partition to the root disk), partition-set and offload mounts, its A/B boot registration.

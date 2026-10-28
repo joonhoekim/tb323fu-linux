@@ -38,7 +38,8 @@ them with `install.sh`; the Debian, Arch and Nix packages in `packaging/` carry 
 | `tb323fu-audio.service` + `tb323fu-audio-defaults` | speaker/microphone mixer defaults again after `alsa-restore`, so a saved mixer state never leaves the amplifiers unattenuated |
 | `tb323fu-usb-port.service` + `tb323fu-usb-port` | route USB to the connector in use at boot (bottom USB 3 + DP or side USB 2; one controller, a GPIO switches the lines), and recover a stuck gadget |
 | `tb323fu-emergency-key.service` + `tb323fu-emergency-key` | hold volume up + down (10 s by default) → back to Android via `back-to-android`, even with a frozen desktop. Config `/etc/tb323fu/emergency-key.conf` (`ENABLED`, `HOLD_SECONDS`), Android image hash `/etc/tb323fu/android-boot.sha256`; needs `keyhold` (`src/keyhold.c`) and `back-to-android` (`android/`) |
-| `hexagonrpcd.service.d/tb323fu.conf` | point hexagonrpcd at the secure ADSP fastrpc node and the sensor file tree; order it after the DSPs |
+| `hexagonrpcd.service.d/tb323fu.conf` | point hexagonrpcd at the secure ADSP fastrpc node and the sensor hub's files in `/var/lib/tb323fu/sensors`; order it after the DSPs and `tb323fu-sensors-tree` |
+| `tb323fu-sensors-tree.service` + `tb323fu-sensors-tree` | first start: build the sensor hub's files (DSP libraries, sensor configs, the registry with the factory calibration) from the tablet's own `dsp_a`, `vendor_a` (inside `super`) and `persist` partitions, read-only. Never shipped in an image; delete `/var/lib/tb323fu/sensors` to build it again |
 | `iio-sensor-proxy.service.d/tb323fu-stop-timeout.conf` | kill the proxy after 3 s on stop (it once ignored SIGTERM and held a suspend for 90 s) |
 | `system-sleep/tb323fu-sensors` | stop the sensor stream across suspend; the streaming sensor hub otherwise keeps the SoC out of its deepest idle |
 | `system.conf.d/tb323fu-watchdog.conf` | the firmware leaves the SoC watchdog running: systemd keeps feeding it (30 s) |
@@ -68,7 +69,7 @@ them with `install.sh`; the Debian, Arch and Nix packages in `packaging/` carry 
 | `upower-charge-limit` | `optional/udev/61-tb323fu-battery.rules` | only **without** the helper: lets UPower/GNOME's "Preserve battery health" switch manage the charge limit. With the helper installed the helper owns it (two writers would fight) |
 | `led-group` | `optional/udev/74-tb323fu-leds.rules` | only without the helper: `video` group may write the torch and RGB ring directly |
 | `logind` | `optional/logind.conf.d/tb323fu-powerkey.conf` | ignore short power-key presses in logind (logind's default powers off); for desktops that handle the key themselves |
-| `debian-iio` | `optional/debian/iio-sensor-proxy.service.d/tb323fu-libssc.conf` | Debian 13 only: run a locally built iio-sensor-proxy ≥ 3.8 with libssc from `/usr/local` |
+| `debian-iio` | `optional/debian/iio-sensor-proxy.service.d/tb323fu-libssc.conf` | Debian 13 and Ubuntu 26.04: run an iio-sensor-proxy built with libssc from `/usr/local` (the Ubuntu builder builds it: `rootfs/ubuntu/iio-ssc.sh`, with `rootfs/patches/iio-sensor-proxy/`) |
 | `image-growroot` | `optional/image/tb323fu-growroot.service` | prebuilt images: grow the root filesystem once |
 | — | `optional/debian/cups-browsed/README.md` | how to stop cups-browsed from holding the boot on `network-online.target` (distribution-specific unit copy) |
 

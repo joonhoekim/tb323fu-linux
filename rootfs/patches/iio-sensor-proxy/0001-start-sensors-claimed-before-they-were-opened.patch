@@ -1,0 +1,41 @@
+From: Joonhoe Kim <26rote@gmail.com>
+Subject: [PATCH] Start sensors that were claimed before they were opened
+
+With the SSC backend, find_sensors() runs synchronous QMI calls that
+iterate the main context, so a ClaimAccelerometer() sent right after the
+name is acquired (GNOME does this at login) is handled while the device
+is still being opened. The claim then only registers the client, and
+because later claims are not the first one, polling never starts:
+GNOME's automatic rotation stays at "undefined". Start every claimed
+sensor once the initial discovery is done, as sensor_changes() already
+does for hotplugged sensors.
+
+Applies to iio-sensor-proxy 3.9 (0085ddf8).
+---
+diff --git a/src/iio-sensor-proxy.c b/src/iio-sensor-proxy.c
+index 9c7e8cd..9dda57b 100644
+--- a/src/iio-sensor-proxy.c
++++ b/src/iio-sensor-proxy.c
+@@ -781,6 +781,22 @@ name_acquired_handler (GDBusConnection *connection,
+ 		DEVICE_FOR_TYPE(i) = sensor_device;
+ 	}
+ 
++	/*
++	 * Clients may have claimed a sensor while find_sensors() was still
++	 * discovering it: the SSC drivers run synchronous QMI calls that
++	 * iterate the main context, so Claim*() is dispatched before the
++	 * device exists and only registers the client. Start the claimed
++	 * sensors now, as sensor_changes() does for hotplugged ones.
++	 */
++	for (i = 0; i < NUM_SENSOR_TYPES; i++) {
++		if (!DEVICE_FOR_TYPE(i) || g_hash_table_size (data->clients[i]) == 0)
++			continue;
++		g_debug ("%s already claimed before it was opened, starting it",
++			 driver_type_to_str (i));
++		data->sensor_startup_dbus_event_delayed[i] = TRUE;
++		driver_set_polling (DEVICE_FOR_TYPE(i), TRUE);
++	}
++
+ 	if (!any_sensors_left (data))
+ 		goto bail;
+ 
