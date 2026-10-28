@@ -3,7 +3,8 @@
 Description=Build the sensor hub's files from this tablet's Android partitions (once)
 # hexagonrpcd's drop-in pulls this in. The files are the device's own (factory
 # calibration in the registry) and are never shipped in an image.
-After=local-fs.target
+Wants=dev-disk-by\x2dpartlabel-super.device dev-disk-by\x2dpartlabel-dsp_a.device dev-disk-by\x2dpartlabel-persist.device
+After=local-fs.target dev-disk-by\x2dpartlabel-super.device dev-disk-by\x2dpartlabel-dsp_a.device dev-disk-by\x2dpartlabel-persist.device
 Before=hexagonrpcd.service
 ConditionPathExists=!/var/lib/tb323fu/sensors
 
