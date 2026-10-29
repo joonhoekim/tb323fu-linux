@@ -5,7 +5,7 @@ let
 in
 stdenvNoCC.mkDerivation {
   pname = "gnome-shell-extension-tb323fu";
-  version = "0.4.5";
+  version = (lib.importTOML "${src}/helper/Cargo.toml").workspace.package.version;
   src = "${src}/userspace/desktop/gnome/extension/${uuid}";
   dontBuild = true;
   installPhase = ''

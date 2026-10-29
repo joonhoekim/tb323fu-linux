@@ -8,7 +8,7 @@
 { lib, stdenv, busybox, src }:
 stdenv.mkDerivation {
   pname = "tb323fu-platform";
-  version = "0.4.5";
+  version = (lib.importTOML "${src}/helper/Cargo.toml").workspace.package.version;
   inherit src;
   dontConfigure = true;
   dontBuild = true;

@@ -26,6 +26,36 @@
   </supports>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.4.5" date="2026-10-30">
+      <description>
+        <p>A self-check command for the tablet (tb323fu-check), also in the diagnostics export. The platform package recommends the camera libraries.</p>
+      </description>
+    </release>
+    <release version="0.4.4" date="2026-10-29">
+      <description>
+        <p>The platform package builds the sensor hub's files at the first start, so sensors work on every install.</p>
+      </description>
+    </release>
+    <release version="0.4.3" date="2026-10-22">
+      <description>
+        <p>Fixed Rate offers a list of the rates the display mode allows.</p>
+      </description>
+    </release>
+    <release version="0.4.2" date="2026-10-15">
+      <description>
+        <p>Bypass keeps the charger at full power; stalled charging is restarted; a Bluetooth mouse's battery is no longer taken for the tablet's.</p>
+      </description>
+    </release>
+    <release version="0.4.1" date="2026-10-06">
+      <description>
+        <p>The refresh rate follows the display mode, up to 164 Hz.</p>
+      </description>
+    </release>
+    <release version="0.4.0" date="2026-10-06">
+      <description>
+        <p>The project's Mesa build for Vulkan and OpenCL as an option, next to the distribution's; settings survive a restart.</p>
+      </description>
+    </release>
     <release version="0.3.1" date="2026-10-04">
       <description>
         <p>The quick settings tile and the app's sidebar say "Device" instead of "Tablet". American spelling throughout.</p>

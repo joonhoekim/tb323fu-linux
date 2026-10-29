@@ -33,9 +33,15 @@ helper refuses a release whose min_glibc is newer than the system's).
         already staged tree instead. Version default: helper/Cargo.toml.
   helper-release.py check OUT         what the helper checks: tarball name, SHA256SUMS,
                                       MANIFEST, allowed paths, every file's hash
+  helper-release.py version [NEW]     the version in every file that names it (VERSION_FILES)
+                                      agrees with helper/Cargo.toml, and CHANGELOG.md and the
+                                      metainfo have an entry for it; with NEW, write NEW into
+                                      those files first (the CHANGELOG and metainfo entries
+                                      stay yours). `assets` without --version runs this check.
 
 Publishing (maintainer):
-  gh release create helper-vX.Y.Z OUT/* --discussion-category Announcements --title "Open Device Helper X.Y.Z" --notes-file NOTES
+  gh release create helper-vX.Y.Z OUT/* --latest=false --discussion-category Announcements --title "Open Device Helper X.Y.Z" --notes-file NOTES
+  (--latest=false: Latest stays on the newest stable kernel release)
 Test stand-in for the GitHub API: kernel-release.py fake-api ROOT --repo O/R --helper X.Y.Z --dir OUT
 """
 import argparse
@@ -98,6 +104,58 @@ def cargo_version():
     if not m:
         sys.exit("no [workspace.package] version in helper/Cargo.toml")
     return m.group(1)
+
+
+# files that carry the helper version besides helper/Cargo.toml: (path, regex with one
+# group around the version). build-debs.sh, the Nix packages and the platform's
+# install.sh read helper/Cargo.toml themselves.
+VERSION_FILES = [
+    ("helper/Cargo.lock", r'name = "tb323fu-ctl"\nversion = "([^"]+)"'),
+    ("helper/Cargo.lock", r'name = "tb323fu-helper-core"\nversion = "([^"]+)"'),
+    ("helper/Cargo.lock", r'name = "tb323fu-helperd"\nversion = "([^"]+)"'),
+    ("helper/crates/tb323fu-settings/Cargo.toml", r'\[package\][^\[]*?\nversion = "([^"]+)"'),
+    ("helper/crates/tb323fu-settings/Cargo.lock", r'name = "tb323fu-settings"\nversion = "([^"]+)"'),
+    ("packaging/arch/PKGBUILD", r"\npkgver=(\S+)"),
+    ("userspace/desktop/gnome/extension/tb323fu@joonhoekim.github.io/metadata.json", r'"version-name": "([^"]+)"'),
+]
+METAINFO = "helper/crates/tb323fu-settings/data/io.github.joonhoekim.OpenDeviceHelper.metainfo.xml"
+
+
+def version_mismatches(want):
+    bad = []
+    for path, rx in VERSION_FILES:
+        m = re.search(rx, open(os.path.join(REPO, path), encoding="utf-8").read())
+        if not m or m.group(1) != want:
+            bad.append(f"{path}: {m.group(1) if m else 'no version found'}")
+    m = re.search(r'<release version="([^"]+)"', open(os.path.join(REPO, METAINFO), encoding="utf-8").read())
+    if not m or m.group(1) != want:
+        bad.append(f"{METAINFO}: newest <release> is {m.group(1) if m else 'missing'}")
+    if not re.search(rf"^## {re.escape(want)} ", open(os.path.join(REPO, "helper", "CHANGELOG.md"), encoding="utf-8").read(), re.M):
+        bad.append(f"helper/CHANGELOG.md: no '## {want} ' section")
+    return bad
+
+
+def cmd_version(a):
+    if a.new:
+        if not VERSION.match(a.new):
+            sys.exit(f"{a.new}: not a version")
+        path = os.path.join(REPO, "helper", "Cargo.toml")
+        txt = open(path, encoding="utf-8").read()
+        txt = re.sub(r'(\[workspace\.package\][^\[]*?\nversion\s*=\s*")[^"]+', lambda m: m.group(1) + a.new, txt, count=1)
+        open(path, "w", encoding="utf-8", newline="\n").write(txt)
+        for path, rx in VERSION_FILES:
+            full = os.path.join(REPO, path)
+            txt = open(full, encoding="utf-8").read()
+            m = re.search(rx, txt)
+            if m:
+                txt = txt[:m.start(1)] + a.new + txt[m.end(1):]
+                open(full, "w", encoding="utf-8", newline="\n").write(txt)
+    want = cargo_version()
+    bad = version_mismatches(want)
+    for b in bad:
+        print(f"FAIL {b}")
+    print(f"{'ok  ' if not bad else 'FAIL'} helper {want}: {len(VERSION_FILES) + 2} places checked")
+    sys.exit(1 if bad else 0)
 
 
 def glibc_of(data):
@@ -218,6 +276,10 @@ def cmd_assets(a):
         sys.exit(f"{version}: not a version")
     if a.version and a.version != cargo_version():
         print(f"note: --version {a.version}, helper/Cargo.toml says {cargo_version()} (the daemon reports the Cargo version)")
+    if not a.version:
+        bad = version_mismatches(version)
+        if bad:
+            sys.exit("version check failed (helper-release.py version):\n  " + "\n  ".join(bad))
     commit = a.commit
     if commit is None:
         try:
@@ -239,7 +301,7 @@ def cmd_assets(a):
     open(os.path.join(a.out, name), "wb").write(tar_gz(mtext, files))
     write_sums(a.out)
     print(f"{name}: {len(files)} files, min_glibc {'.'.join(map(str, glibc)) if glibc else '-'}")
-    print(f"publish: gh release create helper-v{version} {a.out}/* --discussion-category Announcements --title \"Open Device Helper {version}\" --notes-file NOTES")
+    print(f"publish: gh release create helper-v{version} {a.out}/* --latest=false --discussion-category Announcements --title \"Open Device Helper {version}\" --notes-file NOTES")
 
 
 def cmd_check(a):
@@ -314,8 +376,9 @@ def main():
     x.add_argument("--no-settings", action="store_true"); x.add_argument("--no-extension", action="store_true"); x.add_argument("--stage")
     x.add_argument("--commit"); x.add_argument("--any-arch", action="store_true", help="tests: binaries of another architecture")
     x = s.add_parser("check"); x.add_argument("out")
+    x = s.add_parser("version"); x.add_argument("new", nargs="?")
     a = p.parse_args()
-    {"assets": cmd_assets, "check": cmd_check}[a.cmd](a)
+    {"assets": cmd_assets, "check": cmd_check, "version": cmd_version}[a.cmd](a)
 
 
 if __name__ == "__main__":

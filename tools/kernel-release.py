@@ -37,7 +37,8 @@ damaged downloads, not a changed release.
         run in ROOT) and source = "github:O/R".
 
 Publishing (maintainer, or a contributor on a fork):
-  gh release create kernel-tNN OUT/* --discussion-category Announcements --title "tb323fu-linux tNN" --notes-file NOTES [--prerelease]
+  gh release create kernel-tNN OUT/* --discussion-category Announcements --title "tb323fu-linux tNN" --notes-file NOTES [--prerelease | --latest]
+  (a stable kernel release takes --latest: Latest means the newest stable kernel)
 """
 import argparse
 import datetime
