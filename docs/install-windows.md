@@ -5,8 +5,8 @@ Everything happens in that terminal; the script tells you what it is doing, asks
 after any failure. [Installing Linux](install.md) shows where this fits; [Installing by hand](install-manual.md) has
 the individual commands.
 
-> **Status: followed end to end** ([labels](hardware-status.md#labels-on-other-pages)) on 2026-10-04 from Windows 11 with WSL2 Ubuntu 26.04.
-> The first start, Wi-Fi, the speakers and switching to Android and back were checked on the tablet.
+> **Status: followed end to end** ([labels](hardware-status.md#labels-on-other-pages)) again on 2026-10-29 from Windows 11 with a new WSL2 Ubuntu 26.04 and a wiped card (kernel t54, helper 0.4.4; first on 2026-10-04).
+> The first start, Wi-Fi, the speakers, the sensors, both cameras and switching to Android and back were checked on the tablet.
 > If something does not match what you see, stop and open an issue.
 
 ## What you need
