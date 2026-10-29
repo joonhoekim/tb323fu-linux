@@ -1,0 +1,103 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# tb323fu-sensors-tree -- build the files hexagonrpcd serves to the sensor hub
+# on the ADSP, from this tablet's own Android partitions (read-only):
+#
+#   dsp/adsp/              dsp_a's adsp/ + vendor_a's lib/rfsa/adsp/
+#   sensors/config/        vendor_a's etc/sensors/config/
+#   sensors/sns_reg.conf   vendor_a's etc/sensors/sns_reg_config
+#   sensors/registry/      persist's sensors/registry/registry/ (written by
+#                          Android, with the factory calibration)
+#   socinfo/               static: mainline's soc0 has no hw_platform or
+#                          platform_version; values from the vendor devicetree
+#
+#   tb323fu-sensors-tree [TARGET]      (root; default /var/lib/tb323fu/sensors)
+#
+# vendor_a is a logical partition in super: its extent comes from the super
+# metadata (liblp) and is attached as a read-only loop device. Nothing on the
+# partitions is written. TARGET is replaced only when the new tree is complete.
+set -eu
+target=${1:-/var/lib/tb323fu/sensors}
+pl=/dev/disk/by-partlabel
+super=$pl/super
+work=$(mktemp -d /tmp/tb323fu-sensors.XXXXXX)
+loop=
+
+cleanup() {
+	for m in vendor dsp persist; do
+		mountpoint -q "$work/$m" 2>/dev/null && umount "$work/$m"
+	done
+	[ -n "$loop" ] && losetup -d "$loop"
+	rm -rf "$work" "$target.new"
+}
+trap cleanup EXIT INT TERM
+
+for p in super dsp_a persist; do
+	[ -e "$pl/$p" ] || { echo "tb323fu-sensors-tree: no partition $p" >&2; exit 1; }
+done
+
+u() { # offset bytes -> unsigned little-endian integer from super
+	od -An -v -t "u$2" -j "$1" -N "$2" "$super" | tr -d ' '
+}
+
+# primary geometry at 4096, metadata slot 0 at 12288
+[ "$(u 4096 4)" = $((0x616c4467)) ] || { echo "tb323fu-sensors-tree: super has no LP geometry" >&2; exit 1; }
+m=12288
+[ "$(u $m 4)" = $((0x414c5030)) ] || { echo "tb323fu-sensors-tree: super has no LP metadata" >&2; exit 1; }
+tables=$((m + $(u $((m + 8)) 4)))
+pt_off=$(u $((m + 80)) 4); pt_n=$(u $((m + 84)) 4); pt_sz=$(u $((m + 88)) 4)
+ex_off=$(u $((m + 92)) 4); ex_sz=$(u $((m + 100)) 4)
+
+start=; len=
+i=0
+while [ $i -lt "$pt_n" ]; do
+	e=$((tables + pt_off + i * pt_sz))
+	name=$(dd if="$super" bs=1 skip=$e count=36 2>/dev/null | tr -d '\000')
+	if [ "$name" = vendor_a ]; then
+		[ "$(u $((e + 44)) 4)" = 1 ] || { echo "tb323fu-sensors-tree: vendor_a has more than one extent" >&2; exit 1; }
+		x=$((tables + ex_off + $(u $((e + 40)) 4) * ex_sz))
+		[ "$(u $((x + 8)) 4)" = 0 ] || { echo "tb323fu-sensors-tree: vendor_a is not linear" >&2; exit 1; }
+		len=$(($(u $x 8) * 512)); start=$(($(u $((x + 12)) 8) * 512))
+		break
+	fi
+	i=$((i + 1))
+done
+[ -n "$start" ] || { echo "tb323fu-sensors-tree: no vendor_a in super" >&2; exit 1; }
+
+loop=$(losetup -f --show -r -o "$start" --sizelimit "$len" "$super")
+mkdir -p "$work/vendor" "$work/dsp" "$work/persist"
+mount -o ro,noload "$loop" "$work/vendor"
+mount -o ro "$pl/dsp_a" "$work/dsp"
+mount -o ro,noload "$pl/persist" "$work/persist"
+
+v=$work/vendor
+[ -d "$v/etc/sensors/config" ] || v=$work/vendor/vendor
+r=$work/persist/sensors/registry/registry
+for f in "$work/dsp/adsp" "$v/lib/rfsa/adsp" "$v/etc/sensors/config" "$v/etc/sensors/sns_reg_config" "$r"; do
+	[ -e "$f" ] || { echo "tb323fu-sensors-tree: missing ${f#"$work"/}" >&2; exit 1; }
+done
+
+n=$target.new
+rm -rf "$n"
+mkdir -p "$n/dsp/adsp" "$n/sensors" "$n/socinfo"
+cp -a "$v/lib/rfsa/adsp/." "$n/dsp/adsp/"
+cp -a "$work/dsp/adsp/." "$n/dsp/adsp/"
+cp -a "$v/etc/sensors/config" "$n/sensors/config"
+cp "$v/etc/sensors/sns_reg_config" "$n/sensors/sns_reg.conf"
+cp -a "$r" "$n/sensors/registry"
+
+# vendor devicetree: msm-id 661, board-id 0x2000b (QRD), platform version 2.0
+printf '661\n' > "$n/socinfo/soc_id"
+printf '2.0\n' > "$n/socinfo/revision"
+printf 'Snapdragon\n' > "$n/socinfo/family"
+printf 'SM8850P\n' > "$n/socinfo/machine"
+printf 'QRD\n' > "$n/socinfo/hw_platform"
+printf '131072\n' > "$n/socinfo/platform_version"
+printf '0\n' > "$n/socinfo/platform_subtype_id"
+printf 'Default\n' > "$n/socinfo/platform_subtype"
+chown -R 0:0 "$n"
+chmod -R u+rwX,go+rX,go-w "$n"
+
+rm -rf "$target"
+mv "$n" "$target"
+echo "tb323fu-sensors-tree: $target: $(ls "$target/dsp/adsp" | wc -l) DSP files, $(ls "$target/sensors/registry" | wc -l) registry entries"

@@ -60,6 +60,7 @@ case " \$* " in *" --move "*|*remount*) exit 0 ;; esac
 eval dir=\\\${\$#}; eval dev=\\\${\$((\$# - 1))}
 n=\${dev#/dev/}
 [ -d "\$T/disk/\$n" ] && [ ! -e "\$T/disk/\$n.nomount" ] || exit 32
+case " \$* " in *" -o ro "*) [ ! -e "\$T/disk/\$n.noro" ] || exit 32 ;; esac
 rmdir "\$dir" 2>/dev/null; rm -f "\$dir"; ln -s "\$T/disk/\$n" "\$dir"
 echo "mount \$n \${dir#\$T}" >> "\$T/log"
 EOF
@@ -80,7 +81,7 @@ EOF
 	chmod +x "$T/bin/"*
 	: > "$T/log"
 }
-# part DEV NAME [init] [nomount]: a partition with a disk behind it
+# part DEV NAME [init] [nomount] [noro]: a partition with a disk behind it (noro: only read-only mounts fail)
 part() {
 	mkdir -p "$T/sys/class/block/$1" "$T/disk/$1"
 	printf 'MAJOR=8\nDEVNAME=%s\nDEVTYPE=partition\nPARTNAME=%s\n' "$1" "$2" > "$T/sys/class/block/$1/uevent"
@@ -89,6 +90,7 @@ part() {
 		case $o in
 		init) mkdir -p "$T/disk/$dev/sbin"; printf '#!/bin/sh\n' > "$T/disk/$dev/sbin/init"; chmod +x "$T/disk/$dev/sbin/init" ;;
 		nomount) : > "$T/disk/$dev.nomount" ;;
+		noro) : > "$T/disk/$dev.noro" ;;
 		esac
 	done
 }
@@ -212,6 +214,12 @@ setup; part sda17 baldur-root init nomount; part mmcblk0p1 baldur-root-sd init
 file mmcblk0p1 etc/tb323fu/android-boot.sha256 "$H2"; file mmcblk0p1 etc/tb323fu/boot-default tb323fu-x
 run "$SH"; [ "$(cat "$T/tmp/android-boot.sha256" 2>/dev/null)" = "$H2" ] && ok "state root does not mount: hash from the next root" || bad "hash fallback: '$(cat "$T/tmp/android-boot.sha256" 2>/dev/null)'"
 expect_switch mmcblk0p1 fallback "  ... and its boot-default is not read"
+rm -rf "$T"
+
+setup; part sda17 baldur-root init noro; part mmcblk0p2 tb323fu-ubuntu init
+file sda17 etc/tb323fu/boot-next tb323fu-ubuntu
+run "$SH"; expect_switch sda17 default "state root does not mount read-only: default root"
+expect_log "^SAY  state root baldur-root (/dev/sda17): does not mount read-only, boot-next" "  said so"
 rm -rf "$T"
 
 setup; part mmcblk0p1 tb323fu-ubuntu init; part mmcblk0p2 tb323fu-arch init

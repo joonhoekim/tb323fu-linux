@@ -242,7 +242,7 @@ if [ -n "$HEXAGONRPCD_FROM" ]; then
 	say "hexagonrpcd from $HEXAGONRPCD_FROM"
 	H=$HEXAGONRPCD_FROM
 	for f in usr/bin/hexagonrpcd usr/libexec/hexagonrpc usr/lib/systemd/system/hexagonrpcd.service \
-		usr/lib/systemd/system/hexagonrpcd-*.service usr/lib/udev/rules.d/60-hexagonrpcd.rules usr/share/qcom; do
+		usr/lib/systemd/system/hexagonrpcd-*.service usr/lib/udev/rules.d/60-hexagonrpcd.rules; do
 		for g in $H/$f; do [ -e "$g" ] || continue; mkdir -p "$T/$(dirname "${g#$H/}")"; cp -a "$g" "$T/${g#$H/}"; done
 	done
 	for l in "$H"/usr/lib/*/libhexagonrpc* "$H"/usr/lib/libhexagonrpc* "$H"/usr/lib64/libhexagonrpc*; do

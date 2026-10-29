@@ -207,7 +207,7 @@ fi
 # 7b. sensors: hexagonrpcd (SSC over fastrpc) is not packaged for Arch Linux ARM
 if [ -n "$HEXAGONRPCD_FROM" ]; then
 	H=$HEXAGONRPCD_FROM
-	for f in usr/bin/hexagonrpcd usr/libexec/hexagonrpc usr/lib/systemd/system/hexagonrpcd.service 		usr/lib/systemd/system/hexagonrpcd-*.service usr/lib/udev/rules.d/60-hexagonrpcd.rules usr/share/qcom; do
+	for f in usr/bin/hexagonrpcd usr/libexec/hexagonrpc usr/lib/systemd/system/hexagonrpcd.service 		usr/lib/systemd/system/hexagonrpcd-*.service usr/lib/udev/rules.d/60-hexagonrpcd.rules; do
 		for g in $H/$f; do [ -e "$g" ] || continue; mkdir -p "$T/$(dirname "${g#$H/}")"; cp -a "$g" "$T/${g#$H/}"; done
 	done
 	for l in "$H"/usr/lib/*/libhexagonrpc* "$H"/usr/lib/libhexagonrpc*; do [ -e "$l" ] && cp -a "$l" "$T/usr/lib/"; done
