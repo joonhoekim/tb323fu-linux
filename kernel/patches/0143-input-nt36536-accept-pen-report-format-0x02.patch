@@ -1,0 +1,30 @@
+From: Joonhoe Kim <26rote@gmail.com>
+Subject: [PATCH] input: nt36536: accept pen report format 0x02
+
+The Lenovo Tab Pen Plus (AP500U) sends its reports with format id 0x02
+in point_data[66]. The driver only parsed 0x01 and dropped every other
+id with "Unknown pen format id!", so the pen did nothing. The 0x02
+report has the same layout as 0x01, so parse both.
+
+Link: https://github.com/joonhoekim/tb323fu-linux/issues/16
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/input/touchscreen/nt36536/nt36xxx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/input/touchscreen/nt36536/nt36xxx.c b/drivers/input/touchscreen/nt36536/nt36xxx.c
+index 3c0650a7aa..d198b60b8f 100644
+--- a/drivers/input/touchscreen/nt36536/nt36xxx.c
++++ b/drivers/input/touchscreen/nt36536/nt36xxx.c
+@@ -1012,7 +1012,7 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
+ 		// parse and handle pen report
+ 		pen_format_id = point_data[66];
+ 		if (pen_format_id != 0xFF) {
+-			if (pen_format_id == 0x01) {
++			if (pen_format_id == 0x01 || pen_format_id == 0x02) {
+ 				// report pen data
+ 				pen_x = (uint32_t)(point_data[67] << 8) + (uint32_t)(point_data[68]);
+ 				pen_y = (uint32_t)(point_data[69] << 8) + (uint32_t)(point_data[70]);
+-- 
+2.43.0
+

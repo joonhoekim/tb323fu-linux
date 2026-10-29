@@ -24,7 +24,7 @@ The series by subsystem. Origin, author and status of each patch: [PROVENANCE.md
 | Clocks and power domains | 0046, 0072, 0073, 0103 |
 | Wi-Fi, Bluetooth, PCIe | 0024, 0058, 0113 (ath12k), 0030, 0130 (Bluetooth), 0049, 0056 (PCIe), 0078 |
 | Remoteproc and QRTR | 0114 (QRTR name service; the modem) |
-| Input, haptics, LEDs | 0025-0027, 0053 (NT36536 touch and pen), 0038 (AW86937 haptics), 0048 (AW22127 LED ring) |
+| Input, haptics, LEDs | 0025-0027, 0053 (NT36536 touch and pen), 0143 (Tab Pen Plus report format), 0038 (AW86937 haptics), 0048 (AW22127 LED ring) |
 | Storage | 0012 (UFS) |
 | Board device tree, config, boot | 0054 (board DTs), 0055 (config fragments), 0011 (defconfig fragment), 0021 (built-in DTB), 0022 (boot progress marks, debug) |
 
@@ -55,7 +55,7 @@ The **Status** column of PROVENANCE.md says where a patch stands upstream:
 ```sh
 git clone --depth 1 -b v7.3 https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux-tb323fu
 cd linux-tb323fu
-git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0142, in order (no 0067-0071, 0115, 0140)
+git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0143, in order (no 0067-0071, 0115, 0140)
 ```
 
 ## Configuration

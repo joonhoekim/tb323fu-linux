@@ -21,7 +21,7 @@ column names the source; see that tree's history for the individual authors.
 Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114, 0116-0119, 0128-0139, 0141 and 0142 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
+0111-0114, 0116-0119, 0128-0139 and 0141-0143 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -133,7 +133,7 @@ Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped 
 | `0111` | media: iris: vpu4x: size the decoder OPB line buffer for 10-bit output | Joonhoe Kim | this project | upstream candidate | `4e1ca9889fbbc5ea` |
 | `0112` | media: iris: don't wait for the threaded IRQ handler under core->lock | Joonhoe Kim | this project | upstream candidate | `09cb4d1e2ba7c805` |
 | `0113` | wifi: ath12k: keep the RX refill ring from running dry | Joonhoe Kim | this project | its RX buffer leak fix sent upstream 2026-10-16 as "wifi: ath12k: replenish the RX buffers reaped without a complete MSDU" ([lore](https://lore.kernel.org/all/20261016124620.76-1-26rote@gmail.com/)); the rest local | `b7e380ed216b2ebe` |
-| `0114` | net: qrtr: ns: retry announcements the new node is not ready for yet | Joonhoe Kim | this project | sent upstream 2026-10-16 as "net: qrtr: ns: retry service announcements on -EAGAIN" (the posted version bounds the retry by a 10 s deadline, [lore](https://lore.kernel.org/all/20261016124600.31-1-26rote@gmail.com/)) | `e1a306db29173484` |
+| `0114` | net: qrtr: announce local services again once our HELLO is sent | Joonhoe Kim | this project | sent upstream (v3, 2026-10-29, [lore](https://lore.kernel.org/all/20261029105142.2503-1-26rote@gmail.com/)) | `caf9d42e6df663d2` |
 | `0116` | media: qcom: camss: hold the bandwidth vote while TITAN_TOP is powered | Joonhoe Kim | this project | upstream candidate (0115 is a debugging aid kept out of the series) | `3b8ea94fd19e5fc5` |
 | `0117` | arm64: dts: qcom: kaanapali: add CPU capacity-dmips-mhz | Joonhoe Kim | this project | upstream candidate | `cde3fbe0e37a205a` |
 | `0118` | cpuidle: psci-domain: add allow_cluster_off to refuse cluster idle states | Joonhoe Kim | this project | local workaround: no cluster idle state in runtime idle on baldur, where its power-down reset the SoC when idle (set by the config fragment's command line; the cause is not fixed) | `9c63e2de94b80582` |
@@ -147,19 +147,20 @@ Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped 
 | `0126` | PM / devfreq: Introduce the QCOM SCMI Memlat devfreq driver | Sibi Sankar | mailing list: Qualcomm Generic Vendor Extensions RFC v8, 2026-07-24 (Pragnesh Papaniya) (7/10) | pending upstream (RFC) | `b6766bbbfd86a173` |
 | `0127` | arm64: dts: qcom: kaanapali: Enable LLCC/DDR/DDR_QOS DVFS | Jia Yang | mailing list: Qualcomm Generic Vendor Extensions RFC v8, 2026-07-24 (Pragnesh Papaniya) (10/10) | pending upstream (RFC) | `756aac29f1b60aad` |
 | `0128` | clk: qcom: gcc-kaanapali: Enable FORCE_MEM_CORE_ON for UFS AXI PHY clock | Joonhoe Kim | this project | sent upstream 2026-10-07, reviewed by Abel Vesa and Taniya Das ([lore](https://lore.kernel.org/all/20261007143716.2161-1-26rote@gmail.com/)) | `339344f78c87f8df` |
-| `0129` | scsi: ufs: core: Fix a deadlock between clock scaling and device commands | Joonhoe Kim | this project | sent upstream 2026-10-16 (the posted version also releases the locks in reverse order, [lore](https://lore.kernel.org/all/20261016124608.46-1-26rote@gmail.com/)) | `b36fb8b36b0b0baf` |
+| `0129` | scsi: ufs: core: Fix a deadlock between clock scaling and device commands | Joonhoe Kim | this project | upstream (queued for v7.4, scsi `7.4/scsi-queue`; the applied version also releases the locks in reverse order, [lore](https://lore.kernel.org/all/20261016124608.46-1-26rote@gmail.com/)) | `b36fb8b36b0b0baf` |
 | `0130` | Bluetooth: qca: check the device address on every setup | Joonhoe Kim | this project | sent upstream 2026-10-16 ([lore](https://lore.kernel.org/all/20261016124615.61-1-26rote@gmail.com/)) | `48c51137866a015b` |
 | `0131` | drm/msm/dpu: only force a modeset for colour management when a DSPP is missing | Joonhoe Kim | this project | not sent: Dmitry Baryshkov's "drm/msm: fix SMMU fault dumps" v4 7/10 and 9/10 do the same; Tested-by sent 2026-10-16 ([lore](https://lore.kernel.org/all/20261016124055.1232-1-26rote@gmail.com/)) | `f4094c5ae87118e0` |
 | `0132` | power: supply: qcom_battmgr: expose the charge current limit | Joonhoe Kim | this project | sent upstream 2026-10-16 (2/2 with 0107; the posted version names the properties charge_control_limit and charge_control_limit_max, [lore](https://lore.kernel.org/all/20261016124806.1789-2-26rote@gmail.com/)) | `851c1884bc15b107` |
-| `0133` | phy: qcom: qmp-combo: Leave the USB PCS alone in DP-only mode | Joonhoe Kim | this project | upstream candidate (QMP USB3-DP PHY in DP-only mode across suspend) | `42c2d1fb7e272778` |
-| `0134` | usb: typec: mux: fsa4480: keep the USB 2.0 switch on in DP-only modes | Joonhoe Kim | this project | upstream candidate | `01df61c2e5316d99` |
+| `0133` | phy: qcom: qmp-combo: Leave the USB PCS alone in DP-only mode | Joonhoe Kim | this project | sent upstream (v2 for phy-next, 2026-10-23, [lore](https://lore.kernel.org/all/20261023123512.1912-1-26rote@gmail.com/); this file is the v7.3 version) | `42c2d1fb7e272778` |
+| `0134` | usb: typec: mux: fsa4480: keep the USB 2.0 switch on in DP-only modes | Joonhoe Kim | this project | upstream (usb `usb-linus`, [lore](https://lore.kernel.org/all/20261022165143.1327-1-26rote@gmail.com/)) | `01df61c2e5316d99` |
 | `0135` | dt-bindings: usb: qcom,snps-dwc3: Add mode-switch | Joonhoe Kim | this project | upstream candidate (with 0136 and the kaanapali.dtsi `mode-switch` on the controller) | `cf97f1558faf70e2` |
 | `0136` | usb: dwc3: qcom: Use the UTMI clock as PIPE clock in DisplayPort-only modes | Joonhoe Kim | this project | upstream candidate | `b7f97844b153535c` |
 | `0137` | drm/msm/dp: Don't redo the plug handling for a sink that is set up | Joonhoe Kim | this project | local: overlaps DisplayPort series under review upstream | `9be60b68082aad79` |
 | `0138` | arm64: dts: qcom: kaanapali: Mark the USB3-DP PHY as a Type-C mode switch | Joonhoe Kim | this project | local: Balaji Kalkonda's "arm64: dts: qcom: kaanapali: Add DisplayPort controller" v2 3/5 adds the same property | `0638783454475b80` |
 | `0139` | arm64: dts: qcom: baldur: Four-lane HBR3 DisplayPort | Joonhoe Kim | this project | local (board device tree: four-lane HBR3 DisplayPort) | `37ba64504abf7868` |
-| `0141` | scsi: ufs: qcom: Reprogram ESI after a host controller reset | Joonhoe Kim | this project | upstream candidate | `2762555a465d4702` |
+| `0141` | scsi: ufs: qcom: Reprogram ESI after a host controller reset | Joonhoe Kim | this project | sent upstream 2026-10-23 ([lore](https://lore.kernel.org/all/20261022165006.1275-1-26rote@gmail.com/)) | `2762555a465d4702` |
 | `0142` | drm/panel: nt36523: baldur: add a 144 Hz mode | Joonhoe Kim | this project | local (panel modes) | `cbd2e18aa32c711c` |
+| `0143` | input: nt36536: accept pen report format 0x02 | Joonhoe Kim | this project | local (Lenovo Tab Pen Plus, issue #16) | `b82d12bdf25275b8` |
 
 ## Out-of-tree
 
