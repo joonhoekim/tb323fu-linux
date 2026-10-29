@@ -1,0 +1,22 @@
+# Answers for tools/install/install.sh --answers FILE: KEY=VALUE per line, the names of
+# install.sh --help. A key set in the environment wins over this file. Nothing here runs.
+# With this file the script asks nothing; a step that would need you stops instead.
+
+# you have your own EDL dump, kept off this PC (docs/rooting.md, step 1)
+HAVE_EDL_DUMP=yes
+
+# the words the writing steps ask you to type; leave one out to stop before that step writes
+CONFIRM=WRITE BOOT_B,ERASE,WRITE,FLASH BOOT_A
+
+# the card that may be erased: the tablet step prints it (microSD card: ..., ERASE_CARD=...)
+ERASE_CARD=mmcblk1:0
+
+# your user on the tablet and its password (or USER_PASSWORD_FILE=/path/to/a/file)
+DEV_USER=me
+USER_PASSWORD=change-me
+
+# the Linux partition on the card (0 = the whole card)
+ROOT_SIZE=64G
+
+DISTRO=ubuntu
+DESKTOP=gnome

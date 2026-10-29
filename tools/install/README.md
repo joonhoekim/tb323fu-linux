@@ -13,6 +13,7 @@ to follow start at [docs/install.md](../../docs/install.md) (one per PC); the in
 tools/install/install.sh              # every step, asking before each
 tools/install/install.sh --dry-run    # print every command, run none (no tablet needed)
 tools/install/install.sh rootfs       # run one step again
+tools/install/install.sh --answers FILE   # no questions (below)
 ```
 
 | Step | What it does | Calls | Writes |
@@ -33,6 +34,21 @@ State (finished steps, hashes, partition, release tags) is kept in `$WORK/state`
 next run, a named step always runs. Options are environment variables, listed by `install.sh --help` (`WORK`,
 `ROOT_PARTLABEL`, `ROOT_SIZE`, `DEV_USER`, `DESKTOP`, `DISTRO`, `DEV_ACCESS`, `STOCK_BOOT`, `KERNEL_TAG`, `HELPER_TAG`,
 `GITHUB_TOKEN`, `ADB`, `ANDROID_SERIAL`).
+
+## Without questions
+
+```sh
+cp tools/install/answers.example my-answers     # then edit it
+tools/install/install.sh --answers my-answers
+```
+
+With `--answers FILE` (or `NONINTERACTIVE=1`) the script asks nothing: yes/no questions are answered yes and the others
+with their default. What cannot be undone is not covered by that: the EDL dump question needs `HAVE_EDL_DUMP=yes`, each
+writing step needs its word in `CONFIRM` (`WRITE BOOT_B`, `ERASE`, `WRITE`, `FLASH BOOT_A`), erasing the card also needs
+`ERASE_CARD` to name that card (`DEV:SECTORS`, printed by the `tablet` step), and the `rootfs` step needs
+`USER_PASSWORD` or `USER_PASSWORD_FILE`. Where the script would wait for you (the tablet not found, no root,
+downloads by hand) it stops instead; fix it and run it again. `apt` still needs `sudo`: run `sudo -v` first if yours
+asks for a password. A password written in a command line can end up in the shell history; a file avoids that.
 
 ## adb in WSL
 

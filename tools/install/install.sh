@@ -25,6 +25,8 @@
 # Finished steps are remembered in $WORK/state and skipped on the next run, so
 # after any failure just run it again. Naming steps runs exactly those, again.
 # --dry-run prints every command and runs none (it needs no tablet).
+# --answers FILE answers the questions from FILE (KEY=VALUE lines, the names below;
+# the environment wins over the file) and asks nothing: tools/install/answers.example.
 #
 # Environment (all optional):
 #   WORK=~/tb323fu-install     everything goes here; must be on a Linux file system
@@ -45,23 +47,64 @@
 #                              without it the public API, else downloads from the browser
 #   ADB=                       adb (Linux) or the Windows adb.exe (WSL) to use
 #   ANDROID_SERIAL=            pick one device when several are connected
+#
+# Without questions (NONINTERACTIVE=1, set by --answers): every yes/no question is
+# answered yes and every other one with its default, except these, which must be given:
+#   HAVE_EDL_DUMP=yes          you have your own EDL dump (docs/rooting.md, step 1)
+#   CONFIRM=                   the words that the writing steps ask you to type, comma-separated:
+#                              "WRITE BOOT_B,ERASE,WRITE,FLASH BOOT_A" (a step whose word is
+#                              missing stops before it writes)
+#   ERASE_CARD=DEV:SECTORS     the card that may be erased, as the tablet step prints it
+#                              (e.g. mmcblk1:1001390080); ERASE alone is not enough
+#   USER_PASSWORD=             the password of your user on the tablet, or
+#   USER_PASSWORD_FILE=        a file whose first line is that password (also used with questions)
+#   ALLOW_UNTESTED_FIRMWARE=yes  go on although Android is not ZUI 18.0.12.104
+#   REPARTITION_CARD=yes       sdcard step named explicitly: partition a card that already has one
+# A plain password in the environment can end up in your shell history; the file avoids that.
 set -uo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$here/../.." && pwd)
 DRY=0
 steps=()
+answers=
 all_steps=(host tablet firmware wayback download bootimg sdcard rootfs write boot firstboot)
-for a in "$@"; do
+while [ $# -gt 0 ]; do
+	a=$1; shift
 	case $a in
 	--dry-run|-n) DRY=1 ;;
-	-h|--help) sed -n '3,47p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+	-h|--help) sed -n '3,63p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 	--distros) list_distros=1 ;;
+	--answers) [ $# -gt 0 ] || { echo "--answers needs a file" >&2; exit 2; }; answers=$1; shift ;;
+	--answers=*) answers=${a#--answers=} ;;
 	*) case " ${all_steps[*]} " in *" $a "*) steps+=("$a") ;; *) echo "unknown argument: $a (see --help)" >&2; exit 2 ;; esac ;;
 	esac
 done
 explicit=0
 if [ ${#steps[@]} -gt 0 ]; then explicit=1; else steps=("${all_steps[@]}"); fi
+
+# KEY=VALUE lines; a key already in the environment keeps its value. Not sourced: nothing in it runs.
+if [ -n "$answers" ]; then
+	[ -r "$answers" ] || { echo "cannot read $answers" >&2; exit 2; }
+	while IFS= read -r line || [ -n "$line" ]; do
+		line=${line%$'\r'}
+		case $line in ''|'#'*) continue ;; esac
+		[[ $line =~ ^[[:space:]]*([A-Z_][A-Z0-9_]*)=(.*)$ ]] || { echo "$answers: not KEY=VALUE: $line" >&2; exit 2; }
+		k=${BASH_REMATCH[1]} v=${BASH_REMATCH[2]}
+		case $v in \"*\") v=${v:1:${#v}-2} ;; \'*\') v=${v:1:${#v}-2} ;; esac
+		[ -n "${!k+x}" ] || export "$k=$v"
+	done < "$answers"
+	NONINTERACTIVE=${NONINTERACTIVE:-1}
+fi
+NONINTERACTIVE=${NONINTERACTIVE:-0}
+if [ -n "${USER_PASSWORD_FILE:-}" ] && [ -z "${USER_PASSWORD:-}" ]; then
+	[ -r "$USER_PASSWORD_FILE" ] || { echo "cannot read USER_PASSWORD_FILE $USER_PASSWORD_FILE" >&2; exit 2; }
+	IFS= read -r USER_PASSWORD < "$USER_PASSWORD_FILE" || true
+	USER_PASSWORD=${USER_PASSWORD%$'\r'}
+fi
+if [ "$NONINTERACTIVE" = 1 ] && [ $DRY = 0 ] && [ -z "${USER_PASSWORD:-}" ] && [[ " ${steps[*]} " == *" rootfs "* ]]; then
+	echo "without questions the rootfs step needs USER_PASSWORD or USER_PASSWORD_FILE" >&2; exit 2
+fi
 
 WORK=${WORK:-$HOME/tb323fu-install}
 STATE=$WORK/state
@@ -87,6 +130,7 @@ case $DISTRO in */*|*.sh) DISTRO_FILE=$(cd "$(dirname "$DISTRO")" 2>/dev/null &&
 DISTRO_TITLE=$DISTRO DISTRO_STATUS=custom DISTRO_MINUTES="?" DISTRO_KERNEL_ASSETS= DISTRO_USER=
 distro_host_packages() { :; }
 distro_set_password() { $SUDO chroot "$1" passwd "$2" </dev/tty; }
+distro_chpasswd() { $SUDO chroot "$1" chpasswd; }
 distro_growroot() { growroot_into "$1"; }
 # shellcheck source=/dev/null
 . "$DISTRO_FILE"
@@ -108,22 +152,37 @@ run() {
 ask() {
 	local a
 	if [ $DRY = 1 ]; then printf '%s\n' "$2"; return; fi
+	if [ "$NONINTERACTIVE" = 1 ]; then printf '%s [%s] (answers: default)\n' "$1" "$2" >&2; printf '%s\n' "$2"; return; fi
 	read -r -p "$1 [$2] " a </dev/tty || a=
 	printf '%s\n' "${a:-$2}"
 }
+# yesno QUESTION [KEY]: without questions the answer is yes, or KEY=yes when a KEY is named
 yesno() {
 	local a
 	[ $DRY = 1 ] && { say "  [dry-run] $1 -> yes"; return 0; }
+	if [ "$NONINTERACTIVE" = 1 ]; then
+		if [ -z "${2:-}" ]; then say "$1 -> yes (answers)"; return 0; fi
+		[ "${!2:-}" = yes ] && { say "$1 -> yes ($2)"; return 0; }
+		say "$1 -> no (set $2=yes to answer yes)"; return 1
+	fi
 	read -r -p "$1 [y/N] " a </dev/tty || a=
 	case $a in y|Y|yes) return 0 ;; *) return 1 ;; esac
 }
 confirm() {
 	local a
 	if [ $DRY = 1 ]; then say "  [dry-run] would ask you to type: $1"; return 0; fi
+	if [ "$NONINTERACTIVE" = 1 ]; then
+		case ",${CONFIRM:-}," in *",$1,"*) say "Type $1 to go on -> $1 (CONFIRM)"; return 0 ;; esac
+		say "  stopped, nothing written: CONFIRM does not have \"$1\""; return 1
+	fi
 	read -r -p "Type ${b}$1${r} to go on (anything else stops): " a </dev/tty || a=
 	[ "$a" = "$1" ] || { say "  stopped, nothing written"; return 1; }
 }
-pause() { [ $DRY = 1 ] && return 0; read -r -p "${1:-Press Enter to check again, Ctrl-C to quit} " _ </dev/tty; }
+pause() {
+	[ $DRY = 1 ] && return 0
+	[ "$NONINTERACTIVE" = 1 ] && { warn "this needs you (see above); without questions the script stops here"; return 1; }
+	read -r -p "${1:-Press Enter to check again, Ctrl-C to quit} " _ </dev/tty
+}
 sha() { sha256sum "$1" | cut -c1-64; }
 bytes() { numfmt --to=iec-i --suffix=B "$1" 2>/dev/null || echo "$1 bytes"; }
 
@@ -374,10 +433,10 @@ EOF
 	*_ZUI_18.0.12.104_*) ;;
 	*_ZUI_18.0.12.187_*)
 		warn "the kernel hangs during boot on this firmware (https://github.com/joonhoekim/tb323fu-linux/issues/9)"
-		yesno "Install anyway?" || return 1 ;;
+		yesno "Install anyway?" ALLOW_UNTESTED_FIRMWARE || return 1 ;;
 	*)
 		warn "the kernel has only been tested on ZUI 18.0.12.104; this firmware is untested"
-		yesno "Install anyway?" || return 1 ;;
+		yesno "Install anyway?" ALLOW_UNTESTED_FIRMWARE || return 1 ;;
 	esac
 	[ "$slot" = _a ] || { warn "Android runs from slot $slot; everything here assumes slot _a (docs/recovery.md)"; return 1; }
 	while :; do
@@ -394,12 +453,12 @@ EOF
 	# shellcheck disable=SC2016
 	sd=$(su_ 'for b in /sys/block/mmcblk*; do [ "$(cat $b/device/type 2>/dev/null)" = SD ] && echo ${b##*/} $(cat $b/size); done' | head -1)
 	if [ -n "$sd" ]; then
-		say "  microSD card: ${sd%% *}, $(bytes $(( ${sd##* } * 512 )))"
+		say "  microSD card: ${sd%% *}, $(bytes $(( ${sd##* } * 512 ))) (ERASE_CARD=${sd%% *}:${sd##* })"
 		st_set sd_dev "${sd%% *}"
 	else warn "no microSD card found -- put one in (64 GB or more) before the sdcard step"; fi
 	[ "$(st_get done_tablet)" = 1 ] && return 0
 	say "Backups: this script assumes you have your own EDL dump (docs/rooting.md, step 1) stored off this PC."
-	yesno "Do you have it?" || { warn "make the dump first (docs/rooting.md, '1. Back up')"; return 1; }
+	yesno "Do you have it?" HAVE_EDL_DUMP || { warn "make the dump first (docs/rooting.md, '1. Back up')"; return 1; }
 }
 
 step_firmware() {
@@ -447,8 +506,12 @@ EOF
 		warn "this WRITES boot_b (never booted; nothing that boots changes)"
 		undo "not needed; your EDL dump also has boot_a.img and boot_b.img"
 		confirm "WRITE BOOT_B" || return 1
-		say "  (android/install-module.sh asks once more: type yes)"
-		run bash "$repo/android/install-module.sh" prepare-boot-b || return 1
+		if [ "$NONINTERACTIVE" = 1 ]; then
+			run bash "$repo/android/install-module.sh" prepare-boot-b <<< yes || return 1
+		else
+			say "  (android/install-module.sh asks once more: type yes)"
+			run bash "$repo/android/install-module.sh" prepare-boot-b || return 1
+		fi
 		[ $DRY = 1 ] || bb=$(su_ 'sha256sum /dev/block/by-name/boot_b' | cut -c1-64)
 	else say "boot_b = boot_a: the way back is in place."; fi
 	[ $DRY = 1 ] && bb='<sha256 of boot_b>'
@@ -681,7 +744,7 @@ EOF
 			part_n=${part_n%/uevent}; part_n=${part_n##*p}
 			part_sz=$(su_ "cat /sys/block/$dev/${dev}p$part_n/size")
 			say "The card already has partition $part_n named $ROOT_PARTLABEL ($(bytes $((part_sz * 512))))."
-			if [ "$explicit" = 0 ] || ! yesno "partition the card again anyway (WIPES IT)?"; then
+			if [ "$explicit" = 0 ] || ! yesno "partition the card again anyway (WIPES IT)?" REPARTITION_CARD; then
 				st_set part_dev "/dev/block/${dev}p$part_n"; st_set part_bytes $((part_sz * 512)); return 0
 			fi
 		fi
@@ -731,6 +794,9 @@ grep '^PARTNAME=' /sys/block/$dev/${dev}p1/uevent
 EOF
 	warn "EVERYTHING ON THE CARD (/dev/block/$dev, $(bytes $((n * 512)))) WILL BE ERASED"
 	undo "the old contents are gone for good. To give the card back to Android: Settings -> Storage -> the card -> Format"
+	if [ "$NONINTERACTIVE" = 1 ] && [ $DRY = 0 ] && [ "${ERASE_CARD:-}" != "$dev:$n" ]; then
+		say "  stopped, nothing written: ERASE_CARD must be $dev:$n to erase this card"; return 1
+	fi
 	confirm "ERASE" || return 1
 	run adb push "$WORK/gpt-head.bin" "$WORK/gpt-tail.bin" "$WORK/sd-write.sh" $T/ || return 1
 	local out
@@ -833,6 +899,9 @@ EOF
 	run $SUDO mount --bind /dev "$mnt/dev"; run $SUDO mount -t proc proc "$mnt/proc"
 	local try=0
 	if [ $DRY = 1 ]; then say "  [dry-run] $SUDO chroot $mnt passwd $user"
+	elif [ -n "${USER_PASSWORD:-}" ]; then
+		printf '%s:%s\n' "$user" "$USER_PASSWORD" | distro_chpasswd "$mnt" && say "  password set (USER_PASSWORD)" ||
+			warn "no password set: $user cannot use sudo until you set one (install.sh rootfs again)"
 	else
 		until distro_set_password "$mnt" "$user"; do
 			try=$((try + 1)); [ $try -ge 3 ] && { warn "no password set: $user cannot use sudo until you set one (install.sh rootfs again)"; break; }

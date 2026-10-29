@@ -39,4 +39,5 @@ distro_build() { # MNT USER
 # /etc is NixOS's own: the user's password goes through its passwd, the root grows by
 # x-systemd.growfs (configuration.nix) instead of install.sh's service
 distro_set_password() { $SUDO chroot "$1" /nix/var/nix/profiles/system/sw/bin/passwd "$2" </dev/tty; }
+distro_chpasswd() { $SUDO chroot "$1" /nix/var/nix/profiles/system/sw/bin/chpasswd; }
 distro_growroot() { :; }

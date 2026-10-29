@@ -45,6 +45,7 @@ distro_build() {   # $1 = the mounted, empty ext4 image, $2 = the user name the 
 distro_about() { echo "What the build does, in two or three lines."; }      # optional
 distro_host_packages() { echo debootstrap; }                                 # optional: extra Debian/Ubuntu packages on the PC
 distro_set_password() { sudo chroot "$1" passwd "$2" </dev/tty; }            # optional: this is the default
+distro_chpasswd() { sudo chroot "$1" chpasswd; }                             # optional: this is the default (USER_PASSWORD, "user:password" on stdin)
 distro_growroot() { growroot_into "$1"; }                                     # optional: this is the default
 DISTRO_KERNEL_ASSETS="config-tb323fu-t*"   # optional: more files of the kernel release, fetched into $WORK/kernel
 DISTRO_USER=steamos                        # optional: a fixed user; the person is not asked for a name

@@ -18,6 +18,8 @@
 ^email\|[^|]*:[0-9]+:.*builder@archlinuxarm\.org
 # the dev-password variable referenced by name only (never a value)
 ^password\|[^|]*:[0-9]+:.*(\$\{?BALDUR_DEV_PASSWORD|BALDUR_DEV_PASSWORD=( |\$|\.\.\.))
+# the hook that sets the user's password from install.sh's USER_PASSWORD (a variable, never a value)
+^password\|[^|]*:[0-9]+:.*distro_chpasswd
 # the allowlist itself names the variable in its rules
 ^password\|\.public-scan\.allow:
 # the initramfs USB gadget: fixed locally administered NCM MACs and a made-up serial (same on every install)
