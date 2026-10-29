@@ -55,6 +55,12 @@ them with `install.sh`; the Debian, Arch and Nix packages in `packaging/` carry 
 | `wireplumber/wireplumber.conf.d/60-tb323fu-speaker-raw.conf` | name the unprotected raw sink as such and keep it from becoming the default |
 | `libcamera/ipa/simple/{s5kjns,gc08a8}.yaml` | black level for the rear and front sensors (libcamera simple pipeline) |
 
+### Command → `$PREFIX/bin`
+
+| File | What |
+|---|---|
+| `bin/tb323fu-check` | checks each part of the device (DSPs, GPU, touch, pen, audio, sensors, cameras, Wi-Fi, Bluetooth, battery, the last start) and prints PASS / WARN / FAIL with a hint; `--markdown` for an issue. No root; no device IDs, addresses, network names or log lines. The helper's diagnostics export includes its output |
+
 ### Configuration → `/etc/tb323fu` (installed only when absent)
 
 | File | What |

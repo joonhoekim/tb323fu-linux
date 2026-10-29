@@ -8,7 +8,7 @@
 { lib, stdenv, busybox, src }:
 stdenv.mkDerivation {
   pname = "tb323fu-platform";
-  version = "0.4.4";
+  version = "0.4.5";
   inherit src;
   dontConfigure = true;
   dontBuild = true;
@@ -26,7 +26,7 @@ stdenv.mkDerivation {
     # back-to-android is also the initramfs' copy: it runs under busybox sh
     # (not busybox in buildInputs -- its find/xargs would shadow stdenv's)
     substituteInPlace $out/sbin/back-to-android --replace-fail '#!/bin/sh' '#!${busybox}/bin/busybox sh'
-    patchShebangs $out/libexec $out/sbin $out/lib/systemd/system-sleep
+    patchShebangs $out/bin $out/libexec $out/sbin $out/lib/systemd/system-sleep
     runHook postInstall
   '';
   meta = with lib; {

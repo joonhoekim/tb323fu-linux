@@ -1,5 +1,14 @@
 # Open Device Helper changelog
 
+## 0.4.5 — 2026-10-30
+
+- **`tb323fu-check`:** a new command in the platform package checks each part of the tablet (DSPs, GPU, touch, pen,
+  audio, sensors, cameras, Wi-Fi, Bluetooth, battery, the last start) and prints PASS / WARN / FAIL with a hint for
+  each failure. `tb323fu-check --markdown` is a report to paste into an issue; it holds no device IDs, addresses,
+  network names or log lines. The diagnostics export (`tb323fu-ctl diagnostics export`) includes its output.
+- The Debian platform package recommends `libcamera-ipa` and `libspa-0.2-libcamera` (the Arch package lists
+  `libcamera` and `pipewire-libcamera`), so apps find the cameras.
+
 ## 0.4.4 — 2026-10-29
 
 - **Sensors on every install:** `tb323fu-platform` now builds the sensor hub's files for hexagonrpcd at the first

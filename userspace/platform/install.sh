@@ -53,6 +53,7 @@ echo "${VERSION:-0.1.0}" > "$DESTDIR$PREFIX/share/tb323fu/platform-version"
 
 # helpers
 putdir 755 libexec "$libexec"
+install -D -m 755 "$here/bin/tb323fu-check" "$DESTDIR$PREFIX/bin/tb323fu-check"
 if command -v "$CC" > /dev/null 2>&1; then
 	mkdir -p "$DESTDIR$libexec"
 	"$CC" -O2 -Wall -o "$DESTDIR$libexec/keyhold" "$here/src/keyhold.c"

@@ -18,10 +18,12 @@ within a minute.
 In GNOME's Terminal:
 
 ```sh
-uname -r                                # the release kernel
-systemctl is-system-running             # running, or degraded (see systemctl --failed)
+tb323fu-check                           # each part PASS / WARN / FAIL, with a hint for each failure
 cat /etc/tb323fu/android-boot.sha256    # the hash the script printed in the wayback step
 ```
+
+If something fails and the hint does not help, open an issue and paste `tb323fu-check --markdown` into it: it holds
+no device IDs, addresses or network names. Look it over before posting all the same.
 
 Then try the way back to Android and back to Linux once, while you are at the desk (next section).
 
@@ -69,7 +71,7 @@ keep`) confirms it. A kernel that is not confirmed by its third start is replace
 restarts. A kernel that dies before the initramfs runs cannot be caught this way; then the way back is EDL
 ([recovery](recovery.md#linux-does-not-boot)). Details: [helper.md → Kernel updates](helper.md#kernel-updates).
 
-**Helper.** Releases tagged `helper-vX.Y.Z` (`helper-v0.4.4` is the current stable one) show in **About** → Helper
+**Helper.** Releases tagged `helper-vX.Y.Z` (`helper-v0.4.5` is the current stable one) show in **About** → Helper
 Updates and in `tb323fu-ctl helper`. Who installs them depends on who installed the helper
 ([helper.md → Helper updates](helper.md#helper-updates)):
 

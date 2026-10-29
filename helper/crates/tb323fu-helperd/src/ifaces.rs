@@ -953,7 +953,8 @@ impl Diagnostics {
     /// Write a sanitized diagnostics tarball and return its path.
     async fn export(&self, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection) -> fdo::Result<String> {
         polkit::check(conn, &hdr, "diagnostics", self.0.no_polkit).await?;
-        crate::diag::export(crate::selfupdate::version()).map(|p| p.display().to_string()).map_err(failed)
+        let v = crate::selfupdate::version();
+        blocking::unblock(move || crate::diag::export(v)).await.map(|p| p.display().to_string()).map_err(failed)
     }
 }
 

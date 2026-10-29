@@ -129,6 +129,9 @@ pub fn export(helper_version: &str) -> Result<PathBuf, String> {
         versions.push_str(&format!("firmware {f} {st}\n"));
     }
     put("versions.txt", &versions)?;
+    if let Some(check) = ["/usr/bin/tb323fu-check", "/usr/local/bin/tb323fu-check", "/run/current-system/sw/bin/tb323fu-check"].into_iter().find(|p| Path::new(p).exists()) {
+        put("check.txt", &cmd(&[check]))?;
+    }
     for p in features::pstore_files() {
         let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         if name.ends_with(".z") {

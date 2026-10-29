@@ -8,6 +8,24 @@ body:
       value: |
         Before posting, remove anything that identifies your tablet or network: the S/N, mobile identifiers, Wi-Fi network names, MAC addresses.
         Check [Hardware status](https://github.com/joonhoekim/tb323fu-linux/blob/main/docs/hardware-status.md) first: known issues are listed there.
+  - type: dropdown
+    id: reached
+    attributes:
+      label: Did Linux reach the desktop (or a login prompt)?
+      options:
+        - "Yes"
+        - "No: it stops at the Lenovo logo"
+        - "No: it stops during the text summary"
+        - "No: black screen"
+        - "No: it restarts by itself"
+        - "No: something else (describe it below)"
+    validations:
+      required: true
+  - type: textarea
+    id: check
+    attributes:
+      label: Self-check
+      description: "If Linux starts: paste the output of `tb323fu-check --markdown` (platform package 0.4.5 or newer). It holds no device IDs, addresses or network names; look it over all the same. If Linux does not start, leave this empty and fill in the fields below."
   - type: input
     id: kernel
     attributes:

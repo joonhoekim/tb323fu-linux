@@ -6,7 +6,7 @@
 #   (cd helper && cargo build --release --locked)
 #   (cd helper/crates/tb323fu-settings && cargo build --release --locked)
 #   sh packaging/debian/build-debs.sh [OUTDIR]          # default ./out/deb
-# Environment: VERSION (default 0.4.4), ARCH (default: dpkg --print-architecture).
+# Environment: VERSION (default 0.4.5), ARCH (default: dpkg --print-architecture).
 #
 # Packages:
 #   tb323fu-platform      layer 1: udev rules, systemd units, audio/UCM, sensors,
@@ -17,7 +17,7 @@
 set -eu
 root=$(cd "$(dirname "$0")/../.." && pwd)
 OUT=${1:-$root/out/deb}
-VERSION=${VERSION:-0.4.4}
+VERSION=${VERSION:-0.4.5}
 ARCH=${ARCH:-$(dpkg --print-architecture)}
 MAINT="Joonhoe Kim <26rote@gmail.com>"
 HOME_URL=https://github.com/joonhoekim/tb323fu-linux
@@ -85,7 +85,7 @@ build() {
 DESTDIR=$work/tb323fu-platform PREFIX=/usr SYSCONFDIR=/etc VERSION=$VERSION sh "$root/userspace/platform/install.sh" > /dev/null
 copyright tb323fu-platform MIT
 control tb323fu-platform "$ARCH" "systemd, udev, bluez, swh-plugins, wireless-regdb" \
-	"pipewire, wireplumber, alsa-ucm-conf, iio-sensor-proxy, hexagonrpcd, qrtr-tools, rmtfs, tqftpserv, tb323fu-helper" \
+	"pipewire, wireplumber, alsa-ucm-conf, iio-sensor-proxy, hexagonrpcd, qrtr-tools, rmtfs, tqftpserv, tb323fu-helper, libcamera-ipa, libspa-0.2-libcamera" \
 	"Lenovo Legion Tab Gen 5 (TB323FU) platform files" \
 	"udev rules, systemd units (Bluetooth address, DSP start, audio defaults, USB port
 routing, emergency key, per-install IDs), ALSA UCM, PipeWire speaker protection,

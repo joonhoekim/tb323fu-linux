@@ -1,0 +1,185 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# tb323fu-check -- is this TB323FU Linux system set up and working? One line per
+# part (PASS, WARN, FAIL, SKIP, INFO), a hint under each failure, a summary.
+#
+#   tb323fu-check              # as your normal user; nothing needs root
+#   tb323fu-check --markdown   # the same, ready to paste into an issue
+#
+# Reads only local state. Prints no device IDs, addresses or network names and no
+# log lines; failed units are named only when the name is a plain unit name.
+
+md=0
+case ${1:-} in
+--markdown) md=1 ;;
+'') ;;
+*) echo "usage: tb323fu-check [--markdown]" >&2; exit 2 ;;
+esac
+
+nfail=0 nwarn=0 npass=0 out=
+row() { # STATUS ID TEXT [HINT]
+	out="$out$(printf '%-4s %-10s %s' "$1" "$2" "$3")
+"
+	[ -n "${4:-}" ] && out="$out$(printf '%16s-> %s' '' "$4")
+"
+	case $1 in FAIL) nfail=$((nfail + 1)) ;; WARN) nwarn=$((nwarn + 1)) ;; PASS) npass=$((npass + 1)) ;; esac
+}
+have() { command -v "$1" >/dev/null 2>&1; }
+docs=https://github.com/joonhoekim/tb323fu-linux/blob/main/docs
+fwdoc=$docs/install-manual.md#1-extract-the-firmware
+
+if ! tr '\0' '\n' 2>/dev/null </proc/device-tree/compatible | grep -qx lenovo,baldur; then
+	echo "tb323fu-check: this is not a Lenovo Y700 Gen 5 (TB323FU); nothing to check" >&2
+	exit 2
+fi
+
+# libraries: Debian/Ubuntu multiarch, Arch/Fedora, /usr/local, NixOS
+libfind() { # NAME-GLOB: prints the first match
+	for d in /usr/lib/*-linux-gnu /usr/lib64 /usr/lib /usr/local/lib /usr/local/lib/*-linux-gnu /run/current-system/sw/lib; do
+		for f in $d/$1; do [ -e "$f" ] && { echo "$f"; return 0; }; done
+	done
+	return 1
+}
+
+# ---- versions ----------------------------------------------------------------
+rel=$(uname -r)
+case $rel in
+*-tb323fu-t[0-9]|*-tb323fu-t[0-9][0-9]|*-tb323fu-t[0-9][0-9][0-9]) row PASS kernel "$rel" ;;
+*) row WARN kernel "$rel" "not a release kernel of this project (fine if you built it yourself)" ;;
+esac
+# shellcheck source=/dev/null
+distro=$( . /etc/os-release 2>/dev/null; echo "${PRETTY_NAME:-unknown}")
+pv=$(cat /usr/share/tb323fu/platform-version /usr/local/share/tb323fu/platform-version \
+	/run/current-system/sw/share/tb323fu/platform-version 2>/dev/null | head -n1)
+hv=
+if have tb323fu-ctl; then
+	hv=$(tb323fu-ctl versions 2>/dev/null | sed -n 's/^ *Version: *//p' | head -n1)
+	[ -n "$hv" ] || hv="not answering"
+fi
+if [ -n "$pv" ] || [ -n "$hv" ]; then
+	row INFO packages "platform ${pv:-?}, helper ${hv:-not installed}"
+else
+	row WARN packages "tb323fu-platform not found" "the platform files are part of every install: $docs/after-install.md#updates"
+fi
+
+# ---- system ------------------------------------------------------------------
+if have systemctl; then
+	# instance names, mounts and devices can carry user names, UUIDs or network names
+	failed=$(systemctl --failed --plain --no-legend 2>/dev/null | awk '
+		$1 ~ /^[A-Za-z0-9_.-]+\.(service|socket|timer|path|target)$/ { n = n " " $1; next }
+		$1 ~ /^[A-Za-z0-9_.-]+@/ { u = $1; sub(/@.*\./, "@*.", u); n = n " " u; next }
+		{ o++ }
+		END { if (o) n = n " (" o " other)"; sub(/^ /, "", n); print n }')
+	if [ -n "$failed" ]; then row WARN units "failed: $failed" "systemctl status UNIT shows why"
+	else row PASS units "no failed system units"; fi
+fi
+dsp=
+for r in /sys/class/remoteproc/remoteproc*; do
+	[ -r "$r/name" ] || continue
+	case $(cat "$r/name") in adsp|cdsp) dsp="$dsp $(cat "$r/name")=$(cat "$r/state")" ;; esac
+done
+case $dsp in
+*adsp=running*cdsp=running*|*cdsp=running*adsp=running*) row PASS dsp "${dsp# }" ;;
+'') row FAIL dsp "no adsp/cdsp remote processors" "kernel or device tree problem: report it" ;;
+*) row FAIL dsp "${dsp# }" "the DSPs need the firmware from Android ($fwdoc); else: systemctl status tb323fu-dsp" ;;
+esac
+free=$(df -Pk / 2>/dev/null | awk 'NR==2 {print int($4 / 1048576)}')
+if [ -n "$free" ] && [ "$free" -lt 2 ]; then row WARN disk "root: ${free} GB free" "updates need a few GB"
+else row PASS disk "root: ${free:-?} GB free"; fi
+
+# ---- display, input ----------------------------------------------------------
+if [ -e /dev/dri/renderD128 ]; then row INFO gpu "render node present (its firmware loads on first use, not checked)"
+else row FAIL gpu "no GPU render node" "the display driver did not start: report it"; fi
+inputs=$(sed -n 's/^N: Name="\(.*\)"$/\1/p' /proc/bus/input/devices 2>/dev/null)
+case $inputs in *NVTCapacitiveTouchScreen*) row PASS touch "touch screen" ;;
+*) row FAIL touch "no touch screen input device" "the touch firmware comes from Android: $fwdoc" ;; esac
+case $inputs in *NVTCapacitivePen*) row PASS pen "pen input device" ;;
+*) row WARN pen "no pen input device" "it exists even with no pen attached: report it" ;; esac
+
+# ---- audio -------------------------------------------------------------------
+amps=0
+for a in /sys/bus/i2c/drivers/aw882xx_smartpa/[0-9]*-*; do [ -e "$a" ] && amps=$((amps + 1)); done
+if grep -q TB323FU /proc/asound/cards 2>/dev/null && [ "$amps" -ge 2 ]; then
+	row PASS audio "sound card, $amps speaker amplifiers"
+else
+	row FAIL audio "sound card: $(grep -q TB323FU /proc/asound/cards 2>/dev/null && echo yes || echo no), speaker amplifiers: $amps of 2" \
+		"the amplifier driver ships with the kernel release; the audio DSP firmware comes from Android"
+fi
+
+# ---- sensors -----------------------------------------------------------------
+if [ ! -e /dev/fastrpc-adsp-secure ]; then
+	row FAIL sensors "no /dev/fastrpc-adsp-secure" "kernel problem: report it"
+elif ! have systemctl || ! systemctl show hexagonrpcd -p LoadState --value 2>/dev/null | grep -qx loaded; then
+	row SKIP sensors "hexagonrpcd is not installed (this system has no sensor support)" "$docs/distros.md"
+else
+	# empty on NixOS, whose unit passes the directory with -R
+	fw=$(systemctl show hexagonrpcd -p Environment --value 2>/dev/null | tr ' ' '\n' | sed -n 's/^hexagonrpcd_fw_dir=//p')
+	case $fw in /var/lib/*|/usr/share/*) fws=$fw ;; *) fws="a custom path" ;; esac
+	if [ -n "$fw" ] && [ ! -s "$fw/sensors/config/json.lst" ]; then
+		row FAIL sensors "sensor files missing ($fws)" \
+			"tb323fu-platform 0.4.4 or newer builds them at start: update it and restart; else: systemctl status tb323fu-sensors-tree"
+	elif ! have busctl; then
+		row SKIP sensors "busctl missing, cannot ask iio-sensor-proxy"
+	else
+		acc=$(busctl get-property net.hadess.SensorProxy /net/hadess/SensorProxy net.hadess.SensorProxy HasAccelerometer 2>/dev/null)
+		case $acc in
+		"b true") row PASS sensors "accelerometer available (iio-sensor-proxy)" ;;
+		*) row FAIL sensors "iio-sensor-proxy reports no accelerometer" \
+			"right after an update or the first start: restart once; else report it" ;;
+		esac
+	fi
+fi
+
+# ---- cameras -----------------------------------------------------------------
+if ! ls /dev/media* >/dev/null 2>&1; then
+	row FAIL camera "no media device" "kernel or device tree problem: report it"
+elif [ -e /etc/NIXOS ]; then
+	row SKIP camera "media device present; libraries not checked on NixOS (store paths)"
+elif ! libfind 'libcamera.so.*' >/dev/null; then
+	row FAIL camera "libcamera is not installed" "install libcamera (Debian/Ubuntu: libcamera-ipa libspa-0.2-libcamera)"
+elif ! libfind 'spa-0.2/libcamera/libspa-libcamera.so' >/dev/null; then
+	row FAIL camera "PipeWire's libcamera plugin is not installed" "Debian/Ubuntu: libspa-0.2-libcamera; apps see cameras through PipeWire"
+else
+	row PASS camera "media device, libcamera, PipeWire plugin"
+fi
+
+# ---- radios, battery -----------------------------------------------------------
+wifi=
+for n in /sys/class/net/*; do [ -d "$n/wireless" ] && wifi=$n; done
+if [ -n "$wifi" ]; then
+	if [ "$(cat "$wifi/operstate" 2>/dev/null)" = up ]; then row PASS wifi "interface up"
+	else row PASS wifi "interface present (not connected)"; fi
+else row FAIL wifi "no Wi-Fi interface" "the Wi-Fi firmware comes from Android: $fwdoc"; fi
+if [ -e /sys/class/bluetooth/hci0 ]; then row PASS bluetooth "hci0"
+else row FAIL bluetooth "no Bluetooth adapter" "the Bluetooth firmware comes from Android: $fwdoc"; fi
+bat=
+for p in /sys/class/power_supply/*; do
+	[ "$(cat "$p/type" 2>/dev/null)" = Battery ] && [ "$(cat "$p/scope" 2>/dev/null)" != Device ] && bat=$p
+done
+if [ -n "$bat" ]; then row PASS battery "$(cat "$bat/capacity" 2>/dev/null)%, $(cat "$bat/status" 2>/dev/null)"
+else row FAIL battery "no battery reported" "the battery is read through the ADSP: see the dsp line"; fi
+
+# ---- previous start ------------------------------------------------------------
+if have tb323fu-ctl; then
+	lb=$(tb323fu-ctl diagnostics 2>/dev/null | sed -n 's/^ *LastBootClean: *//p')
+	case $lb in
+	true) row PASS lastboot "the previous start ended cleanly" ;;
+	false) row WARN lastboot "the previous start did not end cleanly (crash or forced off)" \
+		"if it crashed: attach tb323fu-ctl diagnostics export to the issue" ;;
+	*) row SKIP lastboot "helper did not answer" ;;
+	esac
+else row SKIP lastboot "helper not installed"; fi
+
+# ---- output --------------------------------------------------------------------
+sum="$nfail failed, $nwarn warnings, $npass passed"
+if [ $md = 1 ]; then
+	# shellcheck disable=SC2016 # Markdown backticks
+	printf '**tb323fu-check**: %s\n\n- kernel: `%s`\n- system: %s\n- packages: platform %s, helper %s\n\n```\n%s```\n' \
+		"$sum" "$rel" "$distro" "${pv:-?}" "${hv:-not installed}" "$out"
+else
+	printf '%s' "$out"
+	echo "== $sum ($distro)"
+	if [ $nfail = 0 ]; then echo "Nothing failed. Known issues: $docs/hardware-status.md#known-issues"
+	else echo "Follow the hints first; if it is still broken, open an issue with: tb323fu-check --markdown"; fi
+fi
+[ $nfail = 0 ]

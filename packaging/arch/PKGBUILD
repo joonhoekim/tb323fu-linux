@@ -4,7 +4,7 @@
 # Untested: no Arch Linux ARM system was available when this was written.
 pkgbase=tb323fu-linux
 pkgname=(tb323fu-platform tb323fu-helper tb323fu-settings tb323fu-helper-gnome)
-pkgver=0.4.4
+pkgver=0.4.5
 pkgrel=1
 arch=(aarch64)
 url=https://github.com/joonhoekim/tb323fu-linux
@@ -37,6 +37,8 @@ package_tb323fu-platform() {
 	            'iio-sensor-proxy: rotation and light sensors'
 	            'hexagonrpcd: sensor DSP'
 	            'qrtr: QRTR tools'
+	            'libcamera: cameras'
+	            'pipewire-libcamera: cameras in apps'
 	            'tb323fu-helper: charge limit, refresh, torch, ...')
 	backup=(etc/tb323fu/audio.conf etc/tb323fu/emergency-key.conf etc/udev/rules.d/90-feedbackd.rules)
 	install=tb323fu-platform.install
