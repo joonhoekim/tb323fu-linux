@@ -1,5 +1,12 @@
 # Open Device Helper changelog
 
+## 0.4.4 — 2026-10-29
+
+- **Sensors on every install:** `tb323fu-platform` now builds the sensor hub's files for hexagonrpcd at the first
+  start (`tb323fu-sensors-tree`), from the tablet's own partitions, read-only, after they show up. Before, a root
+  needed them set up by hand, and a root installed with `tools/install/install.sh` came up with no sensors
+  ([#17](https://github.com/joonhoekim/tb323fu-linux/issues/17)).
+
 ## 0.4.3 — 2026-10-22
 
 - **Fixed Rate is a list:** the app offers 30, 60, 90, 120, 144 and 164 Hz, as far as the current display mode

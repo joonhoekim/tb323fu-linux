@@ -8,7 +8,7 @@
 { lib, stdenv, busybox, src }:
 stdenv.mkDerivation {
   pname = "tb323fu-platform";
-  version = "0.4.3";
+  version = "0.4.4";
   inherit src;
   dontConfigure = true;
   dontBuild = true;
