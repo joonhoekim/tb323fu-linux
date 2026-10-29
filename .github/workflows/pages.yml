@@ -27,6 +27,8 @@ jobs:
         working-directory: site
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # "Last updated" on the landing page is the last commit of docs/hardware-status.md
       - uses: pnpm/action-setup@v6
         with:
           package_json_file: site/package.json

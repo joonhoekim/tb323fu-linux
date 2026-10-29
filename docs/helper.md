@@ -240,10 +240,10 @@ considered and skipped.
 |---|---|
 | Chip protection trips (CPU 95, GPU 105, `hot` 120 / `critical` 125 °C, PMIC 95/115/145 °C), every `hot` trip, zone `mode` / `policy` / `emul_temp`, cooling-device `cur_state` | the last line of defense; writable only because mainline marks every DT trip writable. The thermal profile writes `quiet-thermal` passive trips only, below a fixed 58 °C ceiling |
 | Speaker amplifier volume, profile and monitor controls (`aw_dev_*`), bypassing the protection filter | safe only behind the PipeWire protection filter; can damage the speakers (layer 1) |
-| Charge current and USB input current (`input_current_limit`) | ignored by the firmware on PD/PPS chargers — a switch would only pretend to work |
+| Charge current as a setting of its own, USB input current (`input_current_limit`) | the charge current is used only by Bypass (its Charge Current method, kernel patch 0132); the input current is ignored by the firmware on PD/PPS chargers — a switch would only pretend to work |
 | Charge limit below 20 %, recharge threshold above the limit | deep storage charge is bad for the battery |
 | Backlight current, brightness above `max_brightness`, flash strobe (2 A) | panel/LED lifetime, heat; the torch stays at torch level |
-| 144/165 Hz panel modes, DSI timings, bandwidth votes | underrun every frame on this kernel; bandwidth votes are a TrustZone/RPMh hazard |
+| The vendor 144/165 Hz timings, DSI timings, bandwidth votes | the vendor timings underrun every frame (the kernel offers 144 and 164 Hz with its own timings, see Refresh policy above); bandwidth votes are a TrustZone/RPMh hazard |
 | cpuidle state `disable`, CPU hotplug, cpufreq governor, `mem_sleep` deep | no gain, and they would interfere with the idle-state settings of the kernel; deep sleep saves no power here |
 | `msm` and `ath12k` debug parameters | debugging only (GPU ACD off changes voltage margins) |
 | Wi-Fi transmit power, regulatory country | radio regulations; the system's regulatory database decides |

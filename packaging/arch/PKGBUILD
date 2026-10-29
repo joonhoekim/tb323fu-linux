@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Arch Linux ARM split package for the TB323FU (Lenovo Legion Tab Gen 5) helper
 # suite and platform files. Build on aarch64 with `makepkg -s`.
-# Untested: no Arch Linux ARM system was available when this was written.
+# Not tested with makepkg (as of 2026-10-30); the guided installer's Arch root uses the Debian packages instead.
 pkgbase=tb323fu-linux
 pkgname=(tb323fu-platform tb323fu-helper tb323fu-settings tb323fu-helper-gnome)
 pkgver=0.4.5

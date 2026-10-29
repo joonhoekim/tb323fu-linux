@@ -522,7 +522,7 @@ minutes, 6 restarts, no crash):**
 
 ### 3.9 Plan 2: releases built by GitHub Actions, with artifact attestations
 
-Not started; the next step for authenticity once the repository is public.
+Not started; the next step for authenticity.
 
 **What changes.** Release kernels are built by a GitHub Actions workflow instead of the maintainer's build machine:
 a tag push (`kernel-tNN`, protected) starts a job on an x86-64 runner that cross-compiles the kernel (clang/LLVM,

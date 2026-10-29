@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Facts for the landing page, read from the docs at build time (never copied by hand):
 // the distributions table in docs/distros.md and the status columns in docs/hardware-status.md.
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { unified } from "unified";
@@ -68,13 +69,23 @@ function classify(cell: string): StatusKey | null {
 
 const zero = (): Record<StatusKey, number> => ({ works: 0, partial: 0, broken: 0, unverified: 0, na: 0 });
 
+// the date of the last commit that changed FILE (the workflow checks out the full history)
+function lastCommitDate(file: string): string | null {
+  try {
+    const d = execFileSync("git", ["log", "-1", "--format=%cs", "--", file], { cwd: REPO_ROOT, encoding: "utf8" }).trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null;
+  } catch {
+    return null;
+  }
+}
+
 export function getHardwareSummary(): HardwareSummary | null {
   const file = "docs/hardware-status.md";
   const tree = parse(file);
   if (!tree) return null;
   const text = fs.readFileSync(path.join(REPO_ROOT, file), "utf8");
   const kernel = /mainline Linux ([0-9][\w.-]*)/i.exec(text)?.[1] ?? null;
-  const updated = /Last updated (\d{4}-\d{2}-\d{2})/i.exec(text)?.[1] ?? null;
+  const updated = lastCommitDate(file);
 
   const sections: StatusSection[] = [];
   let current = "";

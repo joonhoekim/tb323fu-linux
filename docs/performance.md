@@ -11,7 +11,7 @@ tablet. Single runs: expect a few percent between runs. Linux: Debian 13 with GN
 | Memory bandwidth (copy) | 25.7 GB/s | 25.6 GB/s | same |
 | Memory latency, 64 MB random | 68 ns | 69 ns | `kernel-t40` without memlat: 127 ns |
 | GPU compute, Geekbench 7 OpenCL | 19204 | 20167 (105 %) | the project's Mesa build; Debian's Mesa 26.1.6: 7559 (39 %), see [GPU](#gpu) |
-| GPU raw throughput (clpeak) | — | FP32 3.05 TFLOPS, 66 GB/s | about 83 % of the theoretical 3.7 TFLOPS |
+| GPU raw throughput (clpeak) | — | FP32 3.05 TFLOPS, 66 GB/s | Debian's Mesa 26.1.6; about 83 % of the theoretical 3.7 TFLOPS |
 | Storage, sequential read / write | 2.7 / 1.8 GB/s | 4.4 / 1.9 GB/s | Android's /data is encrypted (inline crypto) |
 | Storage, 4K random read QD1 / 4 jobs | 13.6k / 459k IOPS | 13.1k / 401k IOPS | with MCQ (patch 0119); see [Storage](#storage) for how they were measured |
 | Video decode, 4K | — | H.264 319 fps, HEVC 531 fps | hardware decoder (iris); 40 Mbit/s test clips |
@@ -27,7 +27,7 @@ Gen 5 devices (Android):
 | Geekbench 6 CPU single / multi | 3641 / 11175 | about 3655–3710 / 10758–11672 |
 | Speedometer 3.1 (Chromium 150) | 22.5 | 18.1 (OnePlus 15), 23 (Xiaomi 17), 46 (Galaxy S26 Ultra) |
 | JetStream 2.2 (Chromium 150) | 389.5 | about 281–295 (Chrome) |
-| Geekbench 6 Vulkan | 26977 (the project's Mesa build), 18099 (Debian's Mesa 26.1.6) | about 27200–29700 |
+| Geekbench 6 Vulkan | 26977 (the project's Mesa build), 18099 (Debian's Mesa 26.1.6; an earlier run on `kernel-t40`: 18342) | about 27200–29700 |
 | Geekbench 6 OpenCL | 23034 (the project's Mesa build), 9657 (Mesa main) | about 24000 |
 | GravityMark 1.89 Vulkan, 1920×1080, 200k asteroids | 5482 (32.8 fps, Mesa 26.1.6) | no Adreno 840 entries; Adreno 830: 3530–4568 |
 
@@ -42,7 +42,7 @@ Two kernel changes closed most of the CPU gap:
 
 - **Patch 0117** gives the scheduler the two core sizes. Before it, all eight cores looked the same and a busy
   single thread could stay on a small core (Geekbench 6 single-core 2288 → 3590).
-- **Patches 0120-0127** (Qualcomm's memlat series, pending upstream) start the memory-latency governor in the CPU
+- **Patches 0120-0127** (Qualcomm's memlat series, not in mainline as of Linux 7.3) start the memory-latency governor in the CPU
   control firmware. Without it, DDR stays at a low clock while the CPU waits on memory with little bandwidth in
   use, and random memory access takes twice as long as on Android.
 
@@ -60,13 +60,13 @@ Per workload (Geekbench 7, memlat kernel against Android on the same tablet), si
 of Android. Multi-core is level except three long all-core workloads: Asset Compression 83 %, Clang 89 %, Ray
 Tracer 91 %. During them all eight cores are busy while the clocks fall within a second or two to 2.0–2.9 GHz
 (small cores, 3.63 GHz maximum) and 2.7–3.1 GHz (large cores, 4.61 GHz) at about 100 °C; the operating system
-reports no throttling, so the limit comes from the firmware. Whether Android sustains higher clocks there has not
-been measured yet.
+reports no throttling, so the limit comes from the firmware. Whether Android sustains higher clocks there was not
+measured.
 
 ## GPU
 
 The GPU itself runs as it should: clocks up to 1200 MHz (Android's limit too), FP32 3.05 TFLOPS and 66 GB/s
-measured with clpeak. Graphics (OpenGL) go through the distribution's Mesa (freedreno). For Vulkan and OpenCL
+measured with clpeak (Debian's Mesa 26.1.6). Graphics (OpenGL) go through the distribution's Mesa (freedreno). For Vulkan and OpenCL
 compute the project provides its own Mesa build (Turnip and rusticl for the Adreno 840): installed next to the
 distribution's Mesa through Open Device Helper (Performance → Graphics Drivers, or `tb323fu-ctl mesa update`), or
 downloaded from the project's `mesa-*` releases. See [Graphics drivers](helper.md#graphics-drivers-mesa).
@@ -75,7 +75,7 @@ downloaded from the project's `mesa-*` releases. See [Graphics drivers](helper.m
 |---|---|---|---|
 | Geekbench 7 OpenCL | 7559 | 20167 | 19204 |
 | Geekbench 6 OpenCL | 2593 (fails one result check) | 23034 | about 24000 (published, other devices) |
-| Geekbench 6 Vulkan | 18342 | 26977 | about 27200–29700 (published, other devices) |
+| Geekbench 6 Vulkan | 18342 (`kernel-t40`; a later run: 18099) | 26977 | about 27200–29700 (published, other devices) |
 
 Default GPU clock settings (performance profile), no clock pinning. Measured on one tablet (the author's): for
 orientation only, results on other units may differ. With Debian's Mesa, OpenCL was the weak spot
@@ -107,7 +107,7 @@ Average of 208 back-to-back runs; backend settings `vtcm_mb: 0` and graph optimi
 | Qwen3 8B | 824 tok/s | 13.6 tok/s |
 
 llama.cpp needs `GGML_HEXAGON_DMA64=0`: with 64-bit DMA it maps the weights with a fastrpc flag that the open
-library does not have yet.
+library did not have when this was measured.
 
 ## Storage
 

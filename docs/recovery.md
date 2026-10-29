@@ -88,7 +88,7 @@ flip the bit by hand — the GPT header CRC covers it.
 - The serial (COM) driver path never got past the Sahara handshake; the libusb-win32 driver crashed.
 - Set `PYTHONIOENCODING=utf-8` on Windows, otherwise the progress bar can crash the tool mid-write.
 - After the driver switch LTBox no longer sees the device until the driver is removed in Device Manager.
-- The `edl` README now recommends the Qualcomm 9008 serial driver plus UsbDk on Windows instead of Zadig/WinUSB; that
+- The `edl` README (as of 2026-10-02) recommends the Qualcomm 9008 serial driver plus UsbDk on Windows instead of Zadig/WinUSB; that
   combination was not tried here.
 
 </details>

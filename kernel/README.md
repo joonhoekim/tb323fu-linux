@@ -55,7 +55,7 @@ The **Status** column of PROVENANCE.md says where a patch stands upstream:
 ```sh
 git clone --depth 1 -b v7.3 https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git linux-tb323fu
 cd linux-tb323fu
-git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0143, in order (no 0067-0071, 0115, 0140)
+git am /path/to/tb323fu-linux/kernel/patches/*.patch        # all of them, in order
 ```
 
 ## Configuration
@@ -69,7 +69,7 @@ git am /path/to/tb323fu-linux/kernel/patches/*.patch        # 0001 ... 0143, in 
 | `baldur-kexec.fragment` | variant for kexec images started from Android (bring-up only) |
 | `baldur-netfilter.fragment` | netfilter for distribution firewalls and containers (iptables-nft, firewalld, ipset), merged after the display fragment; see below |
 | `baldur-extra.fragment` | merged last: everyday devices and file systems (exFAT, NTFS, btrfs, game controllers, UAS, tethering), Waydroid's binderfs, MGLRU, zswap, BTF/kprobes/ftrace, and virtual devices for automated tests (vkms, dummy sound, dummy USB, vivid). Modules load only when used; the file lists what is built in |
-| `reference.config` | the full `.config` of the kernel on the development tablet ([see below](#the-kernel-on-the-development-tablet)), for comparison |
+| `reference.config` | the full `.config` of a release kernel (its header names which), for comparison |
 
 The same fragments are also added to the tree by patch 0055 (`arch/arm64/configs/`). The copies here have
 `CONFIG_INITRAMFS_SOURCE` blanked — set it to your own initramfs (built with [`initramfs/build.sh`](initramfs/)); the version inside patch 0055 still names the path of the original build machine.
@@ -120,13 +120,8 @@ The bootloader on this tablet cannot be made to pass our device tree or command 
 
 - **Built-in DTB** (patch 0021, `CONFIG_ARM64_BUILTIN_FDT=y`, `CONFIG_ARM64_BUILTIN_FDT_NAME="qcom/kaanapali-lenovo-baldur-display.dtb"`):
   the kernel ignores the DTB the bootloader hands over and uses the one linked into the Image.
-- **Fixed command line** (`CONFIG_CMDLINE_FORCE=y`): the command line in the boot image header is ignored. The tested kernel uses:
-
-  ```
-  icc-rpmh.qos_disable=1 icc_rpmh.qos_disable=1 fw_devlink.sync_state=timeout fbcon=font:TER16x32 panic=10 oops=panic
-  console=tty1 keep_bootcon qcom_scm.download_mode=full baldur.end=hold consoleblank=120 no_console_suspend
-  mem_sleep_default=s2idle cpuidle_psci_domain.allow_cluster_off=0 baldur.diag=0
-  ```
+- **Fixed command line** (`CONFIG_CMDLINE_FORCE=y`): the command line in the boot image header is ignored. The command line is `CONFIG_CMDLINE` in
+  [`config/baldur.fragment`](config/baldur.fragment).
 
   <details>
   <summary>Why each option is there</summary>
@@ -139,7 +134,7 @@ The bootloader on this tablet cannot be made to pass our device tree or command 
   | `panic=10`, `oops=panic` | reboot 10 s after any oops/panic instead of hanging |
   | `console=tty1`, `keep_bootcon` | kernel messages on the panel, keeping the early boot console |
   | `qcom_scm.download_mode=full` | on a crash, stop in the Qualcomm dump mode so a full memory dump can be taken |
-  | `baldur.end=hold`, `baldur.diag=0` | knobs of the initramfs `/init`: `baldur.end=hold` = normal boot with root selection; `baldur.diag=0` is obsolete and ignored — see [initramfs/README.md](initramfs/README.md) |
+  | `baldur.end=hold` | knob of the initramfs `/init`: normal boot with root selection — see [initramfs/README.md](initramfs/README.md) |
   | `consoleblank=120` | blank the text console after 2 minutes |
   | `no_console_suspend` | keep the console alive across suspend (debugging) |
   | `mem_sleep_default=s2idle` | the only system sleep state this platform supports |
@@ -149,12 +144,9 @@ The bootloader on this tablet cannot be made to pass our device tree or command 
 
 ## The kernel on the development tablet
 
-The kernel running on the development tablet (config: `config/reference.config`) is this series (0001-0118, no 0115) **plus test-only changes that are not part of the series**:
-
-- a knob exposing experimental panel modes (vendor 144/165 Hz and a 143 Hz variant; only 90 and 164 Hz are in the series, 0109),
-- an idle-state flight recorder for crash analysis, and a knob that adds a delay in the cluster idle path (used to narrow down the idle resets),
-- modem (MPSS) device tree nodes, and remoteproc knobs used to investigate GNSS (the tablet appears to have no usable GNSS antenna),
-- a q6apm change that polls for the audio framework instead of a fixed 5 s wait (an upstream candidate, not yet in the series).
+The development tablet runs the release kernels. Test builds for an investigation add changes that are not part of the
+series (for example an idle-state flight recorder, experimental panel modes, modem device tree nodes); they are not
+released.
 
 Default knobs in the series: the idle refresh rate policy is automatic (`msm.idle_refresh_policy=2`, patch 0110); the CPU cluster idle states are refused in runtime idle (`cpuidle_psci_domain.allow_cluster_off=0` on the built-in command line, patch 0118) — it avoids the idle resets that state caused, without fixing their cause; set `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off` to 1 to use them again.
 All of it is built from one tree (no out-of-tree rebuilds of in-tree drivers any more); the only out-of-tree module is the aw882xx speaker amplifier driver, installed in `/lib/modules/<version>/extra/` (source and build: [out-of-tree/aw882xx](out-of-tree/aw882xx/)).

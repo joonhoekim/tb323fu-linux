@@ -30,7 +30,7 @@ body:
     id: kernel
     attributes:
       label: Kernel
-      description: "`uname -r`, and the release tag if it came from a release (for example kernel-t40)"
+      description: "`uname -r`, and the release tag if it came from a release (for example kernel-tNN)"
     validations:
       required: true
   - type: input

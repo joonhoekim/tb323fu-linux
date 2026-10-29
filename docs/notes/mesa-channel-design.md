@@ -1,7 +1,9 @@
 # Mesa through the helper — design
 
-> **Design note, not implemented yet (2026-10-06).** Decisions taken with the maintainer on 2026-10-06 are in
-> section 2; the phases are in section 6. `docs/notes/` is not rendered on the project site.
+> **Design note (2026-10-06), implemented in helper 0.4.0.** Current behaviour: [helper.md → Graphics drivers
+> (Mesa)](../helper.md#graphics-drivers-mesa) and [helper-reference.md](../helper-reference.md). Decisions taken with
+> the maintainer on 2026-10-06 are in section 2; the phases are in section 6. `docs/notes/` is not rendered on the
+> project site.
 
 ## 1. The problem
 

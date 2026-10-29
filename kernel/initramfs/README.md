@@ -70,7 +70,7 @@ root gets it on `/usr/lib/modules/<release>` and NixOS (no `/lib`) on a new `/li
 ```
 $ findmnt /lib/modules/$(uname -r)
 TARGET                                 SOURCE     FSTYPE   OPTIONS
-/usr/lib/modules/7.3.0-rc4-tb323fu-t28 /dev/loop0 squashfs ro,relatime,errors=continue
+/usr/lib/modules/7.3.0-tb323fu-tNN /dev/loop0 squashfs ro,relatime,errors=continue
 ```
 
 So every root runs exactly the modules of the kernel that booted, nothing is installed into the roots, and a kernel

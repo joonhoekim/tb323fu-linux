@@ -1,13 +1,13 @@
 # Hardware status
 
 Lenovo Legion Tab Gen 5 / Legion Y700 5th Gen (TB323FU), mainline Linux 7.3 plus this project's patch series
-(release kernel `kernel-t52`; most entries were checked on the development kernels before it, with the same patches).
+(the [newest stable kernel release](https://github.com/joonhoekim/tb323fu-linux/releases/latest); rows name the kernel
+they were checked on where it matters, and most were checked on development kernels with the same patches).
 Tested mostly with Debian 13 and GNOME 48 on the device, the guided install with Ubuntu 26.04 and GNOME 50, and booted
-with five other distributions ([distros.md](distros.md)); the kernel itself does not depend on any of them.
+with the other distributions in [distros.md](distros.md); the kernel itself does not depend on any of them.
 How fast it is compared with Android: [Performance](performance.md).
 Android firmware: everything here is on ZUI 18.0.12.104; on 18.0.12.187 the kernel hangs during boot
 ([#9](https://github.com/joonhoekim/tb323fu-linux/issues/9)).
-Last updated 2026-10-21.
 
 ## How to read this page
 
@@ -64,7 +64,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | 120 Hz | ✅ | measured + observed | default mode |
 | Idle refresh 60 / 30 Hz | ✅ | measured + observed | done in the kernel: the mode stays 120 Hz and only the vertical porch is stretched, so the desktop sees no mode change. No flicker; back to 120 Hz before suspend and display off |
 | 90 Hz | ✅ | measured + observed | vendor timing; screen and touch fine, no underruns |
-| 165 Hz (offered as 164 Hz) | ✅ | measured + observed | 164 Hz uses the 120 Hz horizontal timing; screen and touch fine, no underruns. SteamOS picks it by default; long sessions not yet watched. The vendor's 165 Hz timing has too short a horizontal blanking and underruns every frame, so it is not offered |
+| 165 Hz (offered as 164 Hz) | ✅ | measured + observed | 164 Hz uses the 120 Hz horizontal timing; screen and touch fine, no underruns. SteamOS picks it by default; long sessions not watched. The vendor's 165 Hz timing has too short a horizontal blanking and underruns every frame, so it is not offered |
 | 144 Hz | ✅ | measured + observed | kernel t53 (patch 0142): the 164 Hz horizontal timing with a longer vertical front porch; no underruns, screen and touch fine. One of six switches once showed the picture shifted up, not seen again. The vendor timing underruns |
 | Backlight | ✅ | measured + observed | |
 | Display off / on (with and without an external display) | ✅ | measured | |
@@ -75,7 +75,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Video decode H.264 / HEVC / VP9 / AV1 (iris) | ✅ | measured | output bit-exact against software decoders, 1080p and 4K |
 | Video decode 10-bit (HEVC Main10, VP9 profile 2, AV1 Main 10-bit) | ✅ | measured | bit-exact, 1080p and 4K; needs this project's iris line-buffer fix |
 | Video encode H.264 / HEVC (8-bit) | ✅ | measured | NV12 input |
-| AV1 in applications | — | untested | the driver works, but Debian's GStreamer 1.26 and FFmpeg 7.1 have no stateful V4L2 AV1 decoder; newer distributions not tried yet |
+| AV1 in applications | — | untested | the driver works, but Debian's GStreamer 1.26 and FFmpeg 7.1 have no stateful V4L2 AV1 decoder; newer distributions not tried |
 | Browser hardware video decode | — | untested | Firefox does not use V4L2 stateful decoders |
 
 ## Input, audio, camera, indicators
@@ -134,7 +134,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | DisplayPort MST (daisy chain / "extend" on MST hubs) | ❌ | measured | waiting for upstream MST support |
 | UFS storage | ✅ | measured | multi-queue mode (patch 0119), kept over suspend (0128); fixed a deadlock that rebooted the tablet after hours of use (0129) and the recovery after a controller reset (0141 and Linux 7.3); numbers in [Performance](performance.md#storage) |
 | microSD | ✅ | measured | UHS-I SDR104; also used for the multiboot roots |
-| Multiboot (systems on microSD partitions) | ✅ | measured + observed | six systems boot with this kernel, picked by the initramfs (falls back to the internal root); see [distros.md](distros.md) |
+| Multiboot (systems on microSD partitions) | ✅ | measured + observed | the systems in [distros.md](distros.md) boot, picked by the initramfs (falls back to the internal root) |
 | Firewall (nftables, iptables-nft, firewalld) | ✅ | measured | firewalld including IPv6 reverse-path filtering, NixOS's default firewall; legacy iptables tables are not built |
 | Audio DSP (ADSP) | ✅ | measured | |
 | Compute DSP / NPU (Hexagon HTP v81) | ✅ | measured | Qualcomm's QNN runtime and llama.cpp's Hexagon backend run with the open fastrpc library (unsigned PD); not packaged by the project. Numbers in [Performance](performance.md#npu) |
@@ -146,7 +146,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 ## Known issues
 
 - **CPU cluster idle state left out of runtime idle** (patch 0118): with it the tablet reset when idle, without an error message. Leaving it out avoids that at the same idle power; the cause in the cluster's power-down path is not fixed, and suspend still uses the state (knob: `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off`).
-- **No DisplayPort MST** yet: monitors that need MST for "extend" only mirror.
+- **No DisplayPort MST**: monitors that need MST for "extend" only mirror.
 - **Bypass charging** works; with the Charge Limit method the kernel battery `status` still reads "Charging" and the charger drops to 5 V (the Charge Current method keeps 9 V).
 - **Charging can stop below the limit**: the firmware stops at 5 V and resumes only when the limit is moved below the current charge and back; the helper's Restart Stalled Charging does this automatically. Cause not found.
 - **Modem**: a stalled modem start resets the whole SoC, so rmtfs and tqftpserv stay masked on every root (see [distros.md](distros.md)).

@@ -13,7 +13,8 @@ on the PC and a root on the internal storage.
 > pack it into your own stock boot image (step 3a) or build the kernel yourself (3b), and put together a root filesystem
 > with the scripts in this repository. This page was **reconstructed from the development records** of one
 > tablet; the individual steps were done on that tablet, and steps 1–7 in the form the guided script runs them
-> were followed end to end once (2026-10-04). Read it once completely before starting.
+> were followed end to end on 2026-10-04 and again on 2026-10-29 ([Installing from Windows](install-windows.md)).
+> Read it once completely before starting.
 
 Every step carries one of these labels:
 

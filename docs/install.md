@@ -45,7 +45,7 @@ builder takes care of.
 | **Start here** | Ubuntu 26.04 with GNOME | the guided script, as above — followed end to end |
 | | Arch Linux ARM with GNOME | the same script with `DISTRO=arch` — followed end to end once; no rotation sensor |
 | | NixOS with GNOME | the same script with `DISTRO=nixos` — followed end to end once; its configuration is editable on the tablet ([how](distros.md#nixos-your-own-configuration)) |
-| | SteamOS (community port) | the same script with `DISTRO=steamos` — experimental: Gaming Mode works on kernel t39 or later, Switch to Desktop does not yet |
+| | SteamOS (community port) | the same script with `DISTRO=steamos` — experimental: Gaming Mode works on kernel t39 or later, Switch to Desktop does not ([known problems](distros.md#known-problems)) |
 | | Fedora (with FEX for x86 games) | built on the tablet itself, from a first Linux root: [Distributions → Installing each one](distros.md#installing-each-one) |
 | | Armada (experimental, `DISTRO=armada`), anything else (postmarketOS, Debian, your own) | Armada boots into Gaming Mode; the others are not tried yet; what a root needs and how to plug your own builder into the script: [Distributions → Your own distribution](distros.md#your-own-distribution) |
 

@@ -15,15 +15,15 @@ side on the card.
 | Ubuntu 26.04 LTS | `tb323fu-ubuntu` | `rootfs/ubuntu` | 8.3 s | GNOME 50 autologin, touch, Wi-Fi, speakers (protection filter, both amplifiers), helper + GNOME extension, sensors (4, also after suspend; first start builds their files), both cameras (libcamera, GNOME Camera) |
 | Arch Linux ARM | `tb323fu-arch` | `rootfs/arch` | 7.5 s | autologin, touch, Wi-Fi, speakers, sensors (4), helper; through the guided installer (2026-10-04, built in WSL2): GNOME, speakers, Wi-Fi password prompt, helper, both ways to Android and back, no sensors |
 | Fedora 44 Workstation + FEX | `tb323fu-fedora` | `rootfs/fedora` | 7.5 s² | GNOME 50 autologin, Wi-Fi, speakers, sensors (4), firewalld³, FEX x86-64, Steam client starts⁴ |
-| NixOS 26.11 (unstable) | `tb323fu-nixos` | `rootfs/nixos` + `flake.nix` | 11.2 s | stage 2 straight from our initramfs, GNOME autologin, Wi-Fi, speakers, sensors, helper |
-| SteamOS (arm64, community handheld port⁵) | `tb323fu-spare` | `rootfs/steamos` | 14.1 s | Gaming Mode (landscape, seen on the panel; touch lands where tapped after a calibration matrix), Wi-Fi, speakers (protection filter), helper; with the old port release v1.3-odin3-beta1 also Desktop Mode (KDE) both ways. Current release v1.3-8elite-beta2 through the guided installer on kernel t39: Gaming Mode, touch, speakers, both ways to Android and back; Switch to Desktop does not work ([known problems](#known-problems)) |
+| NixOS unstable (2026-10-01) | `tb323fu-nixos` | `rootfs/nixos` + `flake.nix` | 11.2 s | stage 2 straight from our initramfs, GNOME autologin, Wi-Fi, speakers, sensors, helper |
+| SteamOS (arm64, community handheld port⁵) | `tb323fu-spare` | `rootfs/steamos` | 14.1 s | Gaming Mode (landscape, seen on the panel; touch lands where tapped after a calibration matrix), Wi-Fi, speakers (protection filter), helper; with the old port release v1.3-odin3-beta1 also Desktop Mode (KDE) both ways. Release v1.3-8elite-beta2 through the guided installer on kernel t39: Gaming Mode, touch, speakers, both ways to Android and back; Switch to Desktop does not work ([known problems](#known-problems)) |
 | Armada 20260926 (Fedora bootc, experimental⁶) | `baldur-root-sd` | `rootfs/armada` | – | through the guided installer on kernel t39 (built in WSL2): boots (a long first-start splash), Gaming Mode with touch after a calibration matrix, Steam's first-start setup; x86 runtime for FEX mounts on kernel t40 (zstd squashfs) ([Armada notes](#armada-notes)) |
 
 ¹ `systemd-analyze` "Startup finished" (kernel + userspace), with automatic login. The time changes with the kernel; these values are not kept up to date.\
 ² graphical.target; "Startup finished" is 15 s while first-boot timer jobs (plocate, fstrim) still run. iSCSI and plymouth are masked (see the builder).\
 ³ Needs the netfilter set in [kernel/config/baldur-netfilter.fragment](../kernel/config/).\
 ⁴ Steam's own client, run with `FEXBash -c "~/steam-launcher/steam -no-cef-sandbox"`; games not tried yet.\
-⁵ [SteamOS ARM for handhelds](https://github.com/hashtagbasit/SteamOS-ARM-Handhelds) v1.3-odin3-beta1 (since withdrawn; the builder now pins v1.3-8elite-beta2); unofficial, not affiliated with Valve. See [SteamOS notes](#steamos-notes).\
+⁵ [SteamOS ARM for handhelds](https://github.com/hashtagbasit/SteamOS-ARM-Handhelds) v1.3-odin3-beta1 (since withdrawn; the builder pins v1.3-8elite-beta2); unofficial, not affiliated with Valve. See [SteamOS notes](#steamos-notes).\
 ⁶ [Armada](https://github.com/armada-os/armada), a gaming distribution for ARM handhelds; its device list ends at SM8750, so this SoC is not one of its targets. See [Armada notes](#armada-notes).
 
 ## Installing each one
@@ -160,7 +160,7 @@ The builders in [`rootfs/`](../rootfs/) do all of it.
 - **wpa_supplicant** next to NetworkManager (without it Wi-Fi shows as unavailable).
 - **LADSPA swh plugins** (`swh-plugins` / `ladspa-swh-plugins` / `ladspaPlugins`): the speaker protection filter
   uses `sc4_1882`; without it PipeWire does not start.
-- **rmtfs and tqftpserv masked.** `rmtfs -s` starts the modem, which then crashes and currently resets the whole SoC.
+- **rmtfs and tqftpserv masked.** `rmtfs -s` starts the modem, which then crashes and resets the whole SoC.
   The tablet has no GNSS antenna and no cellular, so the modem has no use.
 - **Mobile-distribution helpers masked** when present: `droid-juicer` (holds the boot forever), `qbootctl`,
   `bootmac-bluetooth`, ModemManager.

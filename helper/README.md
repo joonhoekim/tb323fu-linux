@@ -6,7 +6,7 @@ restart into Android, flashlight, RGB-ring charge indicator, idle refresh policy
 USB wakeup and developer USB access, the emergency key combination, a diagnostics export, and the performance
 profile (CPU/GPU limits, board-temperature profile, panel heat limit, Wi-Fi power saving), vibration strength, LED ring
 effects and a "full by" charging schedule.
-User guide: [docs/helper.md](../docs/helper.md); design and API contract: [docs/helper-reference.md](../docs/helper-reference.md). Version 0.3.0; changes in [CHANGELOG.md](CHANGELOG.md).
+User guide: [docs/helper.md](../docs/helper.md); design and API contract: [docs/helper-reference.md](../docs/helper-reference.md). Changes: [CHANGELOG.md](CHANGELOG.md).
 
 The GTK settings app is in [`crates/tb323fu-settings/`](#settings-app-tb323fu-settings); the GNOME quick-settings tile is in
 [`userspace/desktop/gnome/extension/`](../userspace/desktop/gnome/extension/README.md).

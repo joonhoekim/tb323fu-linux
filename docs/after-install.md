@@ -7,8 +7,8 @@ systems on the card, how to remove Linux again, and where to look when something
 ## First start
 
 The Lenovo logo, then a text summary on the panel, then the desktop. The first start takes a little longer (the root
-grows to fill the partition); after that the desktop is up about 12 s after the kernel starts. GNOME logs you in
-automatically.
+grows to fill the partition); after that the desktop is up some seconds after the kernel starts (measured times per
+system: [Distributions](distros.md)). GNOME logs you in automatically.
 
 **Wi-Fi:** top right → Wi-Fi → pick your network → a notification asks for the password. Until then the clock is
 wrong (Android keeps the real time in a place Linux cannot read); it sets itself once the network is up. The time
@@ -22,6 +22,7 @@ tb323fu-check                           # each part PASS / WARN / FAIL, with a h
 cat /etc/tb323fu/android-boot.sha256    # the hash the script printed in the wayback step
 ```
 
+`tb323fu-check` comes with platform 0.4.5 or newer; on older installs use `systemctl --failed`.
 If something fails and the hint does not help, open an issue and paste `tb323fu-check --markdown` into it: it holds
 no device IDs, addresses or network names. Look it over before posting all the same.
 
@@ -41,8 +42,9 @@ mismatch. How it works: [android/README.md](../android/README.md).
 | Linux → Android, emergency | hold **volume up + volume down for 10 s**; works with a frozen desktop as long as the kernel runs; letting go earlier cancels | yes (Debian; Ubuntu through the guided installer) |
 | Android → Linux | KernelSU app → Modules → **Switch to Linux** → Action. Writes the last Linux image that ran (or the staged one) to `boot_a`, verifies it, restarts; on a bad write it copies Android back from `boot_b` first | yes |
 
-A switch takes about 40 s. If the Linux image that ran last is a kernel still on trial (below) or one that failed,
-the Switch to Linux module writes the last confirmed kernel instead and says so.
+A switch takes under a minute (about 40 s measured on the author's tablet). If the Linux image that ran last is a
+kernel still on trial (below) or one that failed, the Switch to Linux module writes the last confirmed kernel instead
+and says so.
 
 <details>
 <summary>From a PC</summary>
@@ -61,8 +63,8 @@ If neither way works: [Recovery](recovery.md) (EDL with your own backup from [ro
 **Kernel.** Open Device Helper → **About** → Kernel Updates, or `tb323fu-ctl kernel update`. The helper checks the
 project's GitHub Releases once a day (it only checks; downloading and installing are your choice) and packs the new
 kernel into your own stock boot image from `boot_b`. The channel is **stable** by default: it offers the newest
-release that is not a pre-release (`kernel-t40` at the time of writing); **testing** offers pre-releases too. A kernel
-from a file you built: **Install Kernel from File…** ([custom-kernel.md](custom-kernel.md)).
+release that is not a pre-release ([the latest release](https://github.com/joonhoekim/tb323fu-linux/releases/latest));
+**testing** offers pre-releases too. A kernel from a file you built: **Install Kernel from File…** ([custom-kernel.md](custom-kernel.md)).
 
 **Trial and Keep.** A new kernel is first on trial. Before writing it, the helper saves the running one as
 `linux-good.img`. On the stable channel the kernel is confirmed by itself once the system has been up for 90 s. On the
@@ -71,8 +73,8 @@ keep`) confirms it. A kernel that is not confirmed by its third start is replace
 restarts. A kernel that dies before the initramfs runs cannot be caught this way; then the way back is EDL
 ([recovery](recovery.md#linux-does-not-boot)). Details: [helper.md → Kernel updates](helper.md#kernel-updates).
 
-**Helper.** Releases tagged `helper-vX.Y.Z` (`helper-v0.4.5` is the current stable one) show in **About** → Helper
-Updates and in `tb323fu-ctl helper`. Who installs them depends on who installed the helper
+**Helper.** Releases tagged `helper-vX.Y.Z` show in **About** → Helper Updates and in `tb323fu-ctl helper`. Who installs
+them depends on who installed the helper
 ([helper.md → Helper updates](helper.md#helper-updates)):
 
 | System (guided script) | How the helper was installed | Updating it |
@@ -90,7 +92,8 @@ with the boot image, not from the distribution's packages.
 
 After the install, every application uses the distribution's Mesa, and nothing changes that by itself. The project
 also offers its own Mesa build for this GPU — Turnip (Vulkan) and rusticl (OpenCL) — which is much faster for GPU
-compute (OpenCL programs, Vulkan compute; on this tablet Geekbench 7 OpenCL about 20000 instead of about 7500).
+compute (OpenCL programs, Vulkan compute; Geekbench 7 OpenCL about 2.7 times the score with Debian's Mesa, see
+[Performance → GPU](performance.md#gpu)).
 OpenGL and the desktop itself keep using the distribution's Mesa either way. It is optional and comes as a binary
 release only.
 

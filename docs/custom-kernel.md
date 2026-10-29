@@ -19,7 +19,9 @@ Follow [the manual install, 3b](install-manual.md#3b-build-it-yourself), with tw
 - **A release name of your own, unique per build:** `CONFIG_LOCALVERSION="-tb323fu-<something>"` and
   `make LOCALVERSION=` (no `+`). The release string is how modules and kernels are told apart. To publish through
   GitHub Releases (step 3) it must end in `-tb323fu-tNN` — `NN` is the serial the helper compares (higher = newer).
-  For a kernel you only install yourself any name works, e.g. `-tb323fu-t30-speakerfix`.
+  A release is offered only when its serial is higher than the running kernel's, so a fork's serials must be higher
+  than those of the kernels its users run.
+  For a kernel you only install yourself any name works, e.g. `-tb323fu-tNN-speakerfix`.
 - **Shared modules:** build the initramfs with `kernel/initramfs/build.sh -m mods/lib/modules/<release>` — all
   modules of the kernel go into the boot image as `/lib/modules/<release>.sqfs`, and the initramfs mounts them on
   every root it boots. Without `-m` each root needs its own copy of exactly these modules (`own` mode in
@@ -76,14 +78,14 @@ A kernel release on GitHub Releases has this asset set (the helper ignores relea
 [`tools/kernel-release.py`](../tools/kernel-release.py) (Python 3, standard library) prepares and checks the set:
 
 ```sh
-python3 tools/kernel-release.py assets out-t31 linux-tb323fu/out/arch/arm64/boot/Image --gzip
-python3 tools/kernel-release.py check out-t31
-gh release create kernel-t31 out-t31/* --repo YOU/tb323fu-linux --title "tb323fu-linux t31" \
+python3 tools/kernel-release.py assets out-tNN linux-tb323fu/out/arch/arm64/boot/Image --gzip
+python3 tools/kernel-release.py check out-tNN
+gh release create kernel-tNN out-tNN/* --repo YOU/tb323fu-linux --title "tb323fu-linux tNN" \
     --notes-file notes.md [--prerelease]
 ```
 
 - The release notes are the release body (Markdown) and appear in the app. A line
-  `<!-- tb323fu: min_helper=0.2.0 min_platform=0.2.0 -->` makes older helpers refuse the kernel with a clear message.
+  `<!-- tb323fu: min_helper=X.Y.Z min_platform=X.Y.Z -->` makes older helpers refuse the kernel with a clear message.
 - A **pre-release** is offered only on the `testing` channel and always waits for Keep; turning it into a release
   offers it on `stable` too.
 - Ship the GPL sources with it as the project's releases do: the patch series and configuration (`config-…`) the
@@ -105,7 +107,7 @@ contents, in `/etc/credstore/tb323fu-github-token` (root, mode 600) — only the
 **What users of your fork trust:** `SHA256SUMS` only protects against damaged downloads. Whoever can publish
 releases in your repository decides what their tablets run — use two-factor authentication on the account and keep
 tokens that can write releases out of CI and off shared machines. If you sign `SHA256SUMS` with minisign
-(`kernel-release.py sign out-t31 --key your.key` before uploading), users can set `require_signature = true` and
+(`kernel-release.py sign out-tNN --key your.key` before uploading), users can set `require_signature = true` and
 `public_keys = ["RW…your public key…"]`.
 
 ## 4. Testing a release without publishing
@@ -114,7 +116,7 @@ tokens that can write releases out of CI and off shared machines. If you sign `S
 check → download → install path can be tried before anything is public:
 
 ```sh
-python3 tools/kernel-release.py fake-api /srv/api --repo YOU/tb323fu-linux --dir out-t31 --tag kernel-t31 \
+python3 tools/kernel-release.py fake-api /srv/api --repo YOU/tb323fu-linux --dir out-tNN --tag kernel-tNN \
     --prerelease --base http://127.0.0.1:8000
 (cd /srv/api && python3 -m http.server -b 127.0.0.1 8000) &
 # helper.toml: [kernel] source = "github:YOU/tb323fu-linux"  api_url = "http://127.0.0.1:8000"  channel = "testing"

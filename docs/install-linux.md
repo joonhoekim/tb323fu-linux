@@ -4,7 +4,7 @@ The same path as on Windows ([Installing Linux](install.md)): root the tablet, t
 Ubuntu with GNOME on the microSD card. What differs on Linux is how the tools are installed and that the script uses
 your own `adb`.
 
-> **Status: followed end to end once, up to the first start** ([labels](hardware-status.md#labels-on-other-pages)) on 2026-10-04 from NixOS 26.11 (x86-64),
+> **Status: followed end to end once, up to the first start** ([labels](hardware-status.md#labels-on-other-pages)) on 2026-10-04 from NixOS unstable (x86-64),
 > with the script in an Ubuntu 26.04 container ([NixOS](#nixos)). A Debian, Ubuntu, Arch or Fedora PC was not tried.
 > Rooting with LTBox and the `edl` recovery tool were not tried from Linux; those steps follow their own documentation.
 > If something does not match, stop and open an issue.
@@ -72,7 +72,7 @@ are the same as on Windows.
 ## NixOS
 
 The install script does not run on NixOS itself: it expects a Debian-style system, and on NixOS three things fail
-(checked 2026-10-04 on NixOS 26.11 with nixpkgs' `debootstrap` 1.0.140):
+(checked 2026-10-04 on NixOS unstable with nixpkgs' `debootstrap` 1.0.140):
 
 - nixpkgs has no Ubuntu archive keyring for `/usr/share/keyrings/ubuntu-archive-keyring.gpg`;
 - nixpkgs' `debootstrap` has no script for Ubuntu 26.04 (`resolute`), and the builder's fallback writes into
