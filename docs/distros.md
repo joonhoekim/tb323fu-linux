@@ -114,8 +114,9 @@ sudo nixos-rebuild switch --flake ~/nixos-config#tb323fu-nixos
 - **The USB gadget sometimes does not attach after boot** (seen once each on Arch and NixOS): no USB network or
   serial shell. `echo connect > /sys/class/udc/*/soft_connect` as root, or unplug and replug the cable.
 - **NixOS:** after a rebuild `/` was once left with mode 777, and sshd then refuses every key: `chmod 755 /`.
-- **Fedora:** firewalld is turned off unless the build was given the kernel's modules (`MODULES_FROM=`): the check for
-  `nft_compat` cannot see the boot image's modules at build time.
+- **Fedora:** the builder keeps firewalld on for release kernels (they have `nft_compat` and `nft_fib_ipv6`) and checks
+  a kernel given with `MODULES_FROM=`. Before 2026-10-30 it turned firewalld off unless given the modules; a root built
+  since then has not been booted yet.
 - **Fedora, NixOS, SteamOS:** whether GNOME/KDE asks for the Wi-Fi password on first use was not checked after the
   Ubuntu fix above (Fedora and NixOS install `gnome-keyring` with their GNOME); each was set up with a saved
   connection (`NM_CONNECTIONS_FROM=`).

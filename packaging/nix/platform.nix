@@ -15,7 +15,7 @@ stdenv.mkDerivation {
   installPhase = ''
     runHook preInstall
     stage=$TMPDIR/stage
-    DESTDIR=$stage PREFIX=$out SYSCONFDIR=/etc CC=$CC sh userspace/platform/install.sh
+    DESTDIR=$stage PREFIX=$out SYSCONFDIR=/etc CC=$CC VERSION=$version sh userspace/platform/install.sh
     mkdir -p $out
     cp -a $stage$out/. $out/
     mkdir -p $out/share/tb323fu

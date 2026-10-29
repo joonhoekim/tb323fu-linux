@@ -203,13 +203,12 @@ ch systemctl mask iscsi.service iscsid.service iscsiuio.service iscsid.socket is
 	plymouth-start.service plymouth-quit-wait.service plymouth-read-write.service >/dev/null 2>&1 || true
 # Fedora's presets (what a first boot with an empty machine-id also applies)
 ch systemctl preset-all >/dev/null 2>&1 || true
-# firewalld's stock nftables ruleset needs nft_compat and friends: in the
-# t24 kernel they are the separate netfilter module set
-# (kernel/config/baldur-netfilter.fragment); without them firewalld fails at
-# boot, so it is only kept when the copied modules have nft_compat. IPv6
-# rpfilter needs NFT_FIB_IPV6, which needs a new Image -- off until then.
-if find "$T/usr/lib/modules" -name 'nft_compat.ko*' | grep -q .; then
-	if ! find "$T/usr/lib/modules" -name 'nft_fib_ipv6.ko*' | grep -q .; then
+# firewalld's stock nftables ruleset needs nft_compat, and IPv6 rpfilter
+# nft_fib_ipv6 (kernel/config/baldur-netfilter.fragment; release kernels have
+# both). A kernel from MODULES_FROM is checked: without nft_compat firewalld
+# fails at boot.
+if [ ! -d "$MODULES_FROM" ] || find "$MODULES_FROM" -name 'nft_compat.ko*' | grep -q .; then
+	if [ -d "$MODULES_FROM" ] && ! find "$MODULES_FROM" -name 'nft_fib_ipv6.ko*' | grep -q .; then
 		sed -i 's/^IPv6_rpfilter=.*/IPv6_rpfilter=no/' "$T/etc/firewalld/firewalld.conf"
 		grep -q '^IPv6_rpfilter=' "$T/etc/firewalld/firewalld.conf" || echo 'IPv6_rpfilter=no' >> "$T/etc/firewalld/firewalld.conf"
 	fi

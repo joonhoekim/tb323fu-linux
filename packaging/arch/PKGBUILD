@@ -43,7 +43,7 @@ package_tb323fu-platform() {
 	backup=(etc/tb323fu/audio.conf etc/tb323fu/emergency-key.conf etc/udev/rules.d/90-feedbackd.rules)
 	install=tb323fu-platform.install
 	cd "$pkgbase"
-	DESTDIR="$pkgdir" PREFIX=/usr SYSCONFDIR=/etc sh userspace/platform/install.sh
+	DESTDIR="$pkgdir" PREFIX=/usr SYSCONFDIR=/etc VERSION=$pkgver sh userspace/platform/install.sh
 	# Arch: /usr/sbin is a symlink to bin owned by the filesystem package
 	if [ -d "$pkgdir/usr/sbin" ]; then
 		install -d "$pkgdir/usr/bin"
