@@ -1,0 +1,85 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: MIT
+# tb323fu-autorotate -- rotate the built-in panel with the accelerometer in a
+# GNOME session even when a keyboard or mouse is connected (Mutter rotates by
+# itself only in touch mode). The GNOME orientation lock still applies.
+#
+# Runs as a user service (userspace/desktop/gnome/README.md).
+# Needs iio-sensor-proxy and python3-gi (GLib/Gio).
+import sys
+
+import gi
+
+gi.require_version("Gio", "2.0")
+from gi.repository import Gio, GLib  # noqa: E402
+
+PROXY = ("net.hadess.SensorProxy", "/net/hadess/SensorProxy", "net.hadess.SensorProxy")
+DISPLAY = ("org.gnome.Mutter.DisplayConfig", "/org/gnome/Mutter/DisplayConfig",
+           "org.gnome.Mutter.DisplayConfig")
+LOCK_SCHEMA = "org.gnome.settings-daemon.peripherals.touchscreen"
+# iio-sensor-proxy orientation -> Mutter logical monitor transform
+TRANSFORM = {"normal": 0, "left-up": 1, "bottom-up": 2, "right-up": 3}
+SETTLE_MS = 500  # Mutter goes first in touch mode; then there is nothing to do
+
+system = Gio.bus_get_sync(Gio.BusType.SYSTEM)
+session = Gio.bus_get_sync(Gio.BusType.SESSION)
+source = Gio.SettingsSchemaSource.get_default()
+lock = Gio.Settings.new(LOCK_SCHEMA) if source and source.lookup(LOCK_SCHEMA, True) else None
+pending = 0
+
+
+def call(bus, target, method, args, reply):
+    return bus.call_sync(target[0], target[1], target[2], method, args,
+                         GLib.VariantType(reply) if reply else None,
+                         Gio.DBusCallFlags.NONE, 5000, None)
+
+
+def orientation():
+    v = call(system, PROXY[:2] + ("org.freedesktop.DBus.Properties",), "Get",
+             GLib.Variant("(ss)", (PROXY[2], "AccelerometerOrientation")), "(v)")
+    return v.unpack()[0]
+
+
+def apply():
+    global pending
+    pending = 0
+    want = TRANSFORM.get(orientation())
+    if want is None or (lock and lock.get_boolean("orientation-lock")):
+        return False
+    serial, monitors, logical, _ = call(session, DISPLAY, "GetCurrentState", None,
+                                        "(ua((ssss)a(siiddada{sv})a{sv})a(iiduba(ssss)a{sv})a{sv})").unpack()
+    builtin = {m[0][0] for m in monitors if m[2].get("is-builtin")}
+    mode = {m[0][0]: next((md[0] for md in m[1] if md[6].get("is-current")), None) for m in monitors}
+    config, change = [], False
+    for x, y, scale, transform, primary, mons, _ in logical:
+        if any(m[0] in builtin for m in mons) and transform != want:
+            transform, change = want, True
+        config.append((x, y, scale, transform, primary, [(m[0], mode[m[0]], {}) for m in mons]))
+    if change and all(c[1] for l in config for c in l[5]):
+        try:
+            call(session, DISPLAY, "ApplyMonitorsConfig",
+                 GLib.Variant("(uua(iiduba(ssa{sv}))a{sv})", (serial, 1, config, {})), None)
+        except GLib.Error as e:  # e.g. other monitors would overlap after the turn
+            print(f"tb323fu-autorotate: {e.message}", file=sys.stderr)
+    return False
+
+
+def changed(*_):
+    global pending
+    if pending:
+        GLib.source_remove(pending)
+    pending = GLib.timeout_add(SETTLE_MS, apply)
+
+
+try:
+    call(session, DISPLAY, "GetCurrentState", None, None)
+    call(system, PROXY, "ClaimAccelerometer", None, None)
+except GLib.Error as e:  # not GNOME, or no iio-sensor-proxy: nothing to do here
+    print(f"tb323fu-autorotate: {e.message}", file=sys.stderr)
+    sys.exit(0)
+system.signal_subscribe(PROXY[0], "org.freedesktop.DBus.Properties", "PropertiesChanged",
+                        PROXY[1], None, Gio.DBusSignalFlags.NONE, changed)
+if lock:
+    lock.connect("changed::orientation-lock", changed)
+changed()
+GLib.MainLoop().run()

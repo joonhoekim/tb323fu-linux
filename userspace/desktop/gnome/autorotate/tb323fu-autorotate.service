@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: MIT
+# Turn the panel with the tablet in GNOME while a keyboard or mouse is connected.
+# Install: see userspace/desktop/gnome/README.md
+[Unit]
+Description=Rotate the built-in panel with the accelerometer (GNOME)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/local/bin/tb323fu-autorotate
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=graphical-session.target
