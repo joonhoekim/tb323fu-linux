@@ -1,0 +1,38 @@
+From 7d617da5c158e5ac6cc5f151f04ebf8b81bba8c0 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Sun, 1 Nov 2026 16:00:51 +0000
+Subject: [PATCH] drm/panel: nt36523: baldur: report the panel physical size
+
+The TB323FU panel is 8.8" with an active area of 118 x 190 mm (the
+vendor DT has qcom,mdss-pan-physical-width-dimension = 118 and
+-height-dimension = 190). The driver reported 168 x 268 mm, the size of
+a 12.4" panel.
+
+Compositors use the size for the default scale and to map tablet and
+touch devices to their output: Mutter maps a pen that libwacom does not
+know to the monitor whose physical size matches the pen area, and the
+pen here covers 119 x 190 mm.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/gpu/drm/panel/panel-novatek-nt36523.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/panel/panel-novatek-nt36523.c b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
+index 3ee8acb846..ac234120bf 100644
+--- a/drivers/gpu/drm/panel/panel-novatek-nt36523.c
++++ b/drivers/gpu/drm/panel/panel-novatek-nt36523.c
+@@ -1431,8 +1431,8 @@ static const struct panel_desc baldur_csot_desc = {
+ 		.channel = 0,
+ 		.node = NULL,
+ 	},
+-	.width_mm = 168,
+-	.height_mm = 268,
++	.width_mm = 118,
++	.height_mm = 190,
+ 	.bpc = 10,
+ 	.lanes = 4,
+ 	.format = MIPI_DSI_FMT_RGB101010,	/* vendor qcom,mdss-dsi-bpp = 30 */
+-- 
+2.43.0
+
