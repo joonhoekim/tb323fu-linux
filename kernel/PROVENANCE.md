@@ -160,7 +160,7 @@ Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped 
 | `0139` | arm64: dts: qcom: baldur: Four-lane HBR3 DisplayPort | Joonhoe Kim | this project | local (board device tree: four-lane HBR3 DisplayPort) | `37ba64504abf7868` |
 | `0141` | scsi: ufs: qcom: Reprogram ESI after a host controller reset | Joonhoe Kim | this project | sent upstream 2026-10-23 ([lore](https://lore.kernel.org/all/20261022165006.1275-1-26rote@gmail.com/)) | `2762555a465d4702` |
 | `0142` | drm/panel: nt36523: baldur: add a 144 Hz mode | Joonhoe Kim | this project | local (panel modes) | `cbd2e18aa32c711c` |
-| `0143` | input: nt36536: accept pen report format 0x02 | Joonhoe Kim | this project | local (Lenovo Tab Pen Plus, issue #16) | `b82d12bdf25275b8` |
+| `0143` | input: nt36536: accept pen report format 0x02 | Joonhoe Kim | this project | local (Lenovo Tab Pen Plus, issue #16) | `548f89b3ad2ac757` |
 
 ## Out-of-tree
 
