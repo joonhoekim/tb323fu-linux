@@ -83,7 +83,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Feature | Status | Evidence | Notes |
 |---|:-:|---|---|
 | Touchscreen | ✅ | measured + observed | occasional firmware-reset message after resume. SteamOS Gaming Mode rotates only the picture, so the builder adds a touch calibration matrix |
-| Pen (AES) | ✅ | user-reported | Lenovo Tab Pen Plus (AP500U): tracking in all corners, pressure, both barrel buttons, reported in issue #16 with the change in patch 0143 (kernel t54). At 164 Hz the pen stops tracking while touch keeps working (reported in #16; 120 and 60 Hz fine). Not tested here (no pen) |
+| Pen (AES) | ✅ | user-reported | Lenovo Tab Pen Plus (AP500U): tracking in all corners, pressure (4096 levels, the full range reached; patches 0143, 0146), both barrel buttons, mapped to the built-in display and turning with it in GNOME without libwacom (0144); reported in issue #16 on kernels t54–t56. GNOME's Graphics Tablets settings do not list it (libwacom has no SPI devices). At 164 Hz the pen stops tracking while touch keeps working (reported in #16; 120 and 60 Hz fine). Not tested here (no pen) |
 | Speakers (2 × Awinic aw882xx) | ✅ | measured + observed | left/right heard clean; both amplifiers start on every distribution in [distros.md](distros.md); speaker protection is a PipeWire filter, not Android's DSP protection |
 | Microphones | ✅ | measured | the internal microphone records speaker playback (noise floor −62 dBFS, playback peaks −26 dBFS) |
 | USB-C analog audio (headset adapter) | — | probe only | no audio route yet |
