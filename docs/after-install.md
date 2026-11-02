@@ -112,6 +112,18 @@ release only.
 Details, and using a release without the helper: [helper.md → Graphics drivers](helper.md#graphics-drivers-mesa).
 Measured results: [Performance → GPU](performance.md#gpu).
 
+## Screen rotation
+
+The rotation sensor works on every system that has the sensor support ([Distributions](distros.md)); whether the
+screen follows it is the desktop's choice:
+
+- **GNOME** turns the screen only while no keyboard or mouse is connected, and then also hides the rotation lock tile.
+  To keep rotating with a keyboard or mouse: [`userspace/desktop/gnome`](../userspace/desktop/gnome/README.md#rotation-with-a-keyboard-or-mouse-connected).
+- **KDE Plasma:** System Settings → Display & Monitor → Orientation **Automatic**; clear "Only when in tablet mode" to
+  keep rotating with a keyboard. It needs Qt Sensors (`qt6-sensors` or similar). Not tried on this tablet.
+- Window managers without automatic rotation (sway, niri, …): `monitor-sensor` shows the orientation that
+  iio-sensor-proxy reports, for a script of your own.
+
 ## Another system on the card
 
 Each system lives in its own partition, and all of them share the one kernel in `boot_a`. The guided script puts one
