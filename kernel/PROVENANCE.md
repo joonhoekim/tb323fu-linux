@@ -21,7 +21,7 @@ column names the source; see that tree's history for the individual authors.
 Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114, 0116-0119, 0128-0139 and 0141-0144 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
+0111-0114, 0116-0119, 0128-0139 and 0141-0146 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -162,6 +162,8 @@ Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped 
 | `0142` | drm/panel: nt36523: baldur: add a 144 Hz mode | Joonhoe Kim | this project | local (panel modes) | `cbd2e18aa32c711c` |
 | `0143` | input: nt36536: accept pen report format 0x02 | Joonhoe Kim | this project | local (Lenovo Tab Pen Plus, issue #16) | `548f89b3ad2ac757` |
 | `0144` | drm/panel: nt36523: baldur: report the panel physical size | Joonhoe Kim | this project | local (panel; issue #16) | `57c3723e43a47e88` |
+| `0145` | input: nt36536: ignore pen ID reports and reports outside the axes | Joonhoe Kim | this project | local (Lenovo Tab Pen Plus, issue #16) | `0c50042b68a6ffa9` |
+| `0146` | input: nt36536: report the pen pressure range 0..4095 | Joonhoe Kim | this project | local (Lenovo Tab Pen Plus, issue #16) | `ddb449eb5936d72e` |
 
 ## Out-of-tree
 

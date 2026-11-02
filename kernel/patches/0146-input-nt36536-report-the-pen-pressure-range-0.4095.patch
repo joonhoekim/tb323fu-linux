@@ -1,0 +1,31 @@
+From 2978d8c14b8b4e128797372081812fa02997542e Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Mon, 2 Nov 2026 00:13:27 +0000
+Subject: [PATCH 146/146] input: nt36536: report the pen pressure range 0..4095
+
+The TB323FU vendor driver registers ABS_PRESSURE as 0..4095, the range
+the pen reports in. With 0..16384 userspace saw at most a quarter of
+the range.
+
+Link: https://github.com/joonhoekim/tb323fu-linux/issues/16
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/input/touchscreen/nt36536/nt36xxx.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/input/touchscreen/nt36536/nt36xxx.h b/drivers/input/touchscreen/nt36536/nt36xxx.h
+index ab9989da92..d7e793e79d 100644
+--- a/drivers/input/touchscreen/nt36536/nt36xxx.h
++++ b/drivers/input/touchscreen/nt36536/nt36xxx.h
+@@ -73,7 +73,7 @@
+ #define TOUCH_MAX_FINGER_NUM 10
+ #define TOUCH_FORCE_NUM 1500
+ //---for Pen---
+-#define PEN_PRESSURE_MAX (16384)
++#define PEN_PRESSURE_MAX (4095)
+ #define PEN_DISTANCE_MAX (1)
+ #define PEN_TILT_MIN (-60)
+ #define PEN_TILT_MAX (60)
+-- 
+2.43.0
+
