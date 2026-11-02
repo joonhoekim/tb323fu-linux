@@ -162,7 +162,7 @@ Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped 
 | `0142` | drm/panel: nt36523: baldur: add a 144 Hz mode | Joonhoe Kim | this project | local (panel modes) | `cbd2e18aa32c711c` |
 | `0143` | input: nt36536: accept pen report format 0x02 | Joonhoe Kim | this project | local (Lenovo Tab Pen Plus, issue #16) | `548f89b3ad2ac757` |
 | `0144` | drm/panel: nt36523: baldur: report the panel physical size | Joonhoe Kim | this project | local (panel; issue #16) | `57c3723e43a47e88` |
-| `0145` | input: nt36536: ignore pen ID reports and reports outside the axes | Joonhoe Kim | this project | local (Lenovo Tab Pen Plus, issue #16) | `0c50042b68a6ffa9` |
+| `0145` | input: nt36536: ignore pen ID reports and reports outside the axes | Joonhoe Kim | this project | local (Lenovo Tab Pen Plus, issue #16) | `d1f5bf984f3e01e6` |
 | `0146` | input: nt36536: report the pen pressure range 0..4095 | Joonhoe Kim | this project | local (Lenovo Tab Pen Plus, issue #16) | `ddb449eb5936d72e` |
 
 ## Out-of-tree

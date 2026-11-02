@@ -13,6 +13,7 @@ Also drop pen data whose position lies outside the axes, as the touch
 reports already do, so that a report filled with 0xFF never reaches
 userspace as a full-pressure tap in the corner.
 
+Reported-by: vitalo233 <vitalo233@gmail.com>
 Link: https://github.com/joonhoekim/tb323fu-linux/issues/16
 Signed-off-by: Joonhoe Kim <26rote@gmail.com>
 ---
