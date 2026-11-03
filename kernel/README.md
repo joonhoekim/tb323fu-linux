@@ -19,7 +19,7 @@ The series by subsystem. Origin, author and status of each patch: [PROVENANCE.md
 | GPU | 0001-0006 (GPU DT, queued for v7.4), 0010 and its revert 0080 |
 | CPU idle and capacity | 0031, 0106, 0118 (PSCI domains and cluster idle), 0117 (capacity-dmips-mhz) |
 | Thermal | 0108 |
-| Storage (UFS) | 0119 (MCQ: multiple I/O queues), 0128 (keeps the MCQ state over suspend), 0129 (clock scaling deadlock), 0141 (MCQ interrupts after an error-handler reset) |
+| Storage (UFS, microSD) | 0119 (MCQ: multiple I/O queues), 0128 (keeps the MCQ state over suspend), 0129 (clock scaling deadlock), 0141 (MCQ interrupts after an error-handler reset); microSD 0152 (keeps the card when the extension registers cannot be read) |
 | Memory bus scaling | 0120-0127 (memlat in CPUCP firmware over the SCMI Qualcomm vendor protocol: DDR, LLCC, DDR_QOS) |
 | Clocks and power domains | 0046, 0072, 0073, 0103 |
 | Wi-Fi, Bluetooth, PCIe | 0024, 0058, 0113 (ath12k), 0030, 0130 (Bluetooth), 0049, 0056 (PCIe), 0078 |
