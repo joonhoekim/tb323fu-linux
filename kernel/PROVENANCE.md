@@ -21,7 +21,7 @@ column names the source; see that tree's history for the individual authors.
 Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114, 0116-0119, 0128-0139 and 0141-0146 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
+0111-0114, 0116-0119, 0128-0139 and 0141-0148 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -164,6 +164,8 @@ Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped 
 | `0144` | drm/panel: nt36523: baldur: report the panel physical size | Joonhoe Kim | this project | local (panel; issue #16) | `57c3723e43a47e88` |
 | `0145` | input: nt36536: ignore pen ID reports and reports outside the axes | Joonhoe Kim | this project | local (Lenovo Tab Pen Plus, issue #16) | `b2b5cfdb8e160700` |
 | `0146` | input: nt36536: report the pen pressure range 0..4095 | Joonhoe Kim | this project | local (Lenovo Tab Pen Plus, issue #16) | `d6a9beb22c7d422b` |
+| `0147` | usb: typec: ucsi: Leave the mux to the altmode driver for alt mode partners | Joonhoe Kim | this project | upstream candidate | `f35784e9010fab3e` |
+| `0148` | arm64: configs: baldur: drop no_console_suspend from the command line | Joonhoe Kim | this project | local | `c946fa1d5b130293` |
 
 ## Out-of-tree
 
