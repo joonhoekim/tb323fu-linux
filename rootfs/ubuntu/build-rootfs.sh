@@ -108,8 +108,8 @@ ch apt-get -y -q purge snapd 2>/dev/null || true
 
 
 # rmtfs.service runs `rmtfs -r -P -s`, and -s STARTS THE MODEM. Started at boot
-# the modem crashed about a minute later (watchdog, cause not yet known -- the
-# OEM image was present) and a modem crash resets the whole SoC (900E). The
+# the modem crashes within about a minute, and a modem crash resets the whole
+# SoC (Qualcomm crash dump mode). The
 # modem has no use on this Wi-Fi tablet: mask the services so nothing pulls
 # them in.
 ch systemctl mask rmtfs.service tqftpserv.service >/dev/null 2>&1 || true

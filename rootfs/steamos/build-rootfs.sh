@@ -294,7 +294,7 @@ fi
 [ -n "$TIMEZONE" ] && ln -sf "../usr/share/zoneinfo/$TIMEZONE" "$T/etc/localtime"
 # the port means `steamos` to have passwordless sudo (Steam's brightness slider
 # runs `sudo tee .../brightness`), but its 99-steamos-nopasswd is read before
-# the image's `wheel` file, and the last match wins: a password was required
+# the image's `wheel` file, and the last match wins, so sudo asks for a password
 printf 'steamos ALL=(ALL) NOPASSWD: ALL\n' > "$T/etc/sudoers.d/zz-tb323fu-steamos"
 chmod 440 "$T/etc/sudoers.d/zz-tb323fu-steamos"
 mkdir -p "$T/etc/NetworkManager/conf.d"
@@ -316,8 +316,8 @@ cat > "$T/etc/systemd/user/gamescope-session.service.d/99-tb323fu.conf" <<EOF
 [Service]
 Environment=GAMESCOPE_ORIENTATION=$ORIENTATION
 EOF
-# The rotation shader turns the picture only: touch came in unrotated and landed
-# elsewhere. Rotate the touchscreen and pen with a libinput calibration matrix
+# The rotation shader turns the picture only, not touch input. Rotate the
+# touchscreen and pen with a libinput calibration matrix
 # (gamescope reads it through wlroots/libinput). Measured for "right" on the
 # device: landscape x = native y, landscape y = 1 - native x. The others follow
 # from it (not tried on the device).
@@ -338,7 +338,7 @@ fi
 # steamos-powerbuttond, which sends Steam steam://shortpowerpress (Steam then
 # suspends). The Steam Frame's unit only runs next to SteamVR
 # (Requisite=steamvr.service + an ExecCondition on the VR device model), so it
-# never started here and the button did nothing. A drop-in cannot clear a
+# never starts here and the button does nothing. A drop-in cannot clear a
 # Requisite=: replace the unit, start it with Gaming Mode.
 cat > "$T/etc/systemd/user/steamos-powerbuttond.service" <<'EOF'
 # TB323FU: replaces /usr/lib/systemd/user/steamos-powerbuttond.service (Steam Frame: SteamVR only).

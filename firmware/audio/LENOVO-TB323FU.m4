@@ -41,7 +41,7 @@ STREAM_DEVICE_PLAYBACK_MIXER(PRIMARY_MI2S_RX, ``PRIMARY_MI2S_RX'', ``MultiMedia1
 STREAM_DEVICE_PLAYBACK_ROUTE(PRIMARY_MI2S_RX, ``PRIMARY_MI2S_RX Audio Mixer'', ``MultiMedia1, stream0.logger1'')
 
 #
-# Microphones (9-50): MultiMedia2 capture from the WCD9395's ADCs through the
+# Microphones: MultiMedia2 capture from the WCD9395's ADCs through the
 # TX macro, CODEC_DMA-LPAIF_RXTX-TX-3 as on Android. From SM8550-HDK.m4.
 #
 dnl Capture MultiMedia2

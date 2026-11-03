@@ -192,7 +192,7 @@ cat > "$T/etc/modprobe.d/tb323fu-no-snd-seq.conf" <<'EOM'
 # install rule then fails and snd-pcm dependents (LPASS codecs) do not load at boot.
 install snd-pcm /sbin/modprobe --ignore-install snd-pcm
 EOM
-# Boot time (graphical.target 22.9 s -> 7.5 s):
+# Boot time:
 # - iscsi.service orders itself After=network-online.target and Before=
 #   remote-fs.target even when its condition skips it, so GDM (after
 #   systemd-user-sessions, after remote-fs) waited for NetworkManager-wait-online.
