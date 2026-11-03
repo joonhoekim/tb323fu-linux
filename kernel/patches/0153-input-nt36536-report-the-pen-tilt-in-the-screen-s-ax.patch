@@ -1,0 +1,41 @@
+From 477cc28786fb215e8f91250a2880fa11ad31bb6b Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Tue, 3 Nov 2026 16:53:59 +0000
+Subject: [PATCH] input: nt36536: report the pen tilt in the screen's axes
+
+The controller reports the tilt along the screen's Y axis in byte 73
+and the tilt along its X axis, with the sign inverted, in byte 74. The
+driver used byte 73 for ABS_TILT_X and byte 74 for ABS_TILT_Y, so the
+reported tilt was rotated by 90 degrees: tilting the pen up read as
+tilting it left.
+
+Report ABS_TILT_X from the negated byte 74 and ABS_TILT_Y from byte 73,
+so that positive X tilts right and positive Y tilts towards the user.
+
+Reported-by: vitalo233 <vitalo233@gmail.com>
+Closes: https://github.com/joonhoekim/tb323fu-linux/issues/16
+Suggested-by: vitalo233 <vitalo233@gmail.com>
+Tested-by: vitalo233 <vitalo233@gmail.com>
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/input/touchscreen/nt36536/nt36xxx.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/input/touchscreen/nt36536/nt36xxx.c b/drivers/input/touchscreen/nt36536/nt36xxx.c
+index eb6d32a126..b4a8defa6b 100644
+--- a/drivers/input/touchscreen/nt36536/nt36xxx.c
++++ b/drivers/input/touchscreen/nt36536/nt36xxx.c
+@@ -1019,8 +1019,8 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
+ 				if ((pen_x > ts->abs_x_max) || (pen_y > ts->abs_y_max))
+ 					goto XFER_ERROR;
+ 				pen_pressure = (uint32_t)(point_data[71] << 8) + (uint32_t)(point_data[72]);
+-				pen_tilt_x = (int32_t)point_data[73];
+-				pen_tilt_y = (int32_t)point_data[74];
++				pen_tilt_x = -(int8_t)point_data[74];
++				pen_tilt_y = (int8_t)point_data[73];
+ 				pen_distance = (uint32_t)(point_data[75] << 8) + (uint32_t)(point_data[76]);
+ 				pen_btn1 = (uint32_t)(point_data[77] & 0x01);
+ 				pen_btn2 = (uint32_t)((point_data[77] >> 1) & 0x01);
+-- 
+2.43.0
+

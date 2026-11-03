@@ -1,0 +1,101 @@
+From fa61cf862a496859ff576e7f359ca243a1a1996a Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Tue, 3 Nov 2026 15:33:59 +0000
+Subject: [PATCH] mmc: sd: Keep the card when its extension registers fail
+
+mmc_sd_init_card() drops the card when reading the extension registers
+or enabling the SD cache fails. Both are optional: sd_read_ext_regs()
+already returns 0 for a layout it does not support, and the card works
+without the features they describe (power management, performance
+extensions, cache).
+
+On a card that sees CRC errors on these single-block transfers right
+after tuning, either step fails at random and the card stays missing
+until it is reinserted, as the core does not retry the init.
+
+Warn and continue without the extensions when they cannot be read.
+When enabling the cache fails, read the Cache Enable bit back: the card
+may have set it although the host saw an error, and then the cache has
+to be flushed like an enabled one. Only if the read fails too, warn and
+assume the cache is off.
+
+Reported-by: vitalo233 <vitalo233@gmail.com>
+Closes: https://github.com/joonhoekim/tb323fu-linux/issues/26
+Suggested-by: vitalo233 <vitalo233@gmail.com>
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/mmc/core/sd.c | 35 +++++++++++++++++++++++++++--------
+ 1 file changed, 27 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/mmc/core/sd.c b/drivers/mmc/core/sd.c
+index c763efb10f..4b68d7898f 100644
+--- a/drivers/mmc/core/sd.c
++++ b/drivers/mmc/core/sd.c
+@@ -1379,6 +1379,7 @@ static int sd_flush_cache(struct mmc_host *host)
+ 
+ static int sd_enable_cache(struct mmc_card *card)
+ {
++	u8 *reg_buf;
+ 	int err;
+ 
+ 	card->ext_perf.feature_enabled &= ~SD_EXT_PERF_CACHE;
+@@ -1392,14 +1393,26 @@ static int sd_enable_cache(struct mmc_card *card)
+ 	if (err) {
+ 		pr_warn("%s: error %d writing Cache Enable bit\n",
+ 			mmc_hostname(card->host), err);
+-		return err;
++	} else {
++		err = mmc_poll_for_busy(card, SD_WRITE_EXTR_SINGLE_TIMEOUT_MS,
++					false, MMC_BUSY_EXTR_SINGLE);
++		if (!err) {
++			card->ext_perf.feature_enabled |= SD_EXT_PERF_CACHE;
++			return 0;
++		}
+ 	}
+ 
+-	err = mmc_poll_for_busy(card, SD_WRITE_EXTR_SINGLE_TIMEOUT_MS, false,
+-				MMC_BUSY_EXTR_SINGLE);
+-	if (!err)
++	/* The card may have set the bit although the host saw an error. */
++	reg_buf = kzalloc(512, GFP_KERNEL);
++	if (!reg_buf)
++		return -ENOMEM;
++
++	err = sd_read_ext_reg(card, card->ext_perf.fno, card->ext_perf.page,
++			      card->ext_perf.offset + 260, 1, reg_buf);
++	if (!err && (reg_buf[0] & BIT(0)))
+ 		card->ext_perf.feature_enabled |= SD_EXT_PERF_CACHE;
+ 
++	kfree(reg_buf);
+ 	return err;
+ }
+ 
+@@ -1563,15 +1576,21 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
+ 	if (!oldcard) {
+ 		/* Read/parse the extension registers. */
+ 		err = sd_read_ext_regs(card);
+-		if (err)
+-			goto free_card;
++		if (err) {
++			pr_warn("%s: error %d reading SD ext regs, ignoring them\n",
++				mmc_hostname(host), err);
++			err = 0;
++		}
+ 	}
+ 
+ 	/* Enable internal SD cache if supported. */
+ 	if (card->ext_perf.feature_support & SD_EXT_PERF_CACHE) {
+ 		err = sd_enable_cache(card);
+-		if (err)
+-			goto free_card;
++		if (err) {
++			pr_warn("%s: error %d reading the SD cache state, assuming it is off\n",
++				mmc_hostname(host), err);
++			err = 0;
++		}
+ 	}
+ 
+ 	if (!mmc_card_ult_capacity(card) && host->cqe_ops && !host->cqe_enabled) {
+-- 
+2.43.0
+
