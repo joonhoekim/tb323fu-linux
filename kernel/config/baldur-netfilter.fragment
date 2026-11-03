@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: GPL-2.0-only
-# Distro firewalls and container networking (2026-10-01).
+# Distro firewalls and container networking.
 # Merge after baldur.fragment (and baldur-display.fragment).
 #
 # The first part is loadable modules only (=m): it can be added to a running
 # kernel without a new Image (built-in code and the modules already built stay
 # byte-for-byte what they were). The second part ("Needs a new Image") changes
 # a vmlinux export or existing modules (nf_conntrack.ko, nf_nat.ko,
-# nf_tables.ko), so it came with a new Image and a full modules set
-# (2026-10-01). What is still left out is listed at the end.
+# nf_tables.ko), so it needs a new Image and a full modules set. What is
+# still left out is listed at the end.
 #
 # Already on in the base config (no change): NF_TABLES(_INET/_IPV4/_IPV6),
 # NFT_CT/LOG/LIMIT/MASQ/NAT/REJECT/REJECT_INET, NF_CONNTRACK, NF_NAT,
@@ -119,5 +119,4 @@ CONFIG_NFT_REJECT_NETDEV=m
 #     ct labels, /proc/net/nf_conntrack (deprecated; conntrack(8) covers it).
 #   NF_TABLES_ARP / IP_NF_ARPTABLES (NETFILTER_FAMILY_ARP, built-in
 #     struct netns_nf).
-#   NETFILTER_XT_MATCH_POLICY (IPsec policy match) depends on XFRM, which is off;
-#     it was listed here until 2026-10-06 but never built.
+#   NETFILTER_XT_MATCH_POLICY (IPsec policy match) depends on XFRM, which is off.

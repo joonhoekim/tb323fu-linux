@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
-# Stage 5: merge after baldur.fragment. The panel driver has to be
+# Display: merge after baldur.fragment. The panel driver has to be
 # built in -- the initramfs carries no modules.
 CONFIG_DRM_PANEL_NOVATEK_NT36523=y
 CONFIG_ARM64_BUILTIN_FDT_NAME="qcom/kaanapali-lenovo-baldur-display.dtb"

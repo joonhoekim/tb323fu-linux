@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # Everyday devices, file systems and debugging tools that distros expect, and
-# virtual devices for automated tests (2026-10-13). Merge after
+# virtual devices for automated tests. Merge after
 # baldur-netfilter.fragment.
 #
 # Nothing here costs anything until it is used: modules load only when a
