@@ -21,7 +21,7 @@ column names the source; see that tree's history for the individual authors.
 Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114, 0116-0119, 0128-0139 and 0141-0148 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
+0111-0114, 0116-0119, 0128-0139 and 0141-0149 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -166,6 +166,7 @@ Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped 
 | `0146` | input: nt36536: report the pen pressure range 0..4095 | Joonhoe Kim | this project | local (Lenovo Tab Pen Plus, issue #16) | `d6a9beb22c7d422b` |
 | `0147` | usb: typec: ucsi: Leave the mux to the altmode driver for alt mode partners | Joonhoe Kim | this project | upstream candidate | `f35784e9010fab3e` |
 | `0148` | arm64: configs: baldur: drop no_console_suspend from the command line | Joonhoe Kim | this project | local | `c946fa1d5b130293` |
+| `0149` | usb: dwc3: qcom: Leave DP-only mode from the mux callback | Joonhoe Kim | this project | on top of 0136; same behaviour as v2 sent upstream (2026-11-03, [lore](https://lore.kernel.org/all/20261103135057.1682-1-26rote@gmail.com/)) | `fb3f6ce16e9f81a3` |
 
 ## Out-of-tree
 
