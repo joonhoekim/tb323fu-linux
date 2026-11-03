@@ -235,7 +235,7 @@ elif [ -n "$DEBS_FROM" ]; then
 	done
 fi
 if [ -n "$PKGS_FROM$DEBS_FROM" ]; then
-	ch "systemctl enable tb323fu-gen-ids tb323fu-btaddr tb323fu-dsp tb323fu-audio tb323fu-usb-port tb323fu-emergency-key tb323fu-kernel-confirm tb323fu-helperd >/dev/null"
+	ch "systemctl enable tb323fu-gen-ids tb323fu-btaddr tb323fu-dsp tb323fu-audio tb323fu-usb-port tb323fu-emergency-key tb323fu-kernel-confirm tb323fu-zram tb323fu-helperd >/dev/null"
 	ch "systemctl --global enable tb323fu-speaker-gain >/dev/null"
 fi
 sync

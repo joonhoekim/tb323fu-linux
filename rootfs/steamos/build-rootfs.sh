@@ -261,7 +261,7 @@ else
 	CC=${CC:-cc} DESTDIR=$T sh "$here/userspace/platform/install.sh" >/dev/null
 fi
 sc enable tb323fu-gen-ids.service tb323fu-btaddr.service tb323fu-dsp.service \
-	tb323fu-audio.service tb323fu-usb-port.service tb323fu-emergency-key.service tb323fu-kernel-confirm.service
+	tb323fu-audio.service tb323fu-usb-port.service tb323fu-emergency-key.service tb323fu-kernel-confirm.service tb323fu-zram.service
 sc --global enable tb323fu-speaker-gain.service
 if [ -z "$DEBS_FROM" ] && [ -n "$HELPER_FROM" ] && [ -x "$HELPER_FROM/target/release/tb323fu-helperd" ]; then
 	say "helper from $HELPER_FROM"

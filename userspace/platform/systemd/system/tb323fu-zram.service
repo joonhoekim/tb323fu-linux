@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: MIT
+# Off: ENABLED=0 in /etc/tb323fu/zram.conf (tb323fu-ctl memory zram off).
+# Ordered after zram-generator so an existing zram swap is seen and kept.
+[Unit]
+Description=Compressed swap in RAM (zram)
+Documentation=https://github.com/joonhoekim/tb323fu-linux/blob/main/docs/after-install.md#swap-zram
+DefaultDependencies=no
+After=systemd-remount-fs.service systemd-zram-setup@zram0.service dev-zram0.swap
+Before=swap.target shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/tb323fu/tb323fu-zram start
+ExecStop=/usr/libexec/tb323fu/tb323fu-zram stop
+
+[Install]
+WantedBy=swap.target

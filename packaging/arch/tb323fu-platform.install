@@ -1,11 +1,14 @@
 # SPDX-License-Identifier: MIT
 post_install() {
 	udevadm control --reload 2>/dev/null
-	systemctl enable tb323fu-gen-ids tb323fu-btaddr tb323fu-dsp tb323fu-audio tb323fu-usb-port tb323fu-emergency-key tb323fu-kernel-confirm 2>/dev/null
+	systemctl enable tb323fu-gen-ids tb323fu-btaddr tb323fu-dsp tb323fu-audio tb323fu-usb-port tb323fu-emergency-key tb323fu-kernel-confirm tb323fu-zram 2>/dev/null
 	systemctl --global enable tb323fu-speaker-gain 2>/dev/null
 	echo ">> put the Android boot image hash into /etc/tb323fu/android-boot.sha256 to arm the emergency key"
 }
 post_upgrade() {
 	udevadm control --reload 2>/dev/null
 	systemctl daemon-reload 2>/dev/null
+	# upgrades from before tb323fu-zram existed get it enabled once
+	[ "$(vercmp "$2" 0.4.6)" -lt 0 ] && systemctl enable tb323fu-zram 2>/dev/null
+	true
 }

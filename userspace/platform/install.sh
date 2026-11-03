@@ -99,7 +99,7 @@ Installed the TB323FU platform files under ${DESTDIR:-/}.
 Enable the services (in the target system):
   systemctl enable tb323fu-gen-ids.service tb323fu-btaddr.service tb323fu-dsp.service \\
                    tb323fu-audio.service tb323fu-usb-port.service tb323fu-emergency-key.service \\
-                   tb323fu-kernel-confirm.service
+                   tb323fu-kernel-confirm.service tb323fu-zram.service
   systemctl --global enable tb323fu-speaker-gain.service
   udevadm control --reload
 The emergency key needs $SYSCONFDIR/tb323fu/android-boot.sha256 (the hash printed when

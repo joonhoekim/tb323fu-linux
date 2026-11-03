@@ -1,0 +1,95 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# tb323fu-zram start|stop|status -- compressed swap in RAM (tb323fu-zram.service).
+#
+# /etc/tb323fu/zram.conf (optional; tb323fu-ctl memory zram writes it):
+#   ENABLED=1        0 = no zram swap from this service
+#   SIZE=ram         uncompressed size: "ram" (the RAM size) or MiB
+#   ALGORITHM=zstd
+# start leaves an existing zram swap (e.g. zram-generator's) alone. With its
+# own device it sets vm.swappiness=100 and vm.page-cluster=0; stop removes
+# only that device and puts the two values back.
+set -u
+CONF=/etc/tb323fu/zram.conf
+STATE=/run/tb323fu-zram
+ENABLED=1
+SIZE=ram
+ALGORITHM=zstd
+[ -r "$CONF" ] && . "$CONF"
+
+say() { echo "tb323fu-zram: $*"; }
+zram_swaps() { awk '$1 ~ /^\/dev\/zram[0-9]+$/ { print $1 }' /proc/swaps; }
+# udev still holds the device open for a moment after swapoff (EBUSY)
+reset_dev() {
+	udevadm settle -t 5 2> /dev/null
+	n=0
+	until zramctl -r "$1" 2> /dev/null; do
+		n=$((n + 1))
+		[ $n -lt 5 ] || { say "could not reset $1"; return 1; }
+		sleep 1
+	done
+}
+
+start() {
+	case $ENABLED in 0 | no | false | off) say "off ($CONF)"; return 0 ;; esac
+	if [ -s "$STATE/device" ]; then
+		say "$(cat "$STATE/device") already set up"
+		return 0
+	fi
+	other=$(zram_swaps | head -n1)
+	if [ -n "$other" ]; then
+		say "$other is already swap (another service): leaving it"
+		return 0
+	fi
+	case $SIZE in
+	ram | "") bytes=$(($(awk '/^MemTotal:/ { print $2 }' /proc/meminfo) * 1024)) ;;
+	*[!0-9]*) say "bad SIZE=$SIZE in $CONF"; return 1 ;;
+	*) bytes=$((SIZE * 1048576)) ;;
+	esac
+	modprobe zram 2> /dev/null
+	dev=$(zramctl -f -s "$bytes" -a "$ALGORITHM") || { say "zramctl failed (ALGORITHM=$ALGORITHM?)"; return 1; }
+	if ! mkswap "$dev" > /dev/null || ! swapon -p 100 "$dev"; then
+		reset_dev "$dev"
+		say "could not make $dev swap"
+		return 1
+	fi
+	mkdir -p "$STATE"
+	echo "$dev" > "$STATE/device"
+	cat /proc/sys/vm/swappiness > "$STATE/swappiness"
+	cat /proc/sys/vm/page-cluster > "$STATE/page-cluster"
+	echo 100 > /proc/sys/vm/swappiness
+	echo 0 > /proc/sys/vm/page-cluster
+	say "$dev: $((bytes / 1048576)) MiB $ALGORITHM, swappiness 100, page-cluster 0"
+}
+
+stop() {
+	if [ ! -s "$STATE/device" ]; then
+		say "no device set up by this service"
+		return 0
+	fi
+	dev=$(cat "$STATE/device")
+	if grep -q "^$dev " /proc/swaps && ! swapoff "$dev"; then
+		say "swapoff $dev failed (not enough free memory?)"
+		return 1
+	fi
+	reset_dev "$dev"
+	# a value someone changed since start stays
+	[ "$(cat /proc/sys/vm/swappiness)" = 100 ] && [ -s "$STATE/swappiness" ] && cat "$STATE/swappiness" > /proc/sys/vm/swappiness
+	[ "$(cat /proc/sys/vm/page-cluster)" = 0 ] && [ -s "$STATE/page-cluster" ] && cat "$STATE/page-cluster" > /proc/sys/vm/page-cluster
+	rm -rf "$STATE"
+	say "$dev removed"
+}
+
+status() {
+	echo "config: ENABLED=$ENABLED SIZE=$SIZE ALGORITHM=$ALGORITHM"
+	echo "set up by this service: $(cat "$STATE/device" 2> /dev/null || echo none)"
+	echo "swappiness $(cat /proc/sys/vm/swappiness), page-cluster $(cat /proc/sys/vm/page-cluster)"
+	zramctl
+}
+
+case ${1:-} in
+start) start ;;
+stop) stop ;;
+status) status ;;
+*) echo "usage: tb323fu-zram start|stop|status" >&2; exit 2 ;;
+esac

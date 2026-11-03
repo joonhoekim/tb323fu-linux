@@ -71,6 +71,20 @@ in {
         (written only when the file does not exist; the helper owns the file).
       '';
     };
+    zram.enable = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Compressed swap in RAM through NixOS's zramSwap (zstd, priority 100) with
+        vm.swappiness=100 and vm.page-cluster=0, as the platform's
+        tb323fu-zram.service does on other distributions.
+      '';
+    };
+    zram.memoryPercent = lib.mkOption {
+      type = lib.types.ints.between 1 400;
+      default = 100;
+      description = "Uncompressed size of the zram swap, in percent of the RAM.";
+    };
     androidBootSha256 = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
@@ -122,6 +136,18 @@ in {
       # camera tuning
       environment.variables.LIBCAMERA_IPA_CONFIG_PATH = "${platform}/share/libcamera/ipa";
     }
+    (lib.mkIf cfg.zram.enable {
+      zramSwap = {
+        enable = true;
+        algorithm = lib.mkDefault "zstd";
+        memoryPercent = cfg.zram.memoryPercent;
+        priority = lib.mkDefault 100;
+      };
+      boot.kernel.sysctl = {
+        "vm.swappiness" = lib.mkDefault 100;
+        "vm.page-cluster" = lib.mkDefault 0;
+      };
+    })
     (lib.mkIf (cfg.sensors.dataDir != null) {
       # hexagonrpcd (nixpkgs: hexagonrpc) answers the sensor hub's file requests;
       # the device's own files, on the ADSP's only (secure) fastrpc node

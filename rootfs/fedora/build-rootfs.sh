@@ -162,7 +162,7 @@ dnf upgrade --refresh
 base="systemd systemd-networkd systemd-resolved NetworkManager NetworkManager-wifi wpa_supplicant
 	wireless-regdb openssh-server sudo bluez /usr/bin/btmgmt pipewire pipewire-pulseaudio wireplumber
 	ladspa-swh-plugins alsa-ucm alsa-utils iio-sensor-proxy mesa-dri-drivers mesa-vulkan-drivers
-	vulkan-tools libgpiod-utils qrtr libcamera libcamera-ipa polkit kmod gcc
+	vulkan-tools libgpiod-utils qrtr libcamera libcamera-ipa polkit kmod gcc /usr/sbin/zramctl
 	glibc-langpack-en less vim-minimal passwd"
 case $DESKTOP in
 gnome) desk="@workstation-product-environment fedora-release-workstation gdm gnome-shell gnome-session
@@ -277,7 +277,7 @@ done
 chown -R 0:0 "$T/usr/lib/firmware" "$T/etc/tb323fu"   # copies from a user's PC keep its uid
 ch env OPTIONAL="$iio_opt" CC=gcc sh $S/userspace/platform/install.sh >/dev/null
 ch systemctl enable tb323fu-gen-ids.service tb323fu-btaddr.service tb323fu-dsp.service \
-	tb323fu-audio.service tb323fu-usb-port.service tb323fu-emergency-key.service tb323fu-kernel-confirm.service >/dev/null 2>&1
+	tb323fu-audio.service tb323fu-usb-port.service tb323fu-emergency-key.service tb323fu-kernel-confirm.service tb323fu-zram.service >/dev/null 2>&1
 ch systemctl --global enable tb323fu-speaker-gain.service >/dev/null 2>&1
 # the proxy is started at boot and retried (the SSC sensors appear late), see the drop-in
 [ -n "$iio_opt" ] && ch systemctl add-wants multi-user.target iio-sensor-proxy.service >/dev/null 2>&1
