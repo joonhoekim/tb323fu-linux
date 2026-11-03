@@ -4,7 +4,7 @@
 # natively on an arm64 host (for example the tablet itself running Linux)
 # into a mounted, empty ext4 partition.
 #
-#   sh build-rootfs.sh TARGET_DIR [RELEASE]          # default RELEASE resolute (26.04 LTS)
+#   sh build-rootfs.sh TARGET_DIR [RELEASE]          # default RELEASE stonking (26.10)
 #
 # Environment (all optional):
 #   ROOT_PARTLABEL=tb323fu-ubuntu   GPT name of the target partition (fstab)
@@ -33,7 +33,7 @@
 # safe: an existing base system is not bootstrapped again.
 set -eu
 T=${1:?usage: build-rootfs.sh TARGET_DIR [RELEASE]}
-REL=${2:-resolute}
+REL=${2:-stonking}
 ROOT_PARTLABEL=${ROOT_PARTLABEL:-tb323fu-ubuntu}
 HOSTNAME_NEW=${HOSTNAME_NEW:-tb323fu-ubuntu}
 TIMEZONE=${TIMEZONE:-$(readlink /etc/localtime 2>/dev/null | sed -n "s|.*/zoneinfo/||p")}

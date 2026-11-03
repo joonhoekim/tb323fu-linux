@@ -12,7 +12,7 @@ DISTRO=~/my-distro.sh tools/install/install.sh  # your own module, by path
 
 | Module | System | Status |
 |---|---|---|
-| [`ubuntu.sh`](ubuntu.sh) | Ubuntu 26.04, GNOME | verified |
+| [`ubuntu.sh`](ubuntu.sh) | Ubuntu 26.10, GNOME | verified |
 | [`arch.sh`](arch.sh) | Arch Linux ARM, GNOME | verified |
 | [`nixos.sh`](nixos.sh) | NixOS (unstable), GNOME | experimental |
 | [`steamos.sh`](steamos.sh) | SteamOS, community port | experimental |
