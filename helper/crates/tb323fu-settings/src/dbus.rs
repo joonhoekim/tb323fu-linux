@@ -122,6 +122,7 @@ pub fn setting_name(method: &str) -> &'static str {
         "SetStrength" => "Vibration strength",
         "Test" => "Vibration test",
         "SetChargerWake" => "Charger wake",
+        "SetZram" => "Compressed swap",
         "Set" => "Torch",
         "SetLevel" => "Torch brightness",
         "SetMode" => "Charge indicator",

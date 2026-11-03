@@ -112,6 +112,30 @@ release only.
 Details, and using a release without the helper: [helper.md → Graphics drivers](helper.md#graphics-drivers-mesa).
 Measured results: [Performance → GPU](performance.md#gpu).
 
+## Swap (zram)
+
+The root images have no swap partition or file. The platform package sets up compressed swap in RAM at every start
+instead (`tb323fu-zram.service`): a zram device as large as the RAM, zstd, with `vm.swappiness=100` and
+`vm.page-cluster=0`. Memory that programs leave idle is compressed (about 4.5 times in our test), so a working set
+larger than the RAM keeps running instead of a program being closed by the out-of-memory killer. In our test,
+15–17 GB on the 15 GB tablet were killed every time without swap and kept running with zram, with no measurable
+difference in build time or latency.
+
+```sh
+tb323fu-ctl memory zram          # active?, size, stored and compressed, swappiness
+tb323fu-ctl memory zram off      # or on; also Open Device Helper → Performance → Compressed Swap
+tb323fu-ctl memory zram size 8192   # MiB, or "size ram"
+```
+
+Without the helper, edit `/etc/tb323fu/zram.conf` (`ENABLED=0|1`, `SIZE=ram|MiB`, `ALGORITHM=zstd`) and run
+`systemctl restart tb323fu-zram`. If the system already has a zram swap (Fedora's zram-generator), the service leaves
+it alone. A swap file next to it is fine: zram is used first (priority 100). On NixOS it is
+`services.tb323fu.zram.enable` (default on) and `services.tb323fu.zram.memoryPercent`.
+
+Other sysctls suggested for zram (`vm.watermark_boost_factor=0`, `vm.watermark_scale_factor=125`,
+`vm.vfs_cache_pressure=50`, `vm.dirty_background_ratio=5`, `vm.dirty_ratio=10`) are optional tuning: they showed no gain
+in our test and are not set.
+
 ## Screen rotation
 
 The rotation sensor works on every system that has the sensor support ([Distributions](distros.md)); whether the

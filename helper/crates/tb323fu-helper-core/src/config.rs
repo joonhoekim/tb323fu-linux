@@ -27,6 +27,7 @@ pub struct Config {
     pub wifi: Wifi,
     pub haptics: Haptics,
     pub usb: Usb,
+    pub memory: Memory,
     pub kernel: Kernel,
 }
 
@@ -227,6 +228,16 @@ impl Default for Kernel {
     }
 }
 
+/// Compressed swap in RAM (`/etc/tb323fu/zram.conf`, platform
+/// `tb323fu-zram.service`): `None` = leave that file as it is.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(default)]
+pub struct Memory {
+    pub zram: Option<bool>,
+    /// uncompressed size, MiB; 0 = the RAM size
+    pub zram_size_mib: Option<u32>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(default)]
 pub struct Usb {
@@ -296,6 +307,7 @@ impl Default for Config {
             wifi: Wifi::default(),
             haptics: Haptics::default(),
             usb: Usb::default(),
+            memory: Memory::default(),
             kernel: Kernel::default(),
         }
     }
@@ -389,7 +401,9 @@ mod tests {
         c.battery.charge_limit = 70;
         c.refresh.ms60 = Some(2000);
         c.kernel.public_keys = vec!["RWQx".into()];
+        c.memory.zram = Some(false);
         c.save(&p).unwrap();
+        assert!(!fs::read_to_string(&p).unwrap().contains("zram_size_mib"));
         let (d, migrated) = Config::load(&p);
         assert!(!migrated);
         assert_eq!(c, d);
@@ -397,6 +411,13 @@ mod tests {
         fs::write(&p, "[kernel]\nchannel = \"testing\"\nindex_url = \"https://x/index.json\"\n").unwrap();
         let (d, _) = Config::load(&p);
         assert_eq!((d.kernel.channel.as_str(), d.kernel.source.as_str()), ("testing", DEFAULT_SOURCE));
+        assert_eq!(d.memory, Memory::default());
+        fs::write(&p, "[memory]
+zram = true
+zram_size_mib = 8192
+").unwrap();
+        let (d, _) = Config::load(&p);
+        assert_eq!((d.memory.zram, d.memory.zram_size_mib), (Some(true), Some(8192)));
         fs::write(&p, "[battery]\ncharge_limit = \"seventy\"\n").unwrap();
         let (d, migrated) = Config::load(&p);
         assert!(!migrated);

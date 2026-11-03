@@ -8,7 +8,7 @@ use zbus::zvariant::{OwnedValue, Value};
 
 const BUS: &str = "io.github.joonhoekim.OpenDeviceHelper1";
 const ROOT: &str = "/io/github/joonhoekim/OpenDeviceHelper1";
-const OBJECTS: [&str; 14] = ["Battery", "Android", "Torch", "LedRing", "Refresh", "Gpu", "Usb", "EmergencyKey", "Diagnostics", "Boot", "Thermal", "Haptics", "Kernel", "HelperUpdate"];
+const OBJECTS: [&str; 15] = ["Battery", "Android", "Torch", "LedRing", "Refresh", "Gpu", "Usb", "EmergencyKey", "Diagnostics", "Boot", "Thermal", "Haptics", "Memory", "Kernel", "HelperUpdate"];
 
 const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
 
@@ -43,6 +43,9 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
   usb [wake on|off|dev on|off|charger-wake on|off]
                                  USB device wakeup, developer USB access, wake when a charger is plugged in or out;
                                  without arguments also the USB-C port roles
+  memory [zram [status]]          compressed swap in RAM (zram): device, size, stored and compressed, swappiness
+  memory zram on|off             switch it on or off (on by default; the platform's tb323fu-zram.service)
+  memory zram size MIB|ram       its uncompressed size (256..65536 MiB, default ram = the RAM size)
   emergency-key [on|off|hold SECONDS]
   diagnostics [export]
   boot [list|next NAME|clear|default NAME|reboot NAME|rescan]
@@ -302,6 +305,44 @@ impl Ctl {
             }
         }
         println!("* running  d default ({def})  n next boot ({})", if next.is_empty() { "none" } else { next.as_str() });
+        0
+    }
+}
+
+fn mib(bytes: u64) -> String {
+    let m = bytes as f64 / 1048576.0;
+    if m >= 1024.0 { format!("{:.1} GiB", m / 1024.0) } else { format!("{m:.1} MiB") }
+}
+
+impl Ctl {
+    /// zram state as a few lines (or the raw properties with --json).
+    fn zram(&self) -> i32 {
+        if self.json {
+            return self.show(&["Memory"]);
+        }
+        let Some(p) = self.props("Memory") else {
+            eprintln!("tb323fu-ctl: no Memory object (helper not running, or too old)");
+            return 1;
+        };
+        let s = |k: &str| p.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+        let n = |k: &str| p.get(k).and_then(|v| v.as_u64()).unwrap_or(0);
+        let on = p.get("ZramEnabled").and_then(|v| v.as_bool()).unwrap_or(false);
+        let size = n("ZramSizeMib");
+        println!("setting      {}, size {}", if on { "on" } else { "off" }, if size == 0 { "ram (the RAM size)".into() } else { format!("{size} MiB") });
+        let dev = s("ZramDevice");
+        if dev.is_empty() {
+            println!("active       no");
+        } else {
+            let by = match s("ZramSource").as_str() {
+                "tb323fu" => "tb323fu-zram.service",
+                _ => "another service",
+            };
+            println!("active       {dev} ({by}), {} {}", mib(n("ZramDiskSize")), s("ZramAlgorithm"));
+            let (orig, compr) = (n("ZramOrigData"), n("ZramComprData"));
+            let ratio = if compr > 0 && orig >= 1048576 { format!(", ratio {:.1}", orig as f64 / compr as f64) } else { String::new() };
+            println!("stored       {} in {}{ratio}; RAM used {}", mib(orig), mib(compr), mib(n("ZramMemUsed")));
+        }
+        println!("swappiness   {}, page-cluster {}", n("Swappiness"), n("PageCluster"));
         0
     }
 }
@@ -961,6 +1002,22 @@ fn run(args: &[String]) -> i32 {
             (Some("wake"), Some(b)) => c.call("Usb", "SetWake", &(b,)),
             (Some("dev"), Some(b)) => c.call("Usb", "SetDevMode", &(b,)),
             (Some("charger-wake"), Some(b)) => c.call("Usb", "SetChargerWake", &(b,)),
+            _ => usage(),
+        },
+        "memory" => match (rest.first().copied(), rest.get(1).copied()) {
+            (None, _) => c.show(&["Memory"]),
+            (Some("zram"), None | Some("status")) => c.zram(),
+            (Some("zram"), Some("size")) => match rest.get(2).copied() {
+                Some("ram") => c.call("Memory", "SetZramSize", &(0u32,)),
+                _ => match num(rest.get(2)) {
+                    Some(n) => c.call("Memory", "SetZramSize", &(n,)),
+                    None => usage(),
+                },
+            },
+            (Some("zram"), _) => match onoff(rest.get(1)) {
+                Some(b) => c.call("Memory", "SetZram", &(b,)),
+                None => usage(),
+            },
             _ => usage(),
         },
         "emergency-key" => match rest.first().copied() {

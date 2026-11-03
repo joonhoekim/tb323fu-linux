@@ -78,6 +78,12 @@
     <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
   </action>
 
+  <action id="io.github.joonhoekim.opendevicehelper.memory">
+    <description>Switch the compressed swap in RAM (zram) on or off, or change its size</description>
+    <message>Authentication is required to change the compressed swap</message>
+    <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+  </action>
+
   <action id="io.github.joonhoekim.opendevicehelper.usb-wake">
     <description>Allow or forbid waking up from USB devices or a charger</description>
     <message>Authentication is required to change the wakeup sources</message>

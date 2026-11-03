@@ -1,5 +1,15 @@
 # Open Device Helper changelog
 
+## Unreleased
+
+- **Compressed swap in RAM, on by default:** the root images had no swap, so a working set larger than the RAM got
+  programs killed. `tb323fu-platform` now sets up zram at every start (`tb323fu-zram.service`: zstd, as large as the
+  RAM, priority 100, `vm.swappiness=100`, `vm.page-cluster=0`); an existing zram swap (Fedora's zram-generator) is
+  left alone. `/etc/tb323fu/zram.conf` (`ENABLED`, `SIZE`, `ALGORITHM`). Package upgrades enable it too.
+- The helper switches it: `tb323fu-ctl memory zram [status] | on | off | size MIB|ram`, settings `memory.zram` and
+  `memory.zram_size_mib`, D-Bus object `Memory`, polkit action `memory`, settings app Performance → Memory.
+  NixOS: `services.tb323fu.zram.enable` (default on) and `zram.memoryPercent`, through `zramSwap`.
+
 ## 0.4.5 — 2026-10-30
 
 - **`tb323fu-check`:** a new command in the platform package checks each part of the tablet (DSPs, GPU, touch, pen,

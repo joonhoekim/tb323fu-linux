@@ -58,7 +58,7 @@ GNOME and apt.
   - **Display:** refresh policy (adaptive, fixed, full rate of the current mode), the idle timing presets or custom idle times, panel
     heat protection.
   - **Performance:** the profile (power-saver / balanced / performance) with CPU and GPU limits per profile, low-latency
-    Wi-Fi in the performance profile, the thermal profile, CPU boost, and the temperatures.
+    Wi-Fi in the performance profile, the thermal profile, CPU boost, the compressed swap (zram) switch, and the temperatures.
   - **Lights & Vibration:** torch, LED ring mode and color (a palette of nine; `tb323fu-ctl` takes any `#rrggbb`),
     breathing, notification pulse, vibration strength with a test.
   - **USB:** wake sources, USB-C port roles, developer mode.

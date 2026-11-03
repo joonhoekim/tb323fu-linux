@@ -47,6 +47,7 @@ tb323fu-ctl gpu wifi-low-latency on   # Wi-Fi power saving off in the performanc
 tb323fu-ctl thermal profile quiet | default | performance   # board-temperature steps -3 / 0 / +8 °C (max 58 °C)
 tb323fu-ctl thermal follow on | bypass on | panel-limit on
 tb323fu-ctl usb wake on
+tb323fu-ctl memory zram on | off | size 8192 | size ram   # compressed swap in RAM; without arguments its state
 tb323fu-ctl android --yes            # restart into Android now
 tb323fu-ctl diagnostics export       # sanitized tarball under /var/lib/tb323fu/diagnostics
 tb323fu-ctl boot list                # installed systems, and what each lacks for this kernel

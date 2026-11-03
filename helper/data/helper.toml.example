@@ -71,6 +71,11 @@ wake = false             # USB host wakeup from suspend (off by default on this 
 # dev_mode = true        # USB gadget network + serial console; omit to keep the boot state
 # charger_wake = false   # plugging or unplugging a charger wakes the tablet; omit to keep the kernel's setting (on)
 
+[memory]                 # compressed swap in RAM (platform tb323fu-zram.service, /etc/tb323fu/zram.conf);
+                         # omit to leave zram.conf as it is (on, the RAM size, by default)
+# zram = true
+# zram_size_mib = 0      # uncompressed size, MiB (256..65536); 0 = the RAM size
+
 [kernel]                 # kernel updates (docs/helper.md "Kernel updates")
 channel = "stable"       # "stable": the newest release; "testing": the newest release or pre-release
                          # (a testing kernel is kept only when you press Keep)

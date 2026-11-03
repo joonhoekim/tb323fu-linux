@@ -13,6 +13,7 @@ use std::sync::Arc;
 use tb323fu_helper_core::boot;
 use tb323fu_helper_core::features as f;
 use tb323fu_helper_core::haptics;
+use tb323fu_helper_core::memory as mem;
 use tb323fu_helper_core::perf;
 use std::sync::Mutex;
 use zbus::fdo;
@@ -34,6 +35,7 @@ pub const P_DIAG: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Diagnostics";
 pub const P_BOOT: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Boot";
 pub const P_THERMAL: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Thermal";
 pub const P_HAPTICS: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Haptics";
+pub const P_MEMORY: &str = "/io/github/joonhoekim/OpenDeviceHelper1/Memory";
 
 fn failed(e: String) -> fdo::Error {
     fdo::Error::Failed(e)
@@ -1336,5 +1338,165 @@ impl Haptics {
             return Err(invalid("motor must be left, right or both".into()));
         }
         blocking::unblock(move || haptics::test(&motor)).await.map_err(failed)
+    }
+}
+
+// ------------------------------------------------------------------ Memory
+
+/// zram.conf as the settings want it (what they leave unset stays as it is).
+fn zram_wanted(m: &tb323fu_helper_core::config::Memory) -> mem::ZramConf {
+    let mut z = mem::ZramConf::read();
+    if let Some(on) = m.zram {
+        z.enabled = on;
+    }
+    if let Some(s) = m.zram_size_mib {
+        z.size_mib = s;
+    }
+    z
+}
+
+fn systemctl(args: &[&str]) -> Result<(), String> {
+    let o = std::process::Command::new("systemctl").args(args).output().map_err(|e| format!("systemctl: {e}"))?;
+    if o.status.success() { Ok(()) } else { Err(format!("systemctl {}: {}", args.join(" "), String::from_utf8_lossy(&o.stderr).trim())) }
+}
+
+/// Write zram.conf from the settings and restart the platform unit when the
+/// file changed (or always with `force`). Blocks while swap moves back to RAM.
+pub fn zram_apply(m: &tb323fu_helper_core::config::Memory, force: bool) -> Result<(), String> {
+    let z = zram_wanted(m);
+    let changed = z.write().map_err(|e| format!("{}: {e}", mem::ZRAM_CONF))?;
+    if !changed && !force {
+        return Ok(());
+    }
+    if z.enabled {
+        let _ = systemctl(&["enable", mem::ZRAM_UNIT]);
+    }
+    let r = systemctl(&["restart", mem::ZRAM_UNIT]);
+    let st = mem::status();
+    if !z.enabled && st.source == "tb323fu" {
+        return Err("the compressed swap is still in use: not enough free memory to take it back (close some programs and try again)".into());
+    }
+    if z.enabled && st.device.is_none() {
+        return Err(r.err().unwrap_or_else(|| format!("no compressed swap after starting {0}: see journalctl -u {0}", mem::ZRAM_UNIT)));
+    }
+    Ok(())
+}
+
+/// Compressed swap in RAM (zram) and the swap tunables that go with it.
+pub struct Memory(pub Arc<Shared>);
+
+impl Memory {
+    fn check_configurable(&self) -> fdo::Result<()> {
+        if mem::declarative() {
+            return Err(failed("NixOS sets this in its configuration: services.tb323fu.zram.enable".into()));
+        }
+        if !mem::unit_installed() {
+            return Err(failed(format!("{} is not installed (update tb323fu-platform)", mem::ZRAM_UNIT)));
+        }
+        Ok(())
+    }
+
+    async fn apply(&self, em: &SignalEmitter<'_>) -> fdo::Result<()> {
+        let m = self.0.cfg().memory;
+        let r = blocking::unblock(move || zram_apply(&m, true)).await;
+        invalidate(em, Self::IFACE, Self::PROPS).await;
+        r.map_err(failed)
+    }
+}
+
+impl Snapshot for Memory {
+    const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.Memory";
+    const PROPS: &'static [&'static str] = &["ZramEnabled", "ZramSizeMib", "ZramConfigurable", "ZramActive", "ZramDevice", "ZramSource",
+        "ZramAlgorithm", "ZramDiskSize", "ZramOrigData", "ZramComprData", "ZramMemUsed", "Swappiness", "PageCluster"];
+    fn snapshot(&self) -> String {
+        // usage moves all the time: only state-like values trigger a signal
+        let s = mem::status();
+        format!("{:?} {:?} {} {} {:?} {:?}", mem::ZramConf::read(), s.device, s.source, s.disk_size, s.swappiness, s.page_cluster)
+    }
+}
+
+#[interface(name = "io.github.joonhoekim.OpenDeviceHelper1.Memory")]
+impl Memory {
+    /// the setting (zram.conf ENABLED); on NixOS whether a zram swap is active
+    #[zbus(property)]
+    fn zram_enabled(&self) -> bool {
+        if mem::declarative() { mem::status().device.is_some() } else { mem::ZramConf::read().enabled }
+    }
+    /// uncompressed size, MiB; 0 = the RAM size
+    #[zbus(property)]
+    fn zram_size_mib(&self) -> u32 {
+        mem::ZramConf::read().size_mib
+    }
+    /// SetZram and SetZramSize work here (not NixOS, platform unit installed)
+    #[zbus(property)]
+    fn zram_configurable(&self) -> bool {
+        !mem::declarative() && mem::unit_installed()
+    }
+    #[zbus(property)]
+    fn zram_active(&self) -> bool {
+        mem::status().device.is_some()
+    }
+    /// "/dev/zram0", "" none
+    #[zbus(property)]
+    fn zram_device(&self) -> String {
+        mem::status().device.unwrap_or_default()
+    }
+    /// "tb323fu" (tb323fu-zram.service), "other" (e.g. zram-generator), "" none
+    #[zbus(property)]
+    fn zram_source(&self) -> String {
+        mem::status().source
+    }
+    #[zbus(property)]
+    fn zram_algorithm(&self) -> String {
+        mem::status().algorithm
+    }
+    /// bytes
+    #[zbus(property)]
+    fn zram_disk_size(&self) -> u64 {
+        mem::status().disk_size
+    }
+    /// uncompressed bytes stored
+    #[zbus(property)]
+    fn zram_orig_data(&self) -> u64 {
+        mem::status().orig_data
+    }
+    /// compressed bytes
+    #[zbus(property)]
+    fn zram_compr_data(&self) -> u64 {
+        mem::status().compr_data
+    }
+    /// bytes of RAM the device uses in total
+    #[zbus(property)]
+    fn zram_mem_used(&self) -> u64 {
+        mem::status().mem_used
+    }
+    #[zbus(property)]
+    fn swappiness(&self) -> u32 {
+        mem::status().swappiness.unwrap_or(0)
+    }
+    #[zbus(property)]
+    fn page_cluster(&self) -> u32 {
+        mem::status().page_cluster.unwrap_or(0)
+    }
+    async fn set_zram(&self, on: bool, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "memory", self.0.no_polkit).await?;
+        self.check_configurable()?;
+        if !on && mem::status().source == "other" {
+            return Err(failed("the compressed swap comes from another service (zram-generator?): turn it off there".into()));
+        }
+        self.0.update(|c| c.memory.zram = Some(on));
+        self.apply(&em).await
+    }
+    /// MiB, 0 = the RAM size
+    async fn set_zram_size(&self, mib: u32, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "memory", self.0.no_polkit).await?;
+        self.check_configurable()?;
+        if !mem::valid_size(mib) {
+            return Err(invalid(format!("size must be 0 (the RAM size) or {}..{} MiB", mem::SIZE_MIN_MIB, mem::SIZE_MAX_MIB)));
+        }
+        self.0.update(|c| c.memory.zram_size_mib = Some(mib));
+        self.apply(&em).await
     }
 }

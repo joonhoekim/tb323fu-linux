@@ -47,10 +47,10 @@ const LED_PALETTE: [(&str, &str); 9] = [("Red", "#ff0000"), ("Orange", "#ff6000"
 const DAYS: [&str; 7] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 const DAY_LETTERS: [&str; 7] = ["M", "T", "W", "T", "F", "S", "S"];
 /// Every object the helper can export (for "N of M available").
-const KNOWN_FEATURES: usize = 13;
+const KNOWN_FEATURES: usize = 14;
 const DEBOUNCE: Duration = Duration::from_millis(400);
 /// The objects refresh() polls (the root object is polled first).
-const OBJECTS: [&str; 15] = ["Battery", "Refresh", "Gpu", "Torch", "LedRing", "Haptics", "Usb", "EmergencyKey", "Android", "Diagnostics", "Boot", "Thermal", "Kernel", "HelperUpdate", "Mesa"];
+const OBJECTS: [&str; 16] = ["Battery", "Refresh", "Gpu", "Torch", "LedRing", "Haptics", "Usb", "EmergencyKey", "Android", "Diagnostics", "Boot", "Thermal", "Memory", "Kernel", "HelperUpdate", "Mesa"];
 
 const CSS: &str = "
 .tag { font-size: smaller; font-weight: bold; padding: 2px 8px; border-radius: 999px;
@@ -461,6 +461,10 @@ struct Ui {
     th_throttle: gtk::Label,
     th_all: adw::ExpanderRow,
     th_rows: RefCell<Vec<(String, adw::ActionRow, gtk::Label)>>,
+    // Memory (on the Performance page)
+    mem_group: adw::PreferencesGroup,
+    mem_zram: adw::SwitchRow,
+    mem_use: gtk::Label,
     // Torch / LED
     torch_group: adw::PreferencesGroup,
     torch_on: adw::SwitchRow,
@@ -752,6 +756,11 @@ impl Ui {
             limits.push(LimitRows { profile: p, exp, gpu: [lo, hi], cpu });
             gpu_buttons.push(bt);
         }
+        let mem_group = group(&b, "Memory", "");
+        group_help(&mem_group, "Compressed swap in RAM (zram): memory that programs leave idle is compressed, so the tablet runs \
+            out of memory much later and closes fewer programs. It costs little CPU time and is on by default.");
+        let mem_zram = switch(&mem_group, "Compressed Swap", "zram, as large as the RAM");
+        let mem_use = info(&mem_group, "In Use");
         let th_group = group(&b, "Temperature", "");
         group_help(&th_group, "Read-only. Throttling means the kernel is lowering the CPU or GPU clock to cool down.");
         let th_surface = info(&th_group, "Surface");
@@ -961,7 +970,7 @@ impl Ui {
         let defs: [(&str, &str, &'static [&'static str], &gtk::ScrolledWindow, Option<&adw::Banner>); 10] = [
             ("Battery", "battery-good-symbolic", &["Battery"], &p_bat, None),
             ("Display", "video-display-symbolic", &["Refresh", "Thermal"], &p_ref, None),
-            ("Performance", "power-profile-balanced-symbolic", &["Gpu", "Thermal"], &p_gpu, Some(&me_banner)),
+            ("Performance", "power-profile-balanced-symbolic", &["Gpu", "Thermal", "Memory"], &p_gpu, Some(&me_banner)),
             ("Lights & Vibration", "display-brightness-symbolic", &["Torch", "LedRing", "Haptics"], &p_led, None),
             ("USB", "media-removable-symbolic", &["Usb"], &p_usb, None),
             ("Emergency Key", "dialog-warning-symbolic", &["EmergencyKey"], &p_ek, None),
@@ -1102,6 +1111,9 @@ impl Ui {
             th_throttle,
             th_all,
             th_rows: RefCell::new(Vec::new()),
+            mem_group,
+            mem_zram,
+            mem_use,
             torch_group,
             torch_on,
             torch_level,
@@ -1588,6 +1600,7 @@ impl Ui {
             t.connect_toggled(move |_| ui.send_full_by());
         }
         self.switch_sends(&self.usb_charger, "Usb", "SetChargerWake");
+        self.switch_sends(&self.mem_zram, "Memory", "SetZram");
 
         // USB
         self.switch_sends(&self.usb_wake, "Usb", "SetWake");
@@ -1795,6 +1808,10 @@ impl Ui {
         self.th_prof_group.set_visible(present("Thermal"));
         if let Some(t) = p("Thermal") {
             self.update_thermal(t);
+        }
+        self.mem_group.set_visible(present("Memory"));
+        if let Some(m) = p("Memory") {
+            self.update_memory(m);
         }
         self.torch_group.set_visible(present("Torch"));
         if let Some(t) = p("Torch") {
@@ -2998,6 +3015,22 @@ impl Ui {
             }
         }
         self.usb_ports_group.set_visible(!ports.is_empty());
+    }
+
+    fn update_memory(&self, p: &Props) {
+        set_switch(&self.mem_zram, dbus::b(p, "ZramEnabled"));
+        self.mem_zram.set_sensitive(dbus::b(p, "ZramConfigurable").unwrap_or(false));
+        let size = dbus::u(p, "ZramSizeMib").unwrap_or(0);
+        self.mem_zram.set_subtitle(&if size == 0 { "zram, as large as the RAM".to_string() } else { format!("zram, {size} MiB") });
+        let mib = |k: &str| dbus::t(p, k).unwrap_or(0) as f64 / 1048576.0;
+        let text = if !dbus::b(p, "ZramActive").unwrap_or(false) {
+            "Off".to_string()
+        } else if mib("ZramComprData") < 1.0 {
+            "Empty".to_string()
+        } else {
+            format!("{:.0} MiB in {:.0} MiB", mib("ZramOrigData"), mib("ZramComprData"))
+        };
+        set_text(&self.mem_use, &text);
     }
 
     fn update_thermal(&self, p: &Props) {

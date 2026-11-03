@@ -23,6 +23,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tb323fu_helper_core::config::{config_path, Config};
 use tb323fu_helper_core::features as f;
+use tb323fu_helper_core::memory as mem;
 use tb323fu_helper_core::perf;
 use zbus::object_server::SignalEmitter;
 
@@ -646,6 +647,14 @@ fn apply_startup(s: &Shared) {
             let _ = f::set_dev_mode(on);
         }
     }
+    let m = c.memory;
+    if (m.zram.is_some() || m.zram_size_mib.is_some()) && !mem::declarative() && mem::unit_installed() {
+        std::thread::spawn(move || {
+            if let Err(e) = zram_apply(&m, false) {
+                eprintln!("tb323fu-helperd: zram: {e}");
+            }
+        });
+    }
 }
 
 /// Emit PropertiesChanged for an object whose snapshot changed.
@@ -678,9 +687,10 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
     let has_thermal = f::thermal().is_some() || perf::thermal_profile_available();
     let has_kernel = tb323fu_helper_core::kernel::find_device().is_ok();
     let has_haptics = !tb323fu_helper_core::haptics::motors().is_empty();
+    let has_memory = mem::unit_installed() || mem::declarative() || mem::status().device.is_some();
     for (on, name) in [(has_battery, "Battery"), (has_android, "Android"), (has_torch, "Torch"), (has_ledring, "LedRing"),
         (has_refresh, "Refresh"), (has_gpu, "Gpu"), (has_usb, "Usb"), (true, "EmergencyKey"), (true, "Diagnostics"), (has_boot, "Boot"),
-        (has_thermal, "Thermal"), (has_kernel, "Kernel"), (has_haptics, "Haptics")] {
+        (has_thermal, "Thermal"), (has_kernel, "Kernel"), (has_haptics, "Haptics"), (has_memory, "Memory")] {
         if on {
             features.push(name.to_string());
         }
@@ -752,6 +762,9 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
     if has_haptics {
         b = b.serve_at(P_HAPTICS, Haptics(shared.clone()))?;
     }
+    if has_memory {
+        b = b.serve_at(P_MEMORY, Memory(shared.clone()))?;
+    }
     let conn = b.name(BUS)?.build().await?;
     eprintln!("tb323fu-helperd {} on {} bus: {}", selfupdate::version(), if session { "session" } else { "system" },
         shared.features.join(" "));
@@ -796,6 +809,7 @@ async fn run(no_polkit: bool, session: bool) -> zbus::Result<()> {
         if has_boot { watch::<Boot>(&conn, P_BOOT, &mut last).await; }
         if has_thermal { watch::<Thermal>(&conn, P_THERMAL, &mut last).await; }
         if has_haptics { watch::<Haptics>(&conn, P_HAPTICS, &mut last).await; }
+        if has_memory { watch::<Memory>(&conn, P_MEMORY, &mut last).await; }
         if has_kernel {
             kern.poll_state();
             kern.auto_tick();

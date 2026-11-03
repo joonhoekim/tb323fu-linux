@@ -83,6 +83,12 @@ mk /sys/class/typec/port0/data_role "host [device]"; mk /sys/class/typec/port0/p
 mkdir -p $R/sys/class/typec/port0-partner
 # vibration motors (event nodes are plain files here: each FF_GAIN write appends an input_event)
 for n in 5 6; do mk /sys/class/input/event$n/device/name aw86927-haptics; mkdir -p $R/dev/input; : > $R/dev/input/event$n; done
+# a zram swap from another service; the platform unit is not installed in the fake tree
+mk /proc/swaps "Filename Type Size Used Priority
+/dev/zram0 partition 1048572 0 100"
+mk /sys/block/zram0/comp_algorithm "lzo lz4 [zstd]"; mk /sys/block/zram0/disksize 1073741824
+mk /sys/block/zram0/mm_stat "4718592 1048576 1310720 0 1310720 0 0 0 0"
+mk /proc/sys/vm/swappiness 100; mk /proc/sys/vm/page-cluster 0
 # wait until a file has the value (the 5 s poller)
 waitfor() { for i in $(seq 1 30); do [ "$(cat "$R$1" 2>/dev/null)" = "$2" ] && return 0; sleep 0.3; done; return 1; }
 waitlong() { for i in $(seq 1 100); do [ "$(cat "$R$1" 2>/dev/null)" = "$2" ] && return 0; sleep 0.3; done; return 1; }	# the 5 s poller, a few steps
@@ -253,6 +259,11 @@ gain() { od -An -tx1 -v $R/dev/input/event$1 | tr -d ' \n' | tail -c 16; }
 $C haptics strength 50 && [ "$(gain 5)" = "15006000ff7f0000" ] && [ "$(gain 6)" = "15006000ff7f0000" ] && ok "strength 50 -> gain 0x7fff on both" || bad "strength 50: $(gain 5) $(gain 6)"
 $C haptics strength 150 2>/dev/null && bad "strength 150 accepted" || ok "strength 150 refused"
 $C --json haptics | grep -q '"left"' && ok "motors listed" || bad "motors"
+
+$C memory zram | grep -q "ratio 4.5" && ok "zram status: compression ratio" || bad "zram status: $($C memory zram)"
+$C --json memory | grep -q '"ZramSource": "other"' && ok "zram from another service" || bad "zram source"
+$C memory zram off 2>/dev/null && bad "zram off without the platform unit accepted" || ok "zram off refused without the platform unit"
+$C memory zram size 100 2>/dev/null && bad "zram size 100 accepted" || ok "zram size 100 refused"
 
 $C usb wake on && check "usb wake" /sys/bus/platform/devices/a600000.usb/power/wakeup enabled
 $C usb charger-wake off && check "charger wake off (battery)" $B/power/wakeup disabled
