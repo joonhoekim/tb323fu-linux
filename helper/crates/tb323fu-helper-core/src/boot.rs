@@ -155,9 +155,8 @@ fn unescape(s: &str) -> String {
 /// is exact: no symlink resolution, no relative source names ("tmpfs",
 /// "none") resolved against the working directory.
 ///
-/// The covered case is the Ubuntu bug of 10-01: the Fedora root mounted on
-/// /mnt/t and the SD Debian root mounted over it made `boot list` show
-/// Fedora as Debian with the SD root's health warnings.
+/// A covered mount must not count: another root mounted over the same point
+/// would otherwise be reported as this one.
 fn find_mount(mountinfo: &str, mm: &str) -> Option<(PathBuf, bool)> {
     // id parent major:minor root mount-point options ... - type source super-options
     let rows: Vec<Vec<&str>> = mountinfo.lines().map(|l| l.split(' ').collect::<Vec<_>>()).filter(|f| f.len() >= 6).collect();
@@ -624,7 +623,7 @@ mod tests {
         assert_eq!(find_mount(mi, "179:1"), None);
         assert_eq!(find_mount(mi, "179:3"), Some((PathBuf::from("/run/tb323fu/probe"), false)));
         assert_eq!(find_mount(mi, "179:4"), None);
-        // 10-01 on Ubuntu: Fedora on /mnt/t, the SD Debian root mounted over it
+        // Fedora on /mnt/t, the SD Debian root mounted over it
         let over = "\
 24 1 179:2 / / rw,noatime shared:1 - ext4 /dev/mmcblk0p2 rw\n\
 50 24 179:5 / /mnt/t ro,relatime shared:30 - ext4 /dev/mmcblk0p5 ro,norecovery\n\

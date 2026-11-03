@@ -17,7 +17,7 @@ if [ "${1:-}" = --uninstall ]; then
 	echo "removed tb323fu-settings from $D$PREFIX"
 	exit 0
 fi
-# the app ID before the helper became Open Device Helper (10-03)
+# the app ID before the helper became Open Device Helper
 old=io.github.joonhoekim.tb323fu.Settings
 rm -f "$D$PREFIX/share/applications/$old.desktop" "$D$PREFIX/share/icons/hicolor/scalable/apps/$old.svg" "$D$PREFIX/share/metainfo/$old.metainfo.xml"
 install -Dm755 "${BUILD_DIR:-$here/target/release}/tb323fu-settings" "$D$PREFIX/bin/tb323fu-settings"
