@@ -1,7 +1,7 @@
 From 3a74ecbb251580096250052e277a445ee47d327a Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:30:48 +0000
-Subject: [PATCH 45/56] media: i2c: add Samsung S5KJNS and GalaxyCore GC08A8
+Subject: [PATCH] media: i2c: add Samsung S5KJNS and GalaxyCore GC08A8
  sensor drivers
 
 The TB323FU cameras. Both are the nearest

@@ -1,7 +1,7 @@
 From 8630a2f72a2093342bd9ac16ff56cac57ef218eb Mon Sep 17 00:00:00 2001
 From: Sibi Sankar <sibi.sankar@oss.qualcomm.com>
 Date: Fri, 24 Jul 2026 12:48:11 +0530
-Subject: [PATCH 125/127] PM / devfreq: Add a governor for tracking remote
+Subject: [PATCH] PM / devfreq: Add a governor for tracking remote
  device frequencies
 
 On SoCs where the governor and the mechanism to control the frequency for

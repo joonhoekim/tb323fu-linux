@@ -1,7 +1,7 @@
 From 8fa8b1aceee3a1a4e135ebff5e2717ec0eaf6169 Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:30:49 +0000
-Subject: [PATCH 48/56] leds: rgb: add Awinic AW22127 driver
+Subject: [PATCH] leds: rgb: add Awinic AW22127 driver
 
 The TB323FU rear-camera RGB ring. The AW22127 runs effects on an
 internal MCU (program in its own flash). The driver sends it the

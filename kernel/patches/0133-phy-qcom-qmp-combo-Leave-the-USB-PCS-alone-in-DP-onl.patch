@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sun, 18 Oct 2026 15:08:15 +0900
-Subject: [PATCH 133/139] phy: qcom: qmp-combo: Leave the USB PCS alone in
+Subject: [PATCH] phy: qcom: qmp-combo: Leave the USB PCS alone in
  DP-only mode
 
 In DP-only mode (pin assignments C and E) the four lanes belong to the

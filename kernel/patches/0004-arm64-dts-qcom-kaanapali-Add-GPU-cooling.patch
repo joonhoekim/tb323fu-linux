@@ -1,7 +1,7 @@
 From 4b1fe09eeaaf0ba8ebe947586d0c44f784bf537e Mon Sep 17 00:00:00 2001
 From: Gaurav Kohli <gaurav.kohli@oss.qualcomm.com>
 Date: Tue, 7 Jul 2026 03:10:23 +0530
-Subject: [PATCH 04/56] arm64: dts: qcom: kaanapali: Add GPU cooling
+Subject: [PATCH] arm64: dts: qcom: kaanapali: Add GPU cooling
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

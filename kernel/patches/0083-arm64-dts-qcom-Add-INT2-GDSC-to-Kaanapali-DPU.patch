@@ -1,7 +1,7 @@
 From 4eeffee23c933b18d33ba3d4a5ae07aacbe3823d Mon Sep 17 00:00:00 2001
 From: Yongxing Mou <yongxing.mou@oss.qualcomm.com>
 Date: Tue, 15 Sep 2026 17:27:50 +0800
-Subject: [PATCH 83/83] arm64: dts: qcom: Add INT2 GDSC to Kaanapali DPU
+Subject: [PATCH] arm64: dts: qcom: Add INT2 GDSC to Kaanapali DPU
 
 The INT2 GDSC on Kaanapali (SM8850) powers a subset of the DPU
 source pipes (VIG2/VIG3/DMA5). Add it as a second power domain of

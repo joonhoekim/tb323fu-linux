@@ -1,7 +1,7 @@
 From dd06781d8806b8c4dbea5eec9768356de40f3f07 Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:27:24 +0000
-Subject: [PATCH 26/56] input: touchscreen: NT36536 host-download SPI driver
+Subject: [PATCH] input: touchscreen: NT36536 host-download SPI driver
  (Novatek)
 
 The driver itself is not carried here; take

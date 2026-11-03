@@ -1,7 +1,7 @@
 From 97de90e59933d17fbe974b6624ee398e2fd82d46 Mon Sep 17 00:00:00 2001
 From: Pragnesh Papaniya <pragnesh.papaniya@oss.qualcomm.com>
 Date: Fri, 24 Jul 2026 12:48:07 +0530
-Subject: [PATCH 121/127] dt-bindings: firmware: arm,scmi: Add Qualcomm Generic
+Subject: [PATCH] dt-bindings: firmware: arm,scmi: Add Qualcomm Generic
  Extension Protocol
 
 Add the binding schema for the SCMI Qualcomm Generic Extension Protocol

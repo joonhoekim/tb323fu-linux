@@ -1,7 +1,7 @@
 From bacf679d31f1671eb0274d23ac8b8909781ec0d0 Mon Sep 17 00:00:00 2001
 From: Bryan O'Donoghue <bryan.odonoghue@linaro.org>
 Date: Fri, 18 Sep 2026 14:56:37 +0100
-Subject: [PATCH 15/56] phy: core: Add phy_get_by_of_node()
+Subject: [PATCH] phy: core: Add phy_get_by_of_node()
 
 Add new function phy_get_by_of_node() allowing lookup of a phy by
 device_node. Separates existing logic in _of_phy_get() into an internal

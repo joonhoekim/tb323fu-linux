@@ -1,7 +1,7 @@
 From 47222b6c8f7dd250698b5805e17312024b21b76d Mon Sep 17 00:00:00 2001
 From: Victor Fuentes <victor@vlinkz.dev>
 Date: Wed, 23 Sep 2026 09:08:29 -0700
-Subject: [PATCH 75/79] soc: qcom: apr: Register the GPR callback before
+Subject: [PATCH] soc: qcom: apr: Register the GPR callback before
  probing
 
 q6apm sends a synchronous command in probe, and its response was

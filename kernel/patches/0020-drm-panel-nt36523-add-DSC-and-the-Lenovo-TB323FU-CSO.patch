@@ -1,7 +1,7 @@
 From df6c27a45abaecff479148c2844619d7d9658a74 Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:25:39 +0000
-Subject: [PATCH 20/56] drm/panel: nt36523: add DSC, and the Lenovo TB323FU
+Subject: [PATCH] drm/panel: nt36523: add DSC, and the Lenovo TB323FU
  CSOT panel
 
 The driver already drives dual-DSI nt36523 panels, but only uncompressed ones,

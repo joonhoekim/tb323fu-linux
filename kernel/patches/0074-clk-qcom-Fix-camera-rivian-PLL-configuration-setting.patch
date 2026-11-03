@@ -1,7 +1,7 @@
 From 65f207555838bbdf08ec7a4ff13ac24ede5dd396 Mon Sep 17 00:00:00 2001
 From: Jagadeesh Kona <jagadeesh.kona@oss.qualcomm.com>
 Date: Sat, 26 Sep 2026 17:42:30 -0700
-Subject: [PATCH 74/79] clk: qcom: Fix camera rivian PLL configuration settings
+Subject: [PATCH] clk: qcom: Fix camera rivian PLL configuration settings
 
 clk_alpha_pll_write_config() in the PLL configure function skips writes
 to PLL registers when the configured value is 0. However, hardware

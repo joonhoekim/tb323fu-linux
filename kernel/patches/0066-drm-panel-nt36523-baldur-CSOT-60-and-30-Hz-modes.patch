@@ -1,7 +1,7 @@
 From ccf43c3935da1d7fa721bb7860b14d9042840684 Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sun, 27 Sep 2026 04:28:44 +0000
-Subject: [PATCH 66/66] drm/panel: nt36523: baldur CSOT 60 and 30 Hz modes
+Subject: [PATCH] drm/panel: nt36523: baldur CSOT 60 and 30 Hz modes
 
 The vendor dfps timings dtiming@1/@2: same pixel clock and horizontal timing
 as 120 Hz, a longer vertical front porch (3426, 10226). With the in-place

@@ -1,7 +1,7 @@
 From 4178768994570774f1d1b62c99b5dc5c61f75caa Mon Sep 17 00:00:00 2001
 From: Sibi Sankar <sibi.sankar@oss.qualcomm.com>
 Date: Fri, 24 Jul 2026 12:48:09 +0530
-Subject: [PATCH 123/127] PM / devfreq: Add new target_freq attribute flag for
+Subject: [PATCH] PM / devfreq: Add new target_freq attribute flag for
  governors
 
 The target_freq sysfs attribute exposes a governor's predicted next

@@ -1,7 +1,7 @@
 From f09fa60170f160afb84c592526413cadd9bccb1c Mon Sep 17 00:00:00 2001
 From: Vishnu Reddy <busanna.reddy@oss.qualcomm.com>
 Date: Tue, 18 Aug 2026 21:43:51 +0530
-Subject: [PATCH 90/95] media: iris: Fix bus_info prefix in VIDIOC_QUERYCAP
+Subject: [PATCH] media: iris: Fix bus_info prefix in VIDIOC_QUERYCAP
 
 The bus_info field returned by VIDIOC_QUERYCAP used the abbreviated
 prefix "plat:" instead of the standard "platform:" prefix expected

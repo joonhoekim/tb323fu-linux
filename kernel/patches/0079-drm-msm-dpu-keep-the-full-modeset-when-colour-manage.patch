@@ -1,7 +1,7 @@
 From 0b9faae82b88401480eac5dbfca6d013e5ddfa54 Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sun, 27 Sep 2026 09:20:41 +0000
-Subject: [PATCH 79/79] drm/msm/dpu: keep the full modeset when colour
+Subject: [PATCH] drm/msm/dpu: keep the full modeset when colour
  management changed
 
 A colour-management change can need a DSPP to be (re)assigned, which only

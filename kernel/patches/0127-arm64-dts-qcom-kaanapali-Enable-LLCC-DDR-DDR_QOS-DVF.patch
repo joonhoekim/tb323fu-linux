@@ -1,7 +1,7 @@
 From 7dc682e5a458cd34c9350fec46d9d4927c03d01a Mon Sep 17 00:00:00 2001
 From: Jia Yang <jia.yang@oss.qualcomm.com>
 Date: Fri, 24 Jul 2026 12:48:15 +0530
-Subject: [PATCH 127/127] arm64: dts: qcom: kaanapali: Enable LLCC/DDR/DDR_QOS
+Subject: [PATCH] arm64: dts: qcom: kaanapali: Enable LLCC/DDR/DDR_QOS
  DVFS
 
 On Qualcomm Kaanapali SoCs, the memlat governor and the mechanism for

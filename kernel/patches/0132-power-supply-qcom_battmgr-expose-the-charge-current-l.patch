@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Thu, 15 Oct 2026 20:44:07 +0900
-Subject: [PATCH 2/2] power: supply: qcom_battmgr: expose the charge current
+Subject: [PATCH] power: supply: qcom_battmgr: expose the charge current
  limit
 
 The battery manager firmware takes a fast-charge current limit in uA

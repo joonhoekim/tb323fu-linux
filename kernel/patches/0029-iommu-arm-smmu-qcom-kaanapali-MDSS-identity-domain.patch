@@ -1,7 +1,7 @@
 From af585b066d33bd52c7de4e2dd7b45653d96b361c Mon Sep 17 00:00:00 2001
 From: EYC <e@eyc.one>
 Date: Fri, 24 Jul 2026 19:04:29 -0700
-Subject: [PATCH 29/56] iommu: arm-smmu-qcom: kaanapali MDSS identity domain
+Subject: [PATCH] iommu: arm-smmu-qcom: kaanapali MDSS identity domain
 
 Match the kaanapali MDSS so the display SMMU keeps the bootloader's
 identity mapping during takeover.

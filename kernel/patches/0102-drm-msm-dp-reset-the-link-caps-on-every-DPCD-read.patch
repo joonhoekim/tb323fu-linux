@@ -1,7 +1,7 @@
 From 10332a27a27cfda98cf07ea42efd046bd0bf4399 Mon Sep 17 00:00:00 2001
 From: Victor Fuentes <victor@vlinkz.dev>
 Date: Thu, 24 Sep 2026 01:03:01 -0700
-Subject: [PATCH 102/102] drm/msm/dp: reset the link caps on every DPCD read
+Subject: [PATCH] drm/msm/dp: reset the link caps on every DPCD read
 
 The link rate of a previous sink was kept, so a slower sink failed link
 training.

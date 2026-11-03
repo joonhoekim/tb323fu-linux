@@ -1,7 +1,7 @@
 From 3ec1c2ab1ec7589072d0fbdee3e4c1d4bab620d5 Mon Sep 17 00:00:00 2001
 From: Bryan O'Donoghue <bryan.odonoghue@linaro.org>
 Date: Fri, 18 Sep 2026 14:56:39 +0100
-Subject: [PATCH 17/56] phy: core: Add missing kerneldoc colon in two locations
+Subject: [PATCH] phy: core: Add missing kerneldoc colon in two locations
 
 Correct missing colon after Return in kernel doc.
 

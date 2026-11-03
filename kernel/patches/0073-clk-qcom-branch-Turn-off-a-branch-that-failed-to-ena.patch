@@ -1,7 +1,7 @@
 From eb24c4574632203ab07d98057b73cab884a72e35 Mon Sep 17 00:00:00 2001
 From: Victor Fuentes <victor@vlinkz.dev>
 Date: Sat, 26 Sep 2026 17:42:31 -0700
-Subject: [PATCH 73/79] clk: qcom: branch: Turn off a branch that failed to
+Subject: [PATCH] clk: qcom: branch: Turn off a branch that failed to
  enable
 
 Otherwise the next enable doesn't toggle the enable bit.

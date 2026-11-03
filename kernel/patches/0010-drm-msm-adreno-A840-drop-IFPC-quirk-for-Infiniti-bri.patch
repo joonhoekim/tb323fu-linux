@@ -1,7 +1,7 @@
 From 945ebcd1ef33498fa4451bf0d8ff7cc26118f61d Mon Sep 17 00:00:00 2001
 From: idusergod <artem.martyanov06@gmail.com>
 Date: Mon, 20 Jul 2026 15:10:38 +0300
-Subject: [PATCH 10/56] drm/msm/adreno: A840: drop IFPC quirk for Infiniti
+Subject: [PATCH] drm/msm/adreno: A840: drop IFPC quirk for Infiniti
  bring-up
 
 Signed-off-by: idusergod <artem.martyanov06@gmail.com>

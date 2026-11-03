@@ -1,7 +1,7 @@
 From 9b1ddd6e1bc87ae661e9c3c00b503ac4618e7b9a Mon Sep 17 00:00:00 2001
 From: Victor Fuentes <victor@vlinkz.dev>
 Date: Thu, 24 Sep 2026 19:04:22 -0700
-Subject: [PATCH 100/102] phy: qcom: qmp-combo: Keep the DP lanes of a
+Subject: [PATCH] phy: qcom: qmp-combo: Keep the DP lanes of a
  USB-capable DP sink
 
 UCSI reports TYPEC_STATE_USB after DP alt mode is set up for such sinks.

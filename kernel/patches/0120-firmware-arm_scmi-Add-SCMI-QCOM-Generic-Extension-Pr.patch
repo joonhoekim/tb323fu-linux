@@ -1,7 +1,7 @@
 From 8fd0cad5b493e2b50da3bbc8ef34d4e2c9a8b98c Mon Sep 17 00:00:00 2001
 From: Pragnesh Papaniya <pragnesh.papaniya@oss.qualcomm.com>
 Date: Fri, 24 Jul 2026 12:48:06 +0530
-Subject: [PATCH 120/127] firmware: arm_scmi: Add SCMI QCOM Generic Extension
+Subject: [PATCH] firmware: arm_scmi: Add SCMI QCOM Generic Extension
  Protocol documentation
 
 Add System Control Management Interface (SCMI) Qualcomm Generic Extension

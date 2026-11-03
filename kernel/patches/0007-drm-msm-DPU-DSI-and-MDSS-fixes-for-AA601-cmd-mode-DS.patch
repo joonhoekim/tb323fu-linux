@@ -1,7 +1,7 @@
 From 4b4128c68772f5902ae76799ee5d0c78d211cda6 Mon Sep 17 00:00:00 2001
 From: idusergod <artem.martyanov06@gmail.com>
 Date: Mon, 20 Jul 2026 15:10:39 +0300
-Subject: [PATCH 07/56] drm/msm: DPU, DSI and MDSS fixes for AA601 cmd-mode DSC
+Subject: [PATCH] drm/msm: DPU, DSI and MDSS fixes for AA601 cmd-mode DSC
 
 Signed-off-by: idusergod <artem.martyanov06@gmail.com>
 

@@ -1,7 +1,7 @@
 From c3774bac5a83250a5ff8217d82d9d3fed5c9cdd4 Mon Sep 17 00:00:00 2001
 From: Sibi Sankar <sibi.sankar@oss.qualcomm.com>
 Date: Fri, 24 Jul 2026 12:48:08 +0530
-Subject: [PATCH 122/127] firmware: arm_scmi: vendors: Add QCOM SCMI Generic
+Subject: [PATCH] firmware: arm_scmi: vendors: Add QCOM SCMI Generic
  Extensions
 
 The System Control Management Interface (SCMI) Qualcomm Generic Extension

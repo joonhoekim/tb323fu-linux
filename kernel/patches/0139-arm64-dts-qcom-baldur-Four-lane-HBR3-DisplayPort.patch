@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sun, 18 Oct 2026 15:55:57 +0900
-Subject: [PATCH 139/139] arm64: dts: qcom: baldur: Four-lane HBR3 DisplayPort
+Subject: [PATCH] arm64: dts: qcom: baldur: Four-lane HBR3 DisplayPort
 
 Allow all four lanes and link rates up to HBR3 on the USB-C
 DisplayPort output. With the combo PHY acting as a mode switch, pin

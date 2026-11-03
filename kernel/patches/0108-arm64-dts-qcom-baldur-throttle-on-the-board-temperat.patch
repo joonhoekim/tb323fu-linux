@@ -1,7 +1,7 @@
 From d6d800588caa595bfbbf1c69d5016b2ac7c2ff8b Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Wed, 30 Sep 2026 10:34:25 +0000
-Subject: [PATCH 108/111] arm64: dts: qcom: baldur: throttle on the board
+Subject: [PATCH] arm64: dts: qcom: baldur: throttle on the board
  temperature like Android
 
 baldur-thermal.dtsi only protects the silicon: a 95 C passive trip per CPU

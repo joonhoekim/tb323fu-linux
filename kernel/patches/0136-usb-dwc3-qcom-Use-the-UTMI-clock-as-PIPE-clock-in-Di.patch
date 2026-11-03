@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sun, 18 Oct 2026 15:55:12 +0900
-Subject: [PATCH 136/139] usb: dwc3: qcom: Use the UTMI clock as PIPE clock in
+Subject: [PATCH] usb: dwc3: qcom: Use the UTMI clock as PIPE clock in
  DisplayPort-only modes
 
 With DisplayPort pin assignment C or E the QMP USB3-DP combo PHY gives

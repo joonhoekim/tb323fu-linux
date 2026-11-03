@@ -1,7 +1,7 @@
 From a6a81d4198a3a60e51d39b52cbbb60300ace13b3 Mon Sep 17 00:00:00 2001
 From: Yongxing Mou <yongxing.mou@oss.qualcomm.com>
 Date: Tue, 15 Sep 2026 17:27:49 +0800
-Subject: [PATCH 82/83] drm/msm/dpu: Attach INT2 power domain alongside MMCX on
+Subject: [PATCH] drm/msm/dpu: Attach INT2 power domain alongside MMCX on
  Kaanapali
 
 Kaanapali's DPU node lists two power domains when its DT provides

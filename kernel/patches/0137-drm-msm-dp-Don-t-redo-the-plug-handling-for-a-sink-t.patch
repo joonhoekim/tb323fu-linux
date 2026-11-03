@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sun, 18 Oct 2026 15:57:05 +0900
-Subject: [PATCH 137/139] drm/msm/dp: Don't redo the plug handling for a sink
+Subject: [PATCH] drm/msm/dp: Don't redo the plug handling for a sink
  that is set up
 
 Every "connected" notification runs the whole plug sequence: DPCD and

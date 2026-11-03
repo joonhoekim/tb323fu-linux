@@ -1,7 +1,7 @@
 From 5bc43aa9d5bcf799ea0fed73a1b1c39591cf0a26 Mon Sep 17 00:00:00 2001
 From: Bryan O'Donoghue <bryan.odonoghue@linaro.org>
 Date: Sun, 6 Sep 2026 15:17:08 +0100
-Subject: [PATCH 42/56] media: qcom: camss: Add support for PHY API devices
+Subject: [PATCH] media: qcom: camss: Add support for PHY API devices
 
 Add the ability to use a PHY pointer which interacts with the standard PHY
 API.

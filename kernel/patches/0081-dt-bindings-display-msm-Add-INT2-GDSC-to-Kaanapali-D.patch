@@ -1,7 +1,7 @@
 From a6ae8ea25601a8e2a6df23a9e245cdf4caad0950 Mon Sep 17 00:00:00 2001
 From: Yongxing Mou <yongxing.mou@oss.qualcomm.com>
 Date: Tue, 15 Sep 2026 17:27:48 +0800
-Subject: [PATCH 81/83] dt-bindings: display: msm: Add INT2 GDSC to Kaanapali
+Subject: [PATCH] dt-bindings: display: msm: Add INT2 GDSC to Kaanapali
  DPU
 
 Kaanapali (SM8850) has an additional INT2 GDSC that powers a subset

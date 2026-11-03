@@ -1,7 +1,7 @@
 From 21f3c3c016f16923ef5754b7f4a5f139202f12ae Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:27:24 +0000
-Subject: [PATCH 25/56] Input: touchscreen: import NT36536 host-download SPI
+Subject: [PATCH] Input: touchscreen: import NT36536 host-download SPI
  driver (Novatek)
 
 Verbatim copy of drivers/input/touchscreen/nt36536/ from map220v/sm8850-mainline

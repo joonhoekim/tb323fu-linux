@@ -1,7 +1,7 @@
 From b0ff49cc4fc67992639aee9ac6a39492d201e3ca Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:28:22 +0000
-Subject: [PATCH 38/56] Input: aw86927 - accept the AW86937
+Subject: [PATCH] Input: aw86927 - accept the AW86937
 
 TB323FU has two AW8693x haptic drivers on
 i2c6 that report CHIPID 0x9370 (AW86937). The vendor handles the whole

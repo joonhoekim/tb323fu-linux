@@ -1,7 +1,7 @@
 From bac21130b6d009b0a781a03cde5f361cc8b88a2f Mon Sep 17 00:00:00 2001
 From: Vikash Garodia <vikash.garodia@oss.qualcomm.com>
 Date: Fri, 13 Mar 2026 18:49:40 +0530
-Subject: [PATCH 87/95] media: iris: add iris4 specific H265 line buffer
+Subject: [PATCH] media: iris: add iris4 specific H265 line buffer
  calculation
 
 The H265 decoder line buffer size calculation for iris4 (VPU4) was

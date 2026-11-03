@@ -1,7 +1,7 @@
 From 28e13186e952104529e1eb58821e3c1cc45ad96c Mon Sep 17 00:00:00 2001
 From: Victor Fuentes <victor@vlinkz.dev>
 Date: Wed, 29 Jul 2026 17:57:14 -0700
-Subject: [PATCH 77/79] arm64: dts: qcom: kaanapali: Advertise a 1024-byte GPR
+Subject: [PATCH] arm64: dts: qcom: kaanapali: Advertise a 1024-byte GPR
  intent
 
 Some ADSP responses exceed 512 bytes.

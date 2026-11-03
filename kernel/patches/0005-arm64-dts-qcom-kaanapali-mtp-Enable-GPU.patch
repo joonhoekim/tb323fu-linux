@@ -1,7 +1,7 @@
 From 83e44160db123b16edfc8265239a5f9397a35384 Mon Sep 17 00:00:00 2001
 From: Akhil P Oommen <akhilpo@oss.qualcomm.com>
 Date: Tue, 7 Jul 2026 03:10:24 +0530
-Subject: [PATCH 05/56] arm64: dts: qcom: kaanapali-mtp: Enable GPU
+Subject: [PATCH] arm64: dts: qcom: kaanapali-mtp: Enable GPU
 
 Add the secure firmware name property and enable GPU support on
 Kaanapali MTP device.

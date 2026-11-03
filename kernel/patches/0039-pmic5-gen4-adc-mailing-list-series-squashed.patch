@@ -1,7 +1,7 @@
 From 0a115277960eb7bbc533fbd2362e3cf83e1ee21f Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:29:22 +0000
-Subject: [PATCH 39/56] pmic5-gen4-adc: mailing-list series (squashed)
+Subject: [PATCH] pmic5-gen4-adc: mailing-list series (squashed)
 
   [PATCH 1/7] dt-bindings: iio: adc: Add support for QCOM PMIC5 Gen4 ADC
   [PATCH 2/7] iio: adc: qcom-spmi-adc5-gen3: Add support for QCOM PMIC5 Gen4 ADC

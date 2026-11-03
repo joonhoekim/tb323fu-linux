@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sun, 18 Oct 2026 15:55:57 +0900
-Subject: [PATCH 138/139] arm64: dts: qcom: kaanapali: Mark the USB3-DP PHY as
+Subject: [PATCH] arm64: dts: qcom: kaanapali: Mark the USB3-DP PHY as
  a Type-C mode switch
 
 The QMP USB3-DP combo PHY switches between USB3 + 2-lane DP and 4-lane

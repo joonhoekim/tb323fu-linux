@@ -1,7 +1,7 @@
 From 98139262e24c483b37920508286c8749501fbeee Mon Sep 17 00:00:00 2001
 From: Vikash Garodia <vikash.garodia@oss.qualcomm.com>
 Date: Fri, 17 Oct 2025 19:46:22 +0530
-Subject: [PATCH 84/95] media: dt-bindings: qcom-kaanapali-iris: Add kaanapali
+Subject: [PATCH] media: dt-bindings: qcom-kaanapali-iris: Add kaanapali
  video codec binding
 
 Kaanapali SOC brings in the new generation of video IP i.e iris4. When

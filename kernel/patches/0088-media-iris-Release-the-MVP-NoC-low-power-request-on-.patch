@@ -1,7 +1,7 @@
 From 753f606ec3b74003cfa2f8a00abb0d1604917e29 Mon Sep 17 00:00:00 2001
 From: Victor Fuentes <victor@vlinkz.dev>
 Date: Wed, 23 Sep 2026 21:13:53 -0700
-Subject: [PATCH 88/95] media: iris: Release the MVP NoC low-power request on
+Subject: [PATCH] media: iris: Release the MVP NoC low-power request on
  vpu4x power off
 
 Like the other VPU generations, clear the request after the handshake.

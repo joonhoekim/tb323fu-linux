@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sun, 18 Oct 2026 14:01:08 +0900
-Subject: [PATCH 134/139] usb: typec: mux: fsa4480: keep the USB 2.0 switch on
+Subject: [PATCH] usb: typec: mux: fsa4480: keep the USB 2.0 switch on
  in DP-only modes
 
 DisplayPort pin assignments C and E give all four SuperSpeed lanes to

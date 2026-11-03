@@ -1,7 +1,7 @@
 From da34df1be04584b495b8f14ff22b93603047abd7 Mon Sep 17 00:00:00 2001
 From: Victor Fuentes <victor@vlinkz.dev>
 Date: Thu, 24 Sep 2026 02:44:18 -0700
-Subject: [PATCH 93/95] media: iris: Only allow hierarchical B-frames on
+Subject: [PATCH] media: iris: Only allow hierarchical B-frames on
  kaanapali
 
 The kaanapali firmware crashes when HFI_PROP_MAX_B_FRAMES is set without

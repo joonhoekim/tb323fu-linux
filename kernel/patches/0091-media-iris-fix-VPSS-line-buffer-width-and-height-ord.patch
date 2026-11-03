@@ -1,7 +1,7 @@
 From fcb41eb67d1f80fe8a645b90e88b9cca64d88049 Mon Sep 17 00:00:00 2001
 From: Wangao Wang <wangao.wang@oss.qualcomm.com>
 Date: Tue, 22 Sep 2026 11:24:48 +0800
-Subject: [PATCH 91/95] media: iris: fix VPSS line buffer width and height
+Subject: [PATCH] media: iris: fix VPSS line buffer width and height
  order
 
 size_vpss_line_buf_vpu33() expects (num_pipes, height, width) but was

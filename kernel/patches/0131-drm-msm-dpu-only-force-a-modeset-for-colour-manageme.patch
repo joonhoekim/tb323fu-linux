@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Thu, 15 Oct 2026 17:46:04 +0900
-Subject: [PATCH 1/2] drm/msm/dpu: only force a modeset for colour management
+Subject: [PATCH] drm/msm/dpu: only force a modeset for colour management
  when a DSPP is missing
 
 msm_atomic_check() forces a full modeset, and sets allow_modeset, whenever

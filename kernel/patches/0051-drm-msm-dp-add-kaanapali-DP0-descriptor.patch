@@ -1,7 +1,7 @@
 From e63c3f9679c02d70538d41a45a200e83b73cd3eb Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:32:54 +0000
-Subject: [PATCH 51/56] drm/msm/dp: add kaanapali (DP0 descriptor)
+Subject: [PATCH] drm/msm/dp: add kaanapali (DP0 descriptor)
 
 - kaanapali (SM8850) DP controller 0 at 0x09ad2000 (vendor qcom,dp-display:
   dp_ahb 0x9ad2000, dp_aux +0x200, dp_link 0x9ad3000, dp_p0 0x9ad4000,

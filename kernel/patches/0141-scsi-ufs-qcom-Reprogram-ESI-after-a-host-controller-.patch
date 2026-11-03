@@ -1,7 +1,7 @@
 From 3d9f40ba857791c324abb65d2fc40aea2c3207fd Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Tue, 20 Oct 2026 15:43:20 +0000
-Subject: [PATCH 141/141] scsi: ufs: qcom: Reprogram ESI after a host controller
+Subject: [PATCH] scsi: ufs: qcom: Reprogram ESI after a host controller
  reset
 
 ufs_qcom_config_esi() returns early once the ESI interrupts are set up.

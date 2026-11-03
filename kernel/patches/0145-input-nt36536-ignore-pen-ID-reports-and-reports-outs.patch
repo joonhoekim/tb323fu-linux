@@ -1,7 +1,7 @@
 From 1974851383b1beba5e2abdd3b34fdfe7cbdc3738 Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Mon, 2 Nov 2026 00:13:27 +0000
-Subject: [PATCH 145/146] input: nt36536: ignore pen ID reports and reports
+Subject: [PATCH] input: nt36536: ignore pen ID reports and reports
  outside the axes
 
 The firmware reports the pen ID with format id 0xF1 when the pen is

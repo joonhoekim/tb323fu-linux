@@ -1,7 +1,7 @@
 From 80b4c8fa9882970fcf0527ff024cdeb86337b729 Mon Sep 17 00:00:00 2001
 From: Wangao Wang <wangao.wang@oss.qualcomm.com>
 Date: Wed, 23 Sep 2026 10:41:13 +0800
-Subject: [PATCH 85/95] media: iris: add AV1 decode buffer size support for
+Subject: [PATCH] media: iris: add AV1 decode buffer size support for
  vpu4x
 
 Add necessary buffer size calculation to support AV1 decode for vpu4x

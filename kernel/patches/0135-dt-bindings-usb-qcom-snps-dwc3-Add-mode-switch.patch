@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sun, 18 Oct 2026 15:55:33 +0900
-Subject: [PATCH 135/139] dt-bindings: usb: qcom,snps-dwc3: Add mode-switch
+Subject: [PATCH] dt-bindings: usb: qcom,snps-dwc3: Add mode-switch
 
 The QMP USB3-DP combo PHY stops the USB3 PIPE clock when a Type-C
 DisplayPort pin assignment gives it all four lanes. The controller has

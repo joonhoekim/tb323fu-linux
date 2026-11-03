@@ -1,7 +1,7 @@
 From f3b8d8cbfac61a90a54c92627d27126eb579aad4 Mon Sep 17 00:00:00 2001
 From: Qingqing Zhou <quic_qqzhou@quicinc.com>
 Date: Tue, 7 Jul 2026 03:10:20 +0530
-Subject: [PATCH 01/56] arm64: dts: qcom: kaanapali: add the GPU SMMU node
+Subject: [PATCH] arm64: dts: qcom: kaanapali: add the GPU SMMU node
 
 Add the Adreno GPU SMMU node for kaanapali platform.
 

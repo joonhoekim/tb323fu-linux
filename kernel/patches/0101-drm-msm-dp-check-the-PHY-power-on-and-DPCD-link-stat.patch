@@ -1,7 +1,7 @@
 From fd63880240ce7b119336be67fb496fea148350df Mon Sep 17 00:00:00 2001
 From: Victor Fuentes <victor@vlinkz.dev>
 Date: Wed, 29 Jul 2026 19:26:08 -0700
-Subject: [PATCH 101/102] drm/msm/dp: check the PHY power-on and DPCD link
+Subject: [PATCH] drm/msm/dp: check the PHY power-on and DPCD link
  status returns
 
 Signed-off-by: Victor Fuentes <victor@vlinkz.dev>

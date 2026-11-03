@@ -1,7 +1,7 @@
 From e5f58052fdeebd0e9314012017f67d5fe1d25f4e Mon Sep 17 00:00:00 2001
 From: Sibi Sankar <sibi.sankar@oss.qualcomm.com>
 Date: Fri, 24 Jul 2026 12:48:10 +0530
-Subject: [PATCH 124/127] PM / devfreq: Add new track_remote flag for governors
+Subject: [PATCH] PM / devfreq: Add new track_remote flag for governors
 
 Some devfreq governors need to track frequency changes performed on remote
 devices rather than driving the frequency updates themselves. In such

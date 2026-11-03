@@ -1,7 +1,7 @@
 From c1e139bb4212ba479eff3163ca7eabda3c76ee9f Mon Sep 17 00:00:00 2001
 From: Jingyi Wang <jingyi.wang@oss.qualcomm.com>
 Date: Tue, 23 Sep 2025 01:54:14 -0700
-Subject: [PATCH 89/95] arm64: dts: qcom: kaanapali: Add iris video node
+Subject: [PATCH] arm64: dts: qcom: kaanapali: Add iris video node
 
 Add DT node for the kaanapali iris video node.
 

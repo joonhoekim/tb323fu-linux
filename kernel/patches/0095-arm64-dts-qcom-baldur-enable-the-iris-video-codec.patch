@@ -1,7 +1,7 @@
 From f10bed5dacefe3293b583dd24227c7cc1b899d8d Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sun, 27 Sep 2026 10:17:40 +0000
-Subject: [PATCH 95/95] arm64: dts: qcom: baldur: enable the iris video codec
+Subject: [PATCH] arm64: dts: qcom: baldur: enable the iris video codec
 
 Turn on the Kaanapali iris node with the OEM-signed VPU 4.0 firmware from
 the Android vendor partition (vendor/firmware/vpu40_2v.mbn), kept next to the

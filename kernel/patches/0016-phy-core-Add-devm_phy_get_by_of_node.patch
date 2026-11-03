@@ -1,7 +1,7 @@
 From 5bcd54107c8a238b629e4e7c4a4a49b18c5108b3 Mon Sep 17 00:00:00 2001
 From: Bryan O'Donoghue <bryan.odonoghue@linaro.org>
 Date: Fri, 18 Sep 2026 14:56:38 +0100
-Subject: [PATCH 16/56] phy: core: Add devm_phy_get_by_of_node()
+Subject: [PATCH] phy: core: Add devm_phy_get_by_of_node()
 
 Add a devm variant of phy_get_by_of_node() to allow for the familiar
 pattern of having devres automatically release resources on the driver's

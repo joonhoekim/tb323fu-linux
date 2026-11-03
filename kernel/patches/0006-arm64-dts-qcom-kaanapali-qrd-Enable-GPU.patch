@@ -1,7 +1,7 @@
 From 952237c60753b9c6b8e75016709ab88185e0b61c Mon Sep 17 00:00:00 2001
 From: Akhil P Oommen <akhilpo@oss.qualcomm.com>
 Date: Tue, 7 Jul 2026 03:10:25 +0530
-Subject: [PATCH 06/56] arm64: dts: qcom: kaanapali-qrd: Enable GPU
+Subject: [PATCH] arm64: dts: qcom: kaanapali-qrd: Enable GPU
 
 Add the secure firmware name property and enable GPU support on
 Kaanapali QRD device.

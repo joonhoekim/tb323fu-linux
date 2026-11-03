@@ -1,7 +1,7 @@
 From 733c55daa00ee4020849004884ccef04eca40d17 Mon Sep 17 00:00:00 2001
 From: Akhil P Oommen <akhilpo@oss.qualcomm.com>
 Date: Tue, 7 Jul 2026 03:10:22 +0530
-Subject: [PATCH 03/56] arm64: dts: qcom: Add GPU support for Kaanapali
+Subject: [PATCH] arm64: dts: qcom: Add GPU support for Kaanapali
 
 Adreno 840 present in Kaanapali SoC is the second generation GPU in
 A8x family. It is based on the new slice architecture with 3 slices,

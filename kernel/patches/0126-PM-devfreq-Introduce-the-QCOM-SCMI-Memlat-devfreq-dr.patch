@@ -1,7 +1,7 @@
 From 1db20e4ce27dabe49f88f550944e9f64e7ea996b Mon Sep 17 00:00:00 2001
 From: Sibi Sankar <sibi.sankar@oss.qualcomm.com>
 Date: Fri, 24 Jul 2026 12:48:12 +0530
-Subject: [PATCH 126/127] PM / devfreq: Introduce the QCOM SCMI Memlat devfreq
+Subject: [PATCH] PM / devfreq: Introduce the QCOM SCMI Memlat devfreq
  driver
 
 On Qualcomm Glymur, Mahua, X1E/X1P (Hamoa/Purwa) and Kaanapali SoCs, the

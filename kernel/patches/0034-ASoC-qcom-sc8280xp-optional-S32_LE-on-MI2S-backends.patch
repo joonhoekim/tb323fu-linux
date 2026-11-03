@@ -1,7 +1,7 @@
 From ebfbf312a861e7cea66c8a2f3fa879ba4c49a22e Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 26 Sep 2026 01:28:20 +0000
-Subject: [PATCH 34/56] ASoC: qcom: sc8280xp: optional S32_LE on MI2S backends
+Subject: [PATCH] ASoC: qcom: sc8280xp: optional S32_LE on MI2S backends
 
 The backend fixup pins every backend to
 S16_LE. TB323FU's Awinic AW882xx speaker amplifiers sit on primary MI2S

@@ -1,7 +1,7 @@
 From 014ba8df68bd6855b9c606a8e7a489422803db53 Mon Sep 17 00:00:00 2001
 From: Bryan O'Donoghue <bryan.odonoghue@linaro.org>
 Date: Thu, 17 Sep 2026 00:58:39 +0100
-Subject: [PATCH 13/56] phy: qcom-mipi-csi2: Add a CSI2 MIPI DPHY driver
+Subject: [PATCH] phy: qcom-mipi-csi2: Add a CSI2 MIPI DPHY driver
 
 Add a new MIPI CSI2 driver in DPHY mode initially. The entire set of
 existing CAMSS CSI PHY init sequences are imported in order to save time

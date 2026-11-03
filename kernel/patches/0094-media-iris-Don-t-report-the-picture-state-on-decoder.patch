@@ -1,7 +1,7 @@
 From c86620818825d519ff37a3a9804bca7d3e6a3af0 Mon Sep 17 00:00:00 2001
 From: Victor Fuentes <victor@vlinkz.dev>
 Date: Fri, 25 Sep 2026 02:03:11 -0700
-Subject: [PATCH 94/95] media: iris: Don't report the picture state on decoder
+Subject: [PATCH] media: iris: Don't report the picture state on decoder
  input buffers
 
 The firmware returns input buffers with the last picture's flags,

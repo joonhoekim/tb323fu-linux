@@ -1,7 +1,7 @@
 From 7060f25b81babb8592c18099fcbaf318da8ba523 Mon Sep 17 00:00:00 2001
 From: Jingyi Wang <jingyi.wang@oss.qualcomm.com>
 Date: Tue, 7 Jul 2026 03:10:21 +0530
-Subject: [PATCH 02/56] arm64: dts: qcom: kaanapali: Add QFPROM node
+Subject: [PATCH] arm64: dts: qcom: kaanapali: Add QFPROM node
 
 Add the QFPROM node and GPU related subnodes on Kaanapali SoC.
 

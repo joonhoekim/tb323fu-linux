@@ -1,7 +1,7 @@
 From fe2aad152cc4e6a3be401b5a437899671d77cde7 Mon Sep 17 00:00:00 2001
 From: Vikash Garodia <vikash.garodia@oss.qualcomm.com>
 Date: Mon, 4 Aug 2025 15:52:21 +0530
-Subject: [PATCH 86/95] media: iris: Add platform data for kaanapali
+Subject: [PATCH] media: iris: Add platform data for kaanapali
 
 Add support for the kaanapali platform by re-using the SM8550
 definitions and using the vpu4x ops.

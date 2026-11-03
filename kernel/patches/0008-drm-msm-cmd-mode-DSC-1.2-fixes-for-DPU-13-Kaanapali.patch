@@ -1,7 +1,7 @@
 From db076f05820b4925969913adaf01a8bf9480b469 Mon Sep 17 00:00:00 2001
 From: EYC <e@eyc.one>
 Date: Fri, 24 Jul 2026 19:04:28 -0700
-Subject: [PATCH 08/56] drm/msm: cmd-mode DSC 1.2 fixes for DPU 13 (Kaanapali)
+Subject: [PATCH] drm/msm: cmd-mode DSC 1.2 fixes for DPU 13 (Kaanapali)
 
 Fixes needed to drive the OnePlus 15 panel in command mode with
 native 4:2:2 DSC 1.2 on DPU 13: correct the bpp double-doubling for
