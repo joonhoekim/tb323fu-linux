@@ -1,21 +1,5 @@
 # the tablet's documented USB-gadget network (device side .2, host side .1)
 ^ip\|.*192\.168\.7\.[12]([^0-9]|$)
-# kernel patches carry authors' and mailing-list addresses in headers and trailers
-^email\|[^|]*:[0-9]+:.*(Signed-off-by|Reviewed-by|Acked-by|Tested-by|Reported-by|Co-developed-by|Suggested-by|Cc|To|From|Author):
-^email\|[^|]*\.patch:
-^email\|[^|]*@(vger\.kernel\.org|lists\.linux\.dev|lists\.freedesktop\.org|kernel\.org|linaro\.org|oss\.qualcomm\.com|quicinc\.com)
-# GNOME Shell extension UUIDs look like e-mail addresses
-^email\|[^|]*:[0-9]+:.*extensions/[A-Za-z0-9._-]+@[A-Za-z0-9._-]+/
-# this repository's GNOME Shell extension UUID
-^email\|[^|]*:[0-9]+:.*tb323fu@joonhoekim\.github\.io
-# .mailmap maps the author's commit identities (the same public address as in commits)
-^email\|\.mailmap:[0-9]+:
-# package maintainer field (the author's public address, same as in commits)
-^email\|packaging/[^|]*:[0-9]+:MAINT=
-# systemd template units (name@instance.service/.d) look like e-mail addresses
-^email\|[^|]*:[0-9]+:.*@[A-Za-z0-9_.-]+\.service
-# public package-signing identity in a comment
-^email\|[^|]*:[0-9]+:.*builder@archlinuxarm\.org
 # the dev-password variable referenced by name only (never a value)
 ^password\|[^|]*:[0-9]+:.*(\$\{?BALDUR_DEV_PASSWORD|BALDUR_DEV_PASSWORD=( |\$|\.\.\.))
 # the hook that sets the user's password from install.sh's USER_PASSWORD (a variable, never a value)
@@ -25,9 +9,5 @@
 # the initramfs USB gadget: fixed locally administered NCM MACs and a made-up serial (same on every install)
 ^mac\|(\./)?kernel/initramfs/init:[0-9]+:.*02:ba:1d:00:00:0[12]
 ^serial\|(\./)?kernel/initramfs/init:[0-9]+:.*"baldur-0001"
-# vendor driver source keeps its original author lines (GPL copyright headers)
-^email\|(\./)?kernel/out-of-tree/aw882xx/[^|]*:[0-9]+:.*Author:
-# lore links to the project's own patches: the Message-ID ends in the sender address, already public on lore
-^email\|[^|]*:[0-9]+:.*https://lore\.kernel\.org/all/[0-9]{14}\.[0-9]+-[0-9]+-[^)@ ]+@[a-z.]+/?\)
 # a battmgr struct field name in patch context (not a device identifier)
 ^serial\|kernel/patches/[^:]*:[0-9]+:.*char s.rial_number\[BATTMGR_STRING_LEN\];
