@@ -1,0 +1,55 @@
+From 400aac5d258796a22c233e914ec21500699a4c83 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Tue, 3 Nov 2026 15:12:40 +0000
+Subject: [PATCH] drm/msm/dp: Release the PHY init when the link is not powered
+
+The DP PHY init is shared with the USB side of the QMP combo PHY. While
+DP holds it, qmp_combo_usb_init() skips the common block init, and after
+a system suspend that lost power the USB PHY times out waiting for
+PHYSTATUS.
+
+Two paths keep the init after the sink is gone:
+
+- An enable that fails link training takes the init in
+  msm_dp_display_prepare_link() but leaves power_on false, so
+  msm_dp_display_disable() returns before releasing it.
+- An unplug while the display is off releases it only when sink_count
+  is 0, and a USB-C unplug does not change sink_count.
+
+Release the init in both cases. Only drop the PHY init: after a failed
+training the link is already down and its registers must not be
+touched.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/gpu/drm/msm/dp/dp_display.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_display.c b/drivers/gpu/drm/msm/dp/dp_display.c
+index fc3f97aa84..b2795abbd6 100644
+--- a/drivers/gpu/drm/msm/dp/dp_display.c
++++ b/drivers/gpu/drm/msm/dp/dp_display.c
+@@ -504,7 +504,7 @@ static int msm_dp_hpd_unplug_handle(struct msm_dp_display_private *dp)
+ 		drm_edid_connector_update(dp->msm_dp_display.connector, NULL);
+ 
+ 	/* triggered by irq_hdp with sink_count = 0 */
+-	if (dp->link->sink_count == 0)
++	if (dp->link->sink_count == 0 || !dp->msm_dp_display.power_on)
+ 		msm_dp_display_host_phy_exit(dp);
+ 
+ 	/*
+@@ -753,8 +753,10 @@ static int msm_dp_display_disable(struct msm_dp_display_private *dp,
+ {
+ 	struct msm_dp *msm_dp_display = &dp->msm_dp_display;
+ 
+-	if (!msm_dp_display->power_on)
++	if (!msm_dp_display->power_on) {
++		msm_dp_display_host_phy_exit(dp);
+ 		return 0;
++	}
+ 
+ 	msm_dp_panel_disable_vsc_sdp(msm_dp_panel);
+ 
+-- 
+2.43.0
+

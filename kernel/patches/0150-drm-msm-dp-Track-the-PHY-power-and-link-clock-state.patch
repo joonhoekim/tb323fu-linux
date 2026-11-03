@@ -1,0 +1,138 @@
+From 5be501be8adf9df715247452826e309d0c50cc09 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Mon, 2 Nov 2026 23:25:44 +0000
+Subject: [PATCH] drm/msm/dp: Track the PHY power and link clock state
+
+msm_dp_ctrl_enable_mainlink_clocks() powers the PHY on and then enables
+the link clocks. When the link clocks fail to start, it returns with the
+PHY still powered, and the later disable never powers it off because the
+link was never up. The training failure path powers the PHY off itself,
+and msm_dp_ctrl_off_link() does it again.
+
+Track whether the PHY power and the link clocks are held. Power the PHY
+off when the link clocks fail, and skip power-off and clock disable when
+they are not held.
+
+Based on Xilin Wu's "drm/msm/dp: Track PHY power ownership" and part of
+"drm/msm/dp: Unwind resources when enabling a stream fails":
+Link: https://lore.kernel.org/all/20261009-msm-dp-hdr10-v2-8-1835d4966da3@radxa.com/
+Link: https://lore.kernel.org/all/20261009-msm-dp-hdr10-v2-9-1835d4966da3@radxa.com/
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/gpu/drm/msm/dp/dp_ctrl.c | 44 ++++++++++++++++++++++++--------
+ 1 file changed, 34 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.c b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+index 155d387955..5a50731e36 100644
+--- a/drivers/gpu/drm/msm/dp/dp_ctrl.c
++++ b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+@@ -138,6 +138,7 @@ struct msm_dp_ctrl_private {
+ 
+ 	bool core_clks_on;
+ 	bool link_clks_on;
++	bool phy_powered;
+ 	bool stream_clks_on;
+ };
+ 
+@@ -1813,6 +1814,9 @@ static void msm_dp_ctrl_link_clk_disable(struct msm_dp_ctrl *msm_dp_ctrl)
+ 
+ 	ctrl = container_of(msm_dp_ctrl, struct msm_dp_ctrl_private, msm_dp_ctrl);
+ 
++	if (!ctrl->link_clks_on)
++		return;
++
+ 	clk_bulk_disable_unprepare(ctrl->num_link_clks, ctrl->link_clks);
+ 
+ 	ctrl->link_clks_on = false;
+@@ -1824,6 +1828,23 @@ static void msm_dp_ctrl_link_clk_disable(struct msm_dp_ctrl *msm_dp_ctrl)
+ 		   str_on_off(ctrl->core_clks_on));
+ }
+ 
++static int msm_dp_ctrl_phy_power_off(struct msm_dp_ctrl_private *ctrl)
++{
++	int ret;
++
++	if (!ctrl->phy_powered)
++		return 0;
++
++	ret = phy_power_off(ctrl->phy);
++	if (ret) {
++		DRM_ERROR("Failed to power off PHY: %d\n", ret);
++		return ret;
++	}
++
++	ctrl->phy_powered = false;
++	return 0;
++}
++
+ static int msm_dp_ctrl_enable_mainlink_clocks(struct msm_dp_ctrl_private *ctrl,
+ 					      struct msm_dp_panel *panel)
+ {
+@@ -1836,16 +1857,21 @@ static int msm_dp_ctrl_enable_mainlink_clocks(struct msm_dp_ctrl_private *ctrl,
+ 	ctrl->phy_opts.dp.ssc = drm_dp_max_downspread(dpcd);
+ 
+ 	phy_configure(phy, &ctrl->phy_opts);
+-	ret = phy_power_on(phy);
+-	if (ret) {
+-		DRM_ERROR("DP PHY power on failed. ret=%d\n", ret);
+-		return ret;
++	if (!ctrl->phy_powered) {
++		ret = phy_power_on(phy);
++		if (ret) {
++			DRM_ERROR("DP PHY power on failed. ret=%d\n", ret);
++			return ret;
++		}
++		ctrl->phy_powered = true;
+ 	}
+ 
+ 	dev_pm_opp_set_rate(ctrl->dev, ctrl->link->link_params.rate * 1000);
+ 	ret = msm_dp_ctrl_link_clk_enable(&ctrl->msm_dp_ctrl);
+-	if (ret)
++	if (ret) {
+ 		DRM_ERROR("Unable to start link clocks. ret=%d\n", ret);
++		msm_dp_ctrl_phy_power_off(ctrl);
++	}
+ 
+ 	drm_dbg_dp(ctrl->drm_dev, "link rate=%d\n", ctrl->link->link_params.rate);
+ 
+@@ -2000,7 +2026,7 @@ static int msm_dp_ctrl_reinitialize_mainlink(struct msm_dp_ctrl_private *ctrl,
+ 	 */
+ 	msm_dp_ctrl_link_clk_disable(&ctrl->msm_dp_ctrl);
+ 
+-	phy_power_off(phy);
++	msm_dp_ctrl_phy_power_off(ctrl);
+ 	/* hw recommended delay before re-enabling clocks */
+ 	msleep(20);
+ 
+@@ -2026,7 +2052,7 @@ static int msm_dp_ctrl_deinitialize_mainlink(struct msm_dp_ctrl_private *ctrl,
+ 
+ 	msm_dp_ctrl_link_clk_disable(&ctrl->msm_dp_ctrl);
+ 
+-	phy_power_off(phy);
++	msm_dp_ctrl_phy_power_off(ctrl);
+ 
+ 	/* aux channel down, reinit phy */
+ 	phy_exit(phy);
+@@ -2659,10 +2685,8 @@ void msm_dp_ctrl_off_link(struct msm_dp_ctrl *msm_dp_ctrl,
+ 			  struct msm_dp_panel *panel)
+ {
+ 	struct msm_dp_ctrl_private *ctrl;
+-	struct phy *phy;
+ 
+ 	ctrl = container_of(msm_dp_ctrl, struct msm_dp_ctrl_private, msm_dp_ctrl);
+-	phy = ctrl->phy;
+ 
+ 	msm_dp_panel_disable_vsc_sdp(panel);
+ 
+@@ -2672,7 +2696,7 @@ void msm_dp_ctrl_off_link(struct msm_dp_ctrl *msm_dp_ctrl,
+ 
+ 	msm_dp_ctrl_link_clk_disable(&ctrl->msm_dp_ctrl);
+ 
+-	phy_power_off(phy);
++	msm_dp_ctrl_phy_power_off(ctrl);
+ }
+ 
+ irqreturn_t msm_dp_ctrl_isr(struct msm_dp_ctrl *msm_dp_ctrl,
+-- 
+2.43.0
+
