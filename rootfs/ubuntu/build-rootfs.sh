@@ -95,7 +95,7 @@ base="linux-firmware- systemd-resolved network-manager openssh-server sudo bluez
 	polkitd rmtfs tqftpserv qrtr-tools rfkill locales tzdata vim-tiny less \
 	wpasupplicant wireless-regdb swh-plugins libcamera-ipa libspa-0.2-libcamera"
 case $DESKTOP in
-gnome) desk="gdm3 gnome-shell gnome-session gnome-control-center gnome-terminal nautilus \
+gnome) desk="gdm3 gnome-shell gnome-session ubuntu-session gnome-control-center gnome-terminal nautilus \
 	gnome-text-editor gnome-shell-extension-prefs gnome-initial-setup- gnome-keyring \
 	libpam-gnome-keyring mesa-vulkan-drivers libgl1-mesa-dri plymouth plymouth-theme-spinner fonts-noto-core \
 	gstreamer1.0-libcamera gnome-snapshot" ;;
