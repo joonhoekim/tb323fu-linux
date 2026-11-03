@@ -1,6 +1,6 @@
 # Open Device Helper changelog
 
-## Unreleased
+## 0.4.6 — 2026-11-04
 
 - **Compressed swap in RAM, on by default:** the root images had no swap, so a working set larger than the RAM got
   programs killed. `tb323fu-platform` now sets up zram at every start (`tb323fu-zram.service`: zstd, as large as the
