@@ -36,15 +36,15 @@ CONFIG_CMDLINE_FORCE=y
 # initramfs.cpio.gz (how to build it: kernel/initramfs/).
 CONFIG_INITRAMFS_SOURCE=""
 
-# Turn hangs into panics. The bootloader does not leave a watchdog armed, so a
-# hung kernel would stay hung with no dump and no log. With these, a CPU stuck
-# in a loop (soft lockup) or a task in D state for over 60 s (usually a stuck
-# initcall) panics and leaves a dump.
+# A CPU stuck in a loop (soft lockup) panics and leaves a dump: the bootloader
+# does not leave a watchdog armed, so a hung kernel would stay hung with no log.
+# A task in D state for over 60 s is only reported. A USB disk that disappears
+# under I/O leaves tasks in D state, and that must not reboot the tablet.
 CONFIG_SOFTLOCKUP_DETECTOR=y
 CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC=1
 CONFIG_DETECT_HUNG_TASK=y
 CONFIG_DEFAULT_HUNG_TASK_TIMEOUT=60
-CONFIG_BOOTPARAM_HUNG_TASK_PANIC=1
+CONFIG_BOOTPARAM_HUNG_TASK_PANIC=0
 
 # Boot progress marks drawn into the splash buffer, for hangs before ramoops
 # is registered. The panel runs in video mode, so the display reads that buffer
