@@ -192,6 +192,9 @@ if [ "$DESKTOP" = gnome ]; then
 		c=$T/etc/gdm3/custom.conf
 		[ -e "$c" ] || printf '[daemon]\n' > "$c"
 		grep -q '^AutomaticLoginEnable' "$c" || sed -i "s/^\[daemon\]/[daemon]\nAutomaticLoginEnable=true\nAutomaticLogin=$DEV_USER/" "$c"
+		mkdir -p "$T/var/lib/AccountsService/users"
+		printf '[User]\nSession=ubuntu\nSystemAccount=false\n' > "$T/var/lib/AccountsService/users/$DEV_USER"
+		chmod 600 "$T/var/lib/AccountsService/users/$DEV_USER"
 	fi
 fi
 
