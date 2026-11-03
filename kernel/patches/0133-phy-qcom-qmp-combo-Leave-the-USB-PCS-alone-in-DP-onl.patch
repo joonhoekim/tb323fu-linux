@@ -17,8 +17,7 @@ powered up by the mux switch when the port leaves DP-only mode.
 
 On a Lenovo TB323FU (Kaanapali) with a USB-C monitor in pin assignment
 C, resume from s2idle failed with "phy initialization timed-out", the
-dwc3 resume returned -110 and the following xHCI resume hung the
-system.
+dwc3 resume returned -110 and USB stopped working.
 
 Signed-off-by: Joonhoe Kim <26rote@gmail.com>
 ---
