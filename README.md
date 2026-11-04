@@ -3,11 +3,11 @@
 Mainline Linux on the **Lenovo Legion Tab Gen 5 / Legion Y700 5th Gen** (model **TB323FU**, Snapdragon 8 Elite Gen 5, SM8850 "kaanapali", board "baldur").
 The same model number is used in China and elsewhere; the firmware region (PRC / ROW) differs, not the hardware.
 
-**Website: [joonhoekim.github.io/tb323fu-linux](https://joonhoekim.github.io/tb323fu-linux/)**
+**Website: [joonhoekim.github.io/tb323fu-linux](https://joonhoekim.github.io/tb323fu-linux/)** · **[Releases](https://github.com/joonhoekim/tb323fu-linux/releases)**: the kernel and Open Device Helper
 
-![Debian 13 with GNOME on the TB323FU: fastfetch in a terminal, Open Device Helper's display settings next to it](docs/images/tablet-fastfetch.jpg)
+![The development image (Debian 13) with GNOME on the TB323FU: fastfetch in a terminal, Open Device Helper's display settings next to it](docs/images/tablet-fastfetch.jpg)
 
-> **Status: work in progress — not ready for everyday use.**
+> **Status: in daily use, still in development.** What does not work yet: [Known issues](docs/hardware-status.md#known-issues).
 
 > **Android firmware: stay on ZUI 18.0.12.104.** The kernel has only been tested on that firmware. On 18.0.12.187
 > it hangs during boot ([#9](https://github.com/joonhoekim/tb323fu-linux/issues/9)), and a firmware update cannot be
@@ -26,7 +26,7 @@ the kernel does not assume a particular distribution or desktop.
 | know what works | [Hardware status](docs/hardware-status.md) — a feature is marked as working only after it was checked on the device (measured, or seen/heard by a person); "the driver probes" does not count |
 | see which distributions boot | [Distributions](docs/distros.md) |
 | start: root the tablet (step 1 of the install) | **[Rooting](docs/rooting.md)**: back up the whole tablet, root Android without unlocking (LTBox, KernelSU); host setup per OS. When something goes wrong: [Recovery](docs/recovery.md) |
-| install Linux after rooting | **[Installing Linux](docs/install.md)** — the whole path, then one guided script ([`tools/install/`](tools/install/README.md)) from your PC: [Windows](docs/install-windows.md), [Linux](docs/install-linux.md) or [macOS](docs/install-macos.md); result: Ubuntu with GNOME on the microSD card |
+| install Linux after rooting | **[Installing Linux](docs/install.md)** — the whole path, then one guided script ([`tools/install/`](tools/install/README.md)) from your PC: [Windows](docs/install-windows.md), [Linux](docs/install-linux.md) or [macOS](docs/install-macos.md); result: Ubuntu 26.04 LTS with GNOME on the microSD card (or another distribution you pick) |
 | switch, update or remove Linux once it runs | [After installing](docs/after-install.md): switching to Android and back, kernel and helper updates, more systems on the card, going back to stock, a symptom index |
 | install another distribution, your own kernel or a root on the internal storage | [Installing by hand](docs/install-manual.md) (every step as commands, each marked verified / from records / untested) |
 | build or review the kernel | [kernel/](kernel/README.md), [PROVENANCE.md](kernel/PROVENANCE.md), [initramfs](kernel/initramfs/README.md) |
