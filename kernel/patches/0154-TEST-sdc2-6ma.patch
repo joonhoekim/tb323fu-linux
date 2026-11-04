@@ -1,0 +1,28 @@
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Wed, 4 Nov 2026 12:00:00 +0000
+Subject: [PATCH] TEST: sdc2 pads at 6 mA as downstream
+
+---
+diff --git a/arch/arm64/boot/dts/qcom/baldur-storage.dtsi b/arch/arm64/boot/dts/qcom/baldur-storage.dtsi
+index fec001e..e637288 100644
+--- a/arch/arm64/boot/dts/qcom/baldur-storage.dtsi
++++ b/arch/arm64/boot/dts/qcom/baldur-storage.dtsi
+@@ -63,6 +63,18 @@
+  * up for switches that pull it low.
+  */
+ &sdc2_default {
++	clk-pins {
++		drive-strength = <6>;
++	};
++
++	cmd-pins {
++		drive-strength = <6>;
++	};
++
++	data-pins {
++		drive-strength = <6>;
++	};
++
+ 	card-detect-pins {
+ 		/delete-property/ bias-pull-up;
+ 		bias-disable;
