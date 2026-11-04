@@ -4,7 +4,7 @@
 # natively on an arm64 host (for example the tablet itself running Linux)
 # into a mounted, empty ext4 partition.
 #
-#   sh build-rootfs.sh TARGET_DIR [RELEASE]          # default RELEASE resolute (26.04 LTS)
+#   sh build-rootfs.sh TARGET_DIR [RELEASE]          # default RELEASE stonking (26.10)
 #
 # Environment (all optional):
 #   ROOT_PARTLABEL=tb323fu-ubuntu   GPT name of the target partition (fstab)
@@ -33,7 +33,7 @@
 # safe: an existing base system is not bootstrapped again.
 set -eu
 T=${1:?usage: build-rootfs.sh TARGET_DIR [RELEASE]}
-REL=${2:-resolute}
+REL=${2:-stonking}
 ROOT_PARTLABEL=${ROOT_PARTLABEL:-tb323fu-ubuntu}
 HOSTNAME_NEW=${HOSTNAME_NEW:-tb323fu-ubuntu}
 TIMEZONE=${TIMEZONE:-$(readlink /etc/localtime 2>/dev/null | sed -n "s|.*/zoneinfo/||p")}
@@ -95,7 +95,7 @@ base="linux-firmware- systemd-resolved network-manager openssh-server sudo bluez
 	polkitd rmtfs tqftpserv qrtr-tools rfkill locales tzdata vim-tiny less \
 	wpasupplicant wireless-regdb swh-plugins libcamera-ipa libspa-0.2-libcamera"
 case $DESKTOP in
-gnome) desk="gdm3 gnome-shell gnome-session gnome-control-center gnome-terminal nautilus \
+gnome) desk="gdm3 gnome-shell gnome-session ubuntu-session gnome-control-center gnome-terminal nautilus \
 	gnome-text-editor gnome-shell-extension-prefs gnome-initial-setup- gnome-keyring \
 	libpam-gnome-keyring mesa-vulkan-drivers libgl1-mesa-dri plymouth plymouth-theme-spinner fonts-noto-core \
 	gstreamer1.0-libcamera gnome-snapshot" ;;
@@ -192,6 +192,9 @@ if [ "$DESKTOP" = gnome ]; then
 		c=$T/etc/gdm3/custom.conf
 		[ -e "$c" ] || printf '[daemon]\n' > "$c"
 		grep -q '^AutomaticLoginEnable' "$c" || sed -i "s/^\[daemon\]/[daemon]\nAutomaticLoginEnable=true\nAutomaticLogin=$DEV_USER/" "$c"
+		mkdir -p "$T/var/lib/AccountsService/users"
+		printf '[User]\nSession=ubuntu\nSystemAccount=false\n' > "$T/var/lib/AccountsService/users/$DEV_USER"
+		chmod 600 "$T/var/lib/AccountsService/users/$DEV_USER"
 	fi
 fi
 
