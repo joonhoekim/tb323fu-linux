@@ -826,7 +826,7 @@ release_image() {
 		for p in $(grep -l " $dev " /proc/[0-9]*/mountinfo 2>/dev/null | cut -d/ -f3 | sort -u); do
 			for mp in $(awk -v d=" $dev " 'index($0, d) {print $5}' "/proc/$p/mountinfo"); do
 				say "  unmounting a leftover mount of the image ($mp) held by $(cat "/proc/$p/comm" 2>/dev/null) ($p)"
-				$SUDO nsenter -t "$p" -m umount "$mp"
+				$SUDO nsenter -t "$p" -m umount -R "$mp" || $SUDO nsenter -t "$p" -m umount -l "$mp"
 			done
 		done
 	done
