@@ -265,12 +265,20 @@ cmd=${1:-}; [ $# -gt 0 ] && shift
 opts=() args=()
 for a; do case $a in -*) opts+=("$a") ;; *) args+=("$a") ;; esac; done
 online() { [ "$("$ADB_EXE" "${pre[@]}" get-state 2>/dev/null | tr -d '\r')" = device ]; }
+# first try: keep its error until we know whether the staged retry follows
+first() {
+	local err rc
+	err=$(mktemp) || { "$ADB_EXE" "$@"; return; }
+	"$ADB_EXE" "$@" 2>"$err"; rc=$?
+	[ $rc = 0 ] || online || cat "$err" >&2
+	rm -f "$err"; return $rc
+}
 case $cmd in
 push)
 	n=${#args[@]}; [ "$n" -ge 2 ] || exec "$ADB_EXE" "${pre[@]}" push "$@"
 	dst=${args[n-1]}; src=("${args[@]:0:n-1}"); w=()
 	for s in "${src[@]}"; do w+=("$(winpath "$s")"); done
-	"$ADB_EXE" "${pre[@]}" push "${opts[@]}" "${w[@]}" "$dst" && exit 0
+	first "${pre[@]}" push "${opts[@]}" "${w[@]}" "$dst" && exit 0
 	rc=$?; online || exit $rc
 	echo "adb: retrying through $STAGE" >&2
 	mkdir -p "$STAGE" || exit $rc; w=()
@@ -281,7 +289,7 @@ push)
 pull)
 	n=${#args[@]}; [ "$n" -ge 1 ] || exec "$ADB_EXE" "${pre[@]}" pull "$@"
 	if [ "$n" -ge 2 ]; then dst=${args[n-1]}; src=("${args[@]:0:n-1}"); else dst=.; src=("${args[@]}"); fi
-	"$ADB_EXE" "${pre[@]}" pull "${opts[@]}" "${src[@]}" "$(winpath "$dst")" && exit 0
+	first "${pre[@]}" pull "${opts[@]}" "${src[@]}" "$(winpath "$dst")" && exit 0
 	rc=$?; online || exit $rc
 	echo "adb: retrying through $STAGE" >&2
 	rm -rf "$STAGE/pull"; mkdir -p "$STAGE/pull" || exit $rc
@@ -1029,7 +1037,10 @@ EOF
 say "${b}TB323FU: $DISTRO_TITLE on the microSD card, guided ($DISTRO: $DISTRO_STATUS)${r}$([ $DRY = 1 ] && echo ' (dry run: nothing is executed)')"
 say "Guide: docs/install.md (Windows, Linux, macOS); by hand: docs/install-manual.md. State: $STATE"
 [ $DRY = 1 ] || mkdir -p "$WORK"
-if is_wsl && [ -x "$WORK/bin/adb" ]; then export PATH="$WORK/bin:$PATH"; fi
+if is_wsl && [ -x "$WORK/bin/adb" ]; then
+	[ $DRY = 1 ] || [ ! -x "$(st_get adb_exe)" ] || write_adb_wrapper "$(st_get adb_exe)"
+	export PATH="$WORK/bin:$PATH"
+fi
 for s in "${steps[@]}"; do
 	if [ $explicit = 0 ] && [ $DRY = 0 ] && [ "$(st_get "done_$s")" = 1 ] && [ "$s" != firstboot ]; then
 		say "-- $s: done earlier (run 'install.sh $s' to do it again)"; continue
