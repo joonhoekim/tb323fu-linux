@@ -490,12 +490,12 @@ impl LedRing {
         invalidate(&em, Self::IFACE, Self::PROPS).await;
         Ok(())
     }
-    /// Breathing cycle, 1000..20000 ms.
+    /// Cycle speed, 200..20000 ms.
     async fn set_speed(&self, ms: u32, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
         #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
         polkit::check(conn, &hdr, "led-ring", self.0.no_polkit).await?;
-        if !(1000..=20000).contains(&ms) {
-            return Err(invalid("speed must be 1000..20000 ms".into()));
+        if !(200..=20000).contains(&ms) {
+            return Err(invalid("speed must be 200..20000 ms".into()));
         }
         self.0.update(|c| c.ledring.speed = ms);
         self.0.ledring_tick(true);
@@ -533,7 +533,7 @@ impl LedRing {
         #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
         polkit::check(conn, &hdr, "led-ring", self.0.no_polkit).await?;
         if !f::LED_MODES.contains(&mode.as_str()) {
-            return Err(invalid("mode must be off, charge, solid or breathe".into()));
+            return Err(invalid("mode must be off, charge, solid, breathe, chase or rainbow".into()));
         }
         self.0.update(|c| c.ledring.mode = mode.clone());
         self.0.ledring_tick(true);

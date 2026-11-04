@@ -74,15 +74,15 @@ pub struct Torch {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct LedRing {
-    /// "charge" (charge-state indicator), "solid", "breathe" or "off"
+    /// "charge", "solid", "breathe", "chase", "rainbow" or "off"
     pub mode: String,
     pub brightness: u32,
     pub low_percent: u32,
-    /// color of solid and breathe, "#rrggbb"
+    /// color of solid, breathe and chase, "#rrggbb"
     pub color: String,
-    /// breathing cycle, ms
+    /// breathing, chase and rainbow cycle, ms
     pub speed: u32,
-    /// in solid and breathe, the charge colors take over while charging,
+    /// in solid, breathe, chase and rainbow, the charge colors take over while charging,
     /// full or held, and when the battery is low
     pub charge_override: bool,
     /// front-ends pulse the ring for desktop notifications

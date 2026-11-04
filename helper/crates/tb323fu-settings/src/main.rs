@@ -39,8 +39,8 @@ const GPU_PROFILES: [&str; 3] = ["power-saver", "balanced", "performance"];
 const GPU_PROFILE_LABELS: [&str; 3] = ["Power Saver", "Balanced", "Performance"];
 const THERMAL_PROFILES: [&str; 3] = ["quiet", "default", "performance"];
 const THERMAL_LABELS: [&str; 3] = ["Quiet", "Default", "Performance"];
-const LED_MODES: [&str; 4] = ["off", "charge", "solid", "breathe"];
-const LED_MODE_LABELS: [&str; 4] = ["Off", "Charge Indicator", "Solid Color", "Breathing"];
+const LED_MODES: [&str; 6] = ["off", "charge", "solid", "breathe", "chase", "rainbow"];
+const LED_MODE_LABELS: [&str; 6] = ["Off", "Charge Indicator", "Solid Color", "Breathing", "Chasing", "Rainbow Wave"];
 /// Colors that look like themselves on the ring (dark ones read as off,
 /// brown as yellow).
 const LED_PALETTE: [(&str, &str); 9] = [("Red", "#ff0000"), ("Orange", "#ff6000"), ("Yellow", "#ffd000"), ("Green", "#00ff00"), ("Cyan", "#00ffff"), ("Blue", "#0000ff"), ("Purple", "#a000ff"), ("Pink", "#ff40a0"), ("White", "#ffffff")];
@@ -821,7 +821,7 @@ impl Ui {
         let led_color_row = adw::ActionRow::builder().title("Color").build();
         led_color_row.add_suffix(&swatches);
         led_group.add(&led_color_row);
-        let led_speed = spin(&led_group, "Breathing Cycle (s)", "", 1.0, 20.0, 0.5);
+        let led_speed = spin(&led_group, "Breathing Cycle (s)", "", 0.2, 20.0, 0.2);
         led_speed.set_digits(1);
         let led_override = switch(&led_group, "Charge Colors Take Over", "While charging, held at the limit or low");
         let led_bright = spin(&led_group, "Brightness", "", 1.0, 255.0, 1.0);
@@ -1384,11 +1384,21 @@ impl Ui {
     /// Show the LED rows that apply to the mode.
     fn sync_led_rows(&self) {
         let m = LED_MODES[self.led_mode.selected() as usize % LED_MODES.len()];
-        let own = m == "solid" || m == "breathe";
+        let own = m == "solid" || m == "breathe" || m == "chase";
         self.led_color_row.set_visible(own);
-        self.led_speed.set_visible(m == "breathe");
-        self.led_override.set_visible(own);
-        self.led_low.set_visible(m == "charge" || (own && self.led_override.is_active()));
+
+        let has_speed = m == "breathe" || m == "chase" || m == "rainbow";
+        self.led_speed.set_visible(has_speed);
+        if m == "breathe" {
+            self.led_speed.set_title("Breathing Cycle (s)");
+        } else if m == "chase" {
+            self.led_speed.set_title("Chasing Speed (s)");
+        } else if m == "rainbow" {
+            self.led_speed.set_title("Wave Cycle (s)");
+        }
+
+        self.led_override.set_visible(m != "off" && m != "charge");
+        self.led_low.set_visible(m == "charge" || (m != "off" && self.led_override.is_active()));
         self.led_bright.set_visible(m != "off");
     }
 

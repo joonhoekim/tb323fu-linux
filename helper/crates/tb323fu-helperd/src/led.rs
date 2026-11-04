@@ -55,6 +55,7 @@ fn run(sh: Arc<Shared>) {
     // last one it refused (drawn in software instead)
     let mut hw: Option<([u32; 3], u32, u32)> = None;
     let mut hw_refused: Option<([u32; 3], u32, u32)> = None;
+    let mut hw_raw: Option<String> = None;
     loop {
         let (force, pulse) = {
             let mut r = sh.led.req.lock().unwrap();
@@ -63,6 +64,12 @@ fn run(sh: Arc<Shared>) {
         let cfg = sh.cfg();
         let c = &cfg.ledring;
         if let Some((color, count)) = pulse {
+            if hw_raw.take().is_some() {
+                let _ = f::aw22127_raw_stop();
+            }
+            if hw.take().is_some() {
+                let _ = f::ledring_trigger_clear();
+            }
             for _ in 0..count.min(10) {
                 let _ = f::ledring_apply(Some(color), c.brightness.max(1));
                 std::thread::sleep(PULSE_ON);
@@ -71,6 +78,7 @@ fn run(sh: Arc<Shared>) {
             }
             last = None;
             hw = None;
+            hw_raw = None;
         }
         if force || charge.0.is_none_or(|t| t.elapsed() >= IDLE) {
             charge = (Some(Instant::now()), f::battery_info().ok().and_then(|i| f::ledring_color(&i, c.low_percent, cfg.battery.bypass)));
@@ -78,6 +86,10 @@ fn run(sh: Arc<Shared>) {
         let own = f::parse_color(&c.color).ok();
         let overridden = c.charge_override && charge.1.is_some();
         if let (Some(col), "breathe", false) = (own, c.mode.as_str(), overridden) {
+            if hw_raw.take().is_some() {
+                let _ = f::aw22127_raw_stop();
+                last = None;
+            }
             let key = (col, c.brightness, c.speed);
             if hw != Some(key) || force || pulse.is_some() {
                 hw = None;
@@ -101,14 +113,52 @@ fn run(sh: Arc<Shared>) {
             let _ = f::ledring_trigger_clear();
             last = None;
         }
+
+        if let (Some(col), "chase", false) = (own, c.mode.as_str(), overridden) {
+            let key = format!("chase:{col:?}:{}:{}:cw", c.brightness, c.speed);
+            if hw_raw != Some(key.clone()) || force || pulse.is_some() {
+                if let Err(e) = f::ledring_chase(col, c.speed, c.brightness) {
+                    eprintln!("tb323fu-helperd: {e}");
+                }
+                hw_raw = Some(key);
+                last = None;
+            }
+            let g = sh.led.req.lock().unwrap();
+            let _ = sh.led.cv.wait_timeout_while(g, IDLE, |r| !r.force && r.pulse.is_none());
+            continue;
+        }
+
+        if (c.mode == "rainbow") && !overridden {
+            let key = format!("rainbow:{}:{}", c.brightness, c.speed);
+            if hw_raw != Some(key.clone()) || force || pulse.is_some() {
+                if let Err(e) = f::ledring_rainbow(c.speed, c.brightness) {
+                    eprintln!("tb323fu-helperd: {e}");
+                }
+                hw_raw = Some(key);
+                last = None;
+            }
+            let g = sh.led.req.lock().unwrap();
+            let _ = sh.led.cv.wait_timeout_while(g, IDLE, |r| !r.force && r.pulse.is_none());
+            continue;
+        }
+
+        if hw_raw.take().is_some() {
+            let _ = f::aw22127_raw_stop();
+            last = None;
+        }
+
         let (color, animate) = match c.mode.as_str() {
             "charge" => (charge.1, false),
-            "solid" | "breathe" if overridden => (charge.1, false),
+            "solid" | "breathe" | "chase" | "rainbow" if overridden => (charge.1, false),
             "solid" => (own, false),
             "breathe" => (own, !perf::screen_off()),
             _ => (None, false),
         };
-        let bright = if animate { f::breathe_level(c.brightness, start.elapsed().as_millis() as u64, c.speed) } else { c.brightness };
+        let bright = if c.mode == "breathe" && animate {
+            f::breathe_level(c.brightness, start.elapsed().as_millis() as u64, c.speed)
+        } else {
+            c.brightness
+        };
         let want = (color, bright);
         if pulse.is_some() || force || last != Some(want) {
             let res = match (&last, color) {

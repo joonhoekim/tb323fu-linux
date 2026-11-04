@@ -368,7 +368,7 @@ pub fn ledring_apply(color: Option<[u32; 3]>, brightness: u32) -> Res<()> {
     }
 }
 
-pub const LED_MODES: [&str; 4] = ["off", "charge", "solid", "breathe"];
+pub const LED_MODES: [&str; 6] = ["off", "charge", "solid", "breathe", "chase", "rainbow"];
 
 /// "#rrggbb" -> [r, g, b].
 pub fn parse_color(s: &str) -> Res<[u32; 3]> {
@@ -435,6 +435,178 @@ pub fn ledring_trigger_clear() -> Res<()> {
         return Ok(());
     }
     sys::write(&t, "none").map_err(|e| werr("LED ring", e))
+}
+
+const AW22127_I2C_BUS: &str = "/dev/i2c-2";
+const AW22127_I2C_ADDR: u64 = 0x6a;
+const I2C_SLAVE_FORCE: u64 = 0x0706;
+
+extern "C" {
+    fn ioctl(fd: std::os::raw::c_int, request: std::os::raw::c_ulong, ...) -> std::os::raw::c_int;
+}
+
+/// Send a raw command sequence directly to the AW22127 LED matrix controller MCU.
+pub fn aw22127_raw_play(cmd: &[u8], brightness: u32) -> Res<()> {
+    use std::fs::OpenOptions;
+    use std::io::Write;
+    use std::os::unix::io::AsRawFd;
+
+    // Ensure the kernel driver has the chip powered on and reset line released.
+    let d = ledring_dir();
+    let _ = sys::write(&d.join("trigger"), "none");
+    let cur_bright = sys::read_i64(&d.join("brightness")).unwrap_or(0);
+    if cur_bright == 0 {
+        let _ = sys::write(&d.join("brightness"), "1");
+        // Give the kernel driver time to complete its initial power-up I2C sequence (~45 ms)
+        std::thread::sleep(std::time::Duration::from_millis(60));
+    }
+
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(AW22127_I2C_BUS)
+        .map_err(|e| werr("AW22127 I2C open", e))?;
+
+    let fd = file.as_raw_fd();
+    if unsafe { ioctl(fd, I2C_SLAVE_FORCE, AW22127_I2C_ADDR) } < 0 {
+        return Err(werr("AW22127 I2C ioctl", std::io::Error::last_os_error()));
+    }
+
+    // Sequence to program AW22127 internal MCU task
+    file.write_all(&[0xff, 0x00]).map_err(|e| werr("AW22127 I2C write", e))?;
+    file.write_all(&[0x02, 0x01]).map_err(|e| werr("AW22127 I2C write", e))?;
+    file.write_all(&[0x0c, 0x00]).map_err(|e| werr("AW22127 I2C write", e))?;
+    file.write_all(&[0x05, 0x01]).map_err(|e| werr("AW22127 I2C write", e))?;
+    file.write_all(&[0x04, 0x01]).map_err(|e| werr("AW22127 I2C write", e))?;
+    file.write_all(&[0x09, 0x01]).map_err(|e| werr("AW22127 I2C write", e))?;
+    file.write_all(&[0x04, 0x03]).map_err(|e| werr("AW22127 I2C write", e))?;
+
+    for (i, &b) in cmd.iter().enumerate() {
+        if i > 0 {
+            file.write_all(&[0x04, 0x07]).map_err(|e| werr("AW22127 I2C write", e))?;
+        }
+        file.write_all(&[0x06, b]).map_err(|e| werr("AW22127 I2C write", e))?;
+    }
+    file.write_all(&[0x04, 0x07]).map_err(|e| werr("AW22127 I2C write", e))?;
+
+    // Global current/brightness IMAX register (0x0b)
+    let imax = match brightness {
+        0..=60 => 0x08,    // 2mA
+        61..=120 => 0x01,  // 6mA
+        121..=180 => 0x03, // 15mA
+        _ => 0x04,         // 30mA
+    };
+    file.write_all(&[0xff, 0x00]).map_err(|e| werr("AW22127 I2C write", e))?;
+    file.write_all(&[0x0b, imax]).map_err(|e| werr("AW22127 I2C write", e))?;
+    file.write_all(&[0x05, 0x80]).map_err(|e| werr("AW22127 I2C write", e))?;
+
+    Ok(())
+}
+
+/// Stop Task 0 in the AW22127 LED matrix controller MCU.
+pub fn aw22127_raw_stop() -> Res<()> {
+    use std::fs::OpenOptions;
+    use std::io::Write;
+    use std::os::unix::io::AsRawFd;
+
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(AW22127_I2C_BUS)
+        .map_err(|e| werr("AW22127 I2C open", e))?;
+
+    let fd = file.as_raw_fd();
+    if unsafe { ioctl(fd, I2C_SLAVE_FORCE, AW22127_I2C_ADDR) } < 0 {
+        return Err(werr("AW22127 I2C ioctl", std::io::Error::last_os_error()));
+    }
+
+    file.write_all(&[0xff, 0x00]).map_err(|e| werr("AW22127 I2C write", e))?;
+    file.write_all(&[0x05, 0x00]).map_err(|e| werr("AW22127 I2C write", e))?;
+    file.write_all(&[0x04, 0x01]).map_err(|e| werr("AW22127 I2C write", e))?;
+
+    Ok(())
+}
+
+/// Build the 45-byte circular chasing command for a given color and cycle speed.
+/// Uses the AW22127 MCU internal effect engine (Mode 0, Effect 4: Spiral Rotation)
+/// with an 8-step palette (head, fading tail, dark trailing) so a single illuminated
+/// dot smoothly runs around the 8 LEDs.
+pub fn build_chase_cmd(color: [u32; 3], speed_ms: u32) -> [u8; 45] {
+    let speed = speed_ms.clamp(200, 20000) as u16;
+    let ms_hi = (speed >> 8) as u8;
+    let ms_lo = (speed & 0xff) as u8;
+    let p = led_pwm(color);
+    let r = p[0].min(255) as u8;
+    let g = p[1].min(255) as u8;
+    let b = p[2].min(255) as u8;
+
+    let r_tail = r / 4;
+    let g_tail = g / 4;
+    let b_tail = b / 4;
+
+    [
+        0x00, 0x80, // Task 0 header
+        0x00, 0x01, // Mode = 0 (internal effect), Repeat = 1 (infinite loop)
+        0x04, 0x00, // Effect ID = 4 (Circular Spiral Rotation)
+        0x00, 0x02, // Direction = Clockwise
+        0x00, 0x00, 0x00, 0x40, // Phase delay step = 64
+        ms_hi, ms_lo, // Rotation cycle period in ms
+        0x00,       // Mode flag
+        0x09,       // 9 LEDs (IDs 1..8)
+        0x01,       // 1 partition
+        0x08,       // 8 color steps
+        0x00, 0x00, 0x00, // Padding
+        r, g, b,                // Step 1: Head (100%)
+        r_tail, g_tail, b_tail, // Step 2: Tail (25%)
+        0, 0, 0,                // Step 3: Off
+        0, 0, 0,                // Step 4: Off
+        0, 0, 0,                // Step 5: Off
+        0, 0, 0,                // Step 6: Off
+        0, 0, 0,                // Step 7: Off
+        0, 0, 0,                // Step 8: Off
+    ]
+}
+
+/// Circular chasing / spin effect around the rear LED ring.
+pub fn ledring_chase(color: [u32; 3], speed_ms: u32, brightness: u32) -> Res<()> {
+    let cmd = build_chase_cmd(color, speed_ms);
+    aw22127_raw_play(&cmd, brightness)
+}
+
+/// Build the 42-byte rainbow wave command for a given cycle speed.
+/// Uses the AW22127 MCU internal effect engine (Mode 0, Effect 4: Spiral Rotation)
+/// with the 7 vendor spectrum colors.
+pub fn build_rainbow_cmd(speed_ms: u32) -> [u8; 42] {
+    let speed = speed_ms.clamp(200, 20000) as u16;
+    let ms_hi = (speed >> 8) as u8;
+    let ms_lo = (speed & 0xff) as u8;
+
+    [
+        0x00, 0x80, // Task 0 header
+        0x00, 0x01, // Mode = 0 (internal effect), Repeat = 1 (infinite loop)
+        0x04, 0x00, // Effect ID = 4 (Circular Spiral Rotation)
+        0x00, 0x02, // Direction = Clockwise
+        0x00, 0x00, 0x00, 0x40, // Phase delay step = 64
+        ms_hi, ms_lo, // Rotation cycle period in ms
+        0x00,       // Mode flag
+        0x09,       // 9 LEDs (IDs 1..8)
+        0x01,       // 1 partition
+        0x07,       // 7 colors
+        0x00, 0x00, 0x00, // Padding
+        0xff, 0x00, 0x00, // Red
+        0xff, 0x80, 0x00, // Orange
+        0xff, 0xff, 0x00, // Yellow
+        0x00, 0xff, 0x00, // Green
+        0x00, 0xff, 0xff, // Cyan
+        0x00, 0x00, 0xff, // Blue
+        0xa0, 0x0e, 0xff, // Purple
+    ]
+}
+
+/// Rainbow spectrum wave across all 8 rear LEDs.
+pub fn ledring_rainbow(speed_ms: u32, brightness: u32) -> Res<()> {
+    let cmd = build_rainbow_cmd(speed_ms);
+    aw22127_raw_play(&cmd, brightness)
 }
 
 // ---------------------------------------------------------------- idle refresh
@@ -949,6 +1121,20 @@ mod tests {
         assert_eq!(ledring_color(&info("Charging", 99, 185, 99), 15, true), Some([0, 255, 0]));
         assert_eq!(ledring_color(&info("Discharging", 10, -300, 80), 15, false), Some([255, 0, 0]));
         assert_eq!(ledring_color(&info("Discharging", 50, -300, 80), 15, false), None);
+    }
+    #[test]
+    fn chase_cmd() {
+        let cmd = build_chase_cmd([0, 255, 255], 3000);
+        assert_eq!(cmd.len(), 45);
+        assert_eq!(cmd[4], 4);
+        assert_eq!(&cmd[12..14], &[0x0b, 0xb8]);
+    }
+    #[test]
+    fn rainbow_cmd() {
+        let cmd = build_rainbow_cmd(3000);
+        assert_eq!(cmd.len(), 42);
+        assert_eq!(cmd[4], 4);
+        assert_eq!(&cmd[12..14], &[0x0b, 0xb8]);
     }
     #[test]
     fn charger_contract() {
