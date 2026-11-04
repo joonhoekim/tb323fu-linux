@@ -78,6 +78,10 @@ echo "SWITCH \$(basename "\$(readlink "\$1")") \$2" >> "$T/log"
 EOF
 	printf '#!/bin/sh\nexit 1\n' > "$T/bin/chroot"
 	for s in kill sync usleep; do printf '#!/bin/sh\nexit 0\n' > "$T/bin/$s"; done
+	cat > "$T/bin/back-to-android" <<EOF
+#!/bin/sh
+echo "BACK_TO_ANDROID \$*" >> "$T/log"
+EOF
 	chmod +x "$T/bin/"*
 	: > "$T/log"
 }
@@ -242,6 +246,23 @@ setup; part mmcblk0p1 tb323fu-ubuntu init; part mmcblk0p2 tb323fu-arch init
 file mmcblk0p2 etc/tb323fu/boot-menu ""; file mmcblk0p2 etc/tb323fu/boot-default tb323fu-ubuntu
 run "$SH"; expect_switch mmcblk0p1 boot-next "menu on the state root, idle: the default"
 expect_log "^SAY  boot menu: tb323fu-ubuntu" "  menu said tb323fu-ubuntu"
+rm -rf "$T"
+
+# the volume-up menu: android selected when its hash is known
+setup; part mmcblk0p1 tb323fu-ubuntu init; part mmcblk0p2 tb323fu-arch init
+file mmcblk0p2 etc/tb323fu/boot-menu ""; file mmcblk0p2 etc/tb323fu/boot-default android
+file mmcblk0p2 etc/tb323fu/android-boot.sha256 "$H1"
+run "$SH"; expect_log "^SAY  boot menu: android" "menu on the state root: android selected"
+expect_log "^BACK_TO_ANDROID $H1" "  back-to-android called with hash"
+expect_log "^REBOOT" "  rebooted"
+rm -rf "$T"
+
+# boot-next android (without menu): restores Android
+setup; part mmcblk0p1 tb323fu-ubuntu init; part mmcblk0p2 tb323fu-arch init
+file mmcblk0p2 etc/tb323fu/boot-next android
+file mmcblk0p2 etc/tb323fu/android-boot.sha256 "$H1"
+run "$SH"; expect_log "^BACK_TO_ANDROID $H1" "boot-next android: back-to-android called"
+expect_log "^REBOOT" "  rebooted"
 rm -rf "$T"
 
 # kernel trial (kernel updates): starts counted on the state root, rollback after max

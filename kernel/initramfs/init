@@ -463,8 +463,14 @@ if [ "$end" = "hold" ]; then
 		fi
 	fi
 	touch /tmp/android-hash-done
+	ahash=$(head -c 64 /etc/android-boot.sha256 2>/dev/null)
+	hash_ok "$ahash" || ahash=$(head -c 64 /tmp/android-boot.sha256 2>/dev/null)
 	if [ -n "$menu" ]; then
-		list=$order; n=$(echo "$list" | wc -l); i=1
+		list=$order
+		if hash_ok "$ahash"; then
+			list=$(printf '%s\nandroid\n' "$list")
+		fi
+		n=$(echo "$list" | wc -l); i=1
 		cur=${next:-${def:-$state}}
 		i=$(echo "$list" | grep -n -x "$cur" | cut -d: -f1); [ -n "$i" ] || i=1
 		say " boot menu: volume-up = next, wait 5 s = boot"
@@ -479,6 +485,12 @@ if [ "$end" = "hold" ]; then
 			usleep 100000
 		done
 		say ""; say " boot menu: $sel"; next=$sel
+	fi
+	if [ "$next" = "android" ] && hash_ok "$ahash"; then
+		say " switching to Android from boot_b..."
+		back-to-android "$ahash" 2>&1 | while read -r l; do say "   $l"; done
+		reboot -f || { sleep 2; echo b > /proc/sysrq-trigger; }
+		kstuck=1
 	fi
 	if [ -n "$kstuck" ]; then
 		say " staying in the initramfs (boot_a: see above)"

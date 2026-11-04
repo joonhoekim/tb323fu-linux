@@ -83,13 +83,13 @@ and `tb323fu-*` (for example `tb323fu-ubuntu`, `tb323fu-arch`, `tb323fu-nixos` o
 the **state root**: the first present of `baldur-root`, `baldur-root-sd`, then the `tb323fu-*` partitions in sorted order (the helper
 mounts it under `/run/tb323fu/state` when running from another root):
 
-- `/etc/tb323fu/boot-next` — one-shot: the initramfs reads it, **deletes it before trying the root**, then boots it. A system that hangs
+- `/etc/tb323fu/boot-next` — one-shot: the initramfs reads it, **deletes it before trying the root** (or switching to Android), then boots it. A system that hangs
   later therefore boots the default on the next restart.
 - `/etc/tb323fu/boot-default` — persistent default (absent = the state root).
 - Order tried: next, default, the state root, then every other candidate in the same order; a root that is missing, does not mount or has
   no init is skipped.
 - Init per root: `/sbin/init` (Debian, Ubuntu, Arch, Fedora) or NixOS's `/nix/var/nix/profiles/system/init`.
-- `/etc/tb323fu/boot-menu` (any content) enables a menu at boot: volume-up moves to the next system, 5 s without a press boots it.
+- `/etc/tb323fu/boot-menu` (any content) enables a menu at boot: volume-up moves to the next system (and Android when its boot image hash is known), 5 s without a press boots it.
 - The modules come with the boot image (shared modules, mounted on the chosen root's `/lib/modules/$(uname -r)` by the initramfs); a root with `/etc/tb323fu/modules` = `own` carries its own tree. Every root needs the firmware files.
 
 The helper's `Boot` object ([D-Bus API](helper-reference.md#d-bus-api)) lists the roots (reading each one's `os-release`, mounted read-only without journal replay, cached) and writes

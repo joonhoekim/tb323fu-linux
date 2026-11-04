@@ -123,11 +123,11 @@ No name is required. The **state root** is the first present of `baldur-root`, `
 `tb323fu-*` partitions in sorted order (an SD card with only `tb323fu-arch`, `tb323fu-fedora`, `tb323fu-ubuntu`:
 `tb323fu-arch`). The helper and Android's Switch to Linux pick it by the same rule. The selection lives on it:
 
-- `/etc/tb323fu/boot-next`: one partition name, used **once**. `init` deletes it (and syncs) before trying that
-  root, so a system that hangs later boots the default next time.
+- `/etc/tb323fu/boot-next`: one partition name (or `android`), used **once**. `init` deletes it (and syncs) before trying that
+  root (or switching to Android via `back-to-android`), so a system that hangs later boots the default next time.
 - `/etc/tb323fu/boot-default`: persistent default (otherwise the state root).
-- `/etc/tb323fu/boot-menu`: if present, a menu on the panel: volume-up moves to the next root, 5 s without a
-  press boots the one shown.
+- `/etc/tb323fu/boot-menu`: if present, a menu on the panel: volume-up moves to the next root (and `android` when
+  the Android image hash is known), 5 s without a press boots the one shown.
 
 Order tried: boot-next, boot-default, the state root, then every other candidate in the same order. A root
 that is missing, does not mount or has no init is skipped, and the screen says why. The state root also keeps
