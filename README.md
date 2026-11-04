@@ -50,14 +50,6 @@ the kernel does not assume a particular distribution or desktop.
 | `tools/` | build and flash scripts |
 | `docs/` | documentation (see [Where to start](#where-to-start)) |
 
-## Support
-
-If this project is useful to you, you can support the work:
-
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/K1S6284A4H)
-
-Starring the repository on GitHub helps too: it makes the project easier for other TB323FU owners to find.
-
 ## Contributing
 
 Reports from your own tablet — what works and what does not, with logs — are as useful as code: post them in
@@ -65,6 +57,7 @@ Reports from your own tablet — what works and what does not, with logs — are
 [Q&A](https://github.com/joonhoekim/tb323fu-linux/discussions/categories/q-a), bugs you can reproduce to
 [issues](https://github.com/joonhoekim/tb323fu-linux/issues/new?template=bug-report.yml), and pull requests are welcome.
 Contributions are taken under the license of the file they change, with a DCO sign-off; see [CONTRIBUTING.md](CONTRIBUTING.md).
+Starring the repository on GitHub helps too: it makes the project easier for other TB323FU owners to find.
 
 ## License
 
