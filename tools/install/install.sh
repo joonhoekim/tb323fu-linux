@@ -947,6 +947,8 @@ EOF
 	fi
 }
 
+drop_copy() { su_ "rm -f $T/tb323fu-root.img.gz"; }
+
 step_write() {
 	head_ "write: put the root image into the card's partition, from Android (3-10 min)"
 	local part gz=$WORK/root.img.gz isha ibytes gsha free got out
@@ -964,17 +966,17 @@ step_write() {
 	say "1) copy the packed image to the tablet ($T, a few minutes)"
 	run adb push "$gz" $T/tb323fu-root.img.gz || return 1
 	got=$(su_ "sha256sum $T/tb323fu-root.img.gz" | cut -c1-64)
-	[ $DRY = 1 ] || [ "$got" = "$gsha" ] || { warn "the copy on the tablet is damaged; run this step again"; return 1; }
+	[ $DRY = 1 ] || [ "$got" = "$gsha" ] || { warn "the copy on the tablet is damaged; run this step again"; drop_copy; return 1; }
 	say "2) unpack it into $part ($ROOT_PARTLABEL); 5-15 min, depending on the card"
 	warn "this OVERWRITES $part (the card's $ROOT_PARTLABEL partition)"
 	undo "nothing on the tablet itself changes; to clear the card: Android Settings -> Storage -> Format"
-	confirm "WRITE" || return 1
+	confirm "WRITE" || { drop_copy; return 1; }
 	out=$(su_ "zcat $T/tb323fu-root.img.gz | dd of=$part bs=4194304 conv=fsync 2>&1 | tail -1")
 	say "  $out"
 	say "3) read it back and compare (a few minutes)"
 	got=$(su_ "head -c $ibytes $part | sha256sum" | cut -c1-64)
-	[ $DRY = 1 ] || [ "$got" = "$isha" ] || { warn "what is on the card differs from the image; run this step again (or try another card)"; return 1; }
-	su_ "rm -f $T/tb323fu-root.img.gz"
+	[ $DRY = 1 ] || [ "$got" = "$isha" ] || { warn "what is on the card differs from the image; run this step again (or try another card)"; drop_copy; return 1; }
+	drop_copy
 	st_set written_sha "$isha"
 	say "the root is on the card."
 }
