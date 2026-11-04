@@ -35,7 +35,7 @@
 #   ROOT_SIZE=                 its size (e.g. 64G; 0 = the rest of the card). Asked if unset
 #   DEV_USER=                  your user on the tablet (asked; default: your user here)
 #   DESKTOP=gnome              gnome or none (none: console only, much faster build)
-#   DISTRO=ubuntu              the distribution module: ubuntu, arch (both verified),
+#   DISTRO=ubuntu              the distribution module: ubuntu, arch, fedora (all verified),
 #                              or the path of your own module file (tools/install/distros/README.md);
 #                              --distros lists them
 #   DEV_ACCESS=0               1: developer access in the root (USB network, root shell

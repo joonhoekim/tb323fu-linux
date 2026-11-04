@@ -24,7 +24,7 @@ the kernel does not assume a particular distribution or desktop.
 | You want to | Read |
 |---|---|
 | know what works | [Hardware status](docs/hardware-status.md) — a feature is marked as working only after it was checked on the device (measured, or seen/heard by a person); "the driver probes" does not count |
-| see which distributions boot | [Distributions](docs/distros.md) |
+| see which distributions boot | [Distributions](docs/distros.md): Ubuntu 26.04 LTS, Arch Linux ARM and Fedora through the guided installer, more (NixOS, SteamOS, …) with their builders |
 | start: root the tablet (step 1 of the install) | **[Rooting](docs/rooting.md)**: back up the whole tablet, root Android without unlocking (LTBox, KernelSU); host setup per OS. When something goes wrong: [Recovery](docs/recovery.md) |
 | install Linux after rooting | **[Installing Linux](docs/install.md)** — the whole path, then one guided script ([`tools/install/`](tools/install/README.md)) from your PC: [Windows](docs/install-windows.md), [Linux](docs/install-linux.md) or [macOS](docs/install-macos.md); result: Ubuntu 26.04 LTS with GNOME on the microSD card (or another distribution you pick) |
 | switch, update or remove Linux once it runs | [After installing](docs/after-install.md): switching to Android and back, kernel and helper updates, more systems on the card, going back to stock, a symptom index |
