@@ -1,6 +1,8 @@
 # Installing from Windows
 
 From a rooted TB323FU to Ubuntu with GNOME on the microSD card, using one Ubuntu terminal on Windows and one script.
+The build runs in a WSL distribution of its own, which you remove afterwards; an Ubuntu you already use in WSL is
+not touched.
 Everything happens in that terminal; the script tells you what it is doing, asks before each step and can be run again
 after any failure. [Installing Linux](install.md) shows where this fits; [Installing by hand](install-manual.md) has
 the individual commands.
@@ -18,23 +20,25 @@ the individual commands.
 - About **30 GB free** on the Windows drive that holds WSL (normally C:).
 - About **1–2 hours**, most of it an unattended build on the PC.
 
-## 1. Install Ubuntu on Windows (WSL2)
+## 1. A WSL distribution for the installer
 
-In **PowerShell as administrator**:
-
-```powershell
-wsl --install -d Ubuntu
-```
-
-Restart Windows if asked. Open **Ubuntu** from the Start menu and choose a user name and password (this is your
-Linux user on the PC; you will type the password when the script installs packages). Check in PowerShell that it is
-WSL **2**:
+In **PowerShell** (as administrator if WSL is not installed yet):
 
 ```powershell
-wsl -l -v          # VERSION must be 2
+wsl --install Ubuntu-26.04 --name tb323fu
 ```
 
-Ubuntu 24.04 or newer works; 26.04 was used here.
+Restart Windows if asked. The new Ubuntu starts and asks for a user name and password (your Linux user in it; you
+will type the password when the script installs packages). Later you open it with `wsl -d tb323fu` in PowerShell.
+Check that it is WSL **2**:
+
+```powershell
+wsl -l -v          # tb323fu, VERSION 2
+```
+
+It holds the packages the script installs and about 30 GB of build files, and nothing of yours: when Linux runs on the
+tablet, you remove it in one command ([step 6](#6-first-start)). Running the script in a WSL distribution you already
+use also works; it then keeps those packages and files.
 
 ## 2. Install adb on Windows
 
@@ -47,7 +51,7 @@ winget install Google.PlatformTools
 
 (or unzip [platform-tools](https://developer.android.com/tools/releases/platform-tools) somewhere; the script asks for
 the path of `adb.exe` if it does not find it). Then **close all terminals**, run `wsl --shutdown` in PowerShell, and
-open Ubuntu again, so that it sees the new program.
+open it again (`wsl -d tb323fu`), so that it sees the new program.
 
 ## 3. Prepare the tablet
 
@@ -62,7 +66,7 @@ Check in PowerShell: `adb devices` lists the tablet as `device`.
 
 ## 4. Run the installer
 
-In the **Ubuntu** terminal:
+In the **tb323fu** terminal (`wsl -d tb323fu`, then `cd`):
 
 ```sh
 sudo apt update && sudo apt install -y git
@@ -71,7 +75,7 @@ cd tb323fu-linux
 tools/install/install.sh
 ```
 
-Keep the clone in your Ubuntu home directory (as above), not under `/mnt/c`. Another system instead of Ubuntu:
+Keep the clone in your home directory there (as above), not under `/mnt/c`. Another system instead of Ubuntu:
 `DISTRO=arch tools/install/install.sh` (or `nixos`, `steamos`; [which system](install.md#which-system)).
 
 To see everything the script would do without doing it: `tools/install/install.sh --dry-run`.
@@ -105,14 +109,26 @@ The script restarts the tablet into Linux. What a good first start looks like, W
 and both ways back to Android are in **[After installing](after-install.md)**; try the way back once while you are
 at the desk.
 
-Afterwards `~/tb323fu-install/root.img` and `root.img.gz` can be deleted (keep `stock-boot.img`, `linux-boot.img` and
-`config/`). The WSL disk does not shrink by itself when files are deleted.
+At the end the script copies the files worth keeping (`stock-boot.img`, your stock boot image; `linux-boot.img`;
+`config/`) to `%USERPROFILE%\tb323fu-install` on Windows. Nothing needs cleaning on the tablet: the script removes its
+copies from Android's `/data/local/tmp` itself. Then remove the installer's distribution with everything in it, in
+PowerShell:
+
+```powershell
+wsl --unregister tb323fu
+```
+
+If you ran the script in a distribution you keep, delete `~/tb323fu-install` instead. The WSL disk does not shrink by
+itself when files are deleted; Microsoft's way to give the space back is sparse mode, still marked experimental
+([WSL settings](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)). It returns only space freed after it was
+turned on, so turn it on first (`wsl --shutdown`, then `wsl --manage <name> --set-sparse true`), then delete; the space
+shows up as free space on `C:`, not as a smaller `ext4.vhdx`.
 
 ## Troubleshooting
 
 | Problem | What to do |
 |---|---|
-| **`adb.exe` not found** | Install platform-tools (step 2), then `wsl --shutdown` in PowerShell and reopen Ubuntu. Or type the path of `adb.exe` when the script asks (`C:\…\platform-tools\adb.exe` is fine), or start it as `ADB=/mnt/c/…/adb.exe tools/install/install.sh`. |
+| **`adb.exe` not found** | Install platform-tools (step 2), then `wsl --shutdown` in PowerShell and reopen it (`wsl -d tb323fu`). Or type the path of `adb.exe` when the script asks (`C:\…\platform-tools\adb.exe` is fine), or start it as `ADB=/mnt/c/…/adb.exe tools/install/install.sh`. |
 | **No tablet** | `adb devices` in **PowerShell** must list it. If PowerShell does not see it either, it is the cable, USB debugging, or the Windows driver — not WSL. If it runs Linux, switch it to Android first. |
 | **`unauthorized`** | Unlock the tablet and accept the USB debugging prompt (tick Always allow). No prompt: Developer options → Revoke USB debugging authorizations, replug. |
 | **No root for adb's shell** | KernelSU app → Superuser → **Shell** → allow. |
