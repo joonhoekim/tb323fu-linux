@@ -115,6 +115,7 @@ DEV_ACCESS=${DEV_ACCESS:-0}
 IMG_SIZE=${IMG_SIZE:-24G}
 FW=$WORK/fw/tb323fu-firmware/lib/firmware
 LINUX_BOOT_IMG=$WORK/linux-boot.img
+WSL_TEMP_DISTRO=tb323fu
 T=/data/local/tmp
 
 # ---- the distribution module (tools/install/distros/README.md) --------------
@@ -355,6 +356,10 @@ step_host() {
 	local os=linux pkgs miss=() p avail
 	is_wsl && os=wsl
 	say "This PC: $os, $(uname -m). Repository: $repo"
+	if is_wsl && [ "${WSL_DISTRO_NAME:-}" != "$WSL_TEMP_DISTRO" ]; then
+		say "  WSL distribution '${WSL_DISTRO_NAME:-?}': the packages below and about 30 GB in $WORK stay in it."
+		say "  A separate one that you remove afterwards keeps yours as it is: docs/install-windows.md, step 1."
+	fi
 	say "Work directory: $WORK"
 	case $WORK in /mnt/[a-z]/*) warn "WORK is on a Windows drive; the root image needs a Linux file system. Use the default (~/tb323fu-install)."; return 1 ;; esac
 	run mkdir -p "$WORK"
@@ -942,6 +947,8 @@ EOF
 	fi
 }
 
+drop_copy() { su_ "rm -f $T/tb323fu-root.img.gz"; }
+
 step_write() {
 	head_ "write: put the root image into the card's partition, from Android (3-10 min)"
 	local part gz=$WORK/root.img.gz isha ibytes gsha free got out
@@ -959,17 +966,17 @@ step_write() {
 	say "1) copy the packed image to the tablet ($T, a few minutes)"
 	run adb push "$gz" $T/tb323fu-root.img.gz || return 1
 	got=$(su_ "sha256sum $T/tb323fu-root.img.gz" | cut -c1-64)
-	[ $DRY = 1 ] || [ "$got" = "$gsha" ] || { warn "the copy on the tablet is damaged; run this step again"; return 1; }
+	[ $DRY = 1 ] || [ "$got" = "$gsha" ] || { warn "the copy on the tablet is damaged; run this step again"; drop_copy; return 1; }
 	say "2) unpack it into $part ($ROOT_PARTLABEL); 5-15 min, depending on the card"
 	warn "this OVERWRITES $part (the card's $ROOT_PARTLABEL partition)"
 	undo "nothing on the tablet itself changes; to clear the card: Android Settings -> Storage -> Format"
-	confirm "WRITE" || return 1
+	confirm "WRITE" || { drop_copy; return 1; }
 	out=$(su_ "zcat $T/tb323fu-root.img.gz | dd of=$part bs=4194304 conv=fsync 2>&1 | tail -1")
 	say "  $out"
 	say "3) read it back and compare (a few minutes)"
 	got=$(su_ "head -c $ibytes $part | sha256sum" | cut -c1-64)
-	[ $DRY = 1 ] || [ "$got" = "$isha" ] || { warn "what is on the card differs from the image; run this step again (or try another card)"; return 1; }
-	su_ "rm -f $T/tb323fu-root.img.gz"
+	[ $DRY = 1 ] || [ "$got" = "$isha" ] || { warn "what is on the card differs from the image; run this step again (or try another card)"; drop_copy; return 1; }
+	drop_copy
 	st_set written_sha "$isha"
 	say "the root is on the card."
 }
@@ -1029,9 +1036,29 @@ Linux -> Action (a newly installed module is active from Android's next start).
 
 If Linux does not come up: docs/recovery.md#linux-does-not-boot. Holding volume up during the
 summary keeps the tablet in the initramfs. Power + volume down forces it off.
-Space on this PC: $WORK/root.img and root.img.gz can go now; keep stock-boot.img, linux-boot.img
-and config/.$(is_wsl && printf ' The WSL disk does not shrink by itself after deleting.')
 EOF
+	keep_files
+}
+
+# The files worth keeping (the stock boot image, the Linux boot image, config/): in WSL they
+# go to Windows too, so that the WSL distribution can be removed.
+keep_files() {
+	local f k=() dst
+	for f in stock-boot.img linux-boot.img config; do [ -e "$WORK/$f" ] && k+=("$WORK/$f"); done
+	if ! is_wsl; then
+		say "Space on this PC: $WORK/root.img and root.img.gz can go now; keep stock-boot.img, linux-boot.img and config/."
+		return 0
+	fi
+	dst=$(win2wsl "$(winenv USERPROFILE)")/tb323fu-install
+	if [ ${#k[@]} -gt 0 ] && run mkdir -p "$dst" && run cp -r "${k[@]}" "$dst/"; then
+		say "Kept on Windows: $(wslpath -w "$dst" 2>/dev/null || echo "$dst") (stock-boot.img, linux-boot.img, config)"
+	else warn "could not copy stock-boot.img, linux-boot.img and config/ to Windows; copy them from $WORK yourself"; return 0; fi
+	if [ "${WSL_DISTRO_NAME:-}" = "$WSL_TEMP_DISTRO" ]; then
+		say "If you no longer need this WSL distribution, remove it with everything in it, in PowerShell:"
+		say "  wsl --unregister $WSL_TEMP_DISTRO"
+	else
+		say "Space on this PC: $WORK can go now. The WSL disk does not shrink by itself after deleting (docs/install-windows.md)."
+	fi
 }
 
 say "${b}TB323FU: $DISTRO_TITLE on the microSD card, guided ($DISTRO: $DISTRO_STATUS)${r}$([ $DRY = 1 ] && echo ' (dry run: nothing is executed)')"
