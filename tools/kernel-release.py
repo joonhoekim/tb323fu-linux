@@ -136,6 +136,9 @@ def cmd_assets(a):
             # -9, no name, mtime 0: the same Image gives the same file
             with gzip.GzipFile(filename="", mode="wb", compresslevel=9, fileobj=f, mtime=0) as g:
                 g.write(raw)
+    elif os.path.exists(base + ".gz"):
+        os.remove(base + ".gz")
+        print(f"removed the older {os.path.basename(base)}.gz (it is not this Image; use --gzip to make one)")
     print(f"release {release}\nbanner  {line}")
     cmd_sums(a)
 
@@ -160,12 +163,19 @@ def cmd_check(a):
             print(f"FAIL {n}: not a plain file name"); bad = 1
         elif sums.get(n) != sha(os.path.join(a.out, n)):
             print(f"FAIL {n}: missing from SHA256SUMS or a different hash"); bad = 1
+    for n in sorted(set(sums) - set(names)):
+        print(f"FAIL {n}: in SHA256SUMS but not in {a.out}"); bad = 1
+    images = {}
     for n in kernels:
-        release, line = banner(raw_image(open(os.path.join(a.out, n), "rb").read()))
+        raw = raw_image(open(os.path.join(a.out, n), "rb").read())
+        images[n] = hashlib.sha256(raw).hexdigest()
+        release, line = banner(raw)
         if not release.endswith(f"-tb323fu-{tag}"):
             print(f"FAIL {n}: the kernel is release {release}"); bad = 1
         else:
             print(f"ok   {n}: {line}")
+    if len(set(images.values())) > 1:
+        print(f"FAIL {' and '.join(sorted(images))} are different builds (unpacked, they differ)"); bad = 1
     if os.path.exists(os.path.join(a.out, "SHA256SUMS.minisig")):
         print("note SHA256SUMS.minisig present (checked only by helpers with kernel.require_signature)")
     sys.exit(bad)
