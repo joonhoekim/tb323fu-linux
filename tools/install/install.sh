@@ -446,9 +446,11 @@ EOF
 	*_ZUI_18.0.12.104_*) ;;
 	*_ZUI_18.0.12.187_*)
 		warn "the kernel hangs during boot on this firmware (https://github.com/joonhoekim/tb323fu-linux/issues/9)"
+		say "  what to check and try: docs/firmware-updates.md"
 		yesno "Install anyway?" ALLOW_UNTESTED_FIRMWARE || return 1 ;;
 	*)
-		warn "the kernel has only been tested on ZUI 18.0.12.104; this firmware is untested"
+		warn "the kernel is tested on ZUI 18.0.12.104; this firmware is untested"
+		say "  what to check and try: docs/firmware-updates.md"
 		yesno "Install anyway?" ALLOW_UNTESTED_FIRMWARE || return 1 ;;
 	esac
 	[ "$slot" = _a ] || { warn "Android runs from slot $slot; everything here assumes slot _a (docs/recovery.md)"; return 1; }

@@ -115,15 +115,8 @@ LTBox → Unroot Device restores `init_boot` only; it leaves the GBL in `efisp`.
 Partitions with `efisp` set to Erase (or write your all-zero `efisp.img` from the dump) — after making sure
 `init_boot_a` is stock. Not done on the development unit.
 
-## Updating Android firmware later
+## Updating Android firmware
 
-Not done on the development unit since rooting. **Linux has only been tested on ZUI 18.0.12.104; on 18.0.12.187 the
-kernel hangs during boot ([#9](https://github.com/joonhoekim/tb323fu-linux/issues/9)).** The order prepared from the LTBox source:
-
-1. Confirm the new firmware's ABL still loads `efisp` (otherwise you cannot root again, and the update cannot be undone).
-2. Restore the stock `boot_a` and unroot.
-3. Enable the OTA apps and update; disable them again.
-4. Root again (LTBox then writes only `init_boot`).
-5. Redo `prepare-boot-b` / `install`
-   ([Installing by hand, step 2](install-manual.md#2-the-way-back-androids-boot-image-in-boot_b)) and update the
-   hash on the Linux side.
+The order, the way back if Linux does not start afterwards and how to check a new firmware against the kernel:
+[Updating Android firmware](firmware-updates.md). Linux is tested on ZUI 18.0.12.104; on 18.0.12.187 the kernel
+hangs during boot ([#9](https://github.com/joonhoekim/tb323fu-linux/issues/9)).

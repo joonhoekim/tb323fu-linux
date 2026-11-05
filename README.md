@@ -9,9 +9,11 @@ The same model number is used in China and elsewhere; the firmware region (PRC /
 
 > **Status: in daily use, still in development.** What does not work yet: [Known issues](docs/hardware-status.md#known-issues).
 
-> **Android firmware: stay on ZUI 18.0.12.104.** The kernel has only been tested on that firmware. On 18.0.12.187
-> it hangs during boot ([#9](https://github.com/joonhoekim/tb323fu-linux/issues/9)), and a firmware update cannot be
-> undone. Keep the OTA apps disabled ([Rooting](docs/rooting.md#3-root-on-android-kernelsu)).
+> **Android firmware:** the kernel is tested on ZUI 18.0.12.104. On 18.0.12.187 it hangs during boot
+> ([#9](https://github.com/joonhoekim/tb323fu-linux/issues/9)), and a firmware update cannot be undone. Keep the OTA
+> apps disabled and update on purpose: [Updating Android firmware](docs/firmware-updates.md) has the way back if Linux
+> does not start and how to check a new firmware. If you get Linux running on it, please tell us in an issue or a
+> pull request.
 
 ## What this is
 
