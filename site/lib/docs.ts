@@ -42,6 +42,7 @@ const DOCS_ORDER = [
   "install-manual",
   "after-install",
   "recovery",
+  "firmware-updates",
   "helper",
   "helper-reference",
   "custom-kernel",

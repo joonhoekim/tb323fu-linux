@@ -24,6 +24,7 @@ USB network gadget in which the tablet is **192.168.7.2** and the PC is 192.168.
 
 | Script | Runs on | What it does |
 |---|---|---|
+| `fw-memory-check.py` | PC | the memory map of an Android firmware (`/sys/firmware/fdt`) against the devicetree built into a kernel `Image`: firmware regions Linux would use as RAM, kernel regions that no longer match ([docs/firmware-updates.md](../docs/firmware-updates.md)); tests: `python3 -m unittest discover -s tools/tests` |
 | `post-crash.sh` | PC | after an unexpected reboot: collect pstore (also systemd-pstore's archive), the previous boot's journal tail, this boot's early kernel log |
 | `boot-time.sh` | PC | boot-time measurement over N boots (systemd-analyze, time to the greeter, lines printed to the console); mean/min/max |
 | `codec-check.sh` | tablet | iris hardware codecs via GStreamer, bit-exact against software decoders: H.264/HEVC/VP9 decode, H.264/HEVC encode |

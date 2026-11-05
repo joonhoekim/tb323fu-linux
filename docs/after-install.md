@@ -168,7 +168,7 @@ the internal storage, last row). Going back to the stock tablet, in this order:
 | 3. The card | Android: Settings → Storage → the card → format; or delete the partition (`sgdisk -d`) on a PC | untested |
 | 4. `boot_b` | nothing to do: it is never booted. A stock copy is also in your dump and in the firmware package (same version) | — |
 | 5. The root (KernelSU, `efisp`) | [Recovery → Undoing the root](recovery.md#undoing-the-root) | from LTBox's source |
-| 6. The OTA apps | turned off while [rooting](rooting.md#3-root-on-android-kernelsu); turn them on again: `adb shell pm enable --user 0 com.lenovo.ota`, the same for `com.tblenovo.center`. Before a firmware update, see [Recovery → Updating Android firmware later](recovery.md#updating-android-firmware-later) | untested |
+| 6. The OTA apps | turned off while [rooting](rooting.md#3-root-on-android-kernelsu); turn them on again: `adb shell pm enable --user 0 com.lenovo.ota`, the same for `com.tblenovo.center`. Before a firmware update, see [Updating Android firmware](firmware-updates.md) | untested |
 | a Linux root on the internal storage | write the saved table back (`sgdisk -l lun0-gpt.bak $D`) and factory-reset Android again so `userdata` is formatted at full size (Android: Settings → Reset, or LTBox Flash Firmware → Wipe Data) | untested |
 
 Never restore a partition table backup taken before a firmware update over a newer layout, and never restore another
