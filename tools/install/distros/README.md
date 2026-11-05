@@ -24,8 +24,9 @@ yet: [docs/distros.md](../../../docs/distros.md).
 What the status words mean next to those of other pages:
 [hardware-status.md → Labels on other pages](../../../docs/hardware-status.md#labels-on-other-pages).
 
-Changing `DISTRO` after a `rootfs` step builds the root again from scratch (the image holds one system). The
-other steps are not repeated.
+Changing `DISTRO` or `DESKTOP` after a `rootfs` step builds the root again from scratch (the image holds one
+system), then writes it and starts it. Changing `KERNEL_TAG` or `HELPER_TAG` downloads again and repeats the steps
+that use the downloads. The other steps are not repeated.
 
 ## Writing a module
 

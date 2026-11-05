@@ -29,7 +29,7 @@ ladspa_from_ubuntu() { # DIR
 }
 
 distro_build() { # MNT USER
-	local mt rel
+	local mt rel=
 	mt=$(cd "$WORK/kernel" 2>/dev/null && ls modules-tb323fu-t*.tar.gz 2>/dev/null | sort -V | tail -1)
 	if [ $DRY = 0 ]; then
 		[ -n "$mt" ] || { warn "no kernel modules bundle (download step)"; return 1; }

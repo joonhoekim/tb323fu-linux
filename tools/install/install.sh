@@ -146,6 +146,7 @@ head_() { printf '\n%s== %s ==%s\n' "$b" "$*" "$r"; }
 warn()  { printf '%s!! %s%s\n' "$b" "$*" "$r" >&2; }
 undo()  { printf '  %sUndo:%s %s\n' "$b" "$r" "$*"; }
 have()  { command -v "$1" >/dev/null 2>&1; }
+is_number() { case $1 in ''|*[!0-9]*) return 1 ;; esac; }
 run() {
 	if [ $DRY = 1 ]; then printf '  [dry-run] %s\n' "$*"; return 0; fi
 	printf '  + %s\n' "$*"; "$@"
@@ -631,7 +632,7 @@ fetch_api() {
 		mapfile -t lines < <(pick_release "$json" "$prefix" "$tag")
 		[ ${#lines[@]} -gt 0 ] || { warn "no $prefix* release in $REPO_SLUG${tag:+ (wanted $tag)}"; return 1; }
 		tag=${lines[0]}; say "  $kind release: $tag"; st_set ${kind}_tag "$tag"
-		run mkdir -p "$dir"
+		run rm -rf "$dir"; run mkdir -p "$dir"
 		for line in "${lines[@]:1}"; do
 			name=${line%%$'\t'*}; url=${line#*$'\t'}
 			case $kind:$name in
@@ -678,7 +679,7 @@ EOF
 		[ -n "$hs" ] || c="$c the helper's SHA256SUMS,"
 		warn "not found yet in $dl:${c%,}"
 	done
-	mkdir -p "$WORK/kernel" "$WORK/debs"
+	rm -rf "$WORK/kernel" "$WORK/debs"; mkdir -p "$WORK/kernel" "$WORK/debs"
 	cp "$dl/$k" "$WORK/kernel/" && cp "$ks" "$WORK/kernel/SHA256SUMS" && cp "$hs" "$WORK/debs/SHA256SUMS" || return 1
 	for c in $(deb_files); do
 		[ -f "$dl/$c" ] || { warn "missing $dl/$c"; return 1; }
@@ -699,7 +700,7 @@ boot image is made from YOUR stock one in the next step. The helper-v release ha
 packages for the tablet (audio, sensors, emergency key, Open Device Helper).
 SHA256SUMS catches a damaged download; it is not a signature.
 EOF
-	if [ $DRY = 0 ] && [ "$explicit" = 0 ] && downloads_ok; then say "already here and checked: $WORK/kernel/$(kernel_files), $(deb_files | wc -l) packages"; return 0; fi
+	if [ $DRY = 0 ] && [ "$explicit" = 0 ] && [ "$(st_get inputs_download)" = "$(step_inputs download)" ] && downloads_ok; then say "already here and checked: $WORK/kernel/$(kernel_files), $(deb_files | wc -l) packages"; return 0; fi
 	local auth=''
 	auth=$(gh_auth_file) && say "  (using GITHUB_TOKEN)"
 	if ! fetch_api "$auth"; then
@@ -710,10 +711,6 @@ EOF
 	rm -f "$WORK/.gh-auth"
 	[ $DRY = 1 ] && return 0
 	downloads_ok || { check_sums "$WORK/kernel" "$(kernel_files)"; warn "the downloads do not check out; delete $WORK/kernel and $WORK/debs and run this step again"; return 1; }
-	local f keep; keep=$(deb_files)
-	for f in "$WORK"/debs/tb323fu-*.deb; do
-		if [ -e "$f" ] && ! grep -qx "$(basename "$f")" <<<"$keep"; then run rm -f "$f"; fi
-	done
 	say "checked: $WORK/kernel/$(kernel_files); packages: $(deb_files | tr '\n' ' ')"
 }
 
@@ -879,13 +876,14 @@ EOF
 	yesno "build now?" || return 1
 	[ $DRY = 1 ] || $SUDO true || return 1
 
-	if [ $DRY = 0 ] && [ -f "$img" ] && [ "$(st_get root_distro)" != "$DISTRO_FILE" ]; then
-		local was; was=$(st_get root_distro)
-		say "  $img was built by another module (${was:-unknown}): starting over"
+	local build="$DISTRO_FILE ($DESKTOP)"
+	if [ $DRY = 0 ] && [ -f "$img" ] && [ "$(st_get root_build)" != "$build" ]; then
+		local was; was=$(st_get root_build)
+		say "  $img was built as ${was:-something else}, not $build: starting over"
 		if findmnt -n "$mnt" >/dev/null 2>&1; then run $SUDO umount -R "$mnt" || return 1; fi
 		run rm -f "$img" "$img.gz"
 	fi
-	[ $DRY = 1 ] || st_set root_distro "$DISTRO_FILE"
+	[ $DRY = 1 ] || st_set root_build "$build"
 	if [ $DRY = 0 ] && findmnt -n "$mnt" >/dev/null 2>&1; then say "  $mnt is mounted already (an earlier run): building on"
 	else
 		if [ $DRY = 0 ] && [ -f "$img" ]; then
@@ -933,6 +931,9 @@ EOF
 	if [ $DRY = 0 ]; then
 		bs=$(dumpe2fs -h "$img" 2>/dev/null | sed -n 's/^Block size: *//p')
 		minb=$(resize2fs -P "$img" 2>/dev/null | sed -n 's/.*: *\([0-9]*\)$/\1/p')
+		if ! is_number "$bs" || [ "$bs" = 0 ] || ! is_number "$minb"; then
+			warn "could not read the image's block size or minimum size (dumpe2fs, resize2fs)"; return 1
+		fi
 		tgt=$((minb + 2 * 1024 * 1024 * 1024 / bs))
 		[ $((tgt * bs)) -lt "$size_b" ] && { resize2fs "$img" "$tgt" >/dev/null 2>&1 && truncate -s $((tgt * bs)) "$img" || return 1; }
 	fi
@@ -1044,7 +1045,7 @@ EOF
 # go to Windows too, so that the WSL distribution can be removed.
 keep_files() {
 	local f k=() dst
-	for f in stock-boot.img linux-boot.img config; do [ -e "$WORK/$f" ] && k+=("$WORK/$f"); done
+	for f in stock-boot.img linux-boot.img config; do { [ $DRY = 1 ] || [ -e "$WORK/$f" ]; } && k+=("$WORK/$f"); done
 	if ! is_wsl; then
 		say "Space on this PC: $WORK/root.img and root.img.gz can go now; keep stock-boot.img, linux-boot.img and config/."
 		return 0
@@ -1068,16 +1069,50 @@ if is_wsl && [ -x "$WORK/bin/adb" ]; then
 	[ $DRY = 1 ] || [ ! -x "$(st_get adb_exe)" ] || write_adb_wrapper "$(st_get adb_exe)"
 	export PATH="$WORK/bin:$PATH"
 fi
+# the settings a step's result depends on: a finished step runs again when they change
+step_inputs() {
+	case $1 in
+	download) printf '%s %s\n' "${KERNEL_TAG:-newest}" "${HELPER_TAG:-newest}" ;;
+	rootfs) printf '%s %s\n' "$DISTRO_FILE" "$DESKTOP" ;;
+	esac
+}
+# the steps that use a step's result: they run again after it
+step_dependents() {
+	case $1 in
+	firmware) echo rootfs ;;
+	download) echo bootimg rootfs ;;
+	bootimg|write) echo boot ;;
+	sdcard|rootfs) echo write ;;
+	esac
+}
+# state files from before inputs were recorded have none: those steps count as done
+is_done() {
+	local recorded
+	[ "$(st_get "done_$1")" = 1 ] || return 1
+	recorded=$(st_get "inputs_$1")
+	[ -z "$recorded" ] || [ "$recorded" = "$(step_inputs "$1")" ]
+}
+
+# a shell error inside a step (bad arithmetic) leaves this loop without running its else branch
+finished=0
 for s in "${steps[@]}"; do
-	if [ $explicit = 0 ] && [ $DRY = 0 ] && [ "$(st_get "done_$s")" = 1 ] && [ "$s" != firstboot ]; then
-		say "-- $s: done earlier (run 'install.sh $s' to do it again)"; continue
+	if [ $explicit = 0 ] && [ $DRY = 0 ] && [ "$s" != firstboot ] && is_done "$s"; then
+		say "-- $s: done earlier (run 'install.sh $s' to do it again)"; finished=$((finished + 1)); continue
 	fi
 	case $s in tablet|firmware|wayback|sdcard|write|boot)
 		[ $DRY = 1 ] || have adb || setup_adb || exit 1
 		[ $s = tablet ] || [ $DRY = 1 ] || [ "$(adb_state)" = device ] || step_tablet || exit 1 ;;
 	esac
-	if "step_$s"; then st_set "done_$s" 1
+	if "step_$s"; then
+		st_set "done_$s" 1
+		[ -z "$(step_inputs "$s")" ] || st_set "inputs_$s" "$(step_inputs "$s")"
+		for d in $(step_dependents "$s"); do [ "$(st_get "done_$d")" != 1 ] || st_set "done_$d" 0; done
 	else warn "step '$s' stopped. Fix what it says and run the script again; finished steps are skipped."; exit 1; fi
+	finished=$((finished + 1))
 done
+if [ "$finished" != ${#steps[@]} ]; then
+	warn "step '$s' stopped on the error above. Run the script again; if it stops the same way, please open an issue."
+	exit 1
+fi
 say ""
 say "done."

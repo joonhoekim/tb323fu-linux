@@ -76,7 +76,7 @@ tools/install/install.sh
 ```
 
 Keep the clone in your home directory there (as above), not under `/mnt/c`. Another system instead of Ubuntu:
-`DISTRO=arch tools/install/install.sh` (or `nixos`, `steamos`; [which system](install.md#which-system)).
+`DISTRO=arch tools/install/install.sh` (or `fedora`, `nixos`, `steamos`; [which system](install.md#which-system)).
 
 To see everything the script would do without doing it: `tools/install/install.sh --dry-run`.
 
