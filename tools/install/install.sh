@@ -146,6 +146,7 @@ head_() { printf '\n%s== %s ==%s\n' "$b" "$*" "$r"; }
 warn()  { printf '%s!! %s%s\n' "$b" "$*" "$r" >&2; }
 undo()  { printf '  %sUndo:%s %s\n' "$b" "$r" "$*"; }
 have()  { command -v "$1" >/dev/null 2>&1; }
+is_number() { case $1 in ''|*[!0-9]*) return 1 ;; esac; }
 run() {
 	if [ $DRY = 1 ]; then printf '  [dry-run] %s\n' "$*"; return 0; fi
 	printf '  + %s\n' "$*"; "$@"
@@ -933,6 +934,9 @@ EOF
 	if [ $DRY = 0 ]; then
 		bs=$(dumpe2fs -h "$img" 2>/dev/null | sed -n 's/^Block size: *//p')
 		minb=$(resize2fs -P "$img" 2>/dev/null | sed -n 's/.*: *\([0-9]*\)$/\1/p')
+		if ! is_number "$bs" || [ "$bs" = 0 ] || ! is_number "$minb"; then
+			warn "could not read the image's block size or minimum size (dumpe2fs, resize2fs)"; return 1
+		fi
 		tgt=$((minb + 2 * 1024 * 1024 * 1024 / bs))
 		[ $((tgt * bs)) -lt "$size_b" ] && { resize2fs "$img" "$tgt" >/dev/null 2>&1 && truncate -s $((tgt * bs)) "$img" || return 1; }
 	fi
@@ -1068,9 +1072,11 @@ if is_wsl && [ -x "$WORK/bin/adb" ]; then
 	[ $DRY = 1 ] || [ ! -x "$(st_get adb_exe)" ] || write_adb_wrapper "$(st_get adb_exe)"
 	export PATH="$WORK/bin:$PATH"
 fi
+# a shell error inside a step (bad arithmetic) leaves this loop without running its else branch
+finished=0
 for s in "${steps[@]}"; do
 	if [ $explicit = 0 ] && [ $DRY = 0 ] && [ "$(st_get "done_$s")" = 1 ] && [ "$s" != firstboot ]; then
-		say "-- $s: done earlier (run 'install.sh $s' to do it again)"; continue
+		say "-- $s: done earlier (run 'install.sh $s' to do it again)"; finished=$((finished + 1)); continue
 	fi
 	case $s in tablet|firmware|wayback|sdcard|write|boot)
 		[ $DRY = 1 ] || have adb || setup_adb || exit 1
@@ -1078,6 +1084,11 @@ for s in "${steps[@]}"; do
 	esac
 	if "step_$s"; then st_set "done_$s" 1
 	else warn "step '$s' stopped. Fix what it says and run the script again; finished steps are skipped."; exit 1; fi
+	finished=$((finished + 1))
 done
+if [ "$finished" != ${#steps[@]} ]; then
+	warn "step '$s' stopped on the error above. Run the script again; if it stops the same way, please open an issue."
+	exit 1
+fi
 say ""
 say "done."
