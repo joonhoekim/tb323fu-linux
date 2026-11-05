@@ -1,5 +1,16 @@
 # Open Device Helper changelog
 
+## 0.4.7 — 2026-11-06
+
+- **LED ring modes Chase and Rainbow:** one dot with a short tail in the ring color, or the nine colors Lenovo's
+  Android uses, turning around the ring. The LED chip runs them through the kernel driver's `rotation` (kernel t59,
+  patch 0154), so they cost no CPU and keep running while the screen is off. `Speed` is the time of one turn
+  (1000..20000 ms). The charge colors take over in these modes too. On an older kernel the two modes are refused.
+  `tb323fu-ctl ledring chase|rainbow`, settings app Lights & Vibration → LED Ring. Based on
+  [#34](https://github.com/joonhoekim/tb323fu-linux/pull/34) by @vitalo233.
+- The default ring brightness is 128 (was 40). From kernel t59 the brightness also sets the LED current, up to
+  30 mA at 255, so the ring is much brighter at the same value than before; a value saved in the settings is kept.
+
 ## 0.4.6 — 2026-11-04
 
 - **Compressed swap in RAM, on by default:** the root images had no swap, so a working set larger than the RAM got

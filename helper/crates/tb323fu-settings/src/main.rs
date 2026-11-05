@@ -802,7 +802,7 @@ impl Ui {
         let torch_on = switch(&torch_group, "Torch", "");
         let torch_level = spin(&torch_group, "Brightness", "", 1.0, 255.0, 1.0);
         let led_group = group(&b, "LED Ring", "");
-        group_help(&led_group, "The RGB ring on the back. Charge indicator: amber while charging, green when full or held at the limit, red when low. Breathing pauses while the screen is off.");
+        group_help(&led_group, "The RGB ring on the back. Charge indicator: amber while charging, green when full or held at the limit, red when low. The effects keep running while the screen is off.");
         let led_mode = combo(&led_group, "Mode", &LED_MODE_LABELS);
         let swatches = gtk::FlowBox::builder().selection_mode(gtk::SelectionMode::None).max_children_per_line(9)
             .min_children_per_line(5).column_spacing(6).row_spacing(6).valign(gtk::Align::Center).build();
