@@ -1054,7 +1054,7 @@ keep_files() {
 		say "Kept on Windows: $(wslpath -w "$dst" 2>/dev/null || echo "$dst") (stock-boot.img, linux-boot.img, config)"
 	else warn "could not copy stock-boot.img, linux-boot.img and config/ to Windows; copy them from $WORK yourself"; return 0; fi
 	if [ "${WSL_DISTRO_NAME:-}" = "$WSL_TEMP_DISTRO" ]; then
-		say "This WSL distribution is no longer needed. To remove it with everything in it, in PowerShell:"
+		say "If you no longer need this WSL distribution, remove it with everything in it, in PowerShell:"
 		say "  wsl --unregister $WSL_TEMP_DISTRO"
 	else
 		say "Space on this PC: $WORK can go now. The WSL disk does not shrink by itself after deleting (docs/install-windows.md)."

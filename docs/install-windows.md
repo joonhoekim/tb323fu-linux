@@ -111,8 +111,8 @@ at the desk.
 
 At the end the script copies the files worth keeping (`stock-boot.img`, your stock boot image; `linux-boot.img`;
 `config/`) to `%USERPROFILE%\tb323fu-install` on Windows. Nothing needs cleaning on the tablet: the script removes its
-copies from Android's `/data/local/tmp` itself. Then remove the installer's distribution with everything in it, in
-PowerShell:
+copies from Android's `/data/local/tmp` itself. If you no longer need the installer's distribution, remove it with
+everything in it, in PowerShell:
 
 ```powershell
 wsl --unregister tb323fu
