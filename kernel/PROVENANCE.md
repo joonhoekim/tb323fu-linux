@@ -21,7 +21,7 @@ column names the source; see that tree's history for the individual authors.
 Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114, 0116-0119, 0128-0139 and 0141-0153 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
+0111-0114, 0116-0119, 0128-0139 and 0141-0154 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -171,6 +171,7 @@ Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped 
 | `0151` | drm/msm/dp: Release the PHY init when the link is not powered | Joonhoe Kim | this project | upstream candidate | `3c06f42319c69716` |
 | `0152` | mmc: sd: Keep the card when its extension registers fail | Joonhoe Kim | this project, fix suggested by the reporter of [#26](https://github.com/joonhoekim/tb323fu-linux/issues/26) | upstream candidate | `5fc19deafa742e07` |
 | `0153` | input: nt36536: report the pen tilt in the screen's axes | Joonhoe Kim | this project, fix by the reporter of [#16](https://github.com/joonhoekim/tb323fu-linux/issues/16) | local | `82e75995b4cb964c` |
+| `0154` | leds: rgb: aw22127: Add color effects and zones, set the LED current | Joonhoe Kim | this project; the rotation command first found by the author of [#34](https://github.com/joonhoekim/tb323fu-linux/pull/34) | local | `fd6c7b935aff0cbc` |
 
 ## Out-of-tree
 

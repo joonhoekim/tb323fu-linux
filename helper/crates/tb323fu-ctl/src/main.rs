@@ -27,9 +27,9 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
   android [--yes]                show, or with --yes restart into Android now
   android require-auth on|off    ask for authentication before switching (admin)
   torch [on|off|toggle|level N]
-  ledring [charge|solid|breathe|off|brightness N|low PERCENT]
+  ledring [charge|solid|breathe|chase|rainbow|off|brightness N|low PERCENT]
   ledring color #RRGGBB|speed MS|charge-override on|off|notify on|off
-                                 color and breathing cycle (1000..20000 ms) of solid/breathe; charge colors
+                                 color of solid/breathe/chase, cycle (1000..20000 ms) of breathe/chase/rainbow; charge colors
                                  take over while charging or low; pulse on desktop notifications (GNOME extension)
   ledring pulse [#RRGGBB] [COUNT]  blink the ring (scripts, notifications)
   refresh [auto|off|manual [HZ]|idle MS60 MS30|preset power-saver|balanced|smooth]
@@ -906,7 +906,7 @@ fn run(args: &[String]) -> i32 {
         },
         "ledring" => match rest.first().copied() {
             None => c.show(&["LedRing"]),
-            Some(m @ ("charge" | "off" | "solid" | "breathe")) => c.call("LedRing", "SetMode", &(m,)),
+            Some(m @ ("charge" | "off" | "solid" | "breathe" | "chase" | "rainbow")) => c.call("LedRing", "SetMode", &(m,)),
             Some("color") => match rest.get(1) {
                 Some(col) => c.call("LedRing", "SetColor", &(*col,)),
                 None => usage(),
