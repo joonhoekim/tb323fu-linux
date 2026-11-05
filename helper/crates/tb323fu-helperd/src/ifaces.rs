@@ -461,7 +461,7 @@ impl LedRing {
     fn low_percent(&self) -> u32 {
         self.0.cfg().ledring.low_percent
     }
-    /// "#rrggbb" of solid and breathe
+    /// "#rrggbb" of solid, breathe and chase
     #[zbus(property)]
     fn color(&self) -> String {
         self.0.cfg().ledring.color
@@ -490,7 +490,7 @@ impl LedRing {
         invalidate(&em, Self::IFACE, Self::PROPS).await;
         Ok(())
     }
-    /// Breathing cycle, 1000..20000 ms.
+    /// Breathing cycle or one turn of chase and rainbow, 1000..20000 ms.
     async fn set_speed(&self, ms: u32, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
         #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
         polkit::check(conn, &hdr, "led-ring", self.0.no_polkit).await?;
@@ -533,7 +533,10 @@ impl LedRing {
         #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
         polkit::check(conn, &hdr, "led-ring", self.0.no_polkit).await?;
         if !f::LED_MODES.contains(&mode.as_str()) {
-            return Err(invalid("mode must be off, charge, solid or breathe".into()));
+            return Err(invalid("mode must be off, charge, solid, breathe, chase or rainbow".into()));
+        }
+        if f::led_mode_rotates(&mode) && !f::ledring_rotation_available() {
+            return Err(invalid(format!("{mode} needs a kernel with LED ring rotations (patch 0154)")));
         }
         self.0.update(|c| c.ledring.mode = mode.clone());
         self.0.ledring_tick(true);

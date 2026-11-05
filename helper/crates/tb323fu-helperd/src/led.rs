@@ -3,7 +3,8 @@
 //! The LED ring: one thread owns every write (charge indicator, solid color,
 //! breathing, notification pulses), so effects never race the setters.
 //! Breathing runs on the LED chip (pattern trigger, `hw_pattern`) where the
-//! kernel offers it, else it is drawn here frame by frame.
+//! kernel offers it, else it is drawn here frame by frame. Chase and rainbow
+//! are color rotations the chip runs (`rotation`).
 
 use crate::Shared;
 use std::sync::{Arc, Condvar, Mutex};
@@ -55,6 +56,9 @@ fn run(sh: Arc<Shared>) {
     // last one it refused (drawn in software instead)
     let mut hw: Option<([u32; 3], u32, u32)> = None;
     let mut hw_refused: Option<([u32; 3], u32, u32)> = None;
+    // (`rotation` value, brightness) the chip runs, and the last one refused
+    let mut rot: Option<(String, u32)> = None;
+    let mut rot_refused: Option<(String, u32)> = None;
     loop {
         let (force, pulse) = {
             let mut r = sh.led.req.lock().unwrap();
@@ -71,6 +75,7 @@ fn run(sh: Arc<Shared>) {
             }
             last = None;
             hw = None;
+            rot = None;
         }
         if force || charge.0.is_none_or(|t| t.elapsed() >= IDLE) {
             charge = (Some(Instant::now()), f::battery_info().ok().and_then(|i| f::ledring_color(&i, c.low_percent, cfg.battery.bypass)));
@@ -101,10 +106,32 @@ fn run(sh: Arc<Shared>) {
             let _ = f::ledring_trigger_clear();
             last = None;
         }
+        if let (Some(col), true, false) = (own, f::led_mode_rotates(&c.mode), overridden) {
+            let key = (f::rotation_value(&c.mode, col, c.speed), c.brightness);
+            if c.brightness > 0 && rot_refused.as_ref() != Some(&key) && f::ledring_rotation_available() {
+                if rot.as_ref() != Some(&key) || force || pulse.is_some() {
+                    rot = None;
+                    match f::ledring_rotate(&c.mode, col, c.brightness, c.speed) {
+                        Ok(()) => rot = Some(key),
+                        Err(e) => {
+                            eprintln!("tb323fu-helperd: {e}; showing the solid color");
+                            rot_refused = Some(key);
+                        }
+                    }
+                }
+                if rot.is_some() {
+                    last = None;
+                    let g = sh.led.req.lock().unwrap();
+                    let _ = sh.led.cv.wait_timeout_while(g, IDLE, |r| !r.force && r.pulse.is_none());
+                    continue;
+                }
+            }
+        }
+        rot = None;
         let (color, animate) = match c.mode.as_str() {
             "charge" => (charge.1, false),
-            "solid" | "breathe" if overridden => (charge.1, false),
-            "solid" => (own, false),
+            "solid" | "breathe" | "chase" | "rainbow" if overridden => (charge.1, false),
+            "solid" | "chase" | "rainbow" => (own, false),
             "breathe" => (own, !perf::screen_off()),
             _ => (None, false),
         };

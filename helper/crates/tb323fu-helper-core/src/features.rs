@@ -368,7 +368,12 @@ pub fn ledring_apply(color: Option<[u32; 3]>, brightness: u32) -> Res<()> {
     }
 }
 
-pub const LED_MODES: [&str; 4] = ["off", "charge", "solid", "breathe"];
+pub const LED_MODES: [&str; 6] = ["off", "charge", "solid", "breathe", "chase", "rainbow"];
+
+/// Modes the kernel runs as a color rotation.
+pub fn led_mode_rotates(mode: &str) -> bool {
+    mode == "chase" || mode == "rainbow"
+}
 
 /// "#rrggbb" -> [r, g, b].
 pub fn parse_color(s: &str) -> Res<[u32; 3]> {
@@ -435,6 +440,51 @@ pub fn ledring_trigger_clear() -> Res<()> {
         return Ok(());
     }
     sys::write(&t, "none").map_err(|e| werr("LED ring", e))
+}
+
+/// The colors Lenovo's Android sends for its spiral rainbow.
+const RAINBOW: [[u32; 3]; 9] = [
+    [0xff, 0x00, 0x00],
+    [0xff, 0x0a, 0x00],
+    [0xff, 0xaa, 0x00],
+    [0xaa, 0xaa, 0x00],
+    [0x01, 0x20, 0xff],
+    [0x00, 0x00, 0xff],
+    [0xb4, 0x00, 0xff],
+    [0xff, 0x00, 0xff],
+    [0xff, 0xcc, 0x99],
+];
+
+/// The kernel runs color rotations on the ring (`rotation`, kernel 0154).
+pub fn ledring_rotation_available() -> bool {
+    ledring_dir().join("rotation").exists()
+}
+
+/// `rotation` value: `colors` (sRGB) spread over the ring, turning
+/// clockwise once per `period_ms`. Chase is one lit LED with a dim tail.
+pub fn rotation_value(mode: &str, color: [u32; 3], period_ms: u32) -> String {
+    let colors: Vec<[u32; 3]> = match mode {
+        "chase" => {
+            let p = led_pwm(color);
+            let mut v = vec![[0; 3]; 9];
+            v[0] = p;
+            v[1] = p.map(|x| x / 4);
+            v
+        }
+        _ => RAINBOW.to_vec(),
+    };
+    let words: Vec<String> = colors.iter().map(|c| format!("{:02x}{:02x}{:02x}", c[0], c[1], c[2])).collect();
+    format!("{} cw {}", period_ms.clamp(100, 65535), words.join(" "))
+}
+
+/// Start a rotation (`chase` or `rainbow`) at `brightness` (1..255); the
+/// chip runs it until the next brightness, color or pattern write.
+pub fn ledring_rotate(mode: &str, color: [u32; 3], brightness: u32, period_ms: u32) -> Res<()> {
+    let d = ledring_dir();
+    let e = |e| werr("LED ring", e);
+    let _ = ledring_trigger_clear();
+    sys::write(&d.join("brightness"), &brightness.clamp(1, 255).to_string()).map_err(e)?;
+    sys::write(&d.join("rotation"), &rotation_value(mode, color, period_ms)).map_err(e)
 }
 
 // ---------------------------------------------------------------- idle refresh
@@ -1045,6 +1095,8 @@ mod tests {
         assert_eq!(breathe_level(5, 0, 4000), 1);
         assert_eq!(breathe_pattern(33, 2000), "3 250 7 250 18 250 29 250 33 250 29 250 18 250 7 250");
         assert_eq!(breathe_pattern(255, 4).split(' ').nth(1), Some("1"));
+        assert_eq!(rotation_value("chase", [0, 255, 255], 1500), "1500 cw 00ffff 003f3f 000000 000000 000000 000000 000000 000000 000000");
+        assert_eq!(rotation_value("rainbow", [0; 3], 50), "100 cw ff0000 ff0a00 ffaa00 aaaa00 0120ff 0000ff b400ff ff00ff ffcc99");
     }
     #[test]
     fn policy_names() {
