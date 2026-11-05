@@ -1045,7 +1045,7 @@ EOF
 # go to Windows too, so that the WSL distribution can be removed.
 keep_files() {
 	local f k=() dst
-	for f in stock-boot.img linux-boot.img config; do [ -e "$WORK/$f" ] && k+=("$WORK/$f"); done
+	for f in stock-boot.img linux-boot.img config; do { [ $DRY = 1 ] || [ -e "$WORK/$f" ]; } && k+=("$WORK/$f"); done
 	if ! is_wsl; then
 		say "Space on this PC: $WORK/root.img and root.img.gz can go now; keep stock-boot.img, linux-boot.img and config/."
 		return 0
