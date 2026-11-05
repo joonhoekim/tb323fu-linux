@@ -1,0 +1,605 @@
+From 1c1740b47b9315eb803bdb998e07e6545b33c78c Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Thu, 5 Nov 2026 15:21:04 +0000
+Subject: [PATCH] leds: rgb: aw22127: Add color effects and zones, set the LED
+ current
+
+The vendor stack runs two more MCU commands: colors spread over the
+LEDs and turning (its "spiral" effect), or all LEDs fading through the
+colors together (its "color change"). It also splits the ring into
+three zones with a color each. Add them as attributes: rotation
+(period, direction, up to nine colors), cycle (pace, colors) and
+zone_colors (three colors for the steady color and hw_pattern).
+
+The driver left REG_IMAX at its reset value, 3 mA, a tenth of what the
+vendor uses at most. Pick the smallest of Awinic's current steps that
+reaches the brightness, up to those 30 mA, and scale the levels to it.
+This keeps the color at low brightness, and gives the color commands,
+which have no brightness field, their brightness the same way.
+
+Suggested-by: vitalo233 <vitalo233@gmail.com>
+Link: https://github.com/joonhoekim/tb323fu-linux/pull/34
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ Documentation/leds/leds-aw22127.rst |  50 +++-
+ drivers/leds/rgb/leds-aw22127.c     | 398 +++++++++++++++++++++++++---
+ 2 files changed, 410 insertions(+), 38 deletions(-)
+
+diff --git a/Documentation/leds/leds-aw22127.rst b/Documentation/leds/leds-aw22127.rst
+index f4cc56d26f..0b9777a1a3 100644
+--- a/Documentation/leds/leds-aw22127.rst
++++ b/Documentation/leds/leds-aw22127.rst
+@@ -8,6 +8,14 @@ The AW22127 runs its lighting effects on an internal MCU. The driver drives
+ all LEDs as one multicolor LED: ``multi_intensity`` is the colour and
+ ``brightness`` scales it in the chip.
+ 
++Brightness
++----------
++
++``brightness`` sets the LED current: 255 is 30 mA, the most the Lenovo
++Legion Tab Y700 (5th gen) vendor stack uses. The driver picks the smallest of
++the chip's current steps (2 to 30 mA) that reaches the brightness and scales
++the color within it, so the color holds at low brightness.
++
+ Hardware pattern
+ ----------------
+ 
+@@ -33,10 +41,50 @@ Fade in over 0.5 s, hold 1 s, fade out over 1 s, stay off for 0.5 s::
+ 
+     echo "0 500 255 1000 255 1000 0 500" > hw_pattern
+ 
++Zones
++-----
++
++The nine LEDs form three zones of three. ``zone_colors`` takes three colors
++as ``RRGGBB`` words, one per zone; the steady color and ``hw_pattern`` then
++light each zone in its color instead of ``multi_intensity``. ``none`` goes
++back to one color. Reading it shows the colors or ``none``. It applies to
++the next ``brightness`` or ``hw_pattern`` write::
++
++    echo "ff0000 ffaa00 00ffff" > zone_colors
++    echo 200 > brightness
++
++Color effects
++-------------
++
++Two more effects run on the MCU. Each takes one to nine colors as
++``RRGGBB`` words and uses the current ``brightness``, which must not be 0.
++Reading the attribute shows the effect while it runs and is empty otherwise;
++a later ``brightness``, ``multi_intensity`` or ``hw_pattern`` write replaces
++it.
++
++``rotation``
++    "PERIOD cw|ccw COLOR..." spreads the colors over the LEDs and turns them
++    clockwise or counterclockwise, once per PERIOD milliseconds (100-65535).
++    Neighboring colors blend: a gradient turns as a smooth wave, one lit
++    color followed by dark ones as a running dot. The vendor's rainbow::
++
++        echo "1638 cw ff0000 ff0a00 ffaa00 aaaa00 0120ff 0000ff b400ff ff00ff ffcc99" > rotation
++
++    A cyan dot with a short tail::
++
++        echo "1500 cw 00ffff 004040 000000 000000 000000 000000 000000 000000 000000" > rotation
++
++``cycle``
++    "FADE COLOR..." lights all LEDs in one color and fades through the
++    colors in turn; FADE (100-65535) sets the pace, a smaller value is
++    faster. The vendor uses 3000, 1500 and 1000::
++
++        echo "1500 ff0000 ffaa00 00ffff" > cycle
++
+ Limitations
+ -----------
+ 
+ Each change of colour or brightness is a new command, and the MCU is reset to
+ take it: the LEDs go dark while the command is written (about 45 ms on a
+ 100 kHz bus) and then show the new colour. No command that changes a running
+-program is known.
++program is known. The effects keep running while the system is suspended.
+diff --git a/drivers/leds/rgb/leds-aw22127.c b/drivers/leds/rgb/leds-aw22127.c
+index cec374f73d..ab128f5b46 100644
+--- a/drivers/leds/rgb/leds-aw22127.c
++++ b/drivers/leds/rgb/leds-aw22127.c
+@@ -6,8 +6,8 @@
+  * kept in the chip's own flash. Lighting effects are commands to that MCU:
+  * a byte stream fed through the TASK1 mailbox (REG_MCUCTR = 0x07, then one
+  * REG_TASK1 write per byte) and started with REG_TASK0. Register protocol
+- * from Awinic's GPL leds-aw22xxx.c; command layout from the effect files of
+- * the Lenovo Legion Tab Y700 (5th gen) vendor stack.
++ * and current steps from Awinic's GPL leds-aw22xxx.c; command layouts from
++ * the commands the Lenovo Legion Tab Y700 (5th gen) vendor stack sends.
+  *
+  * All LEDs are exposed as one multicolor LED; off holds the chip in reset.
+  */
+@@ -29,6 +29,7 @@
+ #define AW22127_REG_TASK0	0x05
+ #define AW22127_REG_TASK1	0x06
+ #define AW22127_REG_INTEN	0x09
++#define AW22127_REG_IMAX	0x0b
+ #define AW22127_REG_PST		0x0c
+ #define AW22127_REG_PAGE	0xff
+ 
+@@ -37,23 +38,59 @@
+ #define AW22127_GCR_CHIPEN	BIT(0)
+ #define AW22127_MCUCTR_MAILBOX	0x07
+ 
++#define AW22127_NUM_LEDS	9
++#define AW22127_NUM_ZONES	3
++#define AW22127_MAX_STEPS	16
++#define AW22127_STEP_LEN	7
++#define AW22127_STATIC_MS	500
++
++/*
++ * "LEDs in steps": this header, the number of zones, three zero bytes, per
++ * zone 01, its LED count, its step count and six zero bytes; then per zone
++ * its LED numbers and its steps. A step is the duration in ms (big endian),
++ * the brightness at its start and at its end, and R, G, B. The MCU ramps
++ * linearly within a step and loops over the steps.
++ */
++static const u8 aw22127_steps_hdr[] = { 0x00, 0x80, 0x01, 0x01, 0x07, 0x00, 0x00, 0x01 };
++
++#define AW22127_STEPS_MAX	(sizeof(aw22127_steps_hdr) + 4 + \
++				 AW22127_NUM_ZONES * 9 + AW22127_NUM_LEDS + \
++				 AW22127_NUM_ZONES * AW22127_MAX_STEPS * AW22127_STEP_LEN)
++
+ /*
+- * "All LEDs one colour, in steps": this header, then per step the duration
+- * in ms (big endian), the brightness at its start and at its end, and R, G,
+- * B. The MCU ramps linearly within a step and loops over the steps.
++ * "Colors around the LEDs": this header, then R, G, B of each color. The
++ * Lenovo stack runs its rotation with flag 0 and step 0x40, and its color
++ * change with flag 1 and the fade time in the step field.
+  */
+-static const u8 aw22127_cmd_hdr[] = {
+-	0x00, 0x80, 0x01, 0x01, 0x07, 0x00, 0x00, 0x01, 0x01, 0x00,
+-	0x00, 0x00, 0x01, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+-	0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
++static const u8 aw22127_colors_hdr[] = {
++	0x00, 0x80, 0x00, 0x01, 0x04, 0x00, 0x00, 0x01, 0x00, 0x00,
++	0x00, 0x40, 0x06, 0x66, 0x00, 0x09, 0x01, 0x00, 0x00, 0x00,
++	0x00,
+ };
+ 
+-#define AW22127_CMD_NSTEPS	14
+-#define AW22127_STEP_LEN	7
+-#define AW22127_MAX_STEPS	16
+-#define AW22127_CMD_MAX		(sizeof(aw22127_cmd_hdr) + \
+-				 AW22127_MAX_STEPS * AW22127_STEP_LEN)
+-#define AW22127_STATIC_MS	500
++#define AW22127_COLORS_DIR	7
++#define AW22127_COLORS_STEP	10
++#define AW22127_COLORS_PERIOD	12
++#define AW22127_COLORS_FLAG	14
++#define AW22127_COLORS_COUNT	17
++#define AW22127_DIR_CCW		0x01
++#define AW22127_DIR_CW		0x02
++#define AW22127_MAX_COLORS	9
++#define AW22127_MIN_MS		100
++#define AW22127_COLORS_MAX	(sizeof(aw22127_colors_hdr) + AW22127_MAX_COLORS * 3)
++
++#define AW22127_CMD_MAX		AW22127_STEPS_MAX
++
++/* REG_IMAX steps up to 30 mA, the most the vendor stack uses */
++static const struct {
++	u8 ma;
++	u8 code;
++} aw22127_imax[] = {
++	{ 2, 0x08 }, { 3, 0x00 }, { 4, 0x09 }, { 6, 0x01 }, { 9, 0x02 },
++	{ 10, 0x0b }, { 15, 0x03 }, { 20, 0x0c }, { 30, 0x04 },
++};
++
++#define AW22127_MAX_MA		30
+ 
+ struct aw22127_step {
+ 	u16 ms;
+@@ -67,10 +104,16 @@ struct aw22127 {
+ 	struct gpio_desc *reset;
+ 	struct led_classdev_mc mc;
+ 	struct mc_subled subled[3];
+-	struct mutex lock;	/* the chip, on, cmd */
++	struct mutex lock;	/* the chip, on, cmd, imax, zones, effect */
+ 	bool on;
+ 	u8 cmd[AW22127_CMD_MAX];
+ 	size_t cmd_len;
++	u8 imax;
++	u32 zone_rgb[AW22127_NUM_ZONES];
++	bool zones;
++	/* the rotation or cycle running, as written; "" otherwise */
++	char rotation[8 + 4 + AW22127_MAX_COLORS * 7 + 2];
++	char cycle[8 + AW22127_MAX_COLORS * 7 + 2];
+ };
+ 
+ static const struct regmap_config aw22127_regmap = {
+@@ -79,6 +122,22 @@ static const struct regmap_config aw22127_regmap = {
+ 	.max_register = 0xff,
+ };
+ 
++/* the current step for a peak brightness of @peak (255 = 30 mA) */
++static unsigned int aw22127_imax_for(unsigned int peak)
++{
++	unsigned int i;
++
++	for (i = 0; i < ARRAY_SIZE(aw22127_imax) - 1; i++)
++		if (aw22127_imax[i].ma * 255 >= AW22127_MAX_MA * peak)
++			break;
++	return i;
++}
++
++static u8 aw22127_scale(unsigned int v, unsigned int num, unsigned int den)
++{
++	return min_t(unsigned int, 255, DIV_ROUND_UP(v * num, den));
++}
++
+ static void aw22127_power(struct aw22127 *aw, bool on)
+ {
+ 	/* reset-gpios is active low: deasserted = running */
+@@ -87,7 +146,7 @@ static void aw22127_power(struct aw22127 *aw, bool on)
+ 		usleep_range(2000, 3000);
+ }
+ 
+-static int aw22127_play(struct aw22127 *aw, const u8 *cmd, size_t len)
++static int aw22127_play(struct aw22127 *aw, const u8 *cmd, size_t len, u8 imax)
+ {
+ 	struct regmap *rm = aw->regmap;
+ 	size_t i;
+@@ -100,7 +159,9 @@ static int aw22127_play(struct aw22127 *aw, const u8 *cmd, size_t len)
+ 	if (!aw->on)
+ 		usleep_range(2000, 3000);
+ 
+-	ret = regmap_write(rm, AW22127_REG_PST, 0);
++	/* REG_IMAX ignores writes while the chip is disabled */
++	ret = regmap_write(rm, AW22127_REG_IMAX, imax);
++	ret = ret ?: regmap_write(rm, AW22127_REG_PST, 0);
+ 	ret = ret ?: regmap_write(rm, AW22127_REG_TASK0, 0x01);
+ 	ret = ret ?: regmap_write(rm, AW22127_REG_MCUCTR, 0x01);
+ 	ret = ret ?: regmap_write(rm, AW22127_REG_INTEN, 0x01);
+@@ -121,6 +182,8 @@ static void aw22127_off(struct aw22127 *aw)
+ {
+ 	struct regmap *rm = aw->regmap;
+ 
++	aw->rotation[0] = '\0';
++	aw->cycle[0] = '\0';
+ 	if (!aw->on)
+ 		return;
+ 
+@@ -133,32 +196,20 @@ static void aw22127_off(struct aw22127 *aw)
+ 	aw->on = false;
+ }
+ 
+-static int aw22127_run(struct aw22127 *aw, const struct aw22127_step *steps,
+-		       unsigned int nsteps)
++/* a command equal to the running one is not sent: sending restarts the MCU */
++static int aw22127_send(struct aw22127 *aw, const u8 *cmd, size_t len, u8 imax)
+ {
+-	u8 cmd[AW22127_CMD_MAX];
+-	u8 *p = cmd + sizeof(aw22127_cmd_hdr);
+-	size_t len = sizeof(aw22127_cmd_hdr) + nsteps * AW22127_STEP_LEN;
+-	unsigned int i;
+ 	int ret;
+ 
+-	memcpy(cmd, aw22127_cmd_hdr, sizeof(aw22127_cmd_hdr));
+-	cmd[AW22127_CMD_NSTEPS] = nsteps;
+-	for (i = 0; i < nsteps; i++, p += AW22127_STEP_LEN) {
+-		put_unaligned_be16(steps[i].ms, p);
+-		p[2] = steps[i].from;
+-		p[3] = steps[i].to;
+-		p[4] = aw->subled[0].intensity;
+-		p[5] = aw->subled[1].intensity;
+-		p[6] = aw->subled[2].intensity;
+-	}
+-
+-	if (aw->on && len == aw->cmd_len && !memcmp(cmd, aw->cmd, len))
++	aw->rotation[0] = '\0';
++	aw->cycle[0] = '\0';
++	if (aw->on && imax == aw->imax && len == aw->cmd_len &&
++	    !memcmp(cmd, aw->cmd, len))
+ 		return 0;
+ 
+ 	if (!aw->on)
+ 		aw22127_power(aw, true);
+-	ret = aw22127_play(aw, cmd, len);
++	ret = aw22127_play(aw, cmd, len, imax);
+ 	if (ret) {
+ 		aw22127_power(aw, false);
+ 		aw->on = false;
+@@ -168,10 +219,88 @@ static int aw22127_run(struct aw22127 *aw, const struct aw22127_step *steps,
+ 	aw->on = true;
+ 	memcpy(aw->cmd, cmd, len);
+ 	aw->cmd_len = len;
++	aw->imax = imax;
+ 
+ 	return 0;
+ }
+ 
++static int aw22127_run(struct aw22127 *aw, const struct aw22127_step *steps,
++		       unsigned int nsteps)
++{
++	unsigned int nzones = aw->zones ? AW22127_NUM_ZONES : 1;
++	unsigned int per_zone = AW22127_NUM_LEDS / nzones;
++	unsigned int i, z, peak = 0, k;
++	u8 cmd[AW22127_STEPS_MAX], *p = cmd;
++	u32 rgb;
++	u8 ma;
++
++	for (i = 0; i < nsteps; i++)
++		peak = max3(peak, (unsigned int)steps[i].from, (unsigned int)steps[i].to);
++	k = aw22127_imax_for(peak);
++	ma = aw22127_imax[k].ma;
++
++	memcpy(p, aw22127_steps_hdr, sizeof(aw22127_steps_hdr));
++	p += sizeof(aw22127_steps_hdr);
++	*p++ = nzones;
++	memset(p, 0, 3);
++	p += 3;
++	for (z = 0; z < nzones; z++) {
++		*p++ = 0x01;
++		*p++ = per_zone;
++		*p++ = nsteps;
++		memset(p, 0, 6);
++		p += 6;
++	}
++	for (z = 0; z < nzones; z++) {
++		for (i = 0; i < per_zone; i++)
++			*p++ = z * per_zone + i;
++		if (aw->zones)
++			rgb = aw->zone_rgb[z];
++		else
++			rgb = aw->subled[0].intensity << 16 |
++			      aw->subled[1].intensity << 8 |
++			      aw->subled[2].intensity;
++		for (i = 0; i < nsteps; i++) {
++			put_unaligned_be16(steps[i].ms, p);
++			p[2] = aw22127_scale(steps[i].from, AW22127_MAX_MA, ma);
++			p[3] = aw22127_scale(steps[i].to, AW22127_MAX_MA, ma);
++			p[4] = rgb >> 16;
++			p[5] = rgb >> 8;
++			p[6] = rgb;
++			p += AW22127_STEP_LEN;
++		}
++	}
++
++	return aw22127_send(aw, cmd, p - cmd, aw22127_imax[k].code);
++}
++
++/* this command has no brightness field: the colors carry it */
++static int aw22127_colors(struct aw22127 *aw, u8 dir, u16 step, u16 period,
++			  u8 flag, const u32 *rgb, unsigned int ncolors,
++			  unsigned int brightness)
++{
++	unsigned int k = aw22127_imax_for(brightness);
++	unsigned int num = AW22127_MAX_MA * brightness;
++	unsigned int den = 255 * aw22127_imax[k].ma;
++	u8 cmd[AW22127_COLORS_MAX], *p = cmd + sizeof(aw22127_colors_hdr);
++	unsigned int i, c;
++
++	memcpy(cmd, aw22127_colors_hdr, sizeof(aw22127_colors_hdr));
++	cmd[AW22127_COLORS_DIR] = dir;
++	put_unaligned_be16(step, cmd + AW22127_COLORS_STEP);
++	put_unaligned_be16(period, cmd + AW22127_COLORS_PERIOD);
++	cmd[AW22127_COLORS_FLAG] = flag;
++	cmd[AW22127_COLORS_COUNT] = ncolors;
++	for (i = 0; i < ncolors; i++)
++		for (c = 0; c < 3; c++) {
++			u8 v = rgb[i] >> (16 - 8 * c);
++
++			*p++ = aw22127_scale(v, num, den);
++		}
++
++	return aw22127_send(aw, cmd, p - cmd, aw22127_imax[k].code);
++}
++
+ static struct aw22127 *cdev_to_aw22127(struct led_classdev *cdev)
+ {
+ 	return container_of(lcdev_to_mccdev(cdev), struct aw22127, mc);
+@@ -235,6 +364,196 @@ static int aw22127_pattern_clear(struct led_classdev *cdev)
+ 	return 0;
+ }
+ 
++/* "RRGGBB" words after @s into @rgb; the count, or -EINVAL */
++static int aw22127_parse_colors(char *s, u32 *rgb, unsigned int max)
++{
++	unsigned int n = 0;
++	char *w;
++
++	while ((w = strsep(&s, "\n "))) {
++		if (!*w)
++			continue;
++		if (n == max || strlen(w) != 6 || kstrtou32(w, 16, &rgb[n]))
++			return -EINVAL;
++		n++;
++	}
++
++	return n;
++}
++
++static void aw22127_format_colors(char *buf, size_t size, size_t len,
++				  const u32 *rgb, unsigned int n)
++{
++	unsigned int i;
++
++	for (i = 0; i < n; i++)
++		len += scnprintf(buf + len, size - len, " %06x", rgb[i]);
++}
++
++/*
++ * A brightness write just before is still queued in the LED core: flush it,
++ * or it replaces the command written here.
++ */
++static int aw22127_effect_store(struct led_classdev *cdev, bool rotation,
++				const char *buf, size_t count)
++{
++	struct aw22127 *aw = cdev_to_aw22127(cdev);
++	char words[sizeof(aw->rotation)], *s = words, *w;
++	u32 rgb[AW22127_MAX_COLORS];
++	u8 dir = AW22127_DIR_CCW;
++	int ncolors, ret;
++	u16 ms;
++	size_t len;
++
++	if (count >= sizeof(words))
++		return -EINVAL;
++	strscpy(words, buf, count + 1);
++
++	w = strsep(&s, "\n ");
++	if (!w || kstrtou16(w, 10, &ms) || ms < AW22127_MIN_MS)
++		return -EINVAL;
++	if (rotation) {
++		w = strsep(&s, "\n ");
++		if (w && !strcmp(w, "cw"))
++			dir = AW22127_DIR_CW;
++		else if (!w || strcmp(w, "ccw"))
++			return -EINVAL;
++	}
++	ncolors = aw22127_parse_colors(s, rgb, AW22127_MAX_COLORS);
++	if (ncolors <= 0)
++		return -EINVAL;
++
++	flush_work(&cdev->set_brightness_work);
++
++	mutex_lock(&aw->lock);
++	if (!cdev->brightness) {
++		ret = -EINVAL;
++		goto out;
++	}
++	if (rotation)
++		ret = aw22127_colors(aw, dir, 0x40, ms, 0, rgb, ncolors,
++				     cdev->brightness);
++	else
++		ret = aw22127_colors(aw, AW22127_DIR_CCW, ms, 0x0666, 1, rgb,
++				     ncolors, cdev->brightness);
++	if (ret)
++		goto out;
++
++	if (rotation) {
++		len = scnprintf(aw->rotation, sizeof(aw->rotation), "%u %s", ms,
++				dir == AW22127_DIR_CW ? "cw" : "ccw");
++		aw22127_format_colors(aw->rotation, sizeof(aw->rotation), len,
++				      rgb, ncolors);
++	} else {
++		len = scnprintf(aw->cycle, sizeof(aw->cycle), "%u", ms);
++		aw22127_format_colors(aw->cycle, sizeof(aw->cycle), len, rgb,
++				      ncolors);
++	}
++out:
++	mutex_unlock(&aw->lock);
++
++	return ret ?: count;
++}
++
++static ssize_t rotation_show(struct device *dev, struct device_attribute *attr,
++			     char *buf)
++{
++	struct aw22127 *aw = cdev_to_aw22127(dev_get_drvdata(dev));
++	ssize_t len;
++
++	mutex_lock(&aw->lock);
++	len = sysfs_emit(buf, "%s\n", aw->rotation);
++	mutex_unlock(&aw->lock);
++
++	return len;
++}
++
++static ssize_t rotation_store(struct device *dev, struct device_attribute *attr,
++			      const char *buf, size_t count)
++{
++	return aw22127_effect_store(dev_get_drvdata(dev), true, buf, count);
++}
++static DEVICE_ATTR_RW(rotation);
++
++static ssize_t cycle_show(struct device *dev, struct device_attribute *attr,
++			  char *buf)
++{
++	struct aw22127 *aw = cdev_to_aw22127(dev_get_drvdata(dev));
++	ssize_t len;
++
++	mutex_lock(&aw->lock);
++	len = sysfs_emit(buf, "%s\n", aw->cycle);
++	mutex_unlock(&aw->lock);
++
++	return len;
++}
++
++static ssize_t cycle_store(struct device *dev, struct device_attribute *attr,
++			   const char *buf, size_t count)
++{
++	return aw22127_effect_store(dev_get_drvdata(dev), false, buf, count);
++}
++static DEVICE_ATTR_RW(cycle);
++
++static ssize_t zone_colors_show(struct device *dev,
++				struct device_attribute *attr, char *buf)
++{
++	struct aw22127 *aw = cdev_to_aw22127(dev_get_drvdata(dev));
++	char out[AW22127_NUM_ZONES * 7 + 1] = "none";
++	ssize_t len;
++
++	mutex_lock(&aw->lock);
++	if (aw->zones)
++		aw22127_format_colors(out, sizeof(out), 0, aw->zone_rgb,
++				      AW22127_NUM_ZONES);
++	len = sysfs_emit(buf, "%s\n", aw->zones ? out + 1 : out);
++	mutex_unlock(&aw->lock);
++
++	return len;
++}
++
++static ssize_t zone_colors_store(struct device *dev,
++				 struct device_attribute *attr,
++				 const char *buf, size_t count)
++{
++	struct aw22127 *aw = cdev_to_aw22127(dev_get_drvdata(dev));
++	char words[AW22127_NUM_ZONES * 7 + 2];
++	u32 rgb[AW22127_NUM_ZONES];
++	int n;
++
++	if (count >= sizeof(words))
++		return -EINVAL;
++	strscpy(words, buf, count + 1);
++
++	if (sysfs_streq(words, "none")) {
++		n = 0;
++	} else {
++		n = aw22127_parse_colors(words, rgb, AW22127_NUM_ZONES);
++		if (n != AW22127_NUM_ZONES)
++			return -EINVAL;
++	}
++
++	mutex_lock(&aw->lock);
++	aw->zones = n;
++	if (n)
++		memcpy(aw->zone_rgb, rgb, sizeof(rgb));
++	mutex_unlock(&aw->lock);
++
++	return count;
++}
++static DEVICE_ATTR_RW(zone_colors);
++
++static struct attribute *aw22127_attrs[] = {
++	&dev_attr_rotation.attr,
++	&dev_attr_cycle.attr,
++	&dev_attr_zone_colors.attr,
++	NULL
++};
++
++static const struct attribute_group aw22127_group = {
++	.attrs = aw22127_attrs,
++};
++
+ static int aw22127_probe(struct i2c_client *client)
+ {
+ 	struct device *dev = &client->dev;
+@@ -288,6 +607,11 @@ static int aw22127_probe(struct i2c_client *client)
+ 	if (ret)
+ 		return dev_err_probe(dev, ret, "registering LED\n");
+ 
++	/* the multicolor class sets the LED's own attribute groups */
++	ret = devm_device_add_group(aw->mc.led_cdev.dev, &aw22127_group);
++	if (ret)
++		return dev_err_probe(dev, ret, "adding the effect attributes\n");
++
+ 	i2c_set_clientdata(client, &aw->mc);
+ 
+ 	return 0;
+-- 
+2.43.0
+
