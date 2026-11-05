@@ -46,7 +46,7 @@ builder takes care of.
 | | Arch Linux ARM with GNOME | the same script with `DISTRO=arch` — followed end to end once; no rotation sensor |
 | | NixOS with GNOME | the same script with `DISTRO=nixos` — followed end to end once; its configuration is editable on the tablet ([how](distros.md#nixos-your-own-configuration)) |
 | | SteamOS (community port) | the same script with `DISTRO=steamos` — experimental: Gaming Mode works on kernel t39 or later, Switch to Desktop does not ([known problems](distros.md#known-problems)) |
-| | Fedora (with FEX for x86 games) | built on the tablet itself, from a first Linux root: [Distributions → Installing each one](distros.md#installing-each-one) |
+| | Fedora 44 with GNOME (with FEX for x86 games) | the same script with `DISTRO=fedora` — followed end to end once (the SD card, from Windows with WSL2) |
 | | Armada (experimental, `DISTRO=armada`), anything else (postmarketOS, Debian, your own) | Armada boots into Gaming Mode; the others are not tried yet; what a root needs and how to plug your own builder into the script: [Distributions → Your own distribution](distros.md#your-own-distribution) |
 
 Several systems can share the card; you pick one with Open Device Helper → Systems or `tb323fu-ctl boot`.
@@ -55,6 +55,6 @@ Several systems can share the card; you pick one with Open Device Helper → Sys
 
 [Installing by hand](install-manual.md) lists every step as commands, with what each one changes and how far it
 was tested. If you know your way around Linux, it is the recommended way: every step is visible and yours to change.
-Use it for a distribution the script does not build (Fedora, or your own: [distros.md](distros.md)), a kernel
+Use it for a distribution the script does not build (your own: [distros.md](distros.md)), a kernel
 you build yourself ([custom-kernel.md](custom-kernel.md)), several systems side by side on the card, or a root on the
 internal storage (which costs Android its data).
