@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: MIT
+# ZUI 18.0.12.104 (ROW, 16 GB): /memory and /reserved-memory of the devicetree Android boots with
+# made by tools/fw-memory-check.py --extract from /sys/firmware/fdt
+# /memory (from the bootloader)
+0x0081960000-0x0081a00000       0.62 MiB
+0x0081a60000-0x0081c00000       1.62 MiB
+0x0081cf4000-0x0081d00000       0.05 MiB
+0x0082478000-0x00824a0000       0.16 MiB
+0x0082600000-0x0082700000       1.00 MiB
+0x0082800000-0x0084a00000      34.00 MiB
+0x008a980000-0x008aa00000       0.50 MiB
+0x009959c000-0x0099600000       0.39 MiB
+0x009ce80000-0x009fc80000      46.00 MiB
+0x009ffe0000-0x00a0050000       0.44 MiB
+0x00a0910000-0x00a1380000      10.44 MiB
+0x00a5a00000-0x00c2000000     454.00 MiB
+0x00c20c0000-0x00d7800000     343.25 MiB
+0x00d79c0000-0x00d7a00000       0.25 MiB
+0x00d7c00000-0x00d8000000       4.00 MiB
+0x00dfda0000-0x00ff800000     506.38 MiB
+0x0880000000-0x08af6fd000     758.99 MiB
+0x08b0000000-0x08b8500000     133.00 MiB
+0x08c0000000-0x0a00000000    5120.00 MiB
+0x0a00000000-0x0c00000000    8192.00 MiB
+# /reserved-memory: name, ranges, flags (no ranges: placed at boot)
+gunyah_hyp_region@80000000                   0x0080000000-0x0080e00000 no-map
+hypervisor_extended_heap_region@80e00000     0x0080e00000-0x0081200000 no-map
+cpucp_pdp_region@81200000                    0x0081200000-0x0081400000 no-map
+xbl_dtlog_region@81a00000                    0x0081a00000-0x0081a60000 no-map
+aop_image_region@81c00000                    0x0081c00000-0x0081c60000 no-map
+aop_cmd_db_region@81c60000                   0x0081c60000-0x0081c80000 no-map
+aop_tme_uefi_merged_region@81c80000          0x0081c80000-0x0081cf4000 no-map
+smem_region@81d00000                         0x0081d00000-0x0081f00000 no-map
+pdp_ns_shared_region@81f00000                0x0081f00000-0x0082000000 no-map
+cpucp_scandump_region@82000000               0x0082000000-0x0082380000 no-map
+adsp_mhi_region@82380000                     0x0082380000-0x00823a0000 no-map
+soccp_sdi_region@823a0000                    0x00823a0000-0x00823e0000 no-map
+pmic_minii_dump_region@823e0000              0x00823e0000-0x0082460000 no-map
+qup_fw_region@82460000                       0x0082460000-0x0082478000 no-map
+pvm_fw_region@824a0000                       0x00824a0000-0x00825a0000 no-map
+tz_stat_region@82700000                      0x0082700000-0x0082800000 no-map
+qdss_apps_region@82800000                    0x0082800000-0x0084800000 reusable
+dsm_partition_1_region@84a00000              0x0084a00000-0x0089f00000 no-map
+dsm_partition_2_region@89f00000              0x0089f00000-0x008a980000 no-map
+mpss_region@8aa00000                         0x008aa00000-0x0099500000 no-map
+q6_mpss_dtb_region@99500000                  0x0099500000-0x0099580000 no-map
+ipa_fw_region@99580000                       0x0099580000-0x0099590000 no-map
+ipa_gsi_region@99590000                      0x0099590000-0x009959a000 no-map
+gpu_microcode_region@9959a000                0x009959a000-0x009959c000 no-map
+camera_region@99600000                       0x0099600000-0x0099e00000 no-map
+camera_2_region@99e00000                     0x0099e00000-0x009a600000 no-map
+video_region@9a600000                        0x009a600000-0x009ae00000 no-map
+cvp_region@9ae00000                          0x009ae00000-0x009b500000 no-map
+cdsp_region@9b500000                         0x009b500000-0x009ce00000 no-map
+q6_cdsp_dtb_region@9ce00000                  0x009ce00000-0x009ce80000 no-map
+spu_secure_shared_memory_region@9fc80000     0x009fc80000-0x009fcc0000 no-map
+spu_secure_shared_memory_region@9fcc0000     0x009fcc0000-0x009fd00000 no-map
+spss_region_region@9fd00000                  0x009fd00000-0x009ffe0000 no-map
+dcp_dtb_region@a0050000                      0x00a0050000-0x00a00d0000 no-map
+dcp_region@a00d0000                          0x00a00d0000-0x00a03d0000 no-map
+soccp_region@a03d0000                        0x00a03d0000-0x00a08d0000 no-map
+soccp_dtb_region@a08d0000                    0x00a08d0000-0x00a0910000 no-map
+q6_adsp_dtb_region@a1380000                  0x00a1380000-0x00a1400000 no-map
+adspslpi_region@a1400000                     0x00a1400000-0x00a5a00000 no-map
+ramoops-region@0xc2000000                    0x00c2000000-0x00c20c0000 no-map
+xbl_ramdump_region@d7800000                  0x00d7800000-0x00d79c0000 no-map
+global_sync_region@d7a00000                  0x00d7a00000-0x00d7c00000 no-map
+tz_merged_region@d8000000                    0x00d8000000-0x00d8800000 no-map
+trust_ui_vm_region@f3800000                  0x00f3800000-0x00f7800000 reusable
+oem_vm_region@f7c00000                       0x00f7c00000-0x00fc800000 reusable
+splash_region                                0x00fc800000-0x00ff300000
+llcc_lpi_region@ff800000                     0x00ff800000-0x0100000000 no-map
+lcp_dare_region                              0x0880000000-0x0886000000 reusable
+qseecom_region                               dynamic reusable
+qseecom_ta_region                            dynamic reusable
+sp_region                                    dynamic reusable
+vm_comm_mem_region                           dynamic reusable
+cdsp_eva_region                              dynamic reusable
+non_secure_display_region                    dynamic reusable
+adsp_heap_region                             dynamic reusable
+qmc_dma_region                               dynamic reusable
+linux,cma                                    dynamic reusable
+debug_kinfo_region                           dynamic no-map
+va_md_mem_region                             dynamic reusable
+dump_mem_region                              dynamic
+fastrpc_far_region                           dynamic
+cnss_wlan_region                             dynamic reusable
+demura_region_0                              dynamic
+demura_region_1                              dynamic

@@ -20,3 +20,4 @@ site/next-env.d.ts
 site/*.tsbuildinfo
 # macOS Finder metadata
 .DS_Store
+__pycache__/
