@@ -15,6 +15,7 @@ DISTRO=~/my-distro.sh tools/install/install.sh  # your own module, by path
 | [`ubuntu.sh`](ubuntu.sh) | Ubuntu 26.04, GNOME | verified |
 | [`arch.sh`](arch.sh) | Arch Linux ARM, GNOME | verified |
 | [`fedora.sh`](fedora.sh) | Fedora 44 Workstation, GNOME | verified |
+| [`postmarketos.sh`](postmarketos.sh) | postmarketOS (edge), Phosh | experimental |
 | [`nixos.sh`](nixos.sh) | NixOS (unstable), GNOME | experimental |
 | [`steamos.sh`](steamos.sh) | SteamOS, community port | experimental |
 | [`armada.sh`](armada.sh) | Armada (Fedora bootc) | experimental |
