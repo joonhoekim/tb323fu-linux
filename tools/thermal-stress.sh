@@ -19,14 +19,19 @@
 S=${1:-600}; LIMIT_C=${LIMIT_C:-115}; SKIN_LIMIT_C=${SKIN_LIMIT_C:-52}
 OUT=${OUT:-/tmp/thermal-stress-$(date +%m%d-%H%M).log}
 T=/sys/class/thermal
-zone() { for z in $T/thermal_zone*; do [ "$(cat $z/type)" = "$1" ] && { cat $z/temp; return; }; done; echo 0; }
+zone_dir() { for z in $T/thermal_zone*; do [ "$(cat $z/type)" = "$1" ] && { echo $z; return; }; done; }
+zone() { z=$(zone_dir "$1"); [ -n "$z" ] && cat $z/temp || echo 0; }
 cdev() { for c in $T/cooling_device*; do [ "$(cat $c/type)" = "$1" ] && { cat $c/cur_state; return; }; done; echo -; }
-hottest() { h=0; for z in $T/thermal_zone*; do case $(cat $z/type) in cpu-*|cpullc-*) t=$(cat $z/temp); [ "$t" -gt "$h" ] && h=$t;; esac; done; echo $h; }
+cpu_zones() { for z in $T/thermal_zone*; do case $(cat $z/type) in cpu-*|cpullc-*) echo $z;; esac; done; }
+hottest() { h=0; for z in $(cpu_zones); do t=$(cat $z/temp); [ "$t" -gt "$h" ] && h=$t; done; echo $h; }
+
+# both limits depend on these zones: without them nothing would ever abort
+Q=$(zone_dir quiet-thermal)
+[ -n "$Q" ] || { echo "no thermal zone named quiet-thermal: not starting" >&2; exit 1; }
 
 if [ "$1" = emul ]; then
 	# no load: fake quiet-thermal through emul_temp (CONFIG_THERMAL_EMULATION)
 	# and read what each cooling device is pinned to; always cleared
-	for z in $T/thermal_zone*; do [ "$(cat $z/type)" = quiet-thermal ] && Q=$z; done
 	trap 'echo 0 > $Q/emul_temp' INT TERM EXIT
 	echo "emul C  f0_kHz f6_kHz  cdev_cpu0 cdev_cpu6 cdev_gpu  gpu_max_Hz"
 	for c in 40 43 44 45 46 47 48 49 50 46 40; do
@@ -36,9 +41,12 @@ if [ "$1" = emul ]; then
 	exit
 fi
 
+[ -n "$(cpu_zones)" ] || { echo "no cpu-* thermal zones: not starting" >&2; exit 1; }
+
 pids=""
-stop() { [ -n "$pids" ] && kill $pids 2>/dev/null; wait 2>/dev/null; pids=""; }
-trap 'stop; echo "load stopped" | tee -a "$OUT"; exit' INT TERM EXIT
+stop() { [ -n "$pids" ] && { kill $pids 2>/dev/null; wait 2>/dev/null; pids=""; echo "load stopped" | tee -a "$OUT"; }; }
+trap 'stop' EXIT
+trap 'exit 1' INT TERM
 
 if command -v stress-ng >/dev/null; then
 	stress-ng --cpu 8 --timeout ${S}s >/dev/null 2>&1 & pids=$!
