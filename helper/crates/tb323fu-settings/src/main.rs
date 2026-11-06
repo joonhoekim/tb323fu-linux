@@ -478,6 +478,7 @@ struct Ui {
     led_bright: adw::SpinRow,
     led_low: adw::SpinRow,
     led_notify: adw::SwitchRow,
+    led_screen: adw::SwitchRow,
     // Haptics
     hap_group: adw::PreferencesGroup,
     hap_strength: adw::SpinRow,
@@ -802,7 +803,7 @@ impl Ui {
         let torch_on = switch(&torch_group, "Torch", "");
         let torch_level = spin(&torch_group, "Brightness", "", 1.0, 255.0, 1.0);
         let led_group = group(&b, "LED Ring", "");
-        group_help(&led_group, "The RGB ring on the back. Charge indicator: amber while charging, green when full or held at the limit, red when low. The effects keep running while the screen is off.");
+        group_help(&led_group, "The RGB ring on the back. Charge indicator: amber while charging, green when full or held at the limit, red when low.");
         let led_mode = combo(&led_group, "Mode", &LED_MODE_LABELS);
         let swatches = gtk::FlowBox::builder().selection_mode(gtk::SelectionMode::None).max_children_per_line(9)
             .min_children_per_line(5).column_spacing(6).row_spacing(6).valign(gtk::Align::Center).build();
@@ -827,6 +828,7 @@ impl Ui {
         let led_bright = spin(&led_group, "Brightness", "", 1.0, 255.0, 1.0);
         let led_low = spin(&led_group, "Red Below (%)", "", 5.0, 50.0, 1.0);
         let led_notify = switch(&led_group, "Pulse for Notifications", "Needs the Device quick settings tile (GNOME extension)");
+        let led_screen = switch(&led_group, "Off While the Screen Is Off", "The charge colors still show");
         let (_, led_pulse) = button(&led_group, "Try a Pulse", "", "Pulse");
         let hap_group = group(&b, "Vibration", "");
         group_help(&hap_group, "The strength applies to everything that vibrates: the on-screen keyboard, games, notifications.");
@@ -1126,6 +1128,7 @@ impl Ui {
             led_bright,
             led_low,
             led_notify,
+            led_screen,
             hap_group,
             hap_strength,
             usb_wake,
@@ -1391,6 +1394,7 @@ impl Ui {
         self.led_override.set_visible(effect);
         self.led_low.set_visible(m == "charge" || (effect && self.led_override.is_active()));
         self.led_bright.set_visible(m != "off");
+        self.led_screen.set_visible(m != "off" && m != "charge");
     }
 
     fn connect(self: &Rc<Self>, gpu_buttons: Vec<gtk::Button>, rescan: gtk::Button, diag_open: gtk::Button, retry: gtk::Button) {
@@ -1584,6 +1588,7 @@ impl Ui {
             }
         });
         self.switch_sends(&self.led_notify, "LedRing", "SetNotifyPulse");
+        self.switch_sends(&self.led_screen, "LedRing", "SetOffWithScreen");
         self.spin_sends(&self.led_bright, "ledb", "LedRing", "SetBrightness");
         self.spin_sends(&self.led_low, "ledlow", "LedRing", "SetLowPercent");
         self.spin_sends(&self.hap_strength, "hap", "Haptics", "SetStrength");
@@ -2977,6 +2982,7 @@ impl Ui {
         set_spin(&self.led_speed, dbus::u(l, "Speed").map(|ms| ms as f64 / 1000.0));
         set_switch(&self.led_override, dbus::b(l, "ChargeOverride"));
         set_switch(&self.led_notify, dbus::b(l, "NotifyPulse"));
+        set_switch(&self.led_screen, dbus::b(l, "OffWithScreen"));
         if let Some(c) = dbus::s(l, "Color") {
             for (hex, t) in &self.led_color {
                 let on = hex.eq_ignore_ascii_case(&c);

@@ -88,6 +88,8 @@ pub struct LedRing {
     pub charge_override: bool,
     /// front-ends pulse the ring for desktop notifications
     pub notify: bool,
+    /// dark while the screen is off, except the charge colors
+    pub off_with_screen: bool,
 }
 
 /// Idle refresh (kernel `msm.idle_refresh_*`): `None` = leave the kernel's value.
@@ -282,6 +284,7 @@ impl Default for LedRing {
             speed: 4000,
             charge_override: true,
             notify: false,
+            off_with_screen: true,
         }
     }
 }

@@ -26,6 +26,8 @@ pub struct Led {
 
 const FRAME: Duration = Duration::from_millis(80);
 const IDLE: Duration = Duration::from_secs(5);
+/// how soon the ring follows the screen going off or on
+const SCREEN_POLL: Duration = Duration::from_secs(1);
 const PULSE_ON: Duration = Duration::from_millis(250);
 const PULSE_OFF: Duration = Duration::from_millis(250);
 
@@ -82,7 +84,9 @@ fn run(sh: Arc<Shared>) {
         }
         let own = f::parse_color(&c.color).ok();
         let overridden = c.charge_override && charge.1.is_some();
-        if let (Some(col), "breathe", false) = (own, c.mode.as_str(), overridden) {
+        let mode = if c.off_with_screen && c.mode != "charge" && !overridden && perf::screen_off() { "off" } else { c.mode.as_str() };
+        let idle = if c.off_with_screen { SCREEN_POLL } else { IDLE };
+        if let (Some(col), "breathe", false) = (own, mode, overridden) {
             let key = (col, c.brightness, c.speed);
             if hw != Some(key) || force || pulse.is_some() {
                 hw = None;
@@ -99,19 +103,19 @@ fn run(sh: Arc<Shared>) {
             if hw.is_some() {
                 last = None;
                 let g = sh.led.req.lock().unwrap();
-                let _ = sh.led.cv.wait_timeout_while(g, IDLE, |r| !r.force && r.pulse.is_none());
+                let _ = sh.led.cv.wait_timeout_while(g, idle, |r| !r.force && r.pulse.is_none());
                 continue;
             }
         } else if hw.take().is_some() {
             let _ = f::ledring_trigger_clear();
             last = None;
         }
-        if let (Some(col), true, false) = (own, f::led_mode_rotates(&c.mode), overridden) {
-            let key = (f::rotation_value(&c.mode, col, c.speed), c.brightness);
+        if let (Some(col), true, false) = (own, f::led_mode_rotates(mode), overridden) {
+            let key = (f::rotation_value(mode, col, c.speed), c.brightness);
             if c.brightness > 0 && rot_refused.as_ref() != Some(&key) && f::ledring_rotation_available() {
                 if rot.as_ref() != Some(&key) || force || pulse.is_some() {
                     rot = None;
-                    match f::ledring_rotate(&c.mode, col, c.brightness, c.speed) {
+                    match f::ledring_rotate(mode, col, c.brightness, c.speed) {
                         Ok(()) => rot = Some(key),
                         Err(e) => {
                             eprintln!("tb323fu-helperd: {e}; showing the solid color");
@@ -122,13 +126,13 @@ fn run(sh: Arc<Shared>) {
                 if rot.is_some() {
                     last = None;
                     let g = sh.led.req.lock().unwrap();
-                    let _ = sh.led.cv.wait_timeout_while(g, IDLE, |r| !r.force && r.pulse.is_none());
+                    let _ = sh.led.cv.wait_timeout_while(g, idle, |r| !r.force && r.pulse.is_none());
                     continue;
                 }
             }
         }
         rot = None;
-        let (color, animate) = match c.mode.as_str() {
+        let (color, animate) = match mode {
             "charge" => (charge.1, false),
             "solid" | "breathe" | "chase" | "rainbow" if overridden => (charge.1, false),
             "solid" | "chase" | "rainbow" => (own, false),
@@ -147,7 +151,7 @@ fn run(sh: Arc<Shared>) {
             }
             last = Some(want);
         }
-        let wait = if animate { FRAME } else { IDLE };
+        let wait = if animate { FRAME } else { idle };
         let g = sh.led.req.lock().unwrap();
         let _ = sh.led.cv.wait_timeout_while(g, wait, |r| !r.force && r.pulse.is_none());
     }

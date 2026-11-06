@@ -441,7 +441,7 @@ pub struct LedRing(pub Arc<Shared>);
 
 impl Snapshot for LedRing {
     const IFACE: &'static str = "io.github.joonhoekim.OpenDeviceHelper1.LedRing";
-    const PROPS: &'static [&'static str] = &["Mode", "Brightness", "LowPercent", "Color", "Speed", "ChargeOverride", "NotifyPulse"];
+    const PROPS: &'static [&'static str] = &["Mode", "Brightness", "LowPercent", "Color", "Speed", "ChargeOverride", "NotifyPulse", "OffWithScreen"];
     fn snapshot(&self) -> String {
         format!("{:?}", self.0.cfg().ledring)
     }
@@ -480,6 +480,11 @@ impl LedRing {
     fn notify_pulse(&self) -> bool {
         self.0.cfg().ledring.notify
     }
+    /// dark while the screen is off, except the charge colors
+    #[zbus(property)]
+    fn off_with_screen(&self) -> bool {
+        self.0.cfg().ledring.off_with_screen
+    }
 
     async fn set_color(&self, color: String, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
         #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
@@ -514,6 +519,14 @@ impl LedRing {
         #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
         polkit::check(conn, &hdr, "led-ring", self.0.no_polkit).await?;
         self.0.update(|c| c.ledring.notify = on);
+        invalidate(&em, Self::IFACE, Self::PROPS).await;
+        Ok(())
+    }
+    async fn set_off_with_screen(&self, on: bool, #[zbus(header)] hdr: Header<'_>, #[zbus(connection)] conn: &zbus::Connection,
+        #[zbus(signal_emitter)] em: SignalEmitter<'_>) -> fdo::Result<()> {
+        polkit::check(conn, &hdr, "led-ring", self.0.no_polkit).await?;
+        self.0.update(|c| c.ledring.off_with_screen = on);
+        self.0.ledring_tick(true);
         invalidate(&em, Self::IFACE, Self::PROPS).await;
         Ok(())
     }
