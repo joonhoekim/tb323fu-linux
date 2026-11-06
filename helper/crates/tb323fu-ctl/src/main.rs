@@ -28,9 +28,10 @@ const USAGE: &str = "usage: tb323fu-ctl [--json] [--session] COMMAND
   android require-auth on|off    ask for authentication before switching (admin)
   torch [on|off|toggle|level N]
   ledring [charge|solid|breathe|chase|rainbow|off|brightness N|low PERCENT]
-  ledring color #RRGGBB|speed MS|charge-override on|off|notify on|off
+  ledring color #RRGGBB|speed MS|charge-override on|off|notify on|off|off-with-screen on|off
                                  color of solid/breathe/chase, cycle (1000..20000 ms) of breathe/chase/rainbow; charge colors
-                                 take over while charging or low; pulse on desktop notifications (GNOME extension)
+                                 take over while charging or low; pulse on desktop notifications (GNOME extension);
+                                 dark while the screen is off (the charge colors still show)
   ledring pulse [#RRGGBB] [COUNT]  blink the ring (scripts, notifications)
   refresh [auto|off|manual [HZ]|idle MS60 MS30|preset power-saver|balanced|smooth]
   gpu [profile NAME|follow on|off|limits PROFILE MIN_MHZ MAX_MHZ|boost on|off]
@@ -921,6 +922,10 @@ fn run(args: &[String]) -> i32 {
             },
             Some("notify") => match onoff(rest.get(1)) {
                 Some(b) => c.call("LedRing", "SetNotifyPulse", &(b,)),
+                None => usage(),
+            },
+            Some("off-with-screen") => match onoff(rest.get(1)) {
+                Some(b) => c.call("LedRing", "SetOffWithScreen", &(b,)),
                 None => usage(),
             },
             Some("pulse") => {

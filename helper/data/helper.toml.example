@@ -26,6 +26,7 @@ color = "#3c78ff"        # color of solid, breathe and chase
 speed = 4000             # breathing cycle or one turn of chase/rainbow, ms (1000..20000)
 charge_override = true   # in solid/breathe/chase/rainbow, the charge colors take over while charging, full or held, or low
 notify = false           # the GNOME extension pulses the ring for desktop notifications
+off_with_screen = true   # dark while the screen is off, except the charge colors
 
 [refresh]                # kernel msm.idle_refresh_*; omit to keep the kernel's values
 # policy = "auto"        # off | manual | auto
