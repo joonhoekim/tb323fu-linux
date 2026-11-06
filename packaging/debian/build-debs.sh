@@ -121,6 +121,7 @@ script tb323fu-helper postinst 'if [ "$1" = configure ]; then
 	systemctl daemon-reload 2>/dev/null || true
 	systemctl reload dbus 2>/dev/null || true
 	systemctl enable --now tb323fu-helperd.service 2>/dev/null || true
+	[ -z "$2" ] || systemctl try-restart tb323fu-helperd.service 2>/dev/null || true
 fi'
 script tb323fu-helper prerm 'if [ "$1" = remove ]; then systemctl disable --now tb323fu-helperd.service 2>/dev/null || true; fi'
 script tb323fu-helper postrm 'systemctl daemon-reload 2>/dev/null || true'
