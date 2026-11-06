@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: MIT
 # ZUI 18.0.12.104 (ROW, 16 GB): /memory and /reserved-memory of the devicetree Android boots with
 # made by tools/fw-memory-check.py --extract from /sys/firmware/fdt
+# model: Lenovo Legion Tab Y700 5th Gen
+# compatible: lenovo,baldur, qcom,kaanapali
+# msm-id: <0x295 0x20000>
+# board-id: <0x2000b 0x0>
 # /memory (from the bootloader)
 0x0081960000-0x0081a00000       0.62 MiB
 0x0081a60000-0x0081c00000       1.62 MiB

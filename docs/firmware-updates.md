@@ -58,6 +58,8 @@ itself, the firmware of the always-on and security processors), and the check be
 `/reserved-memory`) with the one built into a kernel `Image`. Run on 18.0.12.104 and the t58 kernel, shortened:
 
 ```text
+Android: Lenovo Legion Tab Y700 5th Gen (msm-id <0x295 0x20000>, board-id <0x2000b 0x0>)
+kernel:  Lenovo Legion Tab Y700 5th Gen (msm-id <0x295 0x20000>, board-id <0x2000b 0x0>)
 /memory from the bootloader: 20 ranges, 15607 MiB
 kernel /reserved-memory: 24 regions with a fixed address
 not compared (placed at boot, no fixed address): 16 in Android, 0 in the kernel
@@ -112,6 +114,8 @@ On the updated, rooted Android:
 ```sh
 adb shell "su -c 'cp /sys/firmware/fdt /sdcard/fdt.dtb'"
 adb pull /sdcard/fdt.dtb
+adb shell rm -f /sdcard/fdt.dtb
+adb shell getprop ro.product.model
 adb shell getprop ro.build.display.id
 ```
 
@@ -132,9 +136,11 @@ The `diff` shows what the firmware changed; the check shows what that means for 
 | `DIFFERS: overlaps …` | a region the kernel reserves at an address the firmware no longer uses that way: move or resize it |
 | `/memory` ranges differ | expected when regions move; the check above covers what matters |
 
-The script exits with 1 when it finds a `no-map` region exposed or a kernel region that differs. A text map works
-in place of `fdt.dtb`: `tools/fw-memory-check.py firmware/memory-map-zui-18.0.12.104.txt Image-tb323fu-tNN` checks a
-kernel you built against .104.
+The script checks that the devicetree's SoC id (`qcom,msm-id`) matches the kernel's, refusing devicetrees from other
+devices with exit status 2 (`--force` compares anyway). It exits with 1 when it finds a `no-map` region exposed or
+a kernel region that differs. A text map works in place of `fdt.dtb`:
+`tools/fw-memory-check.py firmware/memory-map-zui-18.0.12.104.txt Image-tb323fu-tNN` checks a kernel you built
+against .104.
 
 ## Changing the devicetree
 
@@ -164,7 +170,7 @@ try it. A kernel that hangs before the boot summary needs the EDL way back each 
 
 Open an issue (for 18.0.12.187: [#9](https://github.com/joonhoekim/tb323fu-linux/issues/9)) with:
 
-- the firmware (`ro.build.display.id`) and the kernel release you tried;
+- the firmware (`ro.build.display.id`), the model (`ro.product.model`) and the kernel release you tried;
 - `memory-map.txt` and the output of the check (they hold addresses only; do not attach `fdt.dtb` itself, it can
   contain your device's identifiers);
 - what happened: how far the boot got, what the panel showed.

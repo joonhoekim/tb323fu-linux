@@ -70,9 +70,21 @@ def reg(*pairs: tuple[int, int]) -> bytes:
     return b''.join(cells(a >> 32, a & 0xFFFFFFFF, s >> 32, s & 0xFFFFFFFF) for a, s in pairs)
 
 
-def devicetree(ram: list[tuple[int, int]], regions: dict[str, dict]) -> bytes:
+def devicetree(ram: list[tuple[int, int]], regions: dict[str, dict], *,
+               model: str = '', compatible: list[str] | None = None,
+               msm_id: tuple[int, ...] | None = None,
+               board_id: tuple[int, ...] | None = None) -> bytes:
+    props: dict[str, bytes | None] = {'#address-cells': cells(2), '#size-cells': cells(2)}
+    if model:
+        props['model'] = model.encode() + b'\0'
+    if compatible:
+        props['compatible'] = b'\0'.join(c.encode() for c in compatible) + b'\0'
+    if msm_id:
+        props['qcom,msm-id'] = cells(*msm_id)
+    if board_id:
+        props['qcom,board-id'] = cells(*board_id)
     return build_fdt({
-        'props': {'#address-cells': cells(2), '#size-cells': cells(2)},
+        'props': props,
         'children': {
             'memory': {'props': {'device_type': b'memory\0', 'reg': reg(*ram)}},
             'reserved-memory': {
@@ -113,6 +125,16 @@ class ParseTest(unittest.TestCase):
         self.assertEqual([(r.name, r.flag) for r in memory.fixed],
                          [('fw@81000000', 'no-map'), ('pool@84000000', 'reusable')])
         self.assertEqual([r.name for r in memory.placed_at_boot], ['cma'])
+
+    def test_reads_root_device_ids(self):
+        blob = devicetree(RAM, {}, model='Lenovo Legion Tab Y700 5th Gen',
+                          compatible=['lenovo,baldur', 'qcom,kaanapali'],
+                          msm_id=(0x295, 0x20000), board_id=(0x2000b, 0))
+        memory = fmc.memory_map_of(fmc.parse_fdt(blob))
+        self.assertEqual(memory.model, 'Lenovo Legion Tab Y700 5th Gen')
+        self.assertEqual(memory.compatible, ['lenovo,baldur', 'qcom,kaanapali'])
+        self.assertEqual(memory.msm_id, (0x295, 0x20000))
+        self.assertEqual(memory.board_id, (0x2000b, 0))
 
     def test_truncated_devicetree(self):
         blob = devicetree(RAM, {'fw@81000000': no_map(0x81000000, 0x1000000)})
@@ -214,8 +236,32 @@ class TextMapTest(unittest.TestCase):
         with self.assertRaises(fmc.InputError):
             fmc.parse_text_map('# /memory (from the bootloader)\n0x80000000-zz 1 MiB\n')
 
+    def test_round_trip_with_headers(self):
+        memory = fmc.MemoryMap(
+            ram=[fmc.Span(0x80000000, 0x90000000)],
+            regions=[fmc.Region('fw@81000000', (fmc.Span(0x81000000, 0x82000000),), 'no-map')],
+            model='Lenovo Legion Tab Y700 5th Gen',
+            compatible=['lenovo,baldur', 'qcom,kaanapali'],
+            msm_id=(0x295, 0x20000),
+            board_id=(0x2000b, 0),
+        )
+        text = fmc.format_text_map(memory)
+        self.assertIn('# model: Lenovo Legion Tab Y700 5th Gen', text)
+        self.assertIn('# compatible: lenovo,baldur, qcom,kaanapali', text)
+        self.assertIn('# msm-id: <0x295 0x20000>', text)
+        self.assertIn('# board-id: <0x2000b 0x0>', text)
+        again = fmc.parse_text_map(text)
+        self.assertEqual(again.model, memory.model)
+        self.assertEqual(again.compatible, memory.compatible)
+        self.assertEqual(again.msm_id, memory.msm_id)
+        self.assertEqual(again.board_id, memory.board_id)
+
     def test_reference_map_of_zui_104(self):
         memory = fmc.parse_text_map((REPO / 'firmware/memory-map-zui-18.0.12.104.txt').read_text(encoding='utf-8'))
+        self.assertEqual(memory.model, 'Lenovo Legion Tab Y700 5th Gen')
+        self.assertEqual(memory.compatible, ['lenovo,baldur', 'qcom,kaanapali'])
+        self.assertEqual(memory.msm_id, (0x295, 0x20000))
+        self.assertEqual(memory.board_id, (0x2000b, 0))
         self.assertEqual(len(memory.ram), 20)
         names = {r.name: r for r in memory.fixed}
         self.assertEqual(names['adspslpi_region@a1400000'].spans, (fmc.Span(0xA1400000, 0xA5A00000),))
@@ -259,6 +305,69 @@ class CommandLineTest(unittest.TestCase):
     def test_kernel_or_extract_required(self):
         status, _, _ = self.run_main('fdt.dtb')
         self.assertEqual(status, 2)
+
+    def test_refuses_devicetree_from_other_soc(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            android = Path(tmp, 'phone.dtb')
+            kernel = Path(tmp, 'kernel.dtb')
+            android.write_bytes(devicetree(RAM, {}, msm_id=(0x247, 0x10000)))
+            kernel.write_bytes(devicetree([], {}, msm_id=(0x295, 0x20000)))
+            status, out, err = self.run_main(str(android), str(kernel))
+            self.assertEqual(status, 2)
+            self.assertIn('not from a TB323FU', err)
+            self.assertIn('SoC id 0x247 != 0x295', err)
+            self.assertIn('--force', err)
+            self.assertEqual(out, '')
+
+    def test_force_overrides_soc_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            android = Path(tmp, 'phone.dtb')
+            kernel = Path(tmp, 'kernel.dtb')
+            android.write_bytes(devicetree(RAM, {}, msm_id=(0x247, 0x10000)))
+            kernel.write_bytes(devicetree([], {}, msm_id=(0x295, 0x20000)))
+            status, out, err = self.run_main('--force', str(android), str(kernel))
+            self.assertEqual(status, 0)
+            self.assertIn('warning: SoC id differs', err)
+            self.assertIn('comparing anyway (--force)', err)
+            self.assertIn('/memory from the bootloader', out)
+
+    def test_warns_on_board_id_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            android = Path(tmp, 'android.dtb')
+            kernel = Path(tmp, 'kernel.dtb')
+            android.write_bytes(devicetree(RAM, {}, msm_id=(0x295, 0x20000), board_id=(0x3000c, 0)))
+            kernel.write_bytes(devicetree([], {}, msm_id=(0x295, 0x20000), board_id=(0x2000b, 0)))
+            status, out, err = self.run_main(str(android), str(kernel))
+            self.assertEqual(status, 0)
+            self.assertIn('warning: board id differs', err)
+
+    def test_warns_when_text_map_has_no_ids(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            legacy = Path(tmp, 'legacy.txt')
+            kernel = Path(tmp, 'kernel.dtb')
+            legacy.write_text('# /memory (from the bootloader)\n0x80000000-0x90000000 256 MiB\n'
+                              '# /reserved-memory: name, ranges, flags (no ranges: placed at boot)\n',
+                              encoding='utf-8')
+            kernel.write_bytes(devicetree([], {}, msm_id=(0x295, 0x20000)))
+            status, _, err = self.run_main(str(legacy), str(kernel))
+            self.assertEqual(status, 0)
+            self.assertIn('has no device ids; cannot verify it is from a TB323FU', err)
+
+    def test_report_header_shows_device_ids(self):
+        android = fmc.MemoryMap(
+            ram=[fmc.Span(0x80000000, 0x90000000)],
+            model='Lenovo Legion Tab Y700 5th Gen',
+            msm_id=(0x295, 0x20000),
+            board_id=(0x2000b, 0),
+        )
+        kernel = fmc.MemoryMap(
+            model='Lenovo Legion Tab Y700 5th Gen',
+            msm_id=(0x295, 0x20000),
+            board_id=(0x2000b, 0),
+        )
+        report = fmc.report(fmc.Comparison(android, kernel, [], []))
+        self.assertIn('Android: Lenovo Legion Tab Y700 5th Gen (msm-id <0x295 0x20000>, board-id <0x2000b 0x0>)', report)
+        self.assertIn('kernel:  Lenovo Legion Tab Y700 5th Gen (msm-id <0x295 0x20000>, board-id <0x2000b 0x0>)', report)
 
 
 if __name__ == '__main__':
