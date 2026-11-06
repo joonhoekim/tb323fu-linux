@@ -24,6 +24,7 @@ Set TYPEC_STATE_USB only when the partner does not report alt mode.
 Fixes: 226ff2e681d0 ("usb: typec: ucsi: Convert connector specific commands to bitmaps")
 Cc: stable@vger.kernel.org
 Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+Reviewed-by: Heikki Krogerus <heikki.krogerus@linux.intel.com>
 ---
  drivers/usb/typec/ucsi/ucsi.c | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
