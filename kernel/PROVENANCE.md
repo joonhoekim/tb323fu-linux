@@ -79,7 +79,7 @@ Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped 
 | `0052` | drm/msm/dpu: add the SSPP rec0/rec1 blocks to the snapshot | Joonhoe Kim | this project | sent upstream 2026-10-07, reviewed ([lore](https://lore.kernel.org/all/20261007123945.1694-1-26rote@gmail.com/)) | `7928b4b5ebef95d8` |
 | `0053` | input: nt36536: make the pen a tablet libinput accepts | Joonhoe Kim | this project | local | `8b0e4c4efaaecc8c` |
 | `0054` | arm64: dts: qcom: add Lenovo Legion Tab Y700 gen5 (TB323FU, baldur) board DTs | Joonhoe Kim | this project | local | `beb900dd9a382dc3` |
-| `0055` | arm64: configs: add the baldur config fragments | Joonhoe Kim | this project | local | `0dafdee46e4e5ed7` |
+| `0055` | arm64: configs: add the baldur config fragments | Joonhoe Kim | this project | local | `ad5a02f65cb534fe` |
 | `0056` | PCI: qcom: parse iommu-map with the target #iommu-cells | Joonhoe Kim | this project | local; superseded by linux-next (`qcom_pcie_config_sid_1_9_0`) | `ab5de4888eaeef17` |
 | `0057` | drm/msm/dp: retrain the link on a quick replug while streaming | Joonhoe Kim | this project | local | `9649c3d9940a0dff` |
 | `0058` | wifi: ath12k: don't wake the device over MHI from the panic notifier | Joonhoe Kim | this project | local | `e1c0e92d685b4eab` |
@@ -136,7 +136,7 @@ Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped 
 | `0114` | net: qrtr: announce local services again once our HELLO is sent | Joonhoe Kim | this project | sent upstream (v3, 2026-10-29, [lore](https://lore.kernel.org/all/20261029105142.2503-1-26rote@gmail.com/)) | `caf9d42e6df663d2` |
 | `0116` | media: qcom: camss: hold the bandwidth vote while TITAN_TOP is powered | Joonhoe Kim | this project | upstream candidate (0115 is a debugging aid kept out of the series) | `3b8ea94fd19e5fc5` |
 | `0117` | arm64: dts: qcom: kaanapali: add CPU capacity-dmips-mhz | Joonhoe Kim | this project | upstream candidate | `cde3fbe0e37a205a` |
-| `0118` | cpuidle: psci-domain: add allow_cluster_off to refuse cluster idle states | Joonhoe Kim | this project | local workaround: no cluster idle state in runtime idle on baldur, where its power-down reset the SoC when idle (set by the config fragment's command line; the cause is not fixed) | `9c63e2de94b80582` |
+| `0118` | cpuidle: psci-domain: add allow_cluster_off to refuse cluster idle states | Joonhoe Kim | this project | local workaround: no cluster idle state in runtime idle on baldur, where its power-down reset the SoC when idle (set by the config fragment's command line; the cause is not fixed) | `cd890a6b3497f17e` |
 | `0119` | arm64: dts: qcom: kaanapali: describe the UFS MCQ registers | Joonhoe Kim | this project | upstream candidate | `28e15806d26509c5` |
 | `0120` | firmware: arm_scmi: Add SCMI QCOM Generic Extension Protocol documentation | Pragnesh Papaniya | mailing list: Qualcomm Generic Vendor Extensions RFC v8, 2026-07-24 (Pragnesh Papaniya) (1/10) | pending upstream (RFC) | `541a3ead9d4abaeb` |
 | `0121` | dt-bindings: firmware: arm,scmi: Add Qualcomm Generic Extension Protocol | Pragnesh Papaniya | mailing list: Qualcomm Generic Vendor Extensions RFC v8, 2026-07-24 (Pragnesh Papaniya) (2/10) | pending upstream (RFC) | `af24d91cd6e10cce` |
@@ -165,7 +165,7 @@ Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped 
 | `0145` | input: nt36536: ignore pen ID reports and reports outside the axes | Joonhoe Kim | this project | local (Lenovo Tab Pen Plus, issue #16) | `b2b5cfdb8e160700` |
 | `0146` | input: nt36536: report the pen pressure range 0..4095 | Joonhoe Kim | this project | local (Lenovo Tab Pen Plus, issue #16) | `d6a9beb22c7d422b` |
 | `0147` | usb: typec: ucsi: Leave the mux to the altmode driver for alt mode partners | Joonhoe Kim | this project | upstream candidate | `f35784e9010fab3e` |
-| `0148` | arm64: configs: baldur: drop no_console_suspend from the command line | Joonhoe Kim | this project | local | `c946fa1d5b130293` |
+| `0148` | arm64: configs: baldur: drop no_console_suspend from the command line | Joonhoe Kim | this project | local | `bd9ca58e00dadbfa` |
 | `0149` | usb: dwc3: qcom: Leave DP-only mode from the mux callback | Joonhoe Kim | this project | on top of 0136; same behaviour as v2 sent upstream (2026-11-03, [lore](https://lore.kernel.org/all/20261103135057.1682-1-26rote@gmail.com/)) | `fb3f6ce16e9f81a3` |
 | `0150` | drm/msm/dp: Track the PHY power and link clock state | Joonhoe Kim | this project, based on Xilin Wu's msm-dp-hdr10 v2 08/20 and part of 09/20 ([lore](https://lore.kernel.org/all/20261009-msm-dp-hdr10-v2-8-1835d4966da3@radxa.com/), not merged) | local | `03f6d92dd65c8f0f` |
 | `0151` | drm/msm/dp: Release the PHY init when the link is not powered | Joonhoe Kim | this project | upstream candidate | `3c06f42319c69716` |
