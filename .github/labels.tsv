@@ -5,6 +5,7 @@ regression	b60205	Worked in an earlier release
 documentation	0075ca	Improvements or additions to documentation
 enhancement	a2eeef	New feature or request
 needs-info	fbca04	Waiting for logs or details from the reporter
+firmware	0e8a16	Android firmware versions: checks and boot reports
 upstream	5319e7	The fix belongs in the upstream kernel, Mesa or a distribution
 duplicate	cfd3d7	This issue or pull request already exists
 invalid	e4e669	This doesn't seem right

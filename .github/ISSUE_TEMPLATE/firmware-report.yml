@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: MIT
+name: Firmware report
+description: The kernel on an Android firmware version, checked or tried
+title: "Firmware: "
+labels: [firmware]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If your firmware version already has an issue ([`firmware` label](https://github.com/joonhoekim/tb323fu-linux/issues?q=is%3Aissue+label%3Afirmware)), add a comment there instead.
+        A report from the memory map check alone, without booting Linux, is useful too. How to run it: [Checking a new firmware](https://github.com/joonhoekim/tb323fu-linux/blob/main/docs/firmware-updates.md#checking-a-new-firmware).
+        Do not attach `fdt.dtb`: it can contain your device's identifiers. `memory-map.txt` holds addresses only.
+  - type: input
+    id: firmware
+    attributes:
+      label: Android firmware
+      description: "The whole output of `adb shell getprop ro.build.display.id`; also put the version in the title"
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model
+      description: "`adb shell getprop ro.product.model`"
+    validations:
+      required: true
+  - type: dropdown
+    id: tried
+    attributes:
+      label: What did you do?
+      options:
+        - "Ran the memory map check only (did not boot Linux)"
+        - "Booted Linux: it reached the desktop or a login prompt"
+        - "Booted Linux: it stops at the Lenovo logo"
+        - "Booted Linux: it stops during the text summary"
+        - "Booted Linux: black screen"
+        - "Booted Linux: it restarts by itself"
+        - "Something else (describe it below)"
+    validations:
+      required: true
+  - type: input
+    id: kernel
+    attributes:
+      label: Kernel
+      description: "The release you checked or booted (for example kernel-tNN), or your own build"
+    validations:
+      required: true
+  - type: textarea
+    id: check
+    attributes:
+      label: Memory map check
+      description: "The output of `tools/fw-memory-check.py fdt.dtb Image-tb323fu-tNN --extract memory-map.txt`. Attach `memory-map.txt` in the field below."
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: How far the boot got, what the panel showed, what works. Attach `memory-map.txt` here. If Linux runs, `tb323fu-check --markdown` helps.

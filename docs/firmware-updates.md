@@ -1,13 +1,23 @@
 # Updating Android firmware
 
-The kernel is tested on **ZUI 18.0.12.104**. On **18.0.12.187** it hangs early in boot
-([#9](https://github.com/joonhoekim/tb323fu-linux/issues/9)); other versions are untested. Nothing in this project
-stops you from updating, and as long as LTBox can root the new firmware, the rest is a question of what changed in
-it. This page has the order, the way back when Linux does not start, how we matched the kernel to .104 and how to
-check a new firmware the same way. If you get Linux running on another firmware, please tell us
-([below](#tell-us)): you are then the first person who can.
+The kernel is tested on **ZUI 18.0.12.104**; what is known about other versions is in the
+[table below](#firmware-versions). Nothing in this project stops you from updating, and as long as LTBox can root
+the new firmware, the rest is a question of what changed in it. This page has the order, the way back when Linux
+does not start, how we matched the kernel to .104 and how to check a new firmware the same way. If you are on
+another firmware, please tell us ([below](#tell-us)), even if you only ran the check: you are then the first person
+who can.
 
 A firmware update **cannot be undone**: it raises the rollback index, so the older firmware will not boot again.
+
+## Firmware versions
+
+| Firmware | Region | Linux | Memory map | Report |
+|---|---|---|---|---|
+| 18.0.12.104 | ROW | works (the development tablet) | matches ([map](../firmware/memory-map-zui-18.0.12.104.txt)) | — |
+| 18.0.12.187 | ROW | hangs early in boot | not checked yet | [#9](https://github.com/joonhoekim/tb323fu-linux/issues/9) |
+
+Every other version is untested. All reports:
+[issues labelled `firmware`](https://github.com/joonhoekim/tb323fu-linux/issues?q=is%3Aissue+label%3Afirmware).
 
 ## Before you update
 
@@ -112,8 +122,12 @@ On the updated, rooted Android:
 ```sh
 adb shell "su -c 'cp /sys/firmware/fdt /sdcard/fdt.dtb'"
 adb pull /sdcard/fdt.dtb
+adb shell rm /sdcard/fdt.dtb
+adb shell getprop ro.product.model
 adb shell getprop ro.build.display.id
 ```
+
+`ro.product.model` must contain `TB323FU`: with more than one device connected, `adb` may have reached another one.
 
 The kernel: `Image-tb323fu-tNN.gz` from [Releases](https://github.com/joonhoekim/tb323fu-linux/releases) (the one
 the installer used), unpacked with `gunzip`. Then, on any PC with Python 3:
@@ -162,9 +176,12 @@ try it. A kernel that hangs before the boot summary needs the EDL way back each 
 
 ## Tell us
 
-Open an issue (for 18.0.12.187: [#9](https://github.com/joonhoekim/tb323fu-linux/issues/9)) with:
+If your firmware already has an issue ([`firmware` label](https://github.com/joonhoekim/tb323fu-linux/issues?q=is%3Aissue+label%3Afirmware)),
+add a comment there; otherwise open one with the
+[Firmware report](https://github.com/joonhoekim/tb323fu-linux/issues/new?template=firmware-report.yml) form. Either
+way, with:
 
-- the firmware (`ro.build.display.id`) and the kernel release you tried;
+- the firmware (`ro.build.display.id`) and the kernel release you checked or tried;
 - `memory-map.txt` and the output of the check (they hold addresses only; do not attach `fdt.dtb` itself, it can
   contain your device's identifiers);
 - what happened: how far the boot got, what the panel showed.
