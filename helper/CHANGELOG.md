@@ -1,5 +1,13 @@
 # Open Device Helper changelog
 
+## 0.4.8 — 2026-11-06
+
+- **The LED ring goes dark while the screen is off:** a new setting, on by default. The LED chip runs the ring's
+  effects by itself, so before the ring stayed lit with the screen off and through suspend. The charge indicator and
+  the charge colors (when they take over) still show, and notification pulses still blink.
+  `tb323fu-ctl ledring off-with-screen on|off`, settings app Lights & Vibration → LED Ring, `ledring.off_with_screen`
+  in `helper.toml`, D-Bus `OffWithScreen`.
+
 ## 0.4.7 — 2026-11-06
 
 - **LED ring modes Chase and Rainbow:** one dot with a short tail in the ring color, or the nine colors Lenovo's

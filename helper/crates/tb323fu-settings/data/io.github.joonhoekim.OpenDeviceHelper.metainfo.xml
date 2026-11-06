@@ -26,6 +26,11 @@
   </supports>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.4.8" date="2026-11-06">
+      <description>
+        <p>The LED ring goes dark while the screen is off (a new setting, on by default); the charge colors still show.</p>
+      </description>
+    </release>
     <release version="0.4.7" date="2026-11-06">
       <description>
         <p>Two new LED ring modes, Chase and Rainbow, run by the LED chip. The default ring brightness is higher.</p>
