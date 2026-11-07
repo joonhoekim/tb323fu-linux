@@ -158,3 +158,7 @@ CONFIG_CMA_SIZE_MBYTES=256
 
 # A 4 MB printk ring, so a crash dump or a long boot keeps its log.
 CONFIG_LOG_BUF_SHIFT=22
+
+# The Qualcomm dwc3 glue depends on TYPEC || TYPEC=n. defconfig has TYPEC=m,
+# which makes it a module before this fragment sets TYPEC=y.
+CONFIG_USB_DWC3_QCOM=y

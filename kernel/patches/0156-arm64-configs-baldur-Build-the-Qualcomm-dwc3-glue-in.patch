@@ -1,0 +1,30 @@
+From 5938858ef971c8f64e875ac90b42d706f561230b Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Sat, 7 Nov 2026 00:50:31 +0000
+Subject: [PATCH] arm64: configs: baldur: Build the Qualcomm dwc3 glue in
+
+defconfig has TYPEC=m. USB_DWC3_QCOM depends on TYPEC || TYPEC=n, so it
+becomes a module before baldur.fragment sets TYPEC=y, and stays one.
+Loaded late from the root file system, it holds back the pmic_glink
+altmode driver, which waits for the controller as its mode switch.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ arch/arm64/configs/baldur.fragment | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/arch/arm64/configs/baldur.fragment b/arch/arm64/configs/baldur.fragment
+index b1419efc0f..e5325b1153 100644
+--- a/arch/arm64/configs/baldur.fragment
++++ b/arch/arm64/configs/baldur.fragment
+@@ -132,3 +132,7 @@ CONFIG_VIDEO_GC08A8=m
+ CONFIG_VIDEO_DW9719=m
+ CONFIG_LEDS_AW22127=m
+ CONFIG_LEDS_TRIGGER_PATTERN=y
++
++# The Qualcomm dwc3 glue depends on TYPEC || TYPEC=n. defconfig has TYPEC=m,
++# which makes it a module before this fragment sets TYPEC=y.
++CONFIG_USB_DWC3_QCOM=y
+-- 
+2.43.0
+
