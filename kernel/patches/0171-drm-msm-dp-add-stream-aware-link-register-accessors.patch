@@ -1,0 +1,325 @@
+From 11ea6c456243b30a9a59d80e612c2f65a8bbde00 Mon Sep 17 00:00:00 2001
+From: Yongxing Mou <yongxing.mou@oss.qualcomm.com>
+Date: Tue, 29 Sep 2026 12:25:31 +0800
+Subject: [PATCH] drm/msm/dp: add stream-aware link register accessors
+
+DisplayPort MST uses multiple stream-specific register spaces. Streams
+0 and 1 share the primary link register block with different register
+offsets, while streams 2 and 3 use dedicated MST link register blocks.
+
+Add stream-aware register access helpers that translate stream-specific
+register offsets and route accesses to the appropriate register space
+based on the stream id.
+
+Signed-off-by: Abhinav Kumar <quic_abhinavk@quicinc.com>
+Signed-off-by: Yongxing Mou <yongxing.mou@oss.qualcomm.com>
+---
+ drivers/gpu/drm/msm/dp/dp_ctrl.c    | 64 +++++++++++++++++++++++++----
+ drivers/gpu/drm/msm/dp/dp_ctrl.h    |  4 +-
+ drivers/gpu/drm/msm/dp/dp_display.c | 26 +++++++++++-
+ drivers/gpu/drm/msm/dp/dp_panel.c   | 37 ++++++++++++++++-
+ drivers/gpu/drm/msm/dp/dp_panel.h   |  2 +
+ 5 files changed, 121 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.c b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+index a71eee615..e086ae52c 100644
+--- a/drivers/gpu/drm/msm/dp/dp_ctrl.c
++++ b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+@@ -117,6 +117,8 @@ struct msm_dp_ctrl_private {
+ 	struct msm_dp_link *link;
+ 	void __iomem *ahb_base;
+ 	void __iomem *link_base;
++	void __iomem *mst2link_base;
++	void __iomem *mst3link_base;
+ 
+ 	struct phy *phy;
+ 
+@@ -173,6 +175,49 @@ static inline void msm_dp_write_link(struct msm_dp_ctrl_private *ctrl,
+ 	writel(data, ctrl->link_base + offset);
+ }
+ 
++static inline u32 msm_dp_read_stream_link(struct msm_dp_ctrl_private *ctrl,
++					   enum msm_dp_stream_id stream_id, u32 offset)
++{
++	offset = msm_dp_stream_reg(stream_id, offset);
++	switch (stream_id) {
++	case DP_STREAM_0:
++	case DP_STREAM_1:
++		return readl_relaxed(ctrl->link_base + offset);
++	case DP_STREAM_2:
++		return readl_relaxed(ctrl->mst2link_base + offset);
++	case DP_STREAM_3:
++		return readl_relaxed(ctrl->mst3link_base + offset);
++	default:
++		DRM_ERROR("error stream_id\n");
++		return 0;
++	}
++}
++
++static inline void msm_dp_write_stream_link(struct msm_dp_ctrl_private *ctrl,
++					     enum msm_dp_stream_id stream_id, u32 offset, u32 data)
++{
++	/*
++	 * To make sure link reg writes happens before any other operation,
++	 * this function uses writel() instread of writel_relaxed()
++	 */
++	offset = msm_dp_stream_reg(stream_id, offset);
++	switch (stream_id) {
++	case DP_STREAM_0:
++	case DP_STREAM_1:
++		writel(data, ctrl->link_base + offset);
++		break;
++	case DP_STREAM_2:
++		writel(data, ctrl->mst2link_base + offset);
++		break;
++	case DP_STREAM_3:
++		writel(data, ctrl->mst3link_base + offset);
++		break;
++	default:
++		DRM_ERROR("error stream_id\n");
++		break;
++	}
++}
++
+ static int msm_dp_aux_link_configure(struct drm_dp_aux *aux,
+ 					struct msm_dp_link_info *link)
+ {
+@@ -398,7 +443,8 @@ static void msm_dp_ctrl_config_ctrl_streams(struct msm_dp_ctrl_private *ctrl,
+ 	 * RMW: called from atomic_enable(), serialized by the DRM atomic framework.
+ 	 * Clear stream-specific fields before OR-ing to avoid bit accumulation.
+ 	 */
+-	config = msm_dp_read_link(ctrl, REG_DP_CONFIGURATION_CTRL);
++	config = msm_dp_read_stream_link(ctrl, msm_dp_panel->stream_id,
++					 REG_DP_CONFIGURATION_CTRL);
+ 	config &= ~(DP_CONFIGURATION_CTRL_RGB_YUV_MASK |
+ 		    DP_CONFIGURATION_CTRL_BPC_MASK |
+ 		    DP_CONFIGURATION_CTRL_SEND_VSC);
+@@ -416,7 +462,7 @@ static void msm_dp_ctrl_config_ctrl_streams(struct msm_dp_ctrl_private *ctrl,
+ 
+ 	drm_dbg_dp(ctrl->drm_dev, "stream DP_CONFIGURATION_CTRL=0x%x\n", config);
+ 
+-	msm_dp_write_link(ctrl, REG_DP_CONFIGURATION_CTRL, config);
++	msm_dp_write_stream_link(ctrl, msm_dp_panel->stream_id, REG_DP_CONFIGURATION_CTRL, config);
+ }
+ 
+ static void msm_dp_ctrl_config_ctrl_link(struct msm_dp_ctrl_private *ctrl,
+@@ -473,7 +519,7 @@ static void msm_dp_ctrl_config_misc1_misc0(struct msm_dp_ctrl_private *ctrl,
+ 							  msm_dp_panel->msm_dp_mode.bpp);
+ 	colorimetry_cfg = msm_dp_link_get_colorimetry_config(ctrl->link);
+ 
+-	misc_val = msm_dp_read_link(ctrl, REG_DP_MISC1_MISC0);
++	misc_val = msm_dp_read_stream_link(ctrl, msm_dp_panel->stream_id, REG_DP_MISC1_MISC0);
+ 
+ 	/* clear bpp bits */
+ 	misc_val &= ~(0x07 << DP_MISC0_TEST_BITS_DEPTH_SHIFT);
+@@ -483,7 +529,7 @@ static void msm_dp_ctrl_config_misc1_misc0(struct msm_dp_ctrl_private *ctrl,
+ 	misc_val |= DP_MISC0_SYNCHRONOUS_CLK;
+ 
+ 	drm_dbg_dp(ctrl->drm_dev, "misc settings = 0x%x\n", misc_val);
+-	msm_dp_write_link(ctrl, REG_DP_MISC1_MISC0, misc_val);
++	msm_dp_write_stream_link(ctrl, msm_dp_panel->stream_id, REG_DP_MISC1_MISC0, misc_val);
+ }
+ 
+ static void msm_dp_ctrl_configure_source_params(struct msm_dp_ctrl_private *ctrl,
+@@ -2570,8 +2616,8 @@ static void msm_dp_ctrl_config_msa(struct msm_dp_ctrl_private *ctrl,
+ 		nvid *= 3;
+ 
+ 	drm_dbg_dp(ctrl->drm_dev, "mvid=0x%x, nvid=0x%x\n", mvid, nvid);
+-	msm_dp_write_link(ctrl, REG_DP_SOFTWARE_MVID, mvid);
+-	msm_dp_write_link(ctrl, REG_DP_SOFTWARE_NVID, nvid);
++	msm_dp_write_stream_link(ctrl, panel->stream_id, REG_DP_SOFTWARE_MVID, mvid);
++	msm_dp_write_stream_link(ctrl, panel->stream_id, REG_DP_SOFTWARE_NVID, nvid);
+ }
+ 
+ int msm_dp_ctrl_prepare_stream_on(struct msm_dp_ctrl *msm_dp_ctrl,
+@@ -2824,7 +2870,9 @@ struct msm_dp_ctrl *msm_dp_ctrl_get(struct device *dev, struct msm_dp_link *link
+ 			struct drm_dp_aux *aux,
+ 			struct phy *phy,
+ 			void __iomem *ahb_base,
+-			void __iomem *link_base)
++			void __iomem *link_base,
++			void __iomem *mst2link_base,
++			void __iomem *mst3link_base)
+ {
+ 	struct msm_dp_ctrl_private *ctrl;
+ 	int ret;
+@@ -2863,6 +2911,8 @@ struct msm_dp_ctrl *msm_dp_ctrl_get(struct device *dev, struct msm_dp_link *link
+ 	ctrl->phy      = phy;
+ 	ctrl->ahb_base = ahb_base;
+ 	ctrl->link_base = link_base;
++	ctrl->mst2link_base = mst2link_base;
++	ctrl->mst3link_base = mst3link_base;
+ 
+ 	ret = msm_dp_ctrl_clk_init(&ctrl->msm_dp_ctrl);
+ 	if (ret) {
+diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.h b/drivers/gpu/drm/msm/dp/dp_ctrl.h
+index 9de775cb6..64ce27ba6 100644
+--- a/drivers/gpu/drm/msm/dp/dp_ctrl.h
++++ b/drivers/gpu/drm/msm/dp/dp_ctrl.h
+@@ -37,7 +37,9 @@ struct msm_dp_ctrl *msm_dp_ctrl_get(struct device *dev,
+ 				    struct drm_dp_aux *aux,
+ 				    struct phy *phy,
+ 				    void __iomem *ahb_base,
+-				    void __iomem *link_base);
++				    void __iomem *link_base,
++				    void __iomem *mst2link_base,
++				    void __iomem *mst3link_base);
+ 
+ void msm_dp_ctrl_reset(struct msm_dp_ctrl *msm_dp_ctrl,
+ 		       struct msm_dp_panel *panel);
+diff --git a/drivers/gpu/drm/msm/dp/dp_display.c b/drivers/gpu/drm/msm/dp/dp_display.c
+index 079520c42..c84f83cec 100644
+--- a/drivers/gpu/drm/msm/dp/dp_display.c
++++ b/drivers/gpu/drm/msm/dp/dp_display.c
+@@ -88,6 +88,12 @@ struct msm_dp_display_private {
+ 	void __iomem *link_base;
+ 	size_t link_len;
+ 
++	void __iomem *mst2link_base;
++	size_t mst2link_len;
++
++	void __iomem *mst3link_base;
++	size_t mst3link_len;
++
+ 	void __iomem *pixel_base[DP_STREAM_MAX];
+ 	size_t pixel_len[DP_STREAM_MAX];
+ };
+@@ -600,7 +606,8 @@ static int msm_dp_init_sub_modules(struct msm_dp_display_private *dp)
+ 		goto error_link;
+ 	}
+ 
+-	dp->panel = msm_dp_panel_get(dev, dp->aux, dp->link, dp->link_base, dp->pixel_base[0]);
++	dp->panel = msm_dp_panel_get(dev, dp->aux, dp->link, dp->link_base,
++				     dp->mst2link_base, dp->mst3link_base, dp->pixel_base[0]);
+ 	if (IS_ERR(dp->panel)) {
+ 		rc = PTR_ERR(dp->panel);
+ 		DRM_ERROR("failed to initialize panel, rc = %d\n", rc);
+@@ -609,7 +616,8 @@ static int msm_dp_init_sub_modules(struct msm_dp_display_private *dp)
+ 	}
+ 
+ 	dp->ctrl = msm_dp_ctrl_get(dev, dp->link, dp->aux,
+-				   phy, dp->ahb_base, dp->link_base);
++			       phy, dp->ahb_base, dp->link_base,
++			       dp->mst2link_base, dp->mst3link_base);
+ 	if (IS_ERR(dp->ctrl)) {
+ 		rc = PTR_ERR(dp->ctrl);
+ 		DRM_ERROR("failed to initialize ctrl, rc = %d\n", rc);
+@@ -886,6 +894,12 @@ void msm_dp_snapshot(struct msm_disp_state *disp_state, struct msm_dp *dp)
+ 				    msm_dp_display->aux_base, "dp_aux");
+ 	msm_disp_snapshot_add_block(disp_state, msm_dp_display->link_len,
+ 				    msm_dp_display->link_base, "dp_link");
++	if (msm_dp_display->mst2link_base)
++		msm_disp_snapshot_add_block(disp_state, msm_dp_display->mst2link_len,
++					    msm_dp_display->mst2link_base, "dp_mst2link");
++	if (msm_dp_display->mst3link_base)
++		msm_disp_snapshot_add_block(disp_state, msm_dp_display->mst3link_len,
++					    msm_dp_display->mst3link_base, "dp_mst3link");
+ 
+ 	for (int i = 0; i < DP_STREAM_MAX; i++) {
+ 		if (!msm_dp_ctrl_stream_clks_on(msm_dp_display->ctrl, i))
+@@ -1257,6 +1271,14 @@ static int msm_dp_display_get_io(struct msm_dp_display_private *display)
+ 			break;
+ 	}
+ 
++	display->mst2link_base = msm_dp_ioremap_optional(pdev, 7, &display->mst2link_len);
++	if (IS_ERR(display->mst2link_base))
++		return PTR_ERR(display->mst2link_base);
++
++	display->mst3link_base = msm_dp_ioremap_optional(pdev, 8, &display->mst3link_len);
++	if (IS_ERR(display->mst3link_base))
++		return PTR_ERR(display->mst3link_base);
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/gpu/drm/msm/dp/dp_panel.c b/drivers/gpu/drm/msm/dp/dp_panel.c
+index 65ed424c0..e633afdf2 100644
+--- a/drivers/gpu/drm/msm/dp/dp_panel.c
++++ b/drivers/gpu/drm/msm/dp/dp_panel.c
+@@ -25,6 +25,8 @@ struct msm_dp_panel_private {
+ 	struct drm_dp_aux *aux;
+ 	struct msm_dp_link *link;
+ 	void __iomem *link_base;
++	void __iomem *mst2link_base;
++	void __iomem *mst3link_base;
+ 	void __iomem *pixel_base;
+ 	bool panel_on;
+ };
+@@ -96,7 +98,19 @@ u32 msm_dp_stream_reg(enum msm_dp_stream_id id, u32 reg)
+ 
+ static inline u32 msm_dp_read_link(struct msm_dp_panel_private *panel, u32 offset)
+ {
+-	return readl_relaxed(panel->link_base + offset);
++	offset = msm_dp_stream_reg(panel->msm_dp_panel.stream_id, offset);
++	switch (panel->msm_dp_panel.stream_id) {
++	case DP_STREAM_0:
++	case DP_STREAM_1:
++		return readl_relaxed(panel->link_base + offset);
++	case DP_STREAM_2:
++		return readl_relaxed(panel->mst2link_base + offset);
++	case DP_STREAM_3:
++		return readl_relaxed(panel->mst3link_base + offset);
++	default:
++		DRM_ERROR("error stream_id\n");
++		return 0;
++	}
+ }
+ 
+ static inline void msm_dp_write_link(struct msm_dp_panel_private *panel,
+@@ -106,7 +120,22 @@ static inline void msm_dp_write_link(struct msm_dp_panel_private *panel,
+ 	 * To make sure link reg writes happens before any other operation,
+ 	 * this function uses writel() instread of writel_relaxed()
+ 	 */
+-	writel(data, panel->link_base + offset);
++	offset = msm_dp_stream_reg(panel->msm_dp_panel.stream_id, offset);
++	switch (panel->msm_dp_panel.stream_id) {
++	case DP_STREAM_0:
++	case DP_STREAM_1:
++		writel(data, panel->link_base + offset);
++		break;
++	case DP_STREAM_2:
++		writel(data, panel->mst2link_base + offset);
++		break;
++	case DP_STREAM_3:
++		writel(data, panel->mst3link_base + offset);
++		break;
++	default:
++		DRM_ERROR("error stream_id\n");
++		break;
++	}
+ }
+ 
+ static inline void msm_dp_write_pn(struct msm_dp_panel_private *panel,
+@@ -767,6 +796,8 @@ int msm_dp_panel_init_panel_info(struct msm_dp_panel *msm_dp_panel,
+ struct msm_dp_panel *msm_dp_panel_get(struct device *dev, struct drm_dp_aux *aux,
+ 			      struct msm_dp_link *link,
+ 			      void __iomem *link_base,
++			      void __iomem *mst2link_base,
++			      void __iomem *mst3link_base,
+ 			      void __iomem *pixel_base)
+ {
+ 	struct msm_dp_panel_private *panel;
+@@ -786,6 +817,8 @@ struct msm_dp_panel *msm_dp_panel_get(struct device *dev, struct drm_dp_aux *aux
+ 	panel->link = link;
+ 	panel->link_base = link_base;
+ 	panel->pixel_base = pixel_base;
++	panel->mst2link_base = mst2link_base;
++	panel->mst3link_base = mst3link_base;
+ 
+ 	msm_dp_panel = &panel->msm_dp_panel;
+ 	msm_dp_panel->max_bw_code = DP_LINK_BW_8_1;
+diff --git a/drivers/gpu/drm/msm/dp/dp_panel.h b/drivers/gpu/drm/msm/dp/dp_panel.h
+index 75b23c106..dc046fec2 100644
+--- a/drivers/gpu/drm/msm/dp/dp_panel.h
++++ b/drivers/gpu/drm/msm/dp/dp_panel.h
+@@ -104,5 +104,7 @@ u32 msm_dp_stream_reg(enum msm_dp_stream_id id, u32 reg);
+ struct msm_dp_panel *msm_dp_panel_get(struct device *dev, struct drm_dp_aux *aux,
+ 			      struct msm_dp_link *link,
+ 			      void __iomem *link_base,
++			      void __iomem *mst2link_base,
++			      void __iomem *mst3link_base,
+ 			      void __iomem *pixel_base);
+ #endif /* _DP_PANEL_H_ */
+-- 
+2.53.0
+

@@ -1,0 +1,32 @@
+From 92e1c88781f0ab606d37eb5ef59e0cc03d7479b1 Mon Sep 17 00:00:00 2001
+From: Yongxing Mou <yongxing.mou@oss.qualcomm.com>
+Date: Tue, 29 Sep 2026 12:25:27 +0800
+Subject: [PATCH] drm/msm/dp: drop redundant config_ctrl_link() from
+ msm_dp_ctrl_on_stream()
+
+REG_DP_CONFIGURATION_CTRL contains link-wide state and is already
+programmed during link training.
+
+Calling config_ctrl_link() from msm_dp_ctrl_on_stream() rewrites the
+same configuration and is unnecessary. Remove the redundant call.
+
+Signed-off-by: Yongxing Mou <yongxing.mou@oss.qualcomm.com>
+---
+ drivers/gpu/drm/msm/dp/dp_ctrl.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.c b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+index 5f111e073..d8e047e6f 100644
+--- a/drivers/gpu/drm/msm/dp/dp_ctrl.c
++++ b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+@@ -2640,7 +2640,6 @@ int msm_dp_ctrl_on_stream(struct msm_dp_ctrl *msm_dp_ctrl, struct msm_dp_panel *
+ 
+ 	msm_dp_ctrl_lane_mapping(ctrl);
+ 	msm_dp_setup_peripheral_flush(ctrl);
+-	msm_dp_ctrl_config_ctrl_link(ctrl, panel);
+ 
+ 	msm_dp_ctrl_configure_source_params(ctrl, panel);
+ 
+-- 
+2.53.0
+

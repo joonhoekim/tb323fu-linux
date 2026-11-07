@@ -1,0 +1,41 @@
+From 1e51f2f17ad095118c53de7cbfc2db0acc1bd336 Mon Sep 17 00:00:00 2001
+From: Yongxing Mou <yongxing.mou@oss.qualcomm.com>
+Date: Tue, 29 Sep 2026 12:25:56 +0800
+Subject: [PATCH] drm/msm/dp: mark the SST connector disconnected when MST is
+ enabled
+
+When MST becomes active, the initial HPD plug notification updates the
+SST connector state to connected.
+
+However, the subsequent SST connector detect path reports disconnected
+while MST is enabled. This connected -> disconnected transition is then
+observed by the polling logic and may result in an unnecessary hotplug
+event.
+
+Set the SST connector state to disconnected immediately after MST is
+initialized so that the detect path does not introduce a transient
+state change.
+
+Signed-off-by: Yongxing Mou <yongxing.mou@oss.qualcomm.com>
+---
+ drivers/gpu/drm/msm/dp/dp_display.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_display.c b/drivers/gpu/drm/msm/dp/dp_display.c
+index da001ea83..5cec25638 100644
+--- a/drivers/gpu/drm/msm/dp/dp_display.c
++++ b/drivers/gpu/drm/msm/dp/dp_display.c
+@@ -299,6 +299,10 @@ static void msm_dp_display_mst_enable(struct msm_dp_display_private *dp)
+ 	}
+ 
+ 	msm_dp->mst_active = true;
++
++	scoped_guard(mutex, &msm_dp->connector->dev->mode_config.mutex)
++		msm_dp->connector->status = connector_status_disconnected;
++
+ 	msm_dp_mst_display_set_mgr_state(msm_dp, true);
+ }
+ 
+-- 
+2.53.0
+

@@ -1,0 +1,35 @@
+From 94caab5b0d852be48b72fe6e7995e210555d5449 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Sat, 7 Nov 2026 15:38:37 +0900
+Subject: [PATCH] drm/msm/dp: don't take mode_config.mutex under plugged_lock
+ when enabling MST
+
+msm_dp_display_mst_enable() runs from the plug handler with plugged_lock
+held and took mode_config.mutex to mark the SST connector disconnected.
+A connector probe holds mode_config.mutex and takes plugged_lock in
+msm_dp_bridge_detect(): with an MST sink plugged at boot the HPD worker
+and the probe deadlocked. detect() reports disconnected once mst_active
+is set, so the next probe updates the status.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/gpu/drm/msm/dp/dp_display.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_display.c b/drivers/gpu/drm/msm/dp/dp_display.c
+index 8824b35fb..e0915efec 100644
+--- a/drivers/gpu/drm/msm/dp/dp_display.c
++++ b/drivers/gpu/drm/msm/dp/dp_display.c
+@@ -300,9 +300,6 @@ static void msm_dp_display_mst_enable(struct msm_dp_display_private *dp)
+ 
+ 	msm_dp->mst_active = true;
+ 
+-	scoped_guard(mutex, &msm_dp->connector->dev->mode_config.mutex)
+-		msm_dp->connector->status = connector_status_disconnected;
+-
+ 	msm_dp_mst_display_set_mgr_state(msm_dp, true);
+ }
+ 
+-- 
+2.53.0
+

@@ -1,0 +1,33 @@
+From 824bc87407d99aa72a17aad7c6ac92603cc4fd69 Mon Sep 17 00:00:00 2001
+From: Abhinav Kumar <quic_abhinavk@quicinc.com>
+Date: Tue, 29 Sep 2026 12:25:34 +0800
+Subject: [PATCH] drm/msm/dp: no need to update tu calculation for mst
+
+DP stream is transmitted in transfer units only for SST
+case, there is no need to calculate and program TU parameters
+for MST case. Skip the TU programming for MST cases.
+
+Signed-off-by: Abhinav Kumar <quic_abhinavk@quicinc.com>
+Signed-off-by: Yongxing Mou <yongxing.mou@oss.qualcomm.com>
+Reviewed-by: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
+---
+ drivers/gpu/drm/msm/dp/dp_ctrl.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.c b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+index e1263f8d5..7b7e04f38 100644
+--- a/drivers/gpu/drm/msm/dp/dp_ctrl.c
++++ b/drivers/gpu/drm/msm/dp/dp_ctrl.c
+@@ -2746,7 +2746,8 @@ int msm_dp_ctrl_on_stream(struct msm_dp_ctrl *msm_dp_ctrl, struct msm_dp_panel *
+ 
+ 	msm_dp_panel_clear_dsc_dto(panel);
+ 
+-	msm_dp_ctrl_setup_tr_unit(ctrl, panel);
++	if (!ctrl->mst_active)
++		msm_dp_ctrl_setup_tr_unit(ctrl, panel);
+ 
+ 	msm_dp_write_link(ctrl, REG_DP_STATE_CTRL, DP_STATE_CTRL_SEND_VIDEO);
+ 
+-- 
+2.53.0
+
