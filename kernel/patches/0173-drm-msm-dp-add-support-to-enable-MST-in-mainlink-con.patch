@@ -1,4 +1,4 @@
-From 5dfe96ae119378107452314abe502b63f2ca5b4a Mon Sep 17 00:00:00 2001
+From 11bb42d4786b4447988f72ab43f38f5534f80ae1 Mon Sep 17 00:00:00 2001
 From: Abhinav Kumar <quic_abhinavk@quicinc.com>
 Date: Tue, 29 Sep 2026 12:25:33 +0800
 Subject: [PATCH] drm/msm/dp: add support to enable MST in mainlink control
@@ -15,7 +15,7 @@ Reviewed-by: Dmitry Baryshkov <dmitry.baryshkov@oss.qualcomm.com>
  2 files changed, 20 insertions(+)
 
 diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.c b/drivers/gpu/drm/msm/dp/dp_ctrl.c
-index 1f7171099..e1263f8d5 100644
+index 1f7171099..45007f254 100644
 --- a/drivers/gpu/drm/msm/dp/dp_ctrl.c
 +++ b/drivers/gpu/drm/msm/dp/dp_ctrl.c
 @@ -277,6 +277,19 @@ int msm_dp_ctrl_mst_send_act(struct msm_dp_ctrl *msm_dp_ctrl,
@@ -38,15 +38,7 @@ index 1f7171099..e1263f8d5 100644
  /*
   * NOTE: resetting DP controller will also clear any pending HPD related interrupts
   */
-@@ -2126,6 +2139,7 @@ static int msm_dp_ctrl_deinitialize_mainlink(struct msm_dp_ctrl_private *ctrl,
- 	phy = ctrl->phy;
- 
- 	msm_dp_ctrl_mainlink_disable(ctrl);
-+	msm_dp_ctrl_mst_config(ctrl, false);
- 
- 	msm_dp_ctrl_reset(&ctrl->msm_dp_ctrl, panel);
- 
-@@ -2722,6 +2736,8 @@ int msm_dp_ctrl_on_stream(struct msm_dp_ctrl *msm_dp_ctrl, struct msm_dp_panel *
+@@ -2722,6 +2735,8 @@ int msm_dp_ctrl_on_stream(struct msm_dp_ctrl *msm_dp_ctrl, struct msm_dp_panel *
  
  	msm_dp_ctrl_lane_mapping(ctrl);
  	msm_dp_setup_peripheral_flush(ctrl);
@@ -54,6 +46,14 @@ index 1f7171099..e1263f8d5 100644
 +		msm_dp_ctrl_mst_config(ctrl, true);
  
  	msm_dp_ctrl_configure_source_params(ctrl, panel);
+ 
+@@ -2770,6 +2785,7 @@ void msm_dp_ctrl_off_link(struct msm_dp_ctrl *msm_dp_ctrl,
+ 	ctrl = container_of(msm_dp_ctrl, struct msm_dp_ctrl_private, msm_dp_ctrl);
+ 
+ 	msm_dp_ctrl_mainlink_disable(ctrl);
++	msm_dp_ctrl_mst_config(ctrl, false);
+ 
+ 	msm_dp_ctrl_reset(&ctrl->msm_dp_ctrl, panel);
  
 diff --git a/drivers/gpu/drm/msm/dp/dp_reg.h b/drivers/gpu/drm/msm/dp/dp_reg.h
 index 9263e61c7..cc74b1ed6 100644

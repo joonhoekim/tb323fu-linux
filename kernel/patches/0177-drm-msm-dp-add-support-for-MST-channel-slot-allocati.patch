@@ -1,4 +1,4 @@
-From 8b5d710b8768846659a598513d638fa9fd934bb4 Mon Sep 17 00:00:00 2001
+From 707f6b4dcf00daacdbf02c6d1c29eebda2115b31 Mon Sep 17 00:00:00 2001
 From: Abhinav Kumar <quic_abhinavk@quicinc.com>
 Date: Tue, 29 Sep 2026 12:25:37 +0800
 Subject: [PATCH] drm/msm/dp: add support for MST channel slot allocation
@@ -20,7 +20,7 @@ Signed-off-by: Yongxing Mou <yongxing.mou@oss.qualcomm.com>
  4 files changed, 206 insertions(+)
 
 diff --git a/drivers/gpu/drm/msm/dp/dp_ctrl.c b/drivers/gpu/drm/msm/dp/dp_ctrl.c
-index 0f83ae2f9..3c2eff196 100644
+index 677cc0e04..909646f8e 100644
 --- a/drivers/gpu/drm/msm/dp/dp_ctrl.c
 +++ b/drivers/gpu/drm/msm/dp/dp_ctrl.c
 @@ -83,6 +83,7 @@
@@ -91,7 +91,7 @@ index 0f83ae2f9..3c2eff196 100644
  /*
   * NOTE: resetting DP controller will also clear any pending HPD related interrupts
   */
-@@ -2744,6 +2784,117 @@ static void msm_dp_ctrl_config_msa(struct msm_dp_ctrl_private *ctrl,
+@@ -2743,6 +2783,117 @@ static void msm_dp_ctrl_config_msa(struct msm_dp_ctrl_private *ctrl,
  	msm_dp_write_stream_link(ctrl, panel->stream_id, REG_DP_SOFTWARE_NVID, nvid);
  }
  
@@ -209,7 +209,7 @@ index 0f83ae2f9..3c2eff196 100644
  int msm_dp_ctrl_prepare_stream_on(struct msm_dp_ctrl *msm_dp_ctrl,
  				  struct msm_dp_panel *panel,
  				  bool force_link_train)
-@@ -2827,6 +2978,8 @@ int msm_dp_ctrl_on_stream(struct msm_dp_ctrl *msm_dp_ctrl, struct msm_dp_panel *
+@@ -2826,6 +2977,8 @@ int msm_dp_ctrl_on_stream(struct msm_dp_ctrl *msm_dp_ctrl, struct msm_dp_panel *
  	if (!ctrl->mst_active)
  		msm_dp_ctrl_setup_tr_unit(ctrl, panel);
  
