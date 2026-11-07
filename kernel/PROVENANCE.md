@@ -222,7 +222,7 @@ Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped 
 | `0202` | drm/msm/dp: suspend and resume the MST topology across system sleep | Joonhoe Kim | this project (on top of the MST v7 series) | local; for the MST v7 thread (the series has no topology suspend/resume) | `9cb9614d698c0978` |
 | `0203` | drm/msm/dp: keep the PHY when an MST stream is disabled with none left | Joonhoe Kim | this project (on top of the MST v7 series) | local; on top of 0151 and the MST v7 series | `664ae18708ab8bd4` |
 | `0204` | drm/msm/dp: clear the MST bits in mainlink control for an SST stream | Joonhoe Kim | this project (on top of the MST v7 series) | local; fix for MST v7 09/35, to report upstream | `b4d5c3b3eb6e6659` |
-| `0205` | drm/msm/dp: ignore sink requests from IRQ_HPD while the link is down | Joonhoe Kim | this project (on top of the IRQ_HPD events v8 and MST v7 series) | local; fix for IRQ_HPD events v8, to report upstream | `84807fced1f5e758` |
+| `0205` | drm/msm/dp: ignore sink requests from IRQ_HPD while the link is down | Joonhoe Kim | this project (on top of the IRQ_HPD events v8 and MST v7 series) | local; fix for IRQ_HPD events v8, to report upstream | `743476e880631af8` |
 
 ## Out-of-tree
 

@@ -1,14 +1,15 @@
-From ad608c71d44c0e6ac7b86866a8461ab1e87cff1f Mon Sep 17 00:00:00 2001
+From b90db2ef7e79389c5d3c5f685e7abd005f1725ff Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sun, 8 Nov 2026 00:37:42 +0900
 Subject: [PATCH] drm/msm/dp: ignore sink requests from IRQ_HPD while the link
  is down
 
 With the HPD events coming from the USB-C altmode, an IRQ_HPD can arrive
-before the link has been trained, e.g. a monitor that is attached at
-boot reporting LINK_STATUS_UPDATED. Link maintenance then starts with
-push_idle, which writes the link registers while the link clocks are
-off, and the CPU hangs on the bus.
+while the link is down. A monitor attached at boot sends one when the
+boot mode is turned off before the next mode is set: it reports
+LINK_STATUS_UPDATED after losing the link. Link maintenance then starts
+with push_idle, which writes the link registers while the link clocks
+are off, and the CPU hangs on the bus.
 
 Only act on sink requests once the link is up; the link is trained from
 scratch when the stream is enabled.
