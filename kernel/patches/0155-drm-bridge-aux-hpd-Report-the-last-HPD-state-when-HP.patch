@@ -1,4 +1,4 @@
-From 9fb29340c6437afe8b0e55771cfe907598a46857 Mon Sep 17 00:00:00 2001
+From b95a318a98b6636e86850fc9e66155a8fadf46a8 Mon Sep 17 00:00:00 2001
 From: Joonhoe Kim <26rote@gmail.com>
 Date: Sat, 7 Nov 2026 00:49:55 +0000
 Subject: [PATCH] drm/bridge: aux-hpd: Report the last HPD state when HPD is
@@ -19,30 +19,33 @@ for as its mode switch, built as a module.
 
 Signed-off-by: Joonhoe Kim <26rote@gmail.com>
 ---
- drivers/gpu/drm/bridge/aux-hpd-bridge.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ drivers/gpu/drm/bridge/aux-hpd-bridge.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
 
 diff --git a/drivers/gpu/drm/bridge/aux-hpd-bridge.c b/drivers/gpu/drm/bridge/aux-hpd-bridge.c
-index a2e525aa57..7f76a19247 100644
+index a2e525aa57..6ec9f75259 100644
 --- a/drivers/gpu/drm/bridge/aux-hpd-bridge.c
 +++ b/drivers/gpu/drm/bridge/aux-hpd-bridge.c
-@@ -18,6 +18,7 @@ static DEFINE_IDA(drm_aux_hpd_bridge_ida);
+@@ -18,6 +18,9 @@ static DEFINE_IDA(drm_aux_hpd_bridge_ida);
  struct drm_aux_hpd_bridge_data {
  	struct drm_bridge bridge;
  	struct device *dev;
++	/* serializes storing or replaying the status with its notification */
++	struct mutex lock;
 +	enum drm_connector_status status;
  };
  
  static void drm_aux_hpd_bridge_release(struct device *dev)
-@@ -154,6 +155,7 @@ void drm_aux_hpd_bridge_notify(struct device *dev, enum drm_connector_status sta
+@@ -154,6 +157,8 @@ void drm_aux_hpd_bridge_notify(struct device *dev, enum drm_connector_status sta
  	if (!data)
  		return;
  
-+	WRITE_ONCE(data->status, status);
++	guard(mutex)(&data->lock);
++	data->status = status;
  	drm_bridge_hpd_notify(&data->bridge, status);
  }
  EXPORT_SYMBOL_GPL(drm_aux_hpd_bridge_notify);
-@@ -165,11 +167,22 @@ static int drm_aux_hpd_bridge_attach(struct drm_bridge *bridge,
+@@ -165,17 +170,29 @@ static int drm_aux_hpd_bridge_attach(struct drm_bridge *bridge,
  	return flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR ? 0 : -EINVAL;
  }
  
@@ -50,10 +53,10 @@ index a2e525aa57..7f76a19247 100644
 +{
 +	struct drm_aux_hpd_bridge_data *data =
 +		container_of(bridge, struct drm_aux_hpd_bridge_data, bridge);
-+	enum drm_connector_status status = READ_ONCE(data->status);
 +
-+	if (status != connector_status_unknown)
-+		drm_bridge_hpd_notify(bridge, status);
++	guard(mutex)(&data->lock);
++	if (data->status != connector_status_unknown)
++		drm_bridge_hpd_notify(bridge, data->status);
 +}
 +
  static const struct drm_bridge_funcs drm_aux_hpd_bridge_funcs = {
@@ -65,11 +68,21 @@ index a2e525aa57..7f76a19247 100644
  };
  
  static int drm_aux_hpd_bridge_probe(struct auxiliary_device *auxdev,
-@@ -184,6 +197,7 @@ static int drm_aux_hpd_bridge_probe(struct auxiliary_device *auxdev,
+ 				    const struct auxiliary_device_id *id)
+ {
+ 	struct drm_aux_hpd_bridge_data *data;
++	int ret;
+ 
+ 	data = devm_drm_bridge_alloc(&auxdev->dev,
+ 				     struct drm_aux_hpd_bridge_data, bridge,
+@@ -184,6 +201,10 @@ static int drm_aux_hpd_bridge_probe(struct auxiliary_device *auxdev,
  		return PTR_ERR(data);
  
  	data->dev = &auxdev->dev;
 +	data->status = connector_status_unknown;
++	ret = devm_mutex_init(data->dev, &data->lock);
++	if (ret)
++		return ret;
  	data->bridge.of_node = dev_get_platdata(data->dev);
  	data->bridge.ops = DRM_BRIDGE_OP_HPD;
  	data->bridge.type = id->driver_data;

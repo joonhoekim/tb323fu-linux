@@ -172,7 +172,7 @@ Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped 
 | `0152` | mmc: sd: Keep the card when its extension registers fail | Joonhoe Kim | this project, fix suggested by the reporter of [#26](https://github.com/joonhoekim/tb323fu-linux/issues/26) | upstream candidate | `5fc19deafa742e07` |
 | `0153` | input: nt36536: report the pen tilt in the screen's axes | Joonhoe Kim | this project, fix by the reporter of [#16](https://github.com/joonhoekim/tb323fu-linux/issues/16) | local | `82e75995b4cb964c` |
 | `0154` | leds: rgb: aw22127: Add color effects and zones, set the LED current | Joonhoe Kim | this project; the rotation command first found by the author of [#34](https://github.com/joonhoekim/tb323fu-linux/pull/34) | local | `fd6c7b935aff0cbc` |
-| `0155` | drm/bridge: aux-hpd: Report the last HPD state when HPD is enabled | Joonhoe Kim | this project; same approach as Yongxing Mou's patch under review ([lore](https://lore.kernel.org/all/20260803-drm-usbdp-preboot-v1-1-2539b362be00@oss.qualcomm.com/)) | local until that patch lands | `041622915dfe0d6c` |
+| `0155` | drm/bridge: aux-hpd: Report the last HPD state when HPD is enabled | Joonhoe Kim | this project; same approach as Yongxing Mou's patch under review ([lore](https://lore.kernel.org/all/20260803-drm-usbdp-preboot-v1-1-2539b362be00@oss.qualcomm.com/)) | local until that patch lands | `ab4567bdb49bafe3` |
 | `0156` | arm64: configs: baldur: Build the Qualcomm dwc3 glue in | Joonhoe Kim | this project | local (config) | `2778019d75138991` |
 
 ## Out-of-tree
