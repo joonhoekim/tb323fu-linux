@@ -1,0 +1,121 @@
+From e154c47b6e35a3dabb1c46c1b58ed5d77155bfc8 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Sat, 7 Nov 2026 17:29:04 +0900
+Subject: [PATCH] drm/msm/dp: suspend and resume the MST topology across system
+ sleep
+
+With MST active the link stays up after the last stream is disabled.
+System suspend then powered the controller down under it, link_ready
+stayed set, and on resume the stream enable skipped link training and
+wrote the payload table over a dead link: AUX retried until the
+hardware watchdog fired. Take the link down and suspend the topology
+manager before the controller goes down; on resume bring the PHY and
+AUX back and resume the topology, dropping MST if the sink is gone.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/gpu/drm/msm/dp/dp_display.c | 46 +++++++++++++++++++++++++++--
+ drivers/gpu/drm/msm/dp/dp_mst_drm.c | 14 +++++++++
+ drivers/gpu/drm/msm/dp/dp_mst_drm.h |  2 ++
+ 3 files changed, 60 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_display.c b/drivers/gpu/drm/msm/dp/dp_display.c
+index e0915efec..53be2d929 100644
+--- a/drivers/gpu/drm/msm/dp/dp_display.c
++++ b/drivers/gpu/drm/msm/dp/dp_display.c
+@@ -1552,10 +1552,52 @@ static int msm_dp_pm_runtime_resume(struct device *dev)
+ 	return 0;
+ }
+ 
++/*
++ * With MST active the link stays up after the last stream is disabled, but
++ * system suspend powers the controller down: take the link down with it and
++ * restore the topology before the streams come back.
++ */
++static int msm_dp_pm_suspend(struct device *dev)
++{
++	struct msm_dp_display_private *dp = dev_get_dp_display_private(dev);
++	struct msm_dp *msm_dp_display = &dp->msm_dp_display;
++
++	if (msm_dp_display->mst_active) {
++		msm_dp_mst_suspend(msm_dp_display);
++		msm_dp_display_unprepare(msm_dp_display);
++	}
++
++	return pm_runtime_force_suspend(dev);
++}
++
++static int msm_dp_pm_resume(struct device *dev)
++{
++	struct msm_dp_display_private *dp = dev_get_dp_display_private(dev);
++	struct msm_dp *msm_dp_display = &dp->msm_dp_display;
++	int ret;
++
++	ret = pm_runtime_force_resume(dev);
++	if (ret || !msm_dp_display->mst_active)
++		return ret;
++
++	scoped_guard(mutex, &dp->plugged_lock) {
++		msm_dp_display_host_phy_init(dp);
++		msm_dp_aux_enable_xfers(dp->aux, true);
++	}
++
++	if (msm_dp_mst_resume(msm_dp_display) < 0) {
++		drm_dbg_dp(dp->drm_dev, "MST topology gone after resume\n");
++		msm_dp_display->mst_active = false;
++		msm_dp_mst_display_set_mgr_state(msm_dp_display, false);
++		drm_kms_helper_hotplug_event(dp->drm_dev);
++	}
++
++	return 0;
++}
++
+ static const struct dev_pm_ops msm_dp_pm_ops = {
+ 	SET_RUNTIME_PM_OPS(msm_dp_pm_runtime_suspend, msm_dp_pm_runtime_resume, NULL)
+-	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
+-				pm_runtime_force_resume)
++	SET_SYSTEM_SLEEP_PM_OPS(msm_dp_pm_suspend, msm_dp_pm_resume)
+ };
+ 
+ static struct platform_driver msm_dp_display_driver = {
+diff --git a/drivers/gpu/drm/msm/dp/dp_mst_drm.c b/drivers/gpu/drm/msm/dp/dp_mst_drm.c
+index 35193cf45..276b35265 100644
+--- a/drivers/gpu/drm/msm/dp/dp_mst_drm.c
++++ b/drivers/gpu/drm/msm/dp/dp_mst_drm.c
+@@ -361,6 +361,20 @@ int msm_dp_mst_attach_encoder(struct msm_dp *dp_display, unsigned int stream_id,
+ 	return 0;
+ }
+ 
++void msm_dp_mst_suspend(struct msm_dp *dp_display)
++{
++	struct msm_dp_mst *mst = dp_display->msm_dp_mst;
++
++	drm_dp_mst_topology_mgr_suspend(&mst->mst_mgr);
++}
++
++int msm_dp_mst_resume(struct msm_dp *dp_display)
++{
++	struct msm_dp_mst *mst = dp_display->msm_dp_mst;
++
++	return drm_dp_mst_topology_mgr_resume(&mst->mst_mgr, true);
++}
++
+ int msm_dp_mst_display_set_mgr_state(struct msm_dp *dp_display, bool state)
+ {
+ 	struct msm_dp_mst *mst = dp_display->msm_dp_mst;
+diff --git a/drivers/gpu/drm/msm/dp/dp_mst_drm.h b/drivers/gpu/drm/msm/dp/dp_mst_drm.h
+index 84de7ca0c..61d6b9374 100644
+--- a/drivers/gpu/drm/msm/dp/dp_mst_drm.h
++++ b/drivers/gpu/drm/msm/dp/dp_mst_drm.h
+@@ -13,6 +13,8 @@ void msm_dp_mst_mgr_destroy(struct msm_dp *dp_display);
+ int msm_dp_mst_attach_encoder(struct msm_dp *dp_display, unsigned int stream_id,
+ 			      struct drm_encoder *encoder);
+ int msm_dp_mst_display_set_mgr_state(struct msm_dp *dp_display, bool state);
++void msm_dp_mst_suspend(struct msm_dp *dp_display);
++int msm_dp_mst_resume(struct msm_dp *dp_display);
+ void msm_dp_mst_display_hpd_irq(struct msm_dp *dp_display);
+ 
+ #endif /* _DP_MST_DRM_H_ */
+-- 
+2.53.0
+

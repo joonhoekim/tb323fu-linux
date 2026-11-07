@@ -21,7 +21,7 @@ column names the source; see that tree's history for the individual authors.
 Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114, 0116-0119, 0128-0139, 0141-0156 and 0200-0201 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
+0111-0114, 0116-0119, 0128-0139, 0141-0156 and 0200-0203 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -219,6 +219,8 @@ Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped 
 | `0199` | soc: qcom: pmic-glink-altmode: skip retimer reset on DP IRQ | Yongxing Mou | mailing list: [MST v7](https://lore.kernel.org/all/20260929-msm-dp-mst-v7-0-4b81473185e7@oss.qualcomm.com/) 35/35 (Yongxing Mou) | under review upstream; local until merged | `c2f7e3f9d8b99d26` |
 | `0200` | drm/msm/dp: don't take mode_config.mutex under plugged_lock when enabling MST | Joonhoe Kim | this project (on top of the MST v7 series) | local; for the MST v7 thread | `b9ee12afabdc80b1` |
 | `0201` | drm/msm/dpu: with colour management, use one LM up to the mixer width | Joonhoe Kim | this project (on top of the MST v7 series) | local; for the MST v7 thread | `45371e91d2f88fd5` |
+| `0202` | drm/msm/dp: suspend and resume the MST topology across system sleep | Joonhoe Kim | this project (on top of the MST v7 series) | local; for the MST v7 thread (the series has no topology suspend/resume) | `9cb9614d698c0978` |
+| `0203` | drm/msm/dp: keep the PHY when an MST stream is disabled with none left | Joonhoe Kim | this project (on top of the MST v7 series) | local; on top of 0151 and the MST v7 series | `664ae18708ab8bd4` |
 
 ## Out-of-tree
 

@@ -1,0 +1,38 @@
+From 145d648da962d4ccfb993286f343096af64d7174 Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Sat, 7 Nov 2026 19:21:40 +0900
+Subject: [PATCH] drm/msm/dp: keep the PHY when an MST stream is disabled with
+ none left
+
+msm_dp_display_disable() releases the PHY init when it finds no active
+stream, for a link that was never brought up. With MST the link stays
+up for the topology after the last stream goes, and is taken down with
+the PHY in unprepare; releasing the init here left the link running on
+a PHY that was no longer initialized. One boot with the MST hub
+attached logged "phy_power_on was called before phy_init" and the
+stream pixel clock stuck off; not seen again with this change, but the
+path was not caught in the act either.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/gpu/drm/msm/dp/dp_display.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/msm/dp/dp_display.c b/drivers/gpu/drm/msm/dp/dp_display.c
+index 53be2d929..5771b1805 100644
+--- a/drivers/gpu/drm/msm/dp/dp_display.c
++++ b/drivers/gpu/drm/msm/dp/dp_display.c
+@@ -853,7 +853,9 @@ static int msm_dp_display_disable(struct msm_dp_display_private *dp,
+ 	struct msm_dp *msm_dp_display = &dp->msm_dp_display;
+ 
+ 	if (!msm_dp_display->active_stream_cnt) {
+-		msm_dp_display_host_phy_exit(dp);
++		/* with MST the link, and so the PHY, is torn down in unprepare */
++		if (!msm_dp_display->mst_active)
++			msm_dp_display_host_phy_exit(dp);
+ 		return 0;
+ 	}
+ 
+-- 
+2.53.0
+
