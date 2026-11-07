@@ -131,7 +131,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | USB low-speed devices | ✅ | measured | the low-speed device inside a USB-C to HDMI cable enumerates 4/4 with kernel t52; earlier kernels sometimes failed with `-71`/`-110`, not seen since |
 | USB gadget (network, serial) | ✅ | measured | |
 | DisplayPort alt mode | ✅ | measured + observed | 4 lanes HBR3 with pin assignment C: a 5120×2160 USB-C monitor at 75 Hz, its USB 2.0 hub working after replugs and across suspend (sinks in pin assignment D, which keep USB 3, are untested). Earlier, with 2 lanes HBR2: a TV through a USB-C to HDMI adapter, extended desktop at 4K 30, no flicker on either screen while the internal panel idles down to 30 Hz, unplug/replug 3/3. The adapter's own low-speed USB device fails to enumerate (harmless) |
-| DisplayPort MST (daisy chain / "extend" on MST hubs) | 🟡 | observed (development kernel) | patches 0157-0204 (upstream MST v7, under review, and five fixes): a Realtek MST hub with two 1920×1200 panels shows two separate displays next to the built-in one, also after suspend (3 of 3) and replugs. Not in a release kernel yet; daisy chains, 4K and audio over MST untested |
+| DisplayPort MST (daisy chain / "extend" on MST hubs) | 🟡 | observed (development kernel) | patches 0157-0205 (upstream MST v7, under review, and six fixes): a Realtek MST hub with two 1920×1200 panels shows two separate displays next to the built-in one, also after suspend (3 of 3) and replugs. Not in a release kernel yet; daisy chains, 4K and audio over MST untested |
 | UFS storage | ✅ | measured | multi-queue mode (patch 0119), kept over suspend (0128); fixed a deadlock that rebooted the tablet after hours of use (0129) and the recovery after a controller reset (0141 and Linux 7.3); numbers in [Performance](performance.md#storage) |
 | microSD | ✅ | measured | UHS-I SDR104; also used for the multiboot roots |
 | Multiboot (systems on microSD partitions) | ✅ | measured + observed | the systems in [distros.md](distros.md) boot, picked by the initramfs (falls back to the internal root) |
@@ -146,7 +146,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 ## Known issues
 
 - **CPU cluster idle state left out of runtime idle** (patch 0118): with it the tablet reset when idle, without an error message. Leaving it out avoids that at the same idle power; the cause in the cluster's power-down path is not fixed, and suspend still uses the state (knob: `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off`).
-- **DisplayPort MST only in development kernels** (0157-0204): with release kernels, monitors that need MST for "extend" only mirror.
+- **DisplayPort MST only in development kernels** (0157-0205): with release kernels, monitors that need MST for "extend" only mirror.
 - **Bypass charging** works; with the Charge Limit method the kernel battery `status` still reads "Charging" and the charger drops to 5 V (the Charge Current method keeps 9 V).
 - **Charging can stop below the limit**: the firmware stops at 5 V and resumes only when the limit is moved below the current charge and back; the helper's Restart Stalled Charging does this automatically. Cause not found.
 - **Modem**: a stalled modem start resets the whole SoC, so rmtfs and tqftpserv stay masked on every root (see [distros.md](distros.md)).
