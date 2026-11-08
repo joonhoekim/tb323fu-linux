@@ -92,7 +92,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Rear camera focus (VCM) | 🟡 | measured | manual focus works; no autofocus in libcamera |
 | Camera streaming with the screen off | ✅ | measured | restarting a capture with the display off used to hang the system; fixed by patch 0116 (repeated starts with the display off pass) |
 | Torch | ✅ | observed | also from the helper's quick settings |
-| Flash strobe | ❓ | probe only | |
+| Flash strobe | ✅ | measured + observed | `/sys/class/leds/white:flash`: three 0.3 s strobes at 500 mA fired and ended on their timeout (2026-11-08); libcamera does not drive the flash yet |
 | RGB ring light | ✅ | observed + measured | charge indicator, solid colors (a nine-color palette in the helper; colors are gamma-corrected because the LEDs are linear) and breathing run by the chip itself (`hw_pattern`) watched on 2026-10-03. Known limitation: every brightness or color change goes dark for about 45 ms while the chip's program restarts (no update command found in the vendor material) |
 | Haptics (2 motors) | ✅ | observed | |
 | Volume and power keys | ✅ | observed | power key suspends and resumes (seen in SteamOS) |
