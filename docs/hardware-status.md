@@ -105,7 +105,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Wi-Fi (WCN7860, ath12k) | ✅ | measured | used daily; a receive stall under sustained heavy traffic is fixed by this project's ath12k patch (30-minute 2.4 and 5 GHz soaks clean); the PCIe link trains at x2 but runs at x1; 6 GHz / 320 MHz / MLO not checked |
 | Bluetooth LE input devices | ✅ | measured + observed | the controller keeps its address across power off/on and rfkill (patch 0130), so paired devices reconnect |
 | Bluetooth audio (A2DP) | ✅ | observed | the first syllable of a stream can be clipped |
-| Bluetooth HFP | ❓ | untested | |
+| Bluetooth HFP | ✅ | measured + observed | Bluetooth earbuds with a microphone: the headset profile with mSBC (16 kHz) in PipeWire; a tone played to them and the microphone recorded and played back were heard clearly (2026-11-08) |
 | Accelerometer / auto-rotate | ✅ | measured + observed | via the sensor hub (SSC) |
 | Ambient light / auto-brightness | ✅ | measured + observed | |
 | Proximity | ✅ | measured | |
@@ -172,7 +172,6 @@ In rough order of value. Rows above marked user-reported, ❓ or 🟡, and rows 
 | What | How it will be settled | Needs a person |
 |---|---|---|
 | 164 Hz in long sessions, SteamOS orientation and UI size, touch on Fedora and NixOS | 10+ minutes in Gaming Mode with underrun counters; first taps on each desktop | eyes, hands |
-| Bluetooth HFP | headset call profile, microphone loopback | ears, voice |
 | Long idle with patch 0118 | hours of idle and display-off time without a reset, against the 78-minute baseline with the cluster state allowed | no (scripted) |
 | AV1 in applications | newer GStreamer / FFmpeg on Arch, Fedora or NixOS, compared bit-exact with a software decoder | no (scripted) |
 | 144 Hz | long sessions, after suspend and with idle refresh; the shifted picture seen once | eyes, hands |
@@ -203,6 +202,6 @@ Sources: Lenovo PSREF "Legion Tab (8.8", 5)" and datasheet, Qualcomm Snapdragon 
 | Charging | 68 W PD 3.0 / PPS, bypass charging | about 40 W on PPS ✅, bypass ✅ (charger kept at 9 V) |
 | USB | USB-C 10 Gbps + DP, second port USB 2.0 | ✅ |
 | Storage | UFS 4.1, microSD up to 2 TB | ✅ |
-| Wi-Fi / Bluetooth | Wi-Fi 7, Bluetooth 6.0 | Wi-Fi ✅ (2.4 / 5 GHz; 6 GHz untested), BT ✅ (HFP and LE Audio untested) |
+| Wi-Fi / Bluetooth | Wi-Fi 7, Bluetooth 6.0 | Wi-Fi ✅ (2.4 / 5 GHz; 6 GHz untested), BT ✅ (HFP ✅; LE Audio untested) |
 
 </details>
