@@ -66,7 +66,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | 90 Hz | ✅ | measured + observed | vendor timing; screen and touch fine, no underruns |
 | 165 Hz (offered as 164 Hz) | ✅ | measured + observed | 164 Hz uses the 120 Hz horizontal timing; screen and touch fine, no underruns. SteamOS picks it by default; long sessions not watched. The vendor's 165 Hz timing has too short a horizontal blanking and underruns every frame, so it is not offered |
 | 144 Hz | ✅ | measured + observed | kernel t53 (patch 0142): the 164 Hz horizontal timing with a longer vertical front porch; no underruns, screen and touch fine. One of six switches once showed the picture shifted up, not seen again. The vendor timing underruns |
-| Backlight | ✅ | measured + observed | |
+| Backlight | ✅ | measured + observed | the top of the range (4095) is already the high-brightness (HBM) level: Android's HBM sets the backlight chip's LED current to 28.0 mA (register 0x02 = 0x2e), the value Linux keeps all the time; brightness in nits not measured |
 | Display off / on (with and without an external display) | ✅ | measured | |
 | GPU OpenGL 4.6 / GLES 3.2 (Adreno 840, freedreno) | ✅ | measured + observed | up to 1200 MHz |
 | GPU idle power collapse (IFPC) | ✅ | measured | |
@@ -175,7 +175,7 @@ In rough order of value. Rows above marked user-reported, ❓ or 🟡, and rows 
 | Long idle with patch 0118 | hours of idle and display-off time without a reset, against the 78-minute baseline with the cluster state allowed | no (scripted) |
 | AV1 in applications | newer GStreamer / FFmpeg on Arch, Fedora or NixOS, compared bit-exact with a software decoder | no (scripted) |
 | 144 Hz | long sessions, after suspend and with idle refresh; the shifted picture seen once | eyes, hands |
-| From the spec sheet | full-resolution (50 MP) rear capture, touch report rate (up to 480 Hz), HBM (800 nit) and HDR, 8K and film-grain video | mostly no; touch rate needs a finger |
+| From the spec sheet | full-resolution (50 MP) rear capture (needs a new sensor mode), touch report rate (up to 480 Hz), HDR, film-grain video | mostly no; touch rate needs a finger |
 | Flash strobe | trigger the strobe control and watch | eyes |
 | Board thermal above 45 °C | 20–30 minutes of CPU + GPU load, steps and frequencies logged, desktop smoothness watched | eyes (optional) |
 | Charging stall and the 2.4 A input cap | battery and charger values logged until the next stall; the input limit on other chargers | no (scripted) |
@@ -190,7 +190,7 @@ Sources: Lenovo PSREF "Legion Tab (8.8", 5)" and datasheet, Qualcomm Snapdragon 
 
 | Area | Lenovo / Qualcomm | Status here |
 |---|---|---|
-| Display | 8.8" 3040×1904, up to 165 Hz, HBM 800 nit, HDR | 120 / 90 / 60 / 30 / 144 Hz and 165 (as 164) ✅; HBM and HDR untested |
+| Display | 8.8" 3040×1904, up to 165 Hz, HBM 800 nit, HDR | 120 / 90 / 60 / 30 / 144 Hz and 165 (as 164) ✅; HBM ✅ (the top brightness is the HBM LED current), HDR untested |
 | External display | USB-C DisplayPort; SoC up to 4K 120 / 8K 30 | 5120×2160 75 Hz, 4 lanes HBR3 ✅; MST 🟡 (two 1920×1200, development kernel) |
 | Video decode | H.264, H.265, VP9, AV1, 10-bit | all ✅ in the driver (1080p and 4K); 8K ✅ for HEVC, VP9, AV1 (8- and 10-bit), ❌ for H.264, and 8K HEVC 10-bit crashes |
 | Video encode | HEVC 10-bit | H.264 / HEVC 8-bit ✅ up to 4K; 10-bit ❌ (no 10-bit input in the driver) |
