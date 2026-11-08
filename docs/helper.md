@@ -115,8 +115,8 @@ stock boot image** — the copy in `boot_b`, checked against the recorded Androi
 to `boot_a`.
 
 **Channels.** Releases are numbered (`kernel-tNN`); a release is offered when its number is higher than the running
-kernel's. `stable` (default) offers the newest release that is not a pre-release; `testing` offers the newest of
-all, pre-releases included. A fork can publish its own releases; its users set `[kernel] source =
+kernel's. `stable` (default) offers the newest stable release; `testing` offers the newest of all, testing
+releases (GitHub pre-releases) included. `tb323fu-ctl kernel install kernel-tNN` installs a given release. A fork can publish its own releases; its users set `[kernel] source =
 "github:OWNER/REPO"` in `/etc/tb323fu/helper.toml`.
 
 **What happens.**

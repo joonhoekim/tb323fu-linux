@@ -62,13 +62,14 @@ If neither way works: [Recovery](recovery.md) (EDL with your own backup from [ro
 
 **Kernel.** Open Device Helper → **About** → Kernel Updates, or `tb323fu-ctl kernel update`. The helper checks the
 project's GitHub Releases once a day (it only checks; downloading and installing are your choice) and packs the new
-kernel into your own stock boot image from `boot_b`. The channel is **stable** by default: it offers the newest
-release that is not a pre-release ([the latest release](https://github.com/joonhoekim/tb323fu-linux/releases/latest));
-**testing** offers pre-releases too. A kernel from a file you built: **Install Kernel from File…** ([custom-kernel.md](custom-kernel.md)).
+kernel into your own stock boot image from `boot_b`. The channel is **Stable** by default: it offers the newest
+stable release ([the latest release](https://github.com/joonhoekim/tb323fu-linux/releases/latest)); **Testing** also
+offers testing releases (marked "Pre-release" on GitHub), which carry new features before they become stable.
+`tb323fu-ctl kernel install kernel-tNN` installs one release by name, whatever the channel. A kernel from a file you built: **Install Kernel from File…** ([custom-kernel.md](custom-kernel.md)).
 
 **Trial and Keep.** A new kernel is first on trial. Before writing it, the helper saves the running one as
 `linux-good.img`. On the stable channel the kernel is confirmed by itself once the system has been up for 90 s. On the
-testing channel, for pre-releases and for kernels from a file, only **Keep** (in the app, or `tb323fu-ctl kernel
+Testing channel, for testing releases and for kernels from a file, only **Keep** (in the app, or `tb323fu-ctl kernel
 keep`) confirms it. A kernel that is not confirmed by its third start is replaced by `linux-good.img` and the tablet
 restarts. A kernel that dies before the initramfs runs cannot be caught this way; then the way back is EDL
 ([recovery](recovery.md#linux-does-not-boot)). Details: [helper.md → Kernel updates](helper.md#kernel-updates).

@@ -100,7 +100,7 @@ kernel). The assets:
 
 `tNN` is the release's **serial**: a release is offered when its serial is higher than the running kernel's.
 **Channels:** `stable` (default) offers the newest release that is not a pre-release; `testing` offers the newest of
-all, pre-releases included. Releases are prepared with [`tools/kernel-release.py`](../tools/kernel-release.py) and
+all, pre-releases included. The documentation calls a pre-release a *testing release*. Releases are prepared with [`tools/kernel-release.py`](../tools/kernel-release.py) and
 published with `gh release create`.
 
 **Source.** `[kernel] source = "github:OWNER/REPO"` in `/etc/tb323fu/helper.toml` (default
