@@ -70,9 +70,9 @@ def reg(*pairs: tuple[int, int]) -> bytes:
     return b''.join(cells(a >> 32, a & 0xFFFFFFFF, s >> 32, s & 0xFFFFFFFF) for a, s in pairs)
 
 
-def devicetree(ram: list[tuple[int, int]], regions: dict[str, dict]) -> bytes:
+def devicetree(ram: list[tuple[int, int]], regions: dict[str, dict], root: dict | None = None) -> bytes:
     return build_fdt({
-        'props': {'#address-cells': cells(2), '#size-cells': cells(2)},
+        'props': {'#address-cells': cells(2), '#size-cells': cells(2), **(root or {})},
         'children': {
             'memory': {'props': {'device_type': b'memory\0', 'reg': reg(*ram)}},
             'reserved-memory': {
@@ -90,6 +90,16 @@ def no_map(address: int, size: int) -> dict:
 def reusable(address: int, size: int) -> dict:
     return {'reg': reg((address, size)), 'reusable': None}
 
+
+def ids(model: str, compatible: list[str], msm_id: tuple[int, ...], board_id: tuple[int, ...] = (0x2000B, 0)) -> dict:
+    return {'model': model.encode() + b'\0', 'compatible': b''.join(c.encode() + b'\0' for c in compatible),
+            'qcom,msm-id': cells(*msm_id), 'qcom,board-id': cells(*board_id)}
+
+
+# what Android 18.0.12.104 and the project's kernel have at the root
+ANDROID_IDS = ids('Qualcomm Technologies, Inc. Canoe QRD + ST54L + Pandeiro', ['qcom,canoe-qrd', 'qcom,canoe'],
+                  (0x295, 0x20000, 0x294, 0x10000, 0x1000295, 0x10000))
+KERNEL_IDS = ids('Lenovo Legion Tab Y700 5th Gen', ['lenovo,baldur', 'qcom,kaanapali'], (0x295, 0x20000))
 
 # RAM 0x80000000-0x90000000 with a hole for firmware at 0x81000000-0x82000000, as a bootloader hands it over
 RAM = [(0x80000000, 0x1000000), (0x82000000, 0xE000000)]
@@ -113,6 +123,13 @@ class ParseTest(unittest.TestCase):
         self.assertEqual([(r.name, r.flag) for r in memory.fixed],
                          [('fw@81000000', 'no-map'), ('pool@84000000', 'reusable')])
         self.assertEqual([r.name for r in memory.placed_at_boot], ['cma'])
+
+    def test_reads_device_ids(self):
+        memory = fmc.memory_map_of(fmc.parse_fdt(devicetree(RAM, {}, ANDROID_IDS)))
+        self.assertEqual(memory.model, 'Qualcomm Technologies, Inc. Canoe QRD + ST54L + Pandeiro')
+        self.assertEqual(memory.compatible, ('qcom,canoe-qrd', 'qcom,canoe'))
+        self.assertEqual(memory.soc_ids, {0x295, 0x294, 0x1000295})
+        self.assertEqual(memory.board_id, (0x2000B, 0))
 
     def test_truncated_devicetree(self):
         blob = devicetree(RAM, {'fw@81000000': no_map(0x81000000, 0x1000000)})
@@ -208,7 +225,18 @@ class TextMapTest(unittest.TestCase):
         })))
         again = fmc.parse_text_map(fmc.format_text_map(memory))
         self.assertEqual(again.ram, memory.ram)
+        self.assertEqual(again.model, '')
         self.assertEqual(sorted(again.regions, key=lambda r: r.name), sorted(memory.regions, key=lambda r: r.name))
+
+    def test_round_trip_of_ids(self):
+        memory = fmc.memory_map_of(fmc.parse_fdt(devicetree(RAM, {}, ANDROID_IDS)))
+        again = fmc.parse_text_map(fmc.format_text_map(memory))
+        self.assertEqual((again.model, again.compatible, again.msm_id, again.board_id),
+                         (memory.model, memory.compatible, memory.msm_id, memory.board_id))
+
+    def test_bad_cells(self):
+        with self.assertRaises(fmc.InputError):
+            fmc.parse_text_map('# msm-id: <0x295 zz>\n# /memory (from the bootloader)\n')
 
     def test_bad_range(self):
         with self.assertRaises(fmc.InputError):
@@ -217,6 +245,8 @@ class TextMapTest(unittest.TestCase):
     def test_reference_map_of_zui_104(self):
         memory = fmc.parse_text_map((REPO / 'firmware/memory-map-zui-18.0.12.104.txt').read_text(encoding='utf-8'))
         self.assertEqual(len(memory.ram), 20)
+        self.assertEqual(memory.board_id, (0x2000B, 0))
+        self.assertIn(0x295, memory.soc_ids)
         names = {r.name: r for r in memory.fixed}
         self.assertEqual(names['adspslpi_region@a1400000'].spans, (fmc.Span(0xA1400000, 0xA5A00000),))
         # the bootloader leaves every fixed no-map region out of /memory on this firmware
@@ -247,6 +277,49 @@ class CommandLineTest(unittest.TestCase):
             self.assertEqual(extract.read_bytes().count(b'\r'), 0)
             status, _, _ = self.run_main(str(extract), str(kernel))
             self.assertEqual(status, 1)
+
+    def run_ids(self, android_ids: dict, kernel_ids: dict, *flags: str) -> tuple[int, str, str]:
+        with tempfile.TemporaryDirectory() as tmp:
+            android = Path(tmp, 'fdt.dtb')
+            kernel = Path(tmp, 'kernel.dtb')
+            android.write_bytes(devicetree(RAM, {}, android_ids))
+            kernel.write_bytes(devicetree([], {}, kernel_ids))
+            return self.run_main(*flags, str(android), str(kernel))
+
+    def test_same_soc_in_any_msm_id_pair(self):
+        status, out, err = self.run_ids(ANDROID_IDS, KERNEL_IDS)
+        self.assertEqual(status, 0)
+        self.assertEqual(err, '')
+        self.assertTrue(out.startswith('Android: Qualcomm Technologies'))
+        self.assertIn('kernel:  Lenovo Legion Tab Y700 5th Gen (msm-id <0x295 0x20000>', out)
+        status, _, _ = self.run_ids(ids('other', ['x'], (0x1, 0x10000, 0x295, 0x20000)), KERNEL_IDS)
+        self.assertEqual(status, 0)
+
+    def test_other_soc_is_refused_unless_forced(self):
+        other = ids('Some phone', ['vendor,phone'], (0x1F4, 0x10000))
+        status, out, err = self.run_ids(other, KERNEL_IDS)
+        self.assertEqual((status, out), (2, ''))
+        self.assertIn('not from a TB323FU (SoC id 0x1f4', err)
+        status, out, err = self.run_ids(other, KERNEL_IDS, '--force')
+        self.assertEqual(status, 0)
+        self.assertIn('warning: this devicetree is not from a TB323FU', err)
+        self.assertIn('Android: Some phone', out)
+
+    def test_other_board_warns(self):
+        status, _, err = self.run_ids(ids('x', ['y'], (0x295, 0x20000), (0x10008, 0)), KERNEL_IDS)
+        self.assertEqual(status, 0)
+        self.assertIn('board id differs (Android <0x10008 0x0>, kernel <0x2000b 0x0>)', err)
+
+    def test_devicetree_taken_under_linux_warns(self):
+        status, _, err = self.run_ids(KERNEL_IDS, KERNEL_IDS)
+        self.assertEqual(status, 0)
+        self.assertIn('taken under Linux', err)
+
+    def test_no_ids_warns(self):
+        status, out, err = self.run_ids({}, KERNEL_IDS)
+        self.assertEqual(status, 0)
+        self.assertIn('Android: (no model) (no device ids)', out)
+        self.assertIn('Android side has no qcom,msm-id', err)
 
     def test_unreadable_input(self):
         with tempfile.TemporaryDirectory() as tmp:

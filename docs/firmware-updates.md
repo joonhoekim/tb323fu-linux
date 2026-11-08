@@ -68,6 +68,8 @@ itself, the firmware of the always-on and security processors), and the check be
 `/reserved-memory`) with the one built into a kernel `Image`. Run on 18.0.12.104 and the t58 kernel, shortened:
 
 ```text
+Android: Qualcomm Technologies, Inc. Canoe QRD + ST54L + Pandeiro (msm-id <0x295 0x20000 0x294 0x10000 …>, board-id <0x2000b 0x0>)
+kernel:  Lenovo Legion Tab Y700 5th Gen (msm-id <0x295 0x20000>, board-id <0x2000b 0x0>)
 /memory from the bootloader: 20 ranges, 15607 MiB
 kernel /reserved-memory: 24 regions with a fixed address
 not compared (placed at boot, no fixed address): 16 in Android, 0 in the kernel
@@ -146,6 +148,11 @@ The `diff` shows what the firmware changed; the check shows what that means for 
 | `DIFFERS: overlaps …` | a region the kernel reserves at an address the firmware no longer uses that way: move or resize it |
 | `/memory` ranges differ | expected when regions move; the check above covers what matters |
 
+The first two lines show what was compared. Android's devicetree carries the name of Qualcomm's reference board, not
+Lenovo's; what has to match is the SoC id (the first number of a `qcom,msm-id` pair, `0x295`). A devicetree from
+another device stops the script with exit status 2 (`--force` compares anyway); a different `board-id` only warns,
+and so does a devicetree that looks like the kernel's own (taken under Linux instead of Android).
+
 The script exits with 1 when it finds a `no-map` region exposed or a kernel region that differs. A text map works
 in place of `fdt.dtb`: `tools/fw-memory-check.py firmware/memory-map-zui-18.0.12.104.txt Image-tb323fu-tNN` checks a
 kernel you built against .104.
@@ -182,7 +189,7 @@ add a comment there; otherwise open one with the
 way, with:
 
 - the firmware (`ro.build.display.id`) and the kernel release you checked or tried;
-- `memory-map.txt` and the output of the check (they hold addresses only; do not attach `fdt.dtb` itself, it can
+- `memory-map.txt` and the output of the check (they hold addresses and the SoC and board ids only; do not attach `fdt.dtb` itself, it can
   contain your device's identifiers);
 - what happened: how far the boot got, what the panel showed.
 

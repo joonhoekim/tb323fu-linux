@@ -14,7 +14,8 @@ ordinary RAM for Linux, and a region the kernel reserves at an old address no lo
 docs/firmware-updates.md explains the output.
 
 Inputs are a flattened devicetree (Android's /sys/firmware/fdt, a .dtb), a kernel Image with the devicetree built
-in, or a text map written by --extract.
+in, or a text map written by --extract. Both sides must be for the same SoC (qcom,msm-id at the root): a devicetree
+from another device is refused unless --force is given.
 """
 from __future__ import annotations
 
@@ -167,6 +168,20 @@ class Region:
 class MemoryMap:
     ram: list[Span] = field(default_factory=list)
     regions: list[Region] = field(default_factory=list)
+    model: str = ''
+    compatible: tuple[str, ...] = ()
+    msm_id: tuple[int, ...] = ()
+    board_id: tuple[int, ...] = ()
+
+    @property
+    def soc_ids(self) -> set[int]:
+        """The SoC ids of qcom,msm-id, a list of <soc-id version> pairs."""
+        return set(self.msm_id[::2])
+
+    def describe(self) -> str:
+        ids = [f'{name} {format_cells(value)}' for name, value in (('msm-id', self.msm_id), ('board-id', self.board_id))
+               if value]
+        return f'{self.model or "(no model)"} ({", ".join(ids) or "no device ids"})'
 
     @property
     def fixed(self) -> list[Region]:
@@ -181,11 +196,23 @@ def read_cells(value: bytes | None, default: int) -> int:
     return struct.unpack('>I', value)[0] if value and len(value) == 4 else default
 
 
+def read_words(value: bytes | None) -> tuple[int, ...]:
+    return struct.unpack(f'>{len(value) // 4}I', value[:len(value) // 4 * 4]) if value else ()
+
+
+def read_strings(value: bytes | None) -> tuple[str, ...]:
+    return tuple(s.decode('utf-8', 'replace') for s in (value or b'').split(b'\0') if s)
+
+
+def format_cells(cells: tuple[int, ...]) -> str:
+    return '<' + ' '.join(f'0x{c:x}' for c in cells) + '>'
+
+
 def read_reg(value: bytes | None, address_cells: int, size_cells: int) -> list[Span]:
     """The (address, size) pairs of a reg property; pairs of size 0 are left out."""
     if not value:
         return []
-    words = struct.unpack(f'>{len(value) // 4}I', value[:len(value) // 4 * 4])
+    words = read_words(value)
     step = address_cells + size_cells
     spans = []
     for i in range(0, len(words) - step + 1, step):
@@ -223,21 +250,34 @@ def memory_map_of(nodes: dict[str, Node]) -> MemoryMap:
         flag = 'no-map' if 'no-map' in props else 'reusable' if 'reusable' in props else ''
         spans = read_reg(props.get('reg'), reserved_address_cells, reserved_size_cells)
         regions.append(Region(name, tuple(spans), flag))
-    return MemoryMap(sorted(ram), regions)
+    model = read_strings(root.get('model'))
+    return MemoryMap(sorted(ram), regions, model[0] if model else '', read_strings(root.get('compatible')),
+                     read_words(root.get('qcom,msm-id')), read_words(root.get('qcom,board-id')))
 
 
 def is_enabled(props: Node) -> bool:
     return props.get('status', b'okay\0').rstrip(b'\0') in (b'okay', b'ok')
 
 
-# Text maps (--extract): /memory and /reserved-memory only, nothing that identifies a device
+# Text maps (--extract): the root's model and ids, /memory and /reserved-memory. The ids name the SoC and board
+# type, not a single device.
 
+ID_HEADERS = ('model', 'compatible', 'msm-id', 'board-id')
 RAM_HEADER = '# /memory (from the bootloader)'
 REGIONS_HEADER = '# /reserved-memory: name, ranges, flags (no ranges: placed at boot)'
 
 
 def format_text_map(memory: MemoryMap) -> str:
-    lines = [RAM_HEADER]
+    lines = []
+    if memory.model:
+        lines.append(f'# model: {memory.model}')
+    if memory.compatible:
+        lines.append(f'# compatible: {" ".join(memory.compatible)}')
+    if memory.msm_id:
+        lines.append(f'# msm-id: {format_cells(memory.msm_id)}')
+    if memory.board_id:
+        lines.append(f'# board-id: {format_cells(memory.board_id)}')
+    lines.append(RAM_HEADER)
     lines += [f'{span} {span.size / MIB:10.2f} MiB' for span in memory.ram]
     lines.append(REGIONS_HEADER)
     for region in memory.fixed + memory.placed_at_boot:
@@ -250,7 +290,16 @@ def parse_text_map(text: str) -> MemoryMap:
     memory = MemoryMap()
     section = None
     for number, line in enumerate(text.splitlines(), 1):
-        if line.startswith('# /memory'):
+        key, colon, value = line.removeprefix('# ').partition(':')
+        if line.startswith('# ') and colon and key in ID_HEADERS:
+            value = value.strip()
+            if key == 'model':
+                memory.model = value
+            elif key == 'compatible':
+                memory.compatible = tuple(value.split())
+            else:
+                setattr(memory, key.replace('-', '_'), parse_cells(value, number))
+        elif line.startswith('# /memory'):
             section = 'ram'
         elif line.startswith('# /reserved-memory'):
             section = 'regions'
@@ -266,6 +315,13 @@ def parse_text_map(text: str) -> MemoryMap:
         else:
             raise InputError(f'line {number}: text before the "{RAM_HEADER}" line')
     return memory
+
+
+def parse_cells(text: str, line_number: int) -> tuple[int, ...]:
+    try:
+        return tuple(int(word, 16) for word in text.strip('<> ').split())
+    except ValueError:
+        raise InputError(f'line {line_number}: "{text}" is not a cell list like <0x295 0x20000>') from None
 
 
 def parse_span(word: str, line_number: int) -> Span:
@@ -402,6 +458,8 @@ def span_column(span: Span) -> str:
 def report(result: Comparison) -> str:
     android, kernel = result.android, result.kernel
     lines = [
+        f'Android: {android.describe()}',
+        f'kernel:  {kernel.describe()}',
         f'/memory from the bootloader: {len(android.ram)} ranges, {sum(s.size for s in android.ram) / MIB:.0f} MiB',
         f'kernel /reserved-memory: {len(kernel.fixed)} regions with a fixed address',
         f'not compared (placed at boot, no fixed address): {len(android.placed_at_boot)} in Android, '
@@ -436,16 +494,39 @@ def report(result: Comparison) -> str:
     return '\n'.join(lines) + '\n'
 
 
+def device_mismatch(android: MemoryMap, kernel: MemoryMap) -> str:
+    if android.soc_ids and kernel.soc_ids and not android.soc_ids & kernel.soc_ids:
+        socs = ', '.join(f'0x{i:x}' for i in sorted(android.soc_ids))
+        return f'this devicetree is not from a TB323FU (SoC id {socs}, the kernel has 0x{min(kernel.soc_ids):x})'
+    return ''
+
+
+def device_warnings(android: MemoryMap, kernel: MemoryMap) -> list[str]:
+    warnings = []
+    if not android.msm_id:
+        warnings.append('the Android side has no qcom,msm-id, so it cannot be checked to be from a TB323FU')
+    if not kernel.msm_id:
+        warnings.append('the kernel side has no qcom,msm-id, so the SoC check is skipped')
+    if android.compatible and android.compatible == kernel.compatible:
+        warnings.append("the Android side has the kernel's own compatible: was it taken under Linux? "
+                        "/sys/firmware/fdt has to come from Android")
+    if android.board_id and kernel.board_id and android.board_id != kernel.board_id:
+        warnings.append(f'board id differs (Android {format_cells(android.board_id)}, '
+                        f'kernel {format_cells(kernel.board_id)})')
+    return warnings
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='exit status: 0 no problem found, 1 a no-map region exposed or a kernel region that differs, '
-               '2 unreadable input')
+               '2 unreadable input or a devicetree from another SoC')
     parser.add_argument('android', type=Path, help="Android's devicetree (/sys/firmware/fdt) or a text map")
     parser.add_argument('kernel', type=Path, nargs='?',
                         help='kernel Image (gunzipped), its .dtb, or a text map; leave out with --extract')
     parser.add_argument('--extract', type=Path, metavar='OUT.txt',
-                        help="write the Android side's /memory and /reserved-memory as text (for an issue)")
+                        help="write the Android side's ids, /memory and /reserved-memory as text (for an issue)")
+    parser.add_argument('--force', action='store_true', help='compare even when the SoC ids do not match')
     args = parser.parse_args(argv)
     if args.kernel is None and args.extract is None:
         parser.error('give a kernel to compare with, or --extract')
@@ -460,6 +541,14 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, InputError) as error:
         print(f'{parser.prog}: {error}', file=sys.stderr)
         return 2
+
+    problem = device_mismatch(android, kernel)
+    if problem and not args.force:
+        print(f'{parser.prog}: {problem}; --force compares anyway', file=sys.stderr)
+        return 2
+    for warning in [problem] + device_warnings(android, kernel):
+        if warning:
+            print(f'{parser.prog}: warning: {warning}', file=sys.stderr)
 
     result = compare(android, kernel)
     sys.stdout.write(report(result))

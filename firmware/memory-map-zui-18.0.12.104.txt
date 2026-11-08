@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: MIT
-# ZUI 18.0.12.104 (ROW, 16 GB): /memory and /reserved-memory of the devicetree Android boots with
+# ZUI 18.0.12.104 (ROW, 16 GB): root ids, /memory and /reserved-memory of the devicetree Android boots with
 # made by tools/fw-memory-check.py --extract from /sys/firmware/fdt
+# model: Qualcomm Technologies, Inc. Canoe QRD + ST54L + Pandeiro
+# compatible: qcom,canoe-qrd qcom,canoe qcom,canoep-cdp qcom,canoep qcom,qrd
+# msm-id: <0x295 0x20000 0x294 0x10000 0x294 0x20000 0x1000294 0x10000 0x295 0x10000 0x1000295 0x10000 0x1000294 0x20000 0x1000295 0x20000>
+# board-id: <0x2000b 0x0>
 # /memory (from the bootloader)
 0x0081960000-0x0081a00000       0.62 MiB
 0x0081a60000-0x0081c00000       1.62 MiB
