@@ -15,7 +15,7 @@ The series by subsystem. Origin, author and status of each patch: [PROVENANCE.md
 | Power, charging, ADC | 0033, 0107, 0132 (qcom_battmgr), 0039 (PMIC5 Gen4 ADC) |
 | Audio | 0034, 0035, 0037 (ASoC), 0075-0077 (GPR/APM); the amplifier driver is [out of tree](#out-of-tree-module) |
 | Camera | 0013-0018 (CSI2 PHY, linux-next), 0040, 0042, 0043 (CAMSS), 0041, 0045 (sensors), 0044 (CCI pull-up), 0047 (focus motor), 0063, 0064, 0074 (camera PLL), 0116 |
-| Video (iris) | 0084-0095, 0111, 0112 |
+| Video (iris) | 0084-0095, 0111, 0112, 0206 (no internal buffer in the IOVA range the firmware cannot address; 8K HEVC 10-bit used to reset the tablet) |
 | GPU | 0001-0006 (GPU DT, queued for v7.4), 0010 and its revert 0080 |
 | CPU idle and capacity | 0031, 0106, 0118 (PSCI domains and cluster idle), 0117 (capacity-dmips-mhz) |
 | Thermal | 0108 |

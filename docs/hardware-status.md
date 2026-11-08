@@ -73,7 +73,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 | Vulkan (turnip) | ✅ | measured | Vulkan 1.4; SteamOS's gamescope runs on it; numbers with Debian's Mesa and the project's Mesa build in [Performance](performance.md#gpu) |
 | GPU compute, OpenCL (rusticl) | ✅ | measured | with the project's Mesa build from the helper; Debian's Mesa is much slower. Numbers in [Performance](performance.md#gpu) |
 | Video decode H.264 / HEVC / VP9 / AV1 (iris) | ✅ | measured | output bit-exact against software decoders, 1080p and 4K; at 8K (7680×4320) HEVC, VP9 and AV1 are bit-exact, H.264 stops after 2 of 30 frames |
-| Video decode 10-bit (HEVC Main10, VP9 profile 2, AV1 Main 10-bit) | ✅ | measured | bit-exact, 1080p and 4K; needs this project's iris line-buffer fix. At 8K, AV1 10-bit is bit-exact, but **HEVC Main10 at 8K crashes the tablet** (the video codec hangs the bus; the tablet resets): avoid 8K HEVC 10-bit files |
+| Video decode 10-bit (HEVC Main10, VP9 profile 2, AV1 Main 10-bit) | ✅ | measured | bit-exact, 1080p and 4K; needs this project's iris line-buffer fix. At 8K, AV1 10-bit is bit-exact, but HEVC Main10 at 8K does not decode: with kernels up to `kernel-t60` it **resets the tablet** (an internal buffer lands in the IOVA range the codec's firmware stream cannot address); patch 0206 (upstream) keeps buffers out of that range, and the decode then fails cleanly for lack of IOVA space |
 | Video encode H.264 / HEVC (8-bit) | ✅ | measured | NV12 input; up to 4K (at 8K, H.264 gives broken output and HEVC none). 10-bit (HEVC Main10) is not possible yet: the driver takes no 10-bit input format |
 | AV1 in applications | — | untested | the driver works, but Debian's GStreamer 1.26 and FFmpeg 7.1 have no stateful V4L2 AV1 decoder; newer distributions not tried |
 | Browser hardware video decode | — | untested | Firefox does not use V4L2 stateful decoders |
@@ -147,7 +147,7 @@ script drives the feature. A kernel change resets confidence: after a large reba
 
 - **CPU cluster idle state left out of runtime idle** (patch 0118): with it the tablet reset when idle, without an error message. Leaving it out avoids that at the same idle power; the cause in the cluster's power-down path is not fixed, and suspend still uses the state (knob: `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off`).
 - **DisplayPort MST only in the testing release `kernel-t60`** (0157-0205): with the stable release, monitors that need MST for "extend" only mirror. Install it with the Testing channel or `tb323fu-ctl kernel install kernel-t60`.
-- **8K HEVC 10-bit video crashes the tablet**: hardware decoding of an 8K (7680×4320) HEVC Main10 stream hangs the video codec and the tablet resets. 8K 8-bit HEVC, VP9 and AV1 (also 10-bit) decode fine; H.264 and encoding do not work at 8K.
+- **8K HEVC 10-bit video resets the tablet with `kernel-t60` and older**: hardware decoding of an 8K (7680×4320) HEVC Main10 stream puts an internal buffer where the codec cannot address it. Patch 0206 (in the next kernel) turns this into a clean decode error; 8K HEVC 10-bit still does not decode. 8K 8-bit HEVC, VP9 and AV1 (also 10-bit) decode fine; H.264 and encoding do not work at 8K.
 - **Bypass charging** works; with the Charge Limit method the kernel battery `status` still reads "Charging" and the charger drops to 5 V (the Charge Current method keeps 9 V).
 - **Charging can stop below the limit**: the firmware stops at 5 V and resumes only when the limit is moved below the current charge and back; the helper's Restart Stalled Charging does this automatically. Cause not found.
 - **Modem**: a stalled modem start resets the whole SoC, so rmtfs and tqftpserv stay masked on every root (see [distros.md](distros.md)).
@@ -192,7 +192,7 @@ Sources: Lenovo PSREF "Legion Tab (8.8", 5)" and datasheet, Qualcomm Snapdragon 
 |---|---|---|
 | Display | 8.8" 3040×1904, up to 165 Hz, HBM 800 nit, HDR | 120 / 90 / 60 / 30 / 144 Hz and 165 (as 164) ✅; HBM ✅ (the top brightness is the HBM LED current), HDR untested |
 | External display | USB-C DisplayPort; SoC up to 4K 120 / 8K 30 | 5120×2160 75 Hz, 4 lanes HBR3 ✅; MST 🟡 (two 1920×1200, development kernel) |
-| Video decode | H.264, H.265, VP9, AV1, 10-bit | all ✅ in the driver (1080p and 4K); 8K ✅ for HEVC, VP9, AV1 (8- and 10-bit), ❌ for H.264, and 8K HEVC 10-bit crashes |
+| Video decode | H.264, H.265, VP9, AV1, 10-bit | all ✅ in the driver (1080p and 4K); 8K ✅ for HEVC 8-bit, VP9, AV1 (8- and 10-bit), ❌ for H.264 and HEVC 10-bit |
 | Video encode | HEVC 10-bit | H.264 / HEVC 8-bit ✅ up to 4K; 10-bit ❌ (no 10-bit input in the driver) |
 | GPU | GLES 3.2, Vulkan 1.3, OpenCL 3.0 | GL ✅, Vulkan ✅, OpenCL ✅ (the project's Mesa build) |
 | NPU | Hexagon NPU | QNN and llama.cpp run ✅ |
