@@ -1,7 +1,8 @@
 # Audio topology
 
 `LENOVO-TB323FU-tplg.bin` tells the audio DSP's driver (`q6apm`) which graphs exist: the speaker path Android uses
-(LPASS primary MI2S, both aw882xx amplifiers on SD1) and the microphones. Without it the sound card does not appear
+(LPASS primary MI2S, both aw882xx amplifiers on SD1), the microphones, and DisplayPort audio on the USB-C
+output (MultiMedia3, `hw:CARD,2`; the device tree link is kernel patch 0207). Without it the sound card does not appear
 (`qcom-apm … tplg firmware loading qcom/kaanapali/LENOVO-TB323FU-tplg.bin failed -2`).
 
 Unlike the rest of the firmware it is not Lenovo's: it is built here from
@@ -13,7 +14,7 @@ directory it builds the root from; by hand, see [install-manual.md](../../docs/i
 To build it again (needs `m4` and `alsatplg` from alsa-utils):
 
 ```sh
-git clone https://github.com/linux-msm/audioreach-topology
+git clone https://github.com/linux-msm/audioreach-topology   # the .bin here is reproduced byte for byte at d6bb205
 cp firmware/audio/LENOVO-TB323FU.m4 audioreach-topology/
 cp firmware/audio/subgraph-device-i2s-mfc-playback.m4 audioreach-topology/audioreach/
 cd audioreach-topology

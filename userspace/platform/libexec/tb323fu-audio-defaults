@@ -15,6 +15,9 @@ set_ctl 'PRIMARY_MI2S_RX Audio Mixer MultiMedia1' on
 set_ctl aw_dev_0_volume "$SPEAKER_ATTEN"
 set_ctl aw_dev_1_volume "$SPEAKER_ATTEN"
 
+# DisplayPort: MultiMedia3 -> DISPLAY_PORT_RX_0 (hw:CARD,2)
+set_ctl 'DISPLAY_PORT_RX_0 Audio Mixer MultiMedia3' on
+
 # Microphones, as Android's speaker-mic path: AMIC1 -> WCD ADC1 -> TX DEC0,
 # AMIC4 -> ADC3 -> DEC1, into MultiMedia2 (hw:CARD,1). ADC1-4 share WCD TX
 # port 1, whose ADCn Switch controls read back per port, so a restored mixer

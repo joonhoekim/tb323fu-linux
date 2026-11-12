@@ -41,6 +41,27 @@ STREAM_DEVICE_PLAYBACK_MIXER(PRIMARY_MI2S_RX, ``PRIMARY_MI2S_RX'', ``MultiMedia1
 STREAM_DEVICE_PLAYBACK_ROUTE(PRIMARY_MI2S_RX, ``PRIMARY_MI2S_RX Audio Mixer'', ``MultiMedia1, stream0.logger1'')
 
 #
+# DisplayPort audio: MultiMedia3 playback to DISPLAY_PORT_RX_0 (the first
+# stream of the USB-C DisplayPort output). From
+# MAHUA-LENOVO-ThinkPad-T14s-Gen7.m4, with instance IDs that do not clash
+# with the speaker path above.
+#
+dnl Playback MultiMedia3
+STREAM_SG_PCM_ADD(audioreach/subgraph-stream-vol-playback.m4, FRONTEND_DAI_MULTIMEDIA3,
+	`S16_LE', 48000, 48000, 2, 2,
+	0x00004002, 0x00004002, 0x00006030, `110000')
+dnl
+dnl DisplayPort 0 Playback
+DEVICE_SG_ADD(audioreach/subgraph-device-display-port-playback.m4, `DISPLAY_PORT_RX_0', DISPLAY_PORT_RX_0,
+	`S16_LE', 48000, 48000, 2, 2,
+	LPAIF_INTF_TYPE_LPAIF, 0, 0, DATA_FORMAT_FIXED_POINT,
+	0x00004007, 0x00004007, 0x00006070, `DISPLAY_PORT_RX_0')
+dnl
+
+STREAM_DEVICE_PLAYBACK_MIXER(DISPLAY_PORT_RX_0, ``DISPLAY_PORT_RX_0'', ``MultiMedia3'')
+STREAM_DEVICE_PLAYBACK_ROUTE(DISPLAY_PORT_RX_0, ``DISPLAY_PORT_RX_0 Audio Mixer'', ``MultiMedia3, stream2.logger1'')
+
+#
 # Microphones: MultiMedia2 capture from the WCD9395's ADCs through the
 # TX macro, CODEC_DMA-LPAIF_RXTX-TX-3 as on Android. From SM8550-HDK.m4.
 #
