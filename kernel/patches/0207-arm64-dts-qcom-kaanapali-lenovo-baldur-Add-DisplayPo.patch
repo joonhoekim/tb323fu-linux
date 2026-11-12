@@ -1,0 +1,47 @@
+From 8d7a0ec86bdfeb2deaf4241af0a010dc10059e2f Mon Sep 17 00:00:00 2001
+From: sotiomake <vitalo233@gmail.com>
+Date: Fri, 13 Nov 2026 00:08:16 +0900
+Subject: [PATCH] arm64: dts: qcom: kaanapali-lenovo-baldur: Add DisplayPort
+ audio
+
+Link the DisplayPort controller to the DISPLAY_PORT_RX_0 backend of the
+AudioReach DSP, so that the sound card gets a DisplayPort playback path
+(MultiMedia3 in the board topology) next to the speakers.
+
+Signed-off-by: sotiomake <vitalo233@gmail.com>
+[jk: sound-dai = <&mdss_dp0> without an argument, it has no DAI cells]
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ arch/arm64/boot/dts/qcom/baldur-audio.dtsi | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/baldur-audio.dtsi b/arch/arm64/boot/dts/qcom/baldur-audio.dtsi
+index f9ab99f3b..8160e3f93 100644
+--- a/arch/arm64/boot/dts/qcom/baldur-audio.dtsi
++++ b/arch/arm64/boot/dts/qcom/baldur-audio.dtsi
+@@ -152,6 +152,22 @@ platform {
+ 				sound-dai = <&q6apm>;
+ 			};
+ 		};
++
++		dp0-dai-link {
++			link-name = "DisplayPort Playback";
++
++			codec {
++				sound-dai = <&mdss_dp0>;
++			};
++
++			cpu {
++				sound-dai = <&q6apmbedai DISPLAY_PORT_RX_0>;
++			};
++
++			platform {
++				sound-dai = <&q6apm>;
++			};
++		};
+ 	};
+ };
+ 
+-- 
+2.53.0
+
