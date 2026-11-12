@@ -1,0 +1,25 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# tb323fu-dsp -- start the ADSP and CDSP (tb323fu-dsp.service). A DSP whose
+# firmware is not installed is skipped; one that is already running is left
+# alone.
+fw=/lib/firmware/qcom/kaanapali/lenovo/baldur
+rc=0
+for want in adsp cdsp; do
+	if [ ! -f "$fw/$want.mbn" ]; then
+		echo "$want: no firmware, skipped"
+		continue
+	fi
+	found=
+	for r in /sys/class/remoteproc/remoteproc*; do
+		[ -f "$r/name" ] || continue
+		read -r name < "$r/name"
+		[ "$name" = "$want" ] || continue
+		found=1
+		read -r state < "$r/state"
+		[ "$state" = running ] && break
+		echo start > "$r/state" || rc=1
+	done
+	[ -n "$found" ] || echo "no $want remoteproc"
+done
+exit $rc
