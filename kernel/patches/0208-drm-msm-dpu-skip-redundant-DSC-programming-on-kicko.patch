@@ -1,0 +1,163 @@
+From b72a6c11bd973acc88803be290031520cba0fb15 Mon Sep 17 00:00:00 2001
+From: li-yiyang <yiyang.li.11pro@outlook.com>
+Date: Thu, 12 Nov 2026 23:25:52 +0800
+Subject: [PATCH] drm/msm/dpu: skip redundant DSC programming on kickoff
+
+dpu_encoder_prep_dsc() is called for every kickoff and unconditionally
+rewrites the DSC registers and sets the DSC flush bit in CTL_FLUSH. On
+the TB323FU panel running DSC at 164 Hz, the bit occasionally does not
+clear within the 50 ms timeout in
+dpu_encoder_phys_vid_wait_for_commit_done(), so the atomic commit fails
+and userspace drops the frame.
+
+Cache the programmed configuration, the DSC/pingpong indices and the
+CTL, and only call dpu_encoder_dsc_pipe_cfg() when one of them changes.
+Invalidate the cache on encoder enable, hardware reset and DSC
+unprepare, which clear or reprogram the hardware.
+
+The cache key compares the whole struct drm_dsc_config. Padding bytes
+can cause a spurious mismatch, but that only results in an extra
+programming pass and never in a false match.
+
+Signed-off-by: li-yiyang <yiyang.li.11pro@outlook.com>
+---
+ drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c | 78 +++++++++++++++++++++
+ 1 file changed, 78 insertions(+)
+
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
+index 1206b8d81..2f3be70c7 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
+@@ -14,6 +14,7 @@
+ #include <linux/moduleparam.h>
+ #include <linux/suspend.h>
+ #include <linux/seq_file.h>
++#include <linux/string.h>
+ 
+ #include <drm/drm_atomic.h>
+ #include <drm/drm_crtc.h>
+@@ -218,6 +219,14 @@ struct dpu_encoder_virt {
+ 
+ 	/* DSC configuration */
+ 	struct drm_dsc_config *dsc;
++	struct drm_dsc_config dsc_config;
++	bool dsc_configured;
++	int dsc_common_mode;
++	u32 dsc_initial_lines;
++	int dsc_num;
++	int dsc_idx[MAX_CHANNELS_PER_ENC];
++	int pp_idx[MAX_CHANNELS_PER_ENC];
++	int dsc_ctl_idx;
+ 
+ 	/* idle refresh (vertical totals of the DSI video interface) */
+ 	struct drm_display_mode idle_refresh_base_mode;	/* the committed mode */
+@@ -1375,6 +1384,49 @@ static void dpu_encoder_update_ppb_size(struct dpu_encoder_virt *dpu_enc,
+ static void idle_refresh_enable(struct dpu_encoder_virt *e, const struct drm_display_mode *mode);
+ static void idle_refresh_disable(struct dpu_encoder_virt *e);
+ 
++static void dpu_encoder_dsc_invalidate(struct dpu_encoder_virt *dpu_enc)
++{
++	dpu_enc->dsc_configured = false;
++	dpu_enc->dsc_num = 0;
++}
++
++static bool dpu_encoder_dsc_config_matches(struct dpu_encoder_virt *dpu_enc,
++					   struct drm_dsc_config *dsc,
++					   struct dpu_hw_dsc *hw_dsc[],
++					   struct dpu_hw_pingpong *hw_pp[],
++					   int num_dsc,
++					   int dsc_common_mode,
++					   u32 initial_lines,
++					   int ctl_idx)
++{
++	int i;
++
++	if (!dpu_enc->dsc_configured)
++		return false;
++
++	if (dpu_enc->dsc_num != num_dsc ||
++	    dpu_enc->dsc_common_mode != dsc_common_mode ||
++	    dpu_enc->dsc_initial_lines != initial_lines ||
++	    dpu_enc->dsc_ctl_idx != ctl_idx)
++		return false;
++
++	/*
++	 * Padding bytes can make this report a difference when the actual
++	 * configuration is unchanged; that only causes an extra programming
++	 * pass, never a false match.
++	 */
++	if (memcmp(&dpu_enc->dsc_config, dsc, sizeof(*dsc)) != 0)
++		return false;
++
++	for (i = 0; i < num_dsc; i++) {
++		if (dpu_enc->dsc_idx[i] != hw_dsc[i]->idx ||
++		    dpu_enc->pp_idx[i] != hw_pp[i]->idx)
++			return false;
++	}
++
++	return true;
++}
++
+ static void dpu_encoder_virt_atomic_enable(struct drm_encoder *drm_enc,
+ 					struct drm_atomic_commit *state)
+ {
+@@ -1384,6 +1436,7 @@ static void dpu_encoder_virt_atomic_enable(struct drm_encoder *drm_enc,
+ 
+ 	dpu_enc = to_dpu_encoder_virt(drm_enc);
+ 	dpu_enc->dsc = dpu_encoder_get_dsc_config(drm_enc);
++	dpu_encoder_dsc_invalidate(dpu_enc);
+ 
+ 	atomic_set(&dpu_enc->frame_done_timeout_cnt, 0);
+ 
+@@ -2141,9 +2194,31 @@ static void dpu_encoder_prep_dsc(struct dpu_encoder_virt *dpu_enc,
+ 	initial_lines = dpu_encoder_dsc_initial_line_calc(dsc, enc_ip_w,
+ 							  dsc_common_mode);
+ 
++	/*
++	 * Re-arming the DSC registers and the CTL DSC flush bit on every
++	 * kickoff can leave the DSC bit set in CTL_FLUSH and make
++	 * dpu_encoder_phys_vid_wait_for_commit_done() time out. Only program
++	 * DSC when its configuration or the target hardware changed.
++	 */
++	if (dpu_encoder_dsc_config_matches(dpu_enc, dsc, hw_dsc, hw_pp,
++					   num_dsc, dsc_common_mode,
++					   initial_lines, ctl->idx))
++		return;
++
+ 	for (i = 0; i < num_dsc; i++)
+ 		dpu_encoder_dsc_pipe_cfg(ctl, hw_dsc[i], hw_pp[i],
+ 					 dsc, dsc_common_mode, initial_lines);
++
++	dpu_enc->dsc_config = *dsc;
++	dpu_enc->dsc_common_mode = dsc_common_mode;
++	dpu_enc->dsc_initial_lines = initial_lines;
++	dpu_enc->dsc_num = num_dsc;
++	dpu_enc->dsc_ctl_idx = ctl->idx;
++	for (i = 0; i < num_dsc; i++) {
++		dpu_enc->dsc_idx[i] = hw_dsc[i]->idx;
++		dpu_enc->pp_idx[i] = hw_pp[i]->idx;
++	}
++	dpu_enc->dsc_configured = true;
+ }
+ 
+ /**
+@@ -2693,6 +2768,7 @@ void dpu_encoder_prepare_for_kickoff(struct drm_encoder *drm_enc)
+ 		for (i = 0; i < dpu_enc->num_phys_encs; i++) {
+ 			dpu_encoder_helper_hw_reset(dpu_enc->phys_encs[i]);
+ 		}
++		dpu_encoder_dsc_invalidate(dpu_enc);
+ 	}
+ 
+ 	if (dpu_enc->dsc)
+@@ -2847,6 +2923,8 @@ static void dpu_encoder_unprep_dsc(struct dpu_encoder_virt *dpu_enc)
+ 		if (hw_pp[i] && hw_dsc[i])
+ 			dpu_encoder_dsc_pipe_clr(ctl, hw_dsc[i], hw_pp[i]);
+ 	}
++
++	dpu_encoder_dsc_invalidate(dpu_enc);
+ }
+ 
+ /**
+-- 
+2.53.0
+

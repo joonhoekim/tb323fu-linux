@@ -224,6 +224,7 @@ Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped 
 | `0205` | drm/msm/dp: ignore sink requests from IRQ_HPD while the link is down | Joonhoe Kim | this project (on top of the IRQ_HPD events v8 and MST v7 series) | local; fix for IRQ_HPD events v8, to report upstream | `743476e880631af8` |
 | `0206` | media: iris: Fix iova allocation from restrict region | Vishnu Reddy | upstream `200473c198b2` ([lore](https://lore.kernel.org/all/20260818-reserve_iova_in_driver-v2-1-5005a1154408@oss.qualcomm.com/)), from the 7.3-stable queue | backport; drop when 7.3.y has it | `b504fe3eed372b11` |
 | `0207` | arm64: dts: qcom: kaanapali-lenovo-baldur: Add DisplayPort audio | sotiomake | PR #49, `[jk: …]` fix by this project | local | `8326550d389fe943` |
+| `0208` | drm/msm/dpu: skip redundant DSC programming on kickoff | li-yiyang | this project | local; fixes DPU commit-done timeouts on the 164 Hz DSC mode | `47da3e2f30ab9eaa` |
 
 ## Out-of-tree
 
