@@ -18,10 +18,10 @@ column names the source; see that tree's history for the individual authors.
 
 ## Patches
 
-0208 is held for pull request #58. Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
+0208 is held for pull request #58. Numbers 0067-0071, 0135, 0136, 0140 and 0149 are free (0135, 0136 and 0149 were the earlier versions of 0212 and 0213): those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114, 0116-0119, 0128-0139, 0141-0156 and 0200-0203, 0205 and 0210 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
+0111-0114, 0116-0119, 0128-0139, 0141-0156 and 0200-0203, 0205, 0210, 0212 and 0213 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -153,8 +153,6 @@ column names the source; see that tree's history for the individual authors.
 | `0132` | power: supply: qcom_battmgr: expose the charge current limit | Joonhoe Kim | this project | sent upstream 2026-10-16 (2/2 with 0107; the posted version names the properties charge_control_limit and charge_control_limit_max, [lore](https://lore.kernel.org/all/20261016124806.1789-2-26rote@gmail.com/)) | `4d91da7fe124553f` |
 | `0133` | phy: qcom: qmp-combo: Leave the USB PCS alone in DP-only mode | Joonhoe Kim | this project | sent upstream (v3 for phy-next, 2026-11-03, [lore](https://lore.kernel.org/all/20261103135051.1668-1-26rote@gmail.com/); this file is the v7.3 version) | `479f6b426bba70d1` |
 | `0134` | usb: typec: mux: fsa4480: keep the USB 2.0 switch on in DP-only modes | Joonhoe Kim | this project | upstream (usb `usb-linus`, [lore](https://lore.kernel.org/all/20261022165143.1327-1-26rote@gmail.com/)) | `fbeb2dee06db7008` |
-| `0135` | dt-bindings: usb: qcom,snps-dwc3: Add mode-switch | Joonhoe Kim | this project | upstream candidate (with 0136 and the kaanapali.dtsi `mode-switch` on the controller) | `c20c71bcef2d89f7` |
-| `0136` | usb: dwc3: qcom: Use the UTMI clock as PIPE clock in DisplayPort-only modes | Joonhoe Kim | this project | upstream candidate | `fda21dc98c794d1d` |
 | `0137` | drm/msm/dp: Don't redo the plug handling for a sink that is set up | Joonhoe Kim | this project | local: overlaps DisplayPort series under review upstream | `819ebe5e8eb4019d` |
 | `0138` | arm64: dts: qcom: kaanapali: Mark the USB3-DP PHY as a Type-C mode switch | Joonhoe Kim | this project | local: Balaji Kalkonda's "arm64: dts: qcom: kaanapali: Add DisplayPort controller" v2 3/5 adds the same property | `939a0aefc12d2cd4` |
 | `0139` | arm64: dts: qcom: baldur: Four-lane HBR3 DisplayPort | Joonhoe Kim | this project | local (board device tree: four-lane HBR3 DisplayPort) | `71840cf5f71c19fb` |
@@ -166,7 +164,6 @@ column names the source; see that tree's history for the individual authors.
 | `0146` | input: nt36536: report the pen pressure range 0..4095 | Joonhoe Kim | this project | local (Lenovo Tab Pen Plus, issue #16) | `d6a9beb22c7d422b` |
 | `0147` | usb: typec: ucsi: Leave the mux to the altmode driver for alt mode partners | Joonhoe Kim | this project | upstream candidate | `7353ccb93231c5ec` |
 | `0148` | arm64: configs: baldur: drop no_console_suspend from the command line | Joonhoe Kim | this project | local | `bd9ca58e00dadbfa` |
-| `0149` | usb: dwc3: qcom: Leave DP-only mode from the mux callback | Joonhoe Kim | this project | on top of 0136; same behaviour as v2 sent upstream (2026-11-03, [lore](https://lore.kernel.org/all/20261103135057.1682-1-26rote@gmail.com/)) | `fb3f6ce16e9f81a3` |
 | `0150` | drm/msm/dp: Track the PHY power and link clock state | Joonhoe Kim | this project, based on Xilin Wu's msm-dp-hdr10 v2 08/20 and part of 09/20 ([lore](https://lore.kernel.org/all/20261009-msm-dp-hdr10-v2-8-1835d4966da3@radxa.com/), not merged) | local | `03f6d92dd65c8f0f` |
 | `0151` | drm/msm/dp: Release the PHY init when the link is not powered | Joonhoe Kim | this project | upstream candidate | `3c06f42319c69716` |
 | `0152` | mmc: sd: Keep the card when its extension registers fail | Joonhoe Kim | this project, fix suggested by the reporter of [#26](https://github.com/joonhoekim/tb323fu-linux/issues/26) | upstream candidate | `5fc19deafa742e07` |
@@ -226,6 +223,9 @@ column names the source; see that tree's history for the individual authors.
 | `0207` | arm64: dts: qcom: kaanapali-lenovo-baldur: Add DisplayPort audio | sotiomake | PR #49, `[jk: …]` fix by this project | local | `8326550d389fe943` |
 | `0209` | wifi: ath12k: Support MAC address from the firmware node | Abel Vesa | RFC 4/5 of "nvmem: Add a UEFI variable backed NVMEM provider" ([lore](https://lore.kernel.org/all/20261014-b4-nvmem-efivar-v1-4-187c85f65018@oss.qualcomm.com/)), with the review fixes in `[jk: …]` | upstream RFC; drop when ath12k reads the firmware node | `da66da79a4088801` |
 | `0210` | wifi: ath12k: baldur: take the permanent MAC address from a module parameter | Joonhoe Kim | this project (issue #56) | local; `tb323fu-gen-ids` writes `ath12k.macaddr` | `eea9e67251c4e1b6` |
+| `0211` | usb: dwc3: qcom: Restore UTMI PIPE clock on resume | Filippo Falezza | [lore](https://lore.kernel.org/all/20261027-dwc3-utmi-resume-v1-1-ca9f0aa65783@gmail.com/) | upstream review; prerequisite of 0213 | `5035f1b0d1b68f71` |
+| `0212` | dt-bindings: usb: qcom,snps-dwc3: Add mode-switch | Joonhoe Kim | this project | sent upstream (v4, 2026-11-19, [lore](https://lore.kernel.org/all/20261119124558.1548-1-26rote@gmail.com/)), Reviewed-by Krzysztof | `dbfd9ace4d328ec3` |
+| `0213` | usb: dwc3: qcom: Use the UTMI clock as PIPE clock in DisplayPort-only modes | Joonhoe Kim | this project | sent upstream (v4, 2026-11-19, same series) | `4cdd34de7561a13c` |
 
 ## Out-of-tree
 
