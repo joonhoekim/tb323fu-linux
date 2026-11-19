@@ -94,7 +94,10 @@ driver part in [Connecting a device](https://miner7222.github.io/ltbox/en/connec
 1. Unpack the LTBox zip to a path **without spaces or special characters** and run `ltbox.exe` (or install it with
    Scoop, as LTBox's documentation describes; not used here).
 2. On first start the dashboard offers to install the **Qualcomm USB driver**. Install it and **reboot the PC**.
-   Afterwards the tablet in EDL shows up as "Qualcomm HS-USB QDLoader 9008".
+   Afterwards the tablet in EDL shows up as "Qualcomm HS-USB QDLoader 9008". If a scan in EDL fails with
+   `Sahara HELLO timed out … Received unsuccessful End of Image packet`, set LTBox → Settings → Qualcomm USB driver
+   to Userspace and try again (needed on one PC,
+   [#57](https://github.com/joonhoekim/tb323fu-linux/discussions/57)).
 3. Install platform-tools (`adb`) and put it on `PATH`.
 4. Get the firmware package with Lenovo Software Fix ([below](#get-the-firmware-package)) and close Software Fix
    completely before starting LTBox.

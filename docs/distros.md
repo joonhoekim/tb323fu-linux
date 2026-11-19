@@ -124,6 +124,11 @@ sudo nixos-rebuild switch --flake ~/nixos-config#tb323fu-nixos
   `steamosctl switch-to-desktop-mode` brings Gaming Mode back: SDDM logs in again without taking the temporary
   Plasma session the manager writes. The older release (v1.3-odin3-beta1, withdrawn) switched both ways on the
   development tablet.
+- **SteamOS, touch in games that only take a mouse:** the port's session starts gamescope with
+  `--default-touch-mode 4` (passthrough), so a game under Proton shows a cursor that follows the finger but gets no
+  click. Setting `STEAM_TOUCH_CLICK_MODE` to 1 on the root window makes taps click, but touch in Steam's own interface
+  then behaves like a mouse until the session restarts. A controller avoids it (reported in
+  [#57](https://github.com/joonhoekim/tb323fu-linux/discussions/57)).
 - No SELinux in the kernel (Fedora runs with the config set to permissive).
 - Fedora: x86 binaries go through FEX only if `qemu-user-static-x86` is not installed (its binfmt entry wins; the
   builder excludes it).

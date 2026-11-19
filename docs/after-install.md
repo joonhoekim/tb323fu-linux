@@ -181,7 +181,7 @@ tablet's table: the backup contains your device's unique GUIDs. A complete facto
 | Symptom | Where to look |
 |---|---|
 | the install script stops or fails | [Installing from Windows → Troubleshooting](install-windows.md#troubleshooting) (most entries apply on every PC) |
-| Linux does not start, or hangs before the desktop | hold volume up + volume down 10 s for Android; then [Recovery → Linux does not boot](recovery.md#linux-does-not-boot) |
+| Linux does not start, or hangs before the desktop | hold volume up + volume down 10 s for Android (once the boot summary is on the screen; a hang before it needs EDL); then [Recovery → Linux does not boot](recovery.md#linux-does-not-boot) |
 | Android does not start, red "Your device is corrupt" screen, LTBox stopped half-way | [Recovery](recovery.md) (table at the top) |
 | black screen, no reaction to buttons, no USB network | possibly a crash dump state: [Recovery → Getting into EDL](recovery.md#getting-into-edl) |
 | no USB network or serial shell after boot, problems of one distribution | [Distributions → Known problems](distros.md#known-problems) |
