@@ -21,7 +21,7 @@ column names the source; see that tree's history for the individual authors.
 0208 is held for pull request #58. Numbers 0067-0071, 0135, 0136, 0140 and 0149 are free (0135, 0136 and 0149 were the earlier versions of 0212 and 0213): those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114, 0116-0119, 0128-0139, 0141-0156 and 0200-0203, 0205, 0210, 0212 and 0213 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
+0111-0114, 0116-0119, 0128-0139, 0141-0156 and 0200-0203, 0205, 0210 and 0212-0215 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -226,6 +226,8 @@ column names the source; see that tree's history for the individual authors.
 | `0211` | usb: dwc3: qcom: Restore UTMI PIPE clock on resume | Filippo Falezza | [lore](https://lore.kernel.org/all/20261027-dwc3-utmi-resume-v1-1-ca9f0aa65783@gmail.com/) | upstream review; prerequisite of 0213 | `5035f1b0d1b68f71` |
 | `0212` | dt-bindings: usb: qcom,snps-dwc3: Add mode-switch | Joonhoe Kim | this project | sent upstream (v4, 2026-11-19, [lore](https://lore.kernel.org/all/20261119124558.1548-1-26rote@gmail.com/)), Reviewed-by Krzysztof | `dbfd9ace4d328ec3` |
 | `0213` | usb: dwc3: qcom: Use the UTMI clock as PIPE clock in DisplayPort-only modes | Joonhoe Kim | this project | sent upstream (v4, 2026-11-19, same series) | `4cdd34de7561a13c` |
+| `0214` | arm64: configs: baldur: do not set the clock from the PMIC RTC | Joonhoe Kim | this project | local | `bd7362a0a1256cef` |
+| `0215` | arm64: dts: qcom: baldur: drive the SD card pads at 6 mA | Joonhoe Kim | this project (issue #26) | local | `71e4f2f3518de1b0` |
 
 ## Out-of-tree
 

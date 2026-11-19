@@ -107,6 +107,9 @@ CONFIG_PINCTRL_SM8650_LPASS_LPI=m
 # modprobe fails and the sound card never appears.
 CONFIG_SND_SEQUENCER=m
 
+# The PMIC RTC counts from 1970; the firmware keeps the offset to real time.
+# CONFIG_RTC_HCTOSYS is not set
+
 # /sys/power/pm_test, pm_print_times and pm_debug_messages.
 CONFIG_PM_DEBUG=y
 CONFIG_PM_SLEEP_DEBUG=y

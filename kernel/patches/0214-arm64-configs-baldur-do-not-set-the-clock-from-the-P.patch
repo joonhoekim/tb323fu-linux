@@ -1,0 +1,36 @@
+From add1d22fd2b506948c994dd34cd454048323317f Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Fri, 20 Nov 2026 01:33:01 +0900
+Subject: [PATCH] arm64: configs: baldur: do not set the clock from the PMIC
+ RTC
+
+The PMIC RTC on this board counts from 1970; the firmware keeps the
+offset to real time to itself. RTC_DRV_PM8XXX is a module, so with
+RTC_HCTOSYS the kernel sets the system clock from it when the module
+loads, after systemd has advanced the clock to the time it saved. The
+clock then runs in 1970 until NTP synchronises it, and files created in
+that window, such as /tmp/.X11-unix, look decades old: tmpfiles-clean
+removes them 15 minutes after boot, and the next GNOME login fails to
+start Xwayland.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ arch/arm64/configs/baldur.fragment | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/configs/baldur.fragment b/arch/arm64/configs/baldur.fragment
+index a5f6fafd0..0ff53c11a 100644
+--- a/arch/arm64/configs/baldur.fragment
++++ b/arch/arm64/configs/baldur.fragment
+@@ -113,6 +113,8 @@ CONFIG_PINCTRL_SM8650_LPASS_LPI=m
+ # ("install snd-pcm ... && modprobe snd-seq"); without it that modprobe fails and
+ # the sound card never appears. Modules only.
+ CONFIG_SND_SEQUENCER=m
++# The PMIC RTC counts from 1970; the firmware keeps the offset to real time.
++# CONFIG_RTC_HCTOSYS is not set
+ # /sys/power/pm_test, pm_print_times, pm_debug_messages -- without these
+ # a "pm_test" write silently fails and "echo freeze > state" really suspends.
+ CONFIG_PM_DEBUG=y
+-- 
+2.53.0
+

@@ -63,6 +63,18 @@
  * up for switches that pull it low.
  */
 &sdc2_default {
+	clk-pins {
+		drive-strength = <6>;
+	};
+
+	cmd-pins {
+		drive-strength = <6>;
+	};
+
+	data-pins {
+		drive-strength = <6>;
+	};
+
 	card-detect-pins {
 		/delete-property/ bias-pull-up;
 		bias-disable;
