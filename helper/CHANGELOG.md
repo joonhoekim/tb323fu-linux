@@ -1,5 +1,20 @@
 # Open Device Helper changelog
 
+## 0.4.9 — 2026-11-19
+
+Platform files only; the helper itself is unchanged.
+
+- **DisplayPort audio:** the ALSA UCM profile has a USB-C DisplayPort/HDMI output (MultiMedia3, `hw:CARD,2`), and
+  the audio topology adds the DisplayPort path next to the speakers. It shows up as an output in the sound settings
+  while a display is connected. Needs kernel t62 (patch 0207). Based on [#49](https://github.com/joonhoekim/tb323fu-linux/pull/49)
+  by @vitalo233.
+- **A fixed permanent Wi-Fi address:** `tb323fu-gen-ids` also writes the interface's address as `ath12k.macaddr`,
+  so the address that network profiles are matched against no longer changes at every boot
+  ([#56](https://github.com/joonhoekim/tb323fu-linux/issues/56)). Needs kernel t62 (patch 0210) and takes effect
+  from the next boot.
+- `tb323fu-dsp.service` runs its script from `/usr/libexec/tb323fu/tb323fu-dsp`
+  ([#50](https://github.com/joonhoekim/tb323fu-linux/pull/50), @vitalo233).
+
 ## 0.4.8 — 2026-11-06
 
 - **The LED ring goes dark while the screen is off:** a new setting, on by default. The LED chip runs the ring's
