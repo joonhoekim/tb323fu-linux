@@ -1,0 +1,55 @@
+From 01a200b1f3fb43de11bef5e46d64a2bbb479646d Mon Sep 17 00:00:00 2001
+From: Joonhoe Kim <26rote@gmail.com>
+Date: Thu, 19 Nov 2026 22:49:30 +0900
+Subject: [PATCH] wifi: ath12k: baldur: take the permanent MAC address from a
+ module parameter
+
+This board has no MAC address in its device tree or in the Wi-Fi
+firmware, which makes up a new one on every boot, so profiles bound to
+the permanent address stop matching after a restart. Let userspace pass
+a stable address as ath12k.macaddr when the firmware node has none.
+
+Not meant for upstream.
+
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/net/wireless/ath/ath12k/mac.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/drivers/net/wireless/ath/ath12k/mac.c b/drivers/net/wireless/ath/ath12k/mac.c
+index 393e22eb0..5961793d7 100644
+--- a/drivers/net/wireless/ath/ath12k/mac.c
++++ b/drivers/net/wireless/ath/ath12k/mac.c
+@@ -7,6 +7,7 @@
+ #include <net/mac80211.h>
+ #include <net/cfg80211.h>
+ #include <linux/etherdevice.h>
++#include <linux/hex.h>
+ 
+ #include "mac.h"
+ #include "core.h"
+@@ -14790,6 +14791,10 @@ static int ath12k_mac_setup_register(struct ath12k *ar,
+ 	return 0;
+ }
+ 
++static char *ath12k_mac_addr_param;
++module_param_named(macaddr, ath12k_mac_addr_param, charp, 0444);
++MODULE_PARM_DESC(macaddr, "Permanent MAC address when the firmware node has none");
++
+ static int ath12k_mac_hw_register(struct ath12k_hw *ah)
+ {
+ 	struct ieee80211_hw *hw = ah->hw;
+@@ -14820,6 +14825,10 @@ static int ath12k_mac_hw_register(struct ath12k_hw *ah)
+ 	wiphy->max_ap_assoc_sta = 0;
+ 
+ 	have_mac_fwnode = !device_get_mac_address(ab->dev, mac_fwnode);
++	if (!have_mac_fwnode && ath12k_mac_addr_param &&
++	    mac_pton(ath12k_mac_addr_param, mac_fwnode) &&
++	    is_valid_ether_addr(mac_fwnode))
++		have_mac_fwnode = true;
+ 
+ 	for_each_ar(ah, ar, i) {
+ 		u32 ht_cap_info = 0;
+-- 
+2.53.0
+

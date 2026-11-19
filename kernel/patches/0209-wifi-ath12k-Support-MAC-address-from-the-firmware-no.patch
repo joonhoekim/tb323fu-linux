@@ -1,0 +1,70 @@
+From 819eb732c2740cf08d4b490b1173e391f0350a36 Mon Sep 17 00:00:00 2001
+From: Abel Vesa <abel.vesa@oss.qualcomm.com>
+Date: Thu, 19 Nov 2026 22:49:17 +0900
+Subject: [PATCH] wifi: ath12k: Support MAC address from the firmware node
+
+Read a MAC address from the device's firmware node (a DT "mac-address"/
+"local-mac-address" property, or an nvmem cell named "mac-address" via
+device_get_mac_address()), and use it in preference to the address from
+the firmware board data. This mirrors what ath10k and ath11k already do
+and lets the WLAN MAC be sourced from firmware-provisioned storage such
+as a UEFI variable exposed through nvmem.
+
+A device tree / nvmem address takes precedence over the board-data MAC,
+so an explicitly provisioned address wins even when the firmware reports
+a valid per-pdev address. An all-zero (absent) address is ignored.
+
+Note: the provisioned address must be a valid unicast MAC; a multicast
+address (odd first octet) is rejected by nvmem_get_mac_address().
+
+Assisted-by: LLM
+Signed-off-by: Abel Vesa <abel.vesa@oss.qualcomm.com>
+[jk: check the return value of device_get_mac_address() instead of a
+ zeroed buffer, align the buffer, and use it as the permanent address on
+ multi-radio devices too; dropped the comments]
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/net/wireless/ath/ath12k/mac.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ath/ath12k/mac.c b/drivers/net/wireless/ath/ath12k/mac.c
+index 99bf5cf79..393e22eb0 100644
+--- a/drivers/net/wireless/ath/ath12k/mac.c
++++ b/drivers/net/wireless/ath/ath12k/mac.c
+@@ -14813,15 +14813,22 @@ static int ath12k_mac_hw_register(struct ath12k_hw *ah)
+ 	u32 ht_cap = U32_MAX, antennas_rx = 0, antennas_tx = 0;
+ 	bool is_6ghz = false, is_raw_mode = false, is_monitor_disable = false;
+ 	u8 *mac_addr = NULL;
++	u8 mac_fwnode[ETH_ALEN] __aligned(2);
++	bool have_mac_fwnode;
+ 	u8 mbssid_max_interfaces = 0;
+ 
+ 	wiphy->max_ap_assoc_sta = 0;
+ 
++	have_mac_fwnode = !device_get_mac_address(ab->dev, mac_fwnode);
++
+ 	for_each_ar(ah, ar, i) {
+ 		u32 ht_cap_info = 0;
+ 
+ 		pdev = ar->pdev;
+-		if (ar->ab->pdevs_macaddr_valid) {
++		if (have_mac_fwnode) {
++			ether_addr_copy(ar->mac_addr, mac_fwnode);
++			ar->mac_addr[4] += ar->pdev_idx;
++		} else if (ar->ab->pdevs_macaddr_valid) {
+ 			ether_addr_copy(ar->mac_addr, pdev->mac_addr);
+ 		} else {
+ 			ether_addr_copy(ar->mac_addr, ar->ab->mac_addr);
+@@ -14867,6 +14874,9 @@ static int ath12k_mac_hw_register(struct ath12k_hw *ah)
+ 	wiphy->available_antennas_rx = antennas_rx;
+ 	wiphy->available_antennas_tx = antennas_tx;
+ 
++	if (have_mac_fwnode)
++		mac_addr = mac_fwnode;
++
+ 	SET_IEEE80211_PERM_ADDR(hw, mac_addr);
+ 	SET_IEEE80211_DEV(hw, ab->dev);
+ 
+-- 
+2.53.0
+

@@ -18,10 +18,10 @@ column names the source; see that tree's history for the individual authors.
 
 ## Patches
 
-Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
+0208 is held for pull request #58. Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114, 0116-0119, 0128-0139, 0141-0156 and 0200-0203 and 0205 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
+0111-0114, 0116-0119, 0128-0139, 0141-0156 and 0200-0203, 0205 and 0210 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -224,6 +224,8 @@ Numbers 0067-0071 and 0140 are free: those patches are in v7.3 and were dropped 
 | `0205` | drm/msm/dp: ignore sink requests from IRQ_HPD while the link is down | Joonhoe Kim | this project (on top of the IRQ_HPD events v8 and MST v7 series) | local; fix for IRQ_HPD events v8, to report upstream | `743476e880631af8` |
 | `0206` | media: iris: Fix iova allocation from restrict region | Vishnu Reddy | upstream `200473c198b2` ([lore](https://lore.kernel.org/all/20260818-reserve_iova_in_driver-v2-1-5005a1154408@oss.qualcomm.com/)), from the 7.3-stable queue | backport; drop when 7.3.y has it | `b504fe3eed372b11` |
 | `0207` | arm64: dts: qcom: kaanapali-lenovo-baldur: Add DisplayPort audio | sotiomake | PR #49, `[jk: …]` fix by this project | local | `8326550d389fe943` |
+| `0209` | wifi: ath12k: Support MAC address from the firmware node | Abel Vesa | RFC 4/5 of "nvmem: Add a UEFI variable backed NVMEM provider" ([lore](https://lore.kernel.org/all/20261014-b4-nvmem-efivar-v1-4-187c85f65018@oss.qualcomm.com/)), with the review fixes in `[jk: …]` | upstream RFC; drop when ath12k reads the firmware node | `da66da79a4088801` |
+| `0210` | wifi: ath12k: baldur: take the permanent MAC address from a module parameter | Joonhoe Kim | this project (issue #56) | local; `tb323fu-gen-ids` writes `ath12k.macaddr` | `eea9e67251c4e1b6` |
 
 ## Out-of-tree
 

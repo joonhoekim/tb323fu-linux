@@ -22,7 +22,7 @@ The series by subsystem. Origin, author and status of each patch: [PROVENANCE.md
 | Storage (UFS, microSD) | 0119 (MCQ: multiple I/O queues), 0128 (keeps the MCQ state over suspend), 0129 (clock scaling deadlock), 0141 (MCQ interrupts after an error-handler reset); microSD 0152 (keeps the card when its extension registers or cache enable fail) |
 | Memory bus scaling | 0120-0127 (memlat in CPUCP firmware over the SCMI Qualcomm vendor protocol: DDR, LLCC, DDR_QOS) |
 | Clocks and power domains | 0046, 0072, 0073, 0103 |
-| Wi-Fi, Bluetooth, PCIe | 0024, 0058, 0113 (ath12k), 0030, 0130 (Bluetooth), 0049, 0056 (PCIe), 0078 |
+| Wi-Fi, Bluetooth, PCIe | 0024, 0058, 0113, 0209, 0210 (ath12k; 0209-0210: a fixed permanent MAC address), 0030, 0130 (Bluetooth), 0049, 0056 (PCIe), 0078 |
 | Remoteproc and QRTR | 0114 (QRTR name service; the modem) |
 | Input, haptics, LEDs | 0025-0027, 0053 (NT36536 touch and pen), 0143, 0145, 0146, 0153 (Tab Pen Plus report formats, pressure range, tilt axes), 0038 (AW86937 haptics), 0048, 0154 (AW22127 LED ring: color effects, zones, LED current) |
 | Storage | 0012 (UFS) |
