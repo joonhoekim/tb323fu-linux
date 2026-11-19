@@ -18,8 +18,8 @@
 # `status` and keep it: back-to-android and tools/cycle.sh need it.
 set -eo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
-su_() { MSYS_NO_PATHCONV=1 adb shell "su -c '$*'" | tr -d '\r'; }
-slot_a() { [ "$(adb shell getprop ro.boot.slot_suffix | tr -d '\r')" = _a ] || { echo "Android is not running from slot _a"; exit 1; }; }
+su_() { MSYS_NO_PATHCONV=1 adb shell -n "su -c '$*'" | tr -d '\r'; }
+slot_a() { [ "$(adb shell -n getprop ro.boot.slot_suffix | tr -d '\r')" = _a ] || { echo "Android is not running from slot _a"; exit 1; }; }
 hash_of() { su_ "sha256sum /dev/block/by-name/$1" | cut -c1-64; }
 case $1 in
 prepare-boot-b)
@@ -59,7 +59,7 @@ stage)
 	got=$(su_ "sha256sum /data/adb/tb323fu/linux.img" | cut -c1-64)
 	[ "$got" = "$want" ] && echo "staged ${want:0:16}" || { echo "staged copy mismatch $got"; exit 1; } ;;
 status)
-	echo "slot:   $(adb shell getprop ro.boot.slot_suffix | tr -d '\r')"
+	echo "slot:   $(adb shell -n getprop ro.boot.slot_suffix | tr -d '\r')"
 	echo "boot_a: $(hash_of boot_a)"
 	echo "boot_b: $(hash_of boot_b)"
 	echo "staged: $(su_ "cat /data/adb/tb323fu/linux.img.sha256 2>/dev/null" | cut -c1-16)"
