@@ -1,0 +1,161 @@
+From 91de7ac044364402dedd1789d728c5f2d075b4cd Mon Sep 17 00:00:00 2001
+From: li-yiyang <yiyang.li.11pro@outlook.com>
+Date: Fri, 20 Nov 2026 15:24:51 +0800
+Subject: [PATCH] drm/msm/dpu: baldur: bound the timeouts by the slowest idle
+ rate
+
+Idle refresh lowers the DSI rate by stretching the vertical front porch.
+A commit that races with that self-flush can restore the base vtotal
+while the pending flush still belongs to the stretched frame. Two
+timeouts are involved:
+
+- dpu_encoder_phys_vid_wait_for_commit_done() waits a fixed 50 ms for
+  CTL_FLUSH to clear. One 30 Hz frame is 33 ms; the wait can need a
+  second frame (66 ms), so it times out with "vblank timeout: 80020000"
+  (BIT(31)|BIT(17), CTL_INTF_FLUSH and CTL_FLUSH) and returns
+  -ETIMEDOUT (-110) while the hardware flush completes later.
+- dpu_encoder_start_frame_done_timer() budgets five frames at the mode's
+  vrefresh, 30 ms at 164 Hz, which is less than one stretched 30 Hz
+  frame, so the watchdog fires on delayed frames.
+
+Bound both with the slowest rate idle refresh can leave in flight
+(idle_refresh_min_hz): the commit wait keeps its 50 ms floor but allows
+three stretched frames (100 ms at 30 Hz), and the frame done watchdog
+gets five stretched frames.
+
+The rate visible at the time of the wait is not sufficient: adjusted_mode
+can already show the restored base vtotal, and atomic_mode_set() has
+copied it into cached_mode for the commit, while the pending flush still
+belongs to the stretched frame. A fixed 100 ms commit wait was tested and
+removed the vblank timeouts, but left the frame-done watchdog firing, so
+both timeouts need the same bound.
+
+The helper returns the mode's own vrefresh when idle refresh is not
+active; at 60 Hz and above the commit wait still uses its 50 ms floor, so
+the normal path is unchanged. idle_refresh_target() caps the stretched
+vtotal at 20000 lines, so a min_hz below the rate that cap can reach only
+makes the timeouts more conservative.
+
+Tested on TB323FU with the internal DSI at 3040x1904@164 and an external
+DP at 2560x1440@280, extended. The probe window is opened on the
+external output; the pointer is parked at the DP center with a temporary
+uinput absolute device. The VFP transitions are written to the internal
+DSI. Manual 30 <-> 164 Hz for 900 s:
+- main 0215 without 0216, 360 cycles: 7 vblank timeouts (all 80020000),
+  7 wait-for-commit-done -110 and 22 frame-done timeouts.
+- the same tree with 0216, 361 cycles: 0 vblank, 0 commit and 0
+  frame-done timeouts.
+
+Earlier no-patch runs with the pointer and window on the internal panel
+reported no timeouts, so the commit on the external output is part of
+the trigger. The two kernels above were built from the same tree and
+config on the same day; only 0216 and LOCALVERSION differ. Adaptive idle
+for 900 s and the 30 Hz latch test are also clean with 0216.
+
+This is a follow-up to the fork's idle-refresh patch (0110); it can be
+squashed into it.
+
+Signed-off-by: li-yiyang <yiyang.li.11pro@outlook.com>
+---
+ drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c   | 31 +++++++++++++++++--
+ drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h   |  2 ++
+ .../drm/msm/disp/dpu1/dpu_encoder_phys_vid.c  | 12 ++++++-
+ 3 files changed, 42 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
+index 1206b8d81..5755cd0e8 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.c
+@@ -2251,6 +2251,30 @@ u32 dpu_encoder_idle_refresh_live_vtotal(struct drm_encoder *drm_enc)
+ 	return dpu_enc == READ_ONCE(idle_refresh_enc) ? READ_ONCE(dpu_enc->idle_refresh_live_vt) : 0;
+ }
+ 
++/*
++ * The refresh rate to use for frame-based timeouts. Idle refresh can leave a
++ * frame stretched down to idle_refresh_min_hz, and the VFP is restored during
++ * the commit that races with it, so use the slowest rate the feature allows
++ * rather than the rate visible at this instant.
++ */
++unsigned int dpu_encoder_idle_refresh_vrefresh(struct drm_encoder *drm_enc)
++{
++	struct drm_display_mode *mode;
++	unsigned int live, slowest, vrefresh;
++
++	if (!drm_enc->crtc || !drm_enc->crtc->state)
++		return 0;
++	mode = &drm_enc->crtc->state->adjusted_mode;
++	vrefresh = drm_mode_vrefresh(mode);
++	live = dpu_encoder_idle_refresh_live_vtotal(drm_enc);
++	if (!vrefresh || !live || !READ_ONCE(idle_refresh_policy))
++		return vrefresh;
++	slowest = READ_ONCE(idle_refresh_min_hz);
++	if (slowest && vrefresh > slowest)
++		vrefresh = slowest;
++	return vrefresh;
++}
++
+ /* @base with the vertical front porch stretched to @vtotal lines */
+ static void idle_refresh_stretch_mode(struct drm_display_mode *m,
+ 			      const struct drm_display_mode *base, u32 vtotal)
+@@ -2734,10 +2758,13 @@ void dpu_encoder_start_frame_done_timer(struct drm_encoder *drm_enc)
+ {
+ 	struct dpu_encoder_virt *dpu_enc;
+ 	unsigned long timeout_ms;
++	unsigned int vrefresh;
+ 
+ 	dpu_enc = to_dpu_encoder_virt(drm_enc);
+-	timeout_ms = DPU_ENCODER_FRAME_DONE_TIMEOUT_FRAMES * 1000 /
+-			drm_mode_vrefresh(&drm_enc->crtc->state->adjusted_mode);
++	vrefresh = dpu_encoder_idle_refresh_vrefresh(drm_enc);
++	if (!vrefresh)
++		vrefresh = drm_mode_vrefresh(&drm_enc->crtc->state->adjusted_mode);
++	timeout_ms = DPU_ENCODER_FRAME_DONE_TIMEOUT_FRAMES * 1000 / vrefresh;
+ 
+ 	atomic_set(&dpu_enc->frame_done_timeout_ms, timeout_ms);
+ 	mod_timer(&dpu_enc->frame_done_timer,
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h
+index 2dd8da850..5362092a4 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder.h
+@@ -72,6 +72,8 @@ int dpu_encoder_get_linecount(struct drm_encoder *drm_enc);
+ 
+ u32 dpu_encoder_idle_refresh_live_vtotal(struct drm_encoder *drm_enc);
+ 
++unsigned int dpu_encoder_idle_refresh_vrefresh(struct drm_encoder *drm_enc);
++
+ int dpu_encoder_get_vsync_count(struct drm_encoder *drm_enc);
+ 
+ bool dpu_encoder_is_widebus_enabled(const struct drm_encoder *drm_enc);
+diff --git a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c
+index 65c28abe1..2d9384901 100644
+--- a/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c
++++ b/drivers/gpu/drm/msm/disp/dpu1/dpu_encoder_phys_vid.c
+@@ -571,14 +571,24 @@ static int dpu_encoder_phys_vid_wait_for_commit_done(
+ 		struct dpu_encoder_phys *phys_enc)
+ {
+ 	struct dpu_hw_ctl *hw_ctl = phys_enc->hw_ctl;
++	unsigned int vrefresh, timeout_ms = 50;
+ 	int ret;
+ 
+ 	if (!hw_ctl)
+ 		return 0;
+ 
++	/*
++	 * Idle refresh can stretch one frame to 33 ms (30 Hz). A flush that
++	 * races with the stretched frame may need a couple of frames to
++	 * complete, so keep the 50 ms floor for normal rates and allow three
++	 * stretched frames otherwise.
++	 */
++	vrefresh = dpu_encoder_idle_refresh_vrefresh(phys_enc->parent);
++	if (vrefresh)
++		timeout_ms = max_t(unsigned int, timeout_ms, 3 * 1000 / vrefresh);
+ 	ret = wait_event_timeout(phys_enc->pending_kickoff_wq,
+ 		(hw_ctl->ops.get_flush_register(hw_ctl) == 0),
+-		msecs_to_jiffies(50));
++		msecs_to_jiffies(timeout_ms));
+ 	if (ret <= 0) {
+ 		DPU_ERROR("vblank timeout: %x\n", hw_ctl->ops.get_flush_register(hw_ctl));
+ 		return -ETIMEDOUT;
+-- 
+2.53.0
+
