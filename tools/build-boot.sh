@@ -49,12 +49,14 @@ out=$(cd "$out" && pwd)
 if [ -n "$list" ]; then
 	irf=$(sed -n 's/^CONFIG_INITRAMFS_SOURCE="\(.*\)"$/\1/p' "$out/.config")
 	[ -n "$irf" ] || { echo "CONFIG_INITRAMFS_SOURCE is not set in $out/.config"; exit 1; }
-	[ -x "$out/usr/gen_init_cpio" ] || make -C "$kt" ARCH=arm64 LLVM=1 O="$out" usr/gen_init_cpio
+	[ -x "$out/usr/gen_init_cpio" ] || make -C "$kt" ARCH=arm64 LLVM=1 O="$out" LOCALVERSION= usr/gen_init_cpio
 	(cd "$(dirname "$list")" && "$out/usr/gen_init_cpio" "$(basename "$list")") | gzip -9 > "$irf"
 	echo "initramfs $irf ($(stat -c %s "$irf") bytes)"
 fi
 
-make -C "$kt" ARCH=arm64 LLVM=1 O="$out" -j"$jobs" dtbs
-make -C "$kt" ARCH=arm64 LLVM=1 O="$out" -j"$jobs" Image
+# LOCALVERSION= as in the modules build: without it a tree past its tag gets a "+" in the
+# release, and the initramfs no longer finds /lib/modules/<release>
+make -C "$kt" ARCH=arm64 LLVM=1 O="$out" LOCALVERSION= -j"$jobs" dtbs
+make -C "$kt" ARCH=arm64 LLVM=1 O="$out" LOCALVERSION= -j"$jobs" Image
 python3 "$here/boot-repack-kernel.py" "$stock" "$out/arch/arm64/boot/Image" "$img" | tail -3
 sha256sum "$img"
