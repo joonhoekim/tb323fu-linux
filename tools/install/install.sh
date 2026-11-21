@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
-# install.sh -- guided install of Linux on the microSD card of a rooted TB323FU.
+# install.sh -- guided install of Linux on the microSD card of a rooted TB323FU
+# (or, TARGET=ufs, into a partition you made on the internal storage).
 #
 #   tools/install/install.sh [--dry-run] [STEP ...]
 #
@@ -18,6 +19,7 @@
 #   download   newest kernel and helper-v releases, checked against SHA256SUMS   1-3 min
 #   bootimg    the release kernel packed into YOUR stock boot image              seconds
 #   sdcard     GPT on the microSD card, written from Android -- WIPES THE CARD   1 min
+#              (TARGET=ufs: finds the ROOT_PARTLABEL partition, writes nothing)
 #   rootfs     build the distribution into an image file here (qemu on x86-64)    20-60 min
 #   write      push the image and write it into the card's partition             3-10 min
 #   boot       write the Linux boot image to boot_a, reboot into Linux           1 min
@@ -33,9 +35,13 @@
 #                              (in WSL: not under /mnt/c). Needs ~30 GB free
 #   ROOT_PARTLABEL=baldur-root-sd   GPT name of the root partition on the card
 #   ROOT_SIZE=                 its size (e.g. 64G; 0 = the rest of the card). Asked if unset
+#   TARGET=sd                  sd, or ufs: write into an existing partition on the internal
+#                              storage instead of partitioning the card. Make the partition first
+#                              (docs/install-manual.md, 8) and name it in ROOT_PARTLABEL
+#                              (baldur-root or tb323fu-*)
 #   DEV_USER=                  your user on the tablet (asked; default: your user here)
 #   DESKTOP=gnome              gnome or none (none: console only, much faster build)
-#   DISTRO=ubuntu              the distribution module: ubuntu, arch, fedora (all verified),
+#   DISTRO=ubuntu              the distribution module: ubuntu, debian, arch, fedora, nixos (verified),
 #                              or the path of your own module file (tools/install/distros/README.md);
 #                              --distros lists them
 #   DEV_ACCESS=0               1: developer access in the root (USB network, root shell
@@ -73,7 +79,7 @@ while [ $# -gt 0 ]; do
 	a=$1; shift
 	case $a in
 	--dry-run|-n) DRY=1 ;;
-	-h|--help) sed -n '3,63p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+	-h|--help) sed -n '3,/^[^#]/{/^#/p}' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 	--distros) list_distros=1 ;;
 	--answers) [ $# -gt 0 ] || { echo "--answers needs a file" >&2; exit 2; }; answers=$1; shift ;;
 	--answers=*) answers=${a#--answers=} ;;
@@ -112,6 +118,12 @@ REPO_SLUG=${REPO_SLUG:-joonhoekim/tb323fu-linux}
 ROOT_PARTLABEL=${ROOT_PARTLABEL:-baldur-root-sd}
 DESKTOP=${DESKTOP:-gnome}
 DEV_ACCESS=${DEV_ACCESS:-0}
+TARGET=${TARGET:-sd}
+case $TARGET in
+sd) WHERE="the microSD card" ;;
+ufs) WHERE="the internal storage" ;;
+*) echo "TARGET=$TARGET: sd or ufs" >&2; exit 2 ;;
+esac
 IMG_SIZE=${IMG_SIZE:-24G}
 FW=$WORK/fw/tb323fu-firmware/lib/firmware
 LINUX_BOOT_IMG=$WORK/linux-boot.img
@@ -471,7 +483,7 @@ EOF
 	if [ -n "$sd" ]; then
 		say "  microSD card: ${sd%% *}, $(bytes $(( ${sd##* } * 512 ))) (ERASE_CARD=${sd%% *}:${sd##* })"
 		st_set sd_dev "${sd%% *}"
-	else warn "no microSD card found -- put one in (64 GB or more) before the sdcard step"; fi
+	elif [ "$TARGET" = sd ]; then warn "no microSD card found -- put one in (64 GB or more) before the sdcard step"; fi
 	[ "$(st_get done_tablet)" = 1 ] && return 0
 	say "Backups: this script assumes you have your own EDL dump (docs/rooting.md, step 1) stored off this PC."
 	yesno "Do you have it?" HAVE_EDL_DUMP || { warn "make the dump first (docs/rooting.md, '1. Back up')"; return 1; }
@@ -504,6 +516,13 @@ add_tplg() {
 }
 
 module_installed() { su_ 'ksud module list 2>/dev/null' | grep -qi tb323fu-switch; }
+# the installed module runs this repository's action.sh (an update waiting for Android's next start counts)
+module_current() {
+	local want have
+	want=$(sed 's/\r$//' "$repo/android/switch-to-linux/action.sh" | sha256sum | cut -c1-64)   # as install-module.sh packs it
+	have=$(su_ 'for d in modules_update modules; do f=/data/adb/$d/tb323fu-switch-to-linux/action.sh; [ -f $f ] && { sha256sum $f; break; }; done' | cut -c1-64)
+	[ "$have" = "$want" ]
+}
 
 step_wayback() {
 	head_ "wayback: Android's boot image in boot_b (1 min)"
@@ -535,6 +554,9 @@ EOF
 		say "The 'Switch to Linux' KernelSU module brings you from Android back to Linux later (active after"
 		say "Android's next start). It only writes boot_a, and only an image whose hash it checks."
 		yesno "install the module?" && { run bash "$repo/android/install-module.sh" install || return 1; }
+	elif ! module_current; then
+		say "The installed 'Switch to Linux' module is an older version: updating it (active after Android's next start)."
+		run bash "$repo/android/install-module.sh" install || return 1
 	else say "Switch to Linux module: installed."; fi
 	run mkdir -p "$WORK/config"
 	[ $DRY = 1 ] || printf '%s\n' "$bb" > "$WORK/config/android-boot.sha256"
@@ -734,7 +756,30 @@ step_bootimg() {
 # sizes in bytes from 64G / 512M / plain numbers
 to_bytes() { numfmt --from=iec "${1%B}" 2>/dev/null; }
 
+# TARGET=ufs: the partition exists already (Android's tools cannot change the internal
+# storage's table); find it by name on the UFS disks
+ufs_partition() {
+	head_ "sdcard: TARGET=ufs, so the partition $ROOT_PARTLABEL on the internal storage"
+	local found n dev size
+	case $ROOT_PARTLABEL in baldur-root|tb323fu-?*) ;;
+	*) warn "with TARGET=ufs, ROOT_PARTLABEL must be baldur-root or tb323fu-<name> (it is $ROOT_PARTLABEL)"; return 1 ;; esac
+	if [ $DRY = 1 ]; then dev=sda18 size=255729624
+	else
+		found=$(su_ "grep -l \"^PARTNAME=$ROOT_PARTLABEL\$\" /sys/class/block/sd*/uevent 2>/dev/null")
+		n=$(printf '%s\n' "$found" | grep -c uevent)
+		[ "$n" = 1 ] || { warn "$n partitions named $ROOT_PARTLABEL on the internal storage (one is needed; docs/install-manual.md, 8)"; return 1; }
+		dev=${found%/uevent}; dev=${dev##*/}
+		size=$(su_ "cat /sys/class/block/$dev/size")
+		[ "${size:-0}" -ge $((16 * 1024 * 1024 * 1024 / 512)) ] || { warn "$dev is smaller than 16G"; return 1; }
+		! su_ "grep -q '^/dev/block/$dev ' /proc/mounts" || { warn "/dev/block/$dev is mounted in Android"; return 1; }
+	fi
+	st_set part_dev "/dev/block/$dev"
+	st_set part_bytes $((size * 512))
+	say "partition: /dev/block/$dev ($ROOT_PARTLABEL, $(bytes $((size * 512)))); in Linux it is /dev/$dev"
+}
+
 step_sdcard() {
+	[ "$TARGET" = ufs ] && { ufs_partition; return; }
 	head_ "sdcard: a partition table on the microSD card -- WIPES THE CARD (1 min)"
 	cat <<EOF
 Android's own tools cannot create partitions, so the table is built here, in an empty file the
@@ -908,6 +953,8 @@ EOF
 	fi
 	[ $DRY = 1 ] || say "  built in $(( ($(date +%s) - t0) / 60 )) min"
 	distro_growroot "$mnt"
+	# the RTC counts from 1970; systemd starts the clock no earlier than this file's time
+	[ $DRY = 1 ] || [ ! -d "$mnt/usr/lib" ] || $SUDO touch "$mnt/usr/lib/clock-epoch"
 	say "Set a password for $user (for sudo and the lock screen; root stays locked):"
 	run $SUDO mount --bind /dev "$mnt/dev"; run $SUDO mount -t proc proc "$mnt/proc"
 	local try=0
@@ -953,13 +1000,13 @@ EOF
 drop_copy() { su_ "rm -f $T/tb323fu-root.img.gz"; }
 
 step_write() {
-	head_ "write: put the root image into the card's partition, from Android (3-10 min)"
+	head_ "write: put the root image into its partition on $WHERE, from Android (3-10 min)"
 	local part gz=$WORK/root.img.gz isha ibytes gsha free got out
 	part=$(st_get part_dev); isha=$(st_get root_img_sha); ibytes=$(st_get root_img_bytes); gsha=$(st_get root_gz_sha)
 	[ $DRY = 1 ] && { part=${part:-/dev/block/mmcblk1p1}; ibytes=${ibytes:-1}; }
 	[ -n "$part" ] || { warn "no partition (sdcard step)"; return 1; }
 	[ $DRY = 1 ] || { [ -s "$gz" ] && [ -n "$isha" ]; } || { warn "no root image (rootfs step)"; return 1; }
-	if [ $DRY = 0 ] && [ "$explicit" = 0 ] && [ "$(st_get written_sha)" = "$isha" ]; then say "this image is on the card already"; return 0; fi
+	if [ $DRY = 0 ] && [ "$explicit" = 0 ] && [ "$(st_get written_sha)" = "$isha" ]; then say "this image is on $WHERE already"; return 0; fi
 	if [ $DRY = 0 ]; then
 		[ "$ibytes" -le "$(st_get part_bytes)" ] || { warn "the image is larger than the partition"; return 1; }
 		free=$(adb_ shell df -k /data | awk 'NR==2 {print $4 * 1024}')
@@ -970,18 +1017,19 @@ step_write() {
 	run adb push "$gz" $T/tb323fu-root.img.gz || return 1
 	got=$(su_ "sha256sum $T/tb323fu-root.img.gz" | cut -c1-64)
 	[ $DRY = 1 ] || [ "$got" = "$gsha" ] || { warn "the copy on the tablet is damaged; run this step again"; drop_copy; return 1; }
-	say "2) unpack it into $part ($ROOT_PARTLABEL); 5-15 min, depending on the card"
-	warn "this OVERWRITES $part (the card's $ROOT_PARTLABEL partition)"
-	undo "nothing on the tablet itself changes; to clear the card: Android Settings -> Storage -> Format"
+	say "2) unpack it into $part ($ROOT_PARTLABEL); 5-15 min on a card, less on the internal storage"
+	warn "this OVERWRITES $part (the $ROOT_PARTLABEL partition on $WHERE)"
+	if [ "$TARGET" = sd ]; then undo "nothing on the tablet itself changes; to clear the card: Android Settings -> Storage -> Format"
+	else undo "only $ROOT_PARTLABEL changes; Android and the other partitions are not touched"; fi
 	confirm "WRITE" || { drop_copy; return 1; }
 	out=$(su_ "zcat $T/tb323fu-root.img.gz | dd of=$part bs=4194304 conv=fsync 2>&1 | tail -1")
 	say "  $out"
 	say "3) read it back and compare (a few minutes)"
 	got=$(su_ "head -c $ibytes $part | sha256sum" | cut -c1-64)
-	[ $DRY = 1 ] || [ "$got" = "$isha" ] || { warn "what is on the card differs from the image; run this step again (or try another card)"; drop_copy; return 1; }
+	[ $DRY = 1 ] || [ "$got" = "$isha" ] || { warn "what is on $WHERE differs from the image; run this step again"; drop_copy; return 1; }
 	drop_copy
 	st_set written_sha "$isha"
-	say "the root is on the card."
+	say "the root is on $WHERE."
 }
 
 step_boot() {
@@ -991,7 +1039,7 @@ step_boot() {
 	[ $DRY = 1 ] && { hash=${hash:-'<sha256 of boot_b>'}; want=${want:-x}; }
 	[ -n "$hash" ] || { warn "no Android boot hash (wayback step)"; return 1; }
 	[ $DRY = 1 ] || { [ -s "$img" ] && [ "$(sha "$img")" = "$want" ]; } || { warn "no $img (bootimg step)"; return 1; }
-	[ $DRY = 1 ] || [ "$(st_get written_sha)" = "$(st_get root_img_sha)" ] || warn "the root image has not been written to the card (write step)"
+	[ $DRY = 1 ] || [ "$(st_get written_sha)" = "$(st_get root_img_sha)" ] || warn "the root image has not been written to $WHERE (write step)"
 	bb=$(su_ 'sha256sum /dev/block/by-name/boot_b' | cut -c1-64)
 	[ $DRY = 1 ] || [ "$bb" = "$hash" ] || { warn "boot_b no longer holds the recorded Android image -- run the wayback step"; return 1; }
 	say "Copying the image to the tablet and staging it for the Switch to Linux module (only /data/adb changes) ..."
@@ -1022,7 +1070,9 @@ step_firstboot() {
 	cat <<EOF
 1. Lenovo logo, then a text summary on the panel (kernel, CPUs, storage, battery) for a few seconds.
 2. "switching to root $ROOT_PARTLABEL ..." and $DISTRO_TITLE starts. The first start takes longer: the root
-   grows to fill its partition (tb323fu-growroot) and the card is slower than internal storage.
+   grows to fill its partition (tb323fu-growroot).
+   If another root comes first ($([ "$TARGET" = ufs ] && echo "baldur-root, or ")an older one; tb323fu-ctl boot list), it starts
+   instead: there, run tb323fu-ctl boot next $ROOT_PARTLABEL (or boot default) and restart.
 3. With GNOME you are logged in automatically (user $(st_get dev_user || true)). Wi-Fi: top right -> Wi-Fi -> your network;
    the clock is wrong until the network is up.
 
@@ -1064,7 +1114,7 @@ keep_files() {
 	fi
 }
 
-say "${b}TB323FU: $DISTRO_TITLE on the microSD card, guided ($DISTRO: $DISTRO_STATUS)${r}$([ $DRY = 1 ] && echo ' (dry run: nothing is executed)')"
+say "${b}TB323FU: $DISTRO_TITLE on $WHERE, guided ($DISTRO: $DISTRO_STATUS)${r}$([ $DRY = 1 ] && echo ' (dry run: nothing is executed)')"
 say "Guide: docs/install.md (Windows, Linux, macOS); by hand: docs/install-manual.md. State: $STATE"
 [ $DRY = 1 ] || mkdir -p "$WORK"
 if is_wsl && [ -x "$WORK/bin/adb" ]; then
@@ -1074,8 +1124,10 @@ fi
 # the settings a step's result depends on: a finished step runs again when they change
 step_inputs() {
 	case $1 in
-	download) printf '%s %s\n' "${KERNEL_TAG:-newest}" "${HELPER_TAG:-newest}" ;;
-	rootfs) printf '%s %s\n' "$DISTRO_FILE" "$DESKTOP" ;;
+	host) distro_host_packages ;;
+	download) printf '%s %s%s\n' "${KERNEL_TAG:-newest}" "${HELPER_TAG:-newest}" "${DISTRO_KERNEL_ASSETS:+ $DISTRO_KERNEL_ASSETS}" ;;
+	sdcard) printf '%s %s\n' "$TARGET" "$ROOT_PARTLABEL" ;;
+	rootfs) printf '%s %s %s %s\n' "$DISTRO_FILE" "$DESKTOP" "$ROOT_PARTLABEL" "$DEV_ACCESS" ;;
 	esac
 }
 # the steps that use a step's result: they run again after it
@@ -1088,11 +1140,12 @@ step_dependents() {
 	esac
 }
 # state files from before inputs were recorded have none: those steps count as done
+# (but host, which only checks, runs again)
 is_done() {
 	local recorded
 	[ "$(st_get "done_$1")" = 1 ] || return 1
 	recorded=$(st_get "inputs_$1")
-	[ -z "$recorded" ] || [ "$recorded" = "$(step_inputs "$1")" ]
+	{ [ -z "$recorded" ] && [ "$1" != host ]; } || [ "$recorded" = "$(step_inputs "$1")" ]
 }
 
 # a shell error inside a step (bad arithmetic) leaves this loop without running its else branch

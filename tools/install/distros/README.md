@@ -13,16 +13,17 @@ DISTRO=~/my-distro.sh tools/install/install.sh  # your own module, by path
 | Module | System | Status |
 |---|---|---|
 | [`ubuntu.sh`](ubuntu.sh) | Ubuntu 26.04, GNOME | verified |
+| [`debian.sh`](debian.sh) | Debian 13, GNOME (the Ubuntu builder with Debian's archive) | verified |
 | [`arch.sh`](arch.sh) | Arch Linux ARM, GNOME | verified |
 | [`fedora.sh`](fedora.sh) | Fedora 44 Workstation, GNOME | verified |
-| [`nixos.sh`](nixos.sh) | NixOS (unstable), GNOME | experimental |
+| [`nixos.sh`](nixos.sh) | NixOS (unstable), GNOME | verified |
 | [`steamos.sh`](steamos.sh) | SteamOS, community port | experimental |
 | [`armada.sh`](armada.sh) | Armada (Fedora bootc) | experimental |
 
 The status is the module's `DISTRO_STATUS`. What was checked on the tablet for each system, and what does not work
 yet: [docs/distros.md](../../../docs/distros.md).
 What the status words mean next to those of other pages:
-[hardware-status.md → Labels on other pages](../../../docs/hardware-status.md#labels-on-other-pages).
+[hardware-status.md → Evidence labels](../../../docs/hardware-status.md#evidence-labels).
 
 Changing `DISTRO` or `DESKTOP` after a `rootfs` step builds the root again from scratch (the image holds one
 system), then writes it and starts it. Changing `KERNEL_TAG` or `HELPER_TAG` downloads again and repeats the steps

@@ -32,7 +32,7 @@ tools/install/install.sh --answers FILE   # no questions (below)
 
 State (finished steps, hashes, partition, release tags) is kept in `$WORK/state`; a finished step is skipped on the
 next run, a named step always runs. Options are environment variables, listed by `install.sh --help` (`WORK`,
-`ROOT_PARTLABEL`, `ROOT_SIZE`, `DEV_USER`, `DESKTOP`, `DISTRO`, `DEV_ACCESS`, `STOCK_BOOT`, `KERNEL_TAG`, `HELPER_TAG`,
+`ROOT_PARTLABEL`, `ROOT_SIZE`, `TARGET`, `DEV_USER`, `DESKTOP`, `DISTRO`, `DEV_ACCESS`, `STOCK_BOOT`, `KERNEL_TAG`, `HELPER_TAG`,
 `GITHUB_TOKEN`, `ADB`, `ANDROID_SERIAL`).
 
 ## Without questions
@@ -62,5 +62,9 @@ into `-s`, since Windows programs do not see WSL's environment.
 ## Not covered
 
 Distributions without a module ([distros/](distros/README.md)), a card reader on the PC,
-a kernel you build yourself, and a root on the internal storage (which wipes Android's data) are manual:
-[docs/install-manual.md](../../docs/install-manual.md).
+a kernel you build yourself, and making room on the internal storage (which wipes Android's data the first time)
+are manual: [docs/install-manual.md](../../docs/install-manual.md), step 8.
+
+Once a partition on the internal storage exists (`baldur-root` or `tb323fu-<name>`), `TARGET=ufs
+ROOT_PARTLABEL=<its name>` writes the system into it instead of partitioning the card: the `sdcard` step only
+finds the partition, the other steps are the same.

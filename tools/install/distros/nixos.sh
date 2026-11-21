@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Distribution module for tools/install/install.sh: NixOS (see README.md).
 DISTRO_TITLE="NixOS (unstable)"
-DISTRO_STATUS=experimental
+DISTRO_STATUS=verified
 DISTRO_MINUTES="1-2 h the first time"
 DISTRO_KERNEL_ASSETS="config-tb323fu-t*"
 
@@ -12,7 +12,7 @@ distro_about() {
 rootfs/nixos/build-rootfs.sh builds NixOS from this repository's flake (flake.nix, packaging/nix/) with
 Nix on this PC: most of it comes prebuilt from cache.nixos.org (a few GB), the tablet's own packages
 (helper, settings app) are compiled for arm64 through qemu, which is the slow part. Nix must accept
-arm64 builds: "extra-platforms = aarch64-linux" in /etc/nix/nix.conf.
+arm64 builds: "extra-platforms = aarch64-linux" in /etc/nix/nix.conf (offered when it is missing).
 EOF2
 }
 
@@ -20,7 +20,11 @@ distro_build() { # MNT USER
 	local cfg; cfg=$(cd "$WORK/kernel" 2>/dev/null && ls config-tb323fu-t* 2>/dev/null | sort -V | tail -1)
 	[ $DRY = 1 ] || [ -n "$cfg" ] || { warn "no kernel config (download step)"; return 1; }
 	if [ $DRY = 0 ] && ! grep -qs '^extra-platforms.*aarch64-linux' /etc/nix/nix.conf && [ "$(uname -m)" != aarch64 ]; then
-		warn "add 'extra-platforms = aarch64-linux' to /etc/nix/nix.conf"; return 1
+		say "Nix on this PC does not build for arm64 yet: /etc/nix/nix.conf needs 'extra-platforms = aarch64-linux'."
+		yesno "add that line now?" || { warn "add it, then run the script again"; return 1; }
+		run $SUDO mkdir -p /etc/nix || return 1
+		echo 'extra-platforms = aarch64-linux' | run $SUDO tee -a /etc/nix/nix.conf >/dev/null || return 1
+		! systemctl is-active -q nix-daemon 2>/dev/null || run $SUDO systemctl restart nix-daemon
 	fi
 	# nixos-install wants every directory above the root to be mode 755 ($HOME often is not)
 	local r=/run/tb323fu-nixos-root rc
