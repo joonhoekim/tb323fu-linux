@@ -20,6 +20,9 @@ seen or heard, or measured.
 | NixOS unstable (2026-10-01) | `tb323fu-nixos` | `rootfs/nixos` + `flake.nix` | 11.2 s | stage 2 straight from our initramfs, GNOME autologin, Wi-Fi, speakers, helper, suspend, to Android and back | sensors through the installer |
 | SteamOS (arm64, community handheld port[^steamos-port]) | `tb323fu-spare` | `rootfs/steamos` | 14.1 s | Gaming Mode (landscape; touch lands where tapped after a calibration matrix), Wi-Fi, speakers, helper, suspend, to Android and back | Switch to Desktop ([known problems](#known-problems)); sensors and cameras (the image has no libcamera) |
 | Armada 20260926 (Fedora bootc, experimental[^armada-port]) | `baldur-root-sd` | `rootfs/armada` | – | boots (a long first-start splash), Gaming Mode with touch after a calibration matrix, Steam's first-start setup, suspend, to Android and back; x86 runtime for FEX mounts on kernel t40 ([Armada notes](#armada-notes)) | cameras until `libcamera-ipa pipewire-plugin-libcamera` are installed |
+| postmarketOS v26.06 (Nura), Phosh, systemd | `tb323fu-pmos` | `rootfs/postmarketos` | –[^pmos-time] | Phosh autologin, touch and rotation, Wi-Fi, speakers, microphone, both cameras, sensors (accelerometer, light, proximity), torch, LED ring, helper, suspend, to Android and back; through the guided installer end to end (43 min from WSL2, `tb323fu-check` passes)[^pmos-installer] | compass |
+| postmarketOS v26.06 (Nura), Plasma Mobile, systemd (experimental) | `tb323fu-pmos-plasma` | `rootfs/postmarketos` (`DESKTOP=plasma-mobile`) | – | Plasma Mobile autologin, touch and rotation, Wi-Fi, speakers, microphone, both cameras, suspend, to Android and back | not yet through the installer; Plasma Camera's preview does not follow the rotation |
+| postmarketOS v26.06 (Nura), GNOME Mobile, systemd (experimental) | `tb323fu-pmos-gnome-mobile` | `rootfs/postmarketos` (`DESKTOP=gnome-mobile`) | – | GDM autologin, touch, rotation (through `tb323fu-autorotate`; the shell does not turn the panel by itself), Wi-Fi, speakers, microphone, both cameras, suspend, to Android and back | not yet through the installer |
 
 ## Installing each one
 
@@ -37,6 +40,7 @@ top of the file.
 | Fedora 44 | `DISTRO=fedora tools/install/install.sh`, or `rootfs/fedora/build-rootfs.sh` | any Linux; x86-64 through qemu (WSL2 works, about 25 min with GNOME) | built from this repository inside the root (needs network) |
 | NixOS | `DISTRO=nixos tools/install/install.sh`, or `rootfs/nixos/build-rootfs.sh` (a flake: `flake.nix`, `packaging/nix/`) | any Linux with Nix; x86-64 through qemu (`extra-platforms = aarch64-linux`), where the helper is compiled slowly | Nix packages from this repository (`services.tb323fu`) |
 | SteamOS (community port) | `DISTRO=steamos tools/install/install.sh` (experimental), or `rootfs/steamos/build-rootfs.sh` | any Linux; off arm64 it needs the kernel modules, LADSPA plugins and platform packages as arm64 files (the module fetches them: the kernel release's modules bundle, Ubuntu 24.04's `swh-plugins`, the helper release's `.deb` files) | the release's `.deb` files (`DEBS_FROM=`), or `userspace/platform/install.sh` and `HELPER_FROM=` on arm64; no settings app. Needs kernel t39 or later (tracefs): on t38 the builder leaves the SteamOS manager off, Gaming Mode works, Switch to Desktop does not |
+| postmarketOS | `DISTRO=postmarketos tools/install/install.sh`, or `rootfs/postmarketos/build-rootfs.sh` | any Linux with `openssl`; x86-64 through qemu | built from this repository inside the root (needs network) |
 | Armada | `DISTRO=armada tools/install/install.sh` (experimental), or `rootfs/armada/build-rootfs.sh` | any Linux whose kernel mounts btrfs (the image's root); off arm64 it needs the same arm64 inputs as SteamOS (the module fetches them) | the release's `.deb` files (`DEBS_FROM=`); no settings app |
 
 ### What the builders take care of
@@ -69,6 +73,11 @@ Nothing has to be done by hand after a build. The list below is for reference, b
   `systemd-repart` and device services for other handhelds masked; module lists trimmed to this kernel; the LADSPA
   plugins PipeWire needs copied in; Gaming Mode's rotation matched with a touch calibration; a power-button service
   that does not wait for SteamVR.
+- **postmarketOS:** bootstrapped with `apk.static` (signature checked against `rootfs/postmarketos/keys`) from the
+  postmarketOS and Alpine repositories, without a device package or kernel; `/usr` merged as pmbootstrap does; the
+  swh LADSPA plugins built from a pinned source (not packaged for Alpine); a `hexagonrpcd.service` for the secure ADSP
+  node and a `fastrpc` user; Alpine's `72-feedbackd.rules` masked (it gives the LED ring and torch to feedbackd);
+  `rmtfs`, `tqftpserv` and `postmarketos-zram-swap` masked.
 - **Armada:** the OSTree deployment and its `/var` copied out of the image's btrfs as a plain root; the mounts bootc
   wrote for the image's disk removed; OSTree, bootc and rpm-ostree units, `bootc-generic-growpart`, Armada's ABL and
   boot-image plumbing, its installer (it writes to the internal storage) and its MTP gadget (it would take the USB
@@ -131,14 +140,6 @@ sudo nixos-rebuild switch --flake ~/nixos-config#tb323fu-nixos
 - No SELinux in the kernel (Fedora runs with the config set to permissive).
 - Fedora: x86 binaries go through FEX only if `qemu-user-static-x86` is not installed (its binfmt entry wins; the
   builder excludes it).
-
-## Not tried yet
-
-Not built with the scripts here yet. What is known:
-
-| System | Notes |
-|---|---|
-| postmarketOS | aimed at phones and tablets, with its own boot chain; its root would need the same changes as the others |
 
 ## Your own distribution
 
@@ -228,4 +229,6 @@ The builders in [`rootfs/`](../rootfs/) do all of it.
 [^netfilter]: Needs the netfilter set in [kernel/config/baldur-netfilter.fragment](../kernel/config/).
 [^steam-client]: Steam's own client, run with `FEXBash -c "~/steam-launcher/steam -no-cef-sandbox"`; games untested.
 [^steamos-port]: [SteamOS ARM for handhelds](https://github.com/hashtagbasit/SteamOS-ARM-Handhelds); unofficial, not affiliated with Valve. The builder pins v1.3-8elite-beta2. The earlier v1.3-odin3-beta1 (since withdrawn) also switched to Desktop Mode (KDE) and back. See [SteamOS notes](#steamos-notes).
+[^pmos-installer]: All steps from an empty work directory onto an existing `tb323fu-pmos` partition (`REPARTITION_CARD` unset, so the card kept its other systems); the root grew to its 64 GB partition on the first start.
+[^pmos-time]: `systemd-time-wait-sync` keeps the boot unfinished until the clock syncs over the network; graphical.target is reached at 6.8 s, Phosh is ready at 12 s.
 [^armada-port]: [Armada](https://github.com/armada-os/armada), a gaming distribution for ARM handhelds; its device list ends at SM8750, so this SoC is not one of its targets. See [Armada notes](#armada-notes).

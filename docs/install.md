@@ -88,7 +88,8 @@ one is the same script with `DISTRO=<name>`. [Distributions](distros.md) has wha
 | NixOS with GNOME | `nixos` | verified; no rotation sensor; [editable configuration](distros.md#nixos-your-own-configuration) |
 | SteamOS (community port) | `steamos` | experimental: Gaming Mode works on kernel t39 or later, Switch to Desktop does not ([known problems](distros.md#known-problems)) |
 | Armada | `armada` | experimental: boots into Gaming Mode |
-| postmarketOS, your own | – | untested; [Your own distribution](distros.md#your-own-distribution) |
+| postmarketOS v26.06 with Phosh | `postmarketos` | verified; `DESKTOP=plasma-mobile` or `gnome-mobile` experimental |
+| your own | – | [Your own distribution](distros.md#your-own-distribution) |
 
 Several systems can share the card; pick one with Open Device Helper → Systems or `tb323fu-ctl boot`. Each of them
 also installs into a partition on the internal storage that you made beforehand (`TARGET=ufs`,

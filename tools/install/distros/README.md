@@ -17,6 +17,7 @@ DISTRO=~/my-distro.sh tools/install/install.sh  # your own module, by path
 | [`arch.sh`](arch.sh) | Arch Linux ARM, GNOME | verified |
 | [`fedora.sh`](fedora.sh) | Fedora 44 Workstation, GNOME | verified |
 | [`nixos.sh`](nixos.sh) | NixOS (unstable), GNOME | verified |
+| [`postmarketos.sh`](postmarketos.sh) | postmarketOS v26.06 (Nura), Phosh; Plasma Mobile or GNOME Mobile with `DESKTOP=plasma-mobile`, `gnome-mobile` (experimental) | verified |
 | [`steamos.sh`](steamos.sh) | SteamOS, community port | experimental |
 | [`armada.sh`](armada.sh) | Armada (Fedora bootc) | experimental |
 
