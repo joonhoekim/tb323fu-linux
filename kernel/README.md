@@ -104,8 +104,9 @@ The speakers need the Awinic aw882xx amplifier driver, which is not in upstream 
 [`out-of-tree/aw882xx/`](out-of-tree/aw882xx/); build it against the same kernel build and install it in `extra/`:
 
 ```sh
-make -C linux-tb323fu O=out ARCH=arm64 LLVM=1 M=$PWD/kernel/out-of-tree/aw882xx CONFIG_SND_SOC_AW882XX=m modules
-# -> snd-soc-aw882xx.ko into /lib/modules/<release>/extra/, then depmod
+make -C linux-tb323fu O=out ARCH=arm64 LLVM=1 LOCALVERSION= M=$PWD/kernel/out-of-tree/aw882xx CONFIG_SND_SOC_AW882XX=m \
+    INSTALL_MOD_PATH=$PWD/mods INSTALL_MOD_DIR=extra modules modules_install
+# -> mods/lib/modules/<release>/extra/snd-soc-aw882xx.ko, then depmod
 ```
 
 ## Device tree

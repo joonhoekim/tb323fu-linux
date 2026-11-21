@@ -1,11 +1,11 @@
 # Updating Android firmware
 
-The kernel is tested on **ZUI 18.0.12.104**; what is known about other versions is in the
-[table below](#firmware-versions). Nothing in this project stops you from updating, and as long as LTBox can root
-the new firmware, the rest is a question of what changed in it. This page has the order, the way back when Linux
-does not start, how we matched the kernel to .104 and how to check a new firmware the same way. If you are on
-another firmware, please tell us ([below](#tell-us)), even if you only ran the check: you are then the first person
-who can.
+The kernel is tested on **ZUI 18.0.12.104**; other versions are in the [table below](#firmware-versions). Nothing in
+this project stops you from updating, and you can check a new firmware before you start Linux on it: a script compares
+its memory map with the kernel's in a minute, from Android ([Checking a new firmware](#checking-a-new-firmware)).
+
+**On a version not in the table, please run the check and send the result as an issue ([how](#tell-us))**, even if
+you do not start Linux on it. Each report fills a row for the next person.
 
 A firmware update **cannot be undone**: it raises the rollback index, so the older firmware will not boot again.
 
@@ -13,10 +13,10 @@ A firmware update **cannot be undone**: it raises the rollback index, so the old
 
 | Firmware | Region | Linux | Memory map | Report |
 |---|---|---|---|---|
-| 18.0.10.084 | ROW (12 GB) | boots to the desktop (`kernel-t61`, SteamOS) | matches | [#54](https://github.com/joonhoekim/tb323fu-linux/issues/54) |
+| 18.0.10.084 | ROW (12 GB) | boots to the desktop (SteamOS) | matches | [#54](https://github.com/joonhoekim/tb323fu-linux/issues/54) |
 | 18.0.12.104 | ROW | works (the development tablet) | matches ([map](../firmware/memory-map-zui-18.0.12.104.txt)) | — |
 | 18.0.12.187 | ROW | hangs early in boot | not checked yet | [#9](https://github.com/joonhoekim/tb323fu-linux/issues/9) |
-| ZUXOS 2.0.10.026 | PRC (24 GB) | boots to the desktop (`kernel-t61`, Arch Linux ARM); DSPs, audio, suspend and the switch to Android work, a 10-minute memory test over almost all 24 GB passed | matches; only `/memory` differs, as expected with 24 GB | [#52](https://github.com/joonhoekim/tb323fu-linux/issues/52) |
+| ZUXOS 2.0.10.026 | PRC (24 GB) | boots to the desktop (Arch Linux ARM); DSPs, audio, suspend and the switch to Android work[^zuxos-test] | matches; only `/memory` differs, as expected with 24 GB | [#52](https://github.com/joonhoekim/tb323fu-linux/issues/52) |
 
 Every other version is untested. All reports:
 [issues labelled `firmware`](https://github.com/joonhoekim/tb323fu-linux/issues?q=is%3Aissue+label%3Afirmware).
@@ -31,43 +31,41 @@ Every other version is untested. All reports:
 
 ## The order
 
-Prepared from the LTBox source; not done on the development tablet since rooting.
+**Untested** as a whole; prepared from the LTBox source.
 
 1. Restore the stock `boot_a` and unroot ([Undoing the root](recovery.md#undoing-the-root)).
 2. Enable the OTA apps and update; disable them again.
 3. Root again (LTBox then writes only `init_boot`).
-4. Install again, every step: the guided installer warns about the firmware and asks whether to go on (on a PC
-   where it ran before, start with an empty `~/tb323fu-install`, or the finished steps are skipped), or by hand from
+4. Install again, every step: with the guided installer (it warns about the firmware and asks whether to go on; on a
+   PC where it ran before, start with an empty `~/tb323fu-install`, or finished steps are skipped) or by hand from
    [step 1](install-manual.md#1-extract-the-firmware). The firmware files Linux loads, the Linux boot image and the
-   hash of Android's boot image all have to come from the new firmware, and the root on the card is built again. To
-   keep a root you already have, see [the way back](install-manual.md#2-the-way-back-androids-boot-image-in-boot_b)
-   for the hash it records.
+   hash of Android's boot image must all come from the new firmware, and the root on the card is built again. To
+   keep an existing root, see [the way back](install-manual.md#2-the-way-back-androids-boot-image-in-boot_b).
 
 If Linux starts, check what you use ([First start](after-install.md#first-start)) and tell us. If it does not: put
 Android back ([Linux does not boot](recovery.md#linux-does-not-boot)), then read on.
 
 ## Why a firmware update can break the kernel
 
-The bootloader normally hands the kernel a devicetree, a command line and a ramdisk. This kernel brings all three
-itself (the devicetree is built into the `Image`), and takes **only `/memory`** from the bootloader: the list of RAM
-ranges, which the bootloader computes at boot from the DRAM setup and the memory the firmware keeps for itself.
+This kernel brings its own devicetree, command line and ramdisk and takes **only `/memory`** from the bootloader:
+the RAM ranges, computed at boot from the DRAM setup and the memory the firmware keeps for itself.
 
-That memory is described a second time in the kernel's own devicetree, as `/reserved-memory`: the regions the DSPs,
-the modem, the display and others run in. Those addresses were taken from 18.0.12.104. A firmware that moves a
-region, makes one larger or adds one can leave the two descriptions disagreeing:
+The kernel's devicetree describes that memory a second time as `/reserved-memory` (the regions the DSPs, modem,
+display and others run in), with addresses taken from 18.0.12.104. A firmware that moves, enlarges or adds a region
+can leave the two descriptions disagreeing:
 
 - a firmware region **inside** `/memory` that the kernel does not reserve becomes ordinary RAM for Linux, which then
   overwrites the firmware's data: a hang or a reset with no message, often early;
 - a region the kernel reserves at the **old** address no longer matches the firmware: a DSP loads into the wrong
   place or fails to start.
 
-This is the leading guess for #9, not a confirmed cause. Other things also change with a firmware (the bootloader
-itself, the firmware of the always-on and security processors), and the check below does not see them.
+This is the leading guess for #9, not a confirmed cause. A firmware also changes the bootloader and the always-on and
+security processors' firmware, which the check below does not see.
 
 ## How the memory map matches on 18.0.12.104
 
 `tools/fw-memory-check.py` compares the devicetree Android boots with (the bootloader's `/memory` and Android's
-`/reserved-memory`) with the one built into a kernel `Image`. Run on 18.0.12.104 and the t58 kernel, shortened:
+`/reserved-memory`) with the one built into a kernel `Image`. On 18.0.12.104, shortened:
 
 ```text
 Android: Qualcomm Technologies, Inc. Canoe QRD + ST54L + Pandeiro (msm-id <0x295 0x20000 0x294 0x10000 …>, board-id <0x2000b 0x0>)
@@ -99,17 +97,15 @@ splash_region@fc800000                       0x0fc800000+2b00000   same as splas
 
 What this says, and why .104 boots:
 
-- **The bootloader already cuts every fixed firmware region out of `/memory`** (20 ranges with holes in them). All
-  `no-map` regions are "outside /memory": Linux never gets them as RAM, whatever its devicetree says.
-- **Four regions inside `/memory` are not reserved** by the kernel, and all four are `reusable`: memory pools that
-  Android also uses as normal RAM until it lends them to a virtual machine. Starting from the bootloader, nothing is
-  lent yet, so Linux may use them.
-- **Every region the kernel reserves matches Android**: the same address and size, or (`pdp`) a part of a larger
-  Android region. `rmtfs` is a buffer the kernel itself provides to the modem, at the end of a `/memory` range.
-  `splash_region` keeps the boot screen's buffer.
-- **One of them had to be changed to match.** Upstream `kaanapali.dtsi` reserves `adspslpi` with `0x4c00000` bytes;
-  Android has `0x4600000`, and the bootloader hands out the memory after it (from `0xa5a00000`) as RAM. The audio DSP
-  then failed to start (`request_mem_region` returned `-EBUSY`). `kernel/dts/baldur-audio.dtsi` overrides it:
+- **The bootloader already cuts every fixed firmware region out of `/memory`.** All `no-map` regions are "outside
+  /memory": Linux never gets them as RAM.
+- **Four regions inside `/memory` are not reserved**, all `reusable`: pools Android uses as normal RAM until it
+  lends them to a virtual machine. Nothing is lent at boot, so Linux may use them.
+- **Every region the kernel reserves matches Android** (same address and size, or `pdp` inside a larger region).
+  `rmtfs` is a buffer the kernel provides to the modem; `splash_region` keeps the boot screen's buffer.
+- **One had to be changed.** Upstream `kaanapali.dtsi` reserves `adspslpi` with `0x4c00000` bytes; Android has
+  `0x4600000`, and the bootloader hands out the rest (from `0xa5a00000`) as RAM. The audio DSP then failed to start
+  (`request_mem_region` returned `-EBUSY`). `kernel/dts/baldur-audio.dtsi` overrides it:
 
   ```dts
   &adspslpi_mem {
@@ -150,14 +146,13 @@ The `diff` shows what the firmware changed; the check shows what that means for 
 | `DIFFERS: overlaps …` | a region the kernel reserves at an address the firmware no longer uses that way: move or resize it |
 | `/memory` ranges differ | expected when regions move; the check above covers what matters |
 
-The first two lines show what was compared. Android's devicetree carries the name of Qualcomm's reference board, not
-Lenovo's; what has to match is the SoC id (the first number of a `qcom,msm-id` pair, `0x295`). A devicetree from
-another device stops the script with exit status 2 (`--force` compares anyway); a different `board-id` only warns,
-and so does a devicetree that looks like the kernel's own (taken under Linux instead of Android).
+Android's devicetree carries Qualcomm's reference board name, not Lenovo's; what must match is the SoC id (the first
+number of a `qcom,msm-id` pair, `0x295`). A devicetree from another device stops the script with exit status 2
+(`--force` compares anyway); a different `board-id`, or a devicetree taken under Linux, only warns.
 
-The script exits with 1 when it finds a `no-map` region exposed or a kernel region that differs. A text map works
-in place of `fdt.dtb`: `tools/fw-memory-check.py firmware/memory-map-zui-18.0.12.104.txt Image-tb323fu-tNN` checks a
-kernel you built against .104.
+The script exits with 1 when a `no-map` region is exposed or a kernel region differs. A text map works in place of
+`fdt.dtb`: `tools/fw-memory-check.py firmware/memory-map-zui-18.0.12.104.txt Image-tb323fu-tNN` checks a kernel you
+built against .104.
 
 ## Changing the devicetree
 
@@ -179,7 +174,7 @@ in the kernel tree and are changed by label from the board files, as `adspslpi` 
 };
 ```
 
-(The addresses here are made up.) Put the change in the `baldur-*.dtsi` file it belongs to, build
+(The addresses are made up.) Put the change in the `baldur-*.dtsi` file it belongs to, build
 ([Building your own kernel](custom-kernel.md)), run the check against the new `Image` until it reports nothing, and
 try it. A kernel that hangs before the boot summary needs the EDL way back each time.
 
@@ -197,3 +192,5 @@ way, with:
 
 A devicetree change that boots is welcome as a pull request
 ([CONTRIBUTING](../CONTRIBUTING.md)); a new `firmware/memory-map-zui-<version>.txt` with it helps the next person.
+
+[^zuxos-test]: A 10-minute memory test over almost all 24 GB passed.

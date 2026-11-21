@@ -1,19 +1,17 @@
 # After installing
 
 What to know once Linux runs on the tablet: the first start, switching between Android and Linux, updates, more
-systems on the card, how to remove Linux again, and where to look when something is wrong. The install itself is in
+systems on the card, removing Linux, and where to look when something is wrong. The install itself is in
 [Installing Linux](install.md).
 
 ## First start
 
-The Lenovo logo, then a text summary on the panel, then the desktop. The first start takes a little longer (the root
-grows to fill the partition); after that the desktop is up some seconds after the kernel starts (measured times per
-system: [Distributions](distros.md)). GNOME logs you in automatically.
+The Lenovo logo, then a text summary on the panel, then the desktop. The first start takes longer (the root grows to
+fill the partition). Boot times per system: [Distributions](distros.md). GNOME logs you in automatically.
 
-**Wi-Fi:** top right → Wi-Fi → pick your network → a notification asks for the password. Until then the clock is
-wrong (Android keeps the real time in a place Linux cannot read); it sets itself once the network is up. The time
-zone comes from the PC you built on. A Wi-Fi icon with a `?` means the internet check failed; it usually clears
-within a minute.
+**Wi-Fi:** top right → Wi-Fi → pick your network → a notification asks for the password. Until then the clock is wrong
+(Android keeps the real time where Linux cannot read it); it sets itself once the network is up. The time zone comes
+from the PC you built on. A Wi-Fi icon with `?` means the internet check failed; it usually clears within a minute.
 
 In GNOME's Terminal:
 
@@ -22,9 +20,9 @@ tb323fu-check                           # each part PASS / WARN / FAIL, with a h
 cat /etc/tb323fu/android-boot.sha256    # the hash the script printed in the wayback step
 ```
 
-`tb323fu-check` comes with platform 0.4.5 or newer; on older installs use `systemctl --failed`.
-If something fails and the hint does not help, open an issue and paste `tb323fu-check --markdown` into it: it holds
-no device IDs, addresses or network names. Look it over before posting all the same.
+`tb323fu-check` comes with platform 0.4.5 or newer; on older installs use `systemctl --failed`. If something fails and
+the hint does not help, open an issue and paste `tb323fu-check --markdown`: it holds no device IDs, addresses or
+network names, but look it over before posting.
 
 Then try the way back to Android and back to Linux once, while you are at the desk (next section).
 
@@ -38,21 +36,20 @@ mismatch. How it works: [android/README.md](../android/README.md).
 
 | Direction | How | Checked |
 |---|---|---|
-| Linux → Android | Open Device Helper → **Android** → Restart into Android, or the Android tile in the quick settings ([helper](helper.md)); in a terminal `back-to-android <hash>` as root | yes |
-| Linux → Android, emergency | hold **volume up + volume down for 10 s**; works with a frozen desktop as long as the kernel runs; letting go earlier cancels | yes (Debian; Ubuntu through the guided installer) |
-| Android → Linux | KernelSU app → Modules → **Switch to Linux** → Action. Writes the last Linux image that ran (or the staged one) to `boot_a`, verifies it, restarts; on a bad write it copies Android back from `boot_b` first | yes |
+| Linux → Android | Open Device Helper → **Android** → Restart into Android, or the Android tile in the quick settings ([helper](helper.md)); in a terminal `back-to-android <hash>` as root | verified |
+| Linux → Android, emergency | hold **volume up + volume down for 10 s**; works with a frozen desktop as long as the kernel runs; letting go earlier cancels | verified (Debian; Ubuntu through the guided installer) |
+| Android → Linux | KernelSU app → Modules → **Switch to Linux** → Action. Writes the last Linux image that ran (or the staged one) to `boot_a`, verifies it, restarts; on a bad write it copies Android back from `boot_b` first | verified |
 
-A switch takes under a minute (about 40 s measured on the author's tablet). If the Linux image that ran last is a
-kernel still on trial (below) or one that failed, the Switch to Linux module writes the last confirmed kernel instead
-and says so.
+A switch takes under a minute. If the Linux image that ran last is a kernel still on trial (below) or one that failed,
+Switch to Linux writes the last confirmed kernel instead and says so.
 
 <details>
 <summary>From a PC</summary>
 
 | Direction | How | Checked |
 |---|---|---|
-| from a PC, Linux running | [`tools/flash-boot.sh`](../tools/flash-boot.sh) over SSH (USB network: tablet `192.168.7.2`, PC `192.168.7.1`) | yes |
-| from a PC, through Android | [`tools/cycle.sh`](../tools/cycle.sh): back to Android if needed, write `boot_a` over adb, reboot, wait for SSH | yes, many times |
+| Linux running | [`tools/flash-boot.sh`](../tools/flash-boot.sh) over SSH (USB network: tablet `192.168.7.2`, PC `192.168.7.1`) | verified |
+| through Android | [`tools/cycle.sh`](../tools/cycle.sh): back to Android if needed, write `boot_a` over adb, reboot, wait for SSH | verified |
 
 </details>
 
@@ -61,66 +58,43 @@ If neither way works: [Recovery](recovery.md) (EDL with your own backup from [ro
 ## Updates
 
 **Kernel.** Open Device Helper → **About** → Kernel Updates, or `tb323fu-ctl kernel update`. The helper checks the
-project's GitHub Releases once a day (it only checks; downloading and installing are your choice) and packs the new
-kernel into your own stock boot image from `boot_b`. The channel is **Stable** by default: it offers the newest
-stable release ([the latest release](https://github.com/joonhoekim/tb323fu-linux/releases/latest)); **Testing** also
-offers testing releases (marked "Pre-release" on GitHub), which carry new features before they become stable.
-`tb323fu-ctl kernel install kernel-tNN` installs one release by name, whatever the channel. A kernel from a file you built: **Install Kernel from File…** ([custom-kernel.md](custom-kernel.md)).
+project's GitHub Releases once a day (it only checks; downloading and installing are your choice). **Stable** is the
+default channel ([latest release](https://github.com/joonhoekim/tb323fu-linux/releases/latest)); **Testing** also
+offers pre-releases. A new kernel starts on trial and is replaced automatically if it fails to start; channels, **Keep**
+and going back: [helper.md → Kernel updates](helper.md#kernel-updates). A kernel you built:
+[custom-kernel.md](custom-kernel.md).
 
-**Trial and Keep.** A new kernel is first on trial. Before writing it, the helper saves the running one as
-`linux-good.img`. On the stable channel the kernel is confirmed by itself once the system has been up for 90 s. On the
-Testing channel, for testing releases and for kernels from a file, only **Keep** (in the app, or `tb323fu-ctl kernel
-keep`) confirms it. A kernel that is not confirmed by its third start is replaced by `linux-good.img` and the tablet
-restarts. A kernel that dies before the initramfs runs cannot be caught this way; then the way back is EDL
-([recovery](recovery.md#linux-does-not-boot)). Details: [helper.md → Kernel updates](helper.md#kernel-updates).
+**Helper.** Releases tagged `helper-vX.Y.Z` show in **About** → Helper Updates and in `tb323fu-ctl helper`. Whether the
+helper updates itself or you update its package depends on how it was installed (Ubuntu: `apt` owns it; Arch Linux ARM:
+it updates itself; NixOS: `nix flake update`): [helper.md → Helper updates](helper.md#helper-updates).
 
-**Helper.** Releases tagged `helper-vX.Y.Z` show in **About** → Helper Updates and in `tb323fu-ctl helper`. Who installs
-them depends on who installed the helper
-([helper.md → Helper updates](helper.md#helper-updates)):
-
-| System (guided script) | How the helper was installed | Updating it |
-|---|---|---|
-| Ubuntu | the release's `.deb` packages, owned by `apt` | the helper does not replace itself; it shows the new version and the command: install the new release's `.deb` files (`sudo apt install ./tb323fu-helper_*.deb` …) |
-| Arch Linux ARM | the release's `.deb` files, unpacked without a package manager | nobody owns the files, which helper.md counts as `self`: the helper updates itself |
-| NixOS | Nix packages from this repository | `nix flake update tb323fu-linux && sudo nixos-rebuild switch` |
-
-On other systems Open Device Helper shows the command when a package manager owns the helper.
-
-**The distribution** updates the usual way (`apt`, `pacman`, `nixos-rebuild`, …). The kernel and its modules come
-with the boot image, not from the distribution's packages.
+**The distribution** updates the usual way (`apt`, `pacman`, `nixos-rebuild`, …). The kernel and its modules come with
+the boot image, not from the distribution's packages.
 
 ## Optional: the project's Mesa for Vulkan and OpenCL
 
-After the install, every application uses the distribution's Mesa, and nothing changes that by itself. The project
-also offers its own Mesa build for this GPU — Turnip (Vulkan) and rusticl (OpenCL) — which is much faster for GPU
-compute (OpenCL programs, Vulkan compute; Geekbench 7 OpenCL about 2.7 times the score with Debian's Mesa, see
-[Performance → GPU](performance.md#gpu)).
-OpenGL and the desktop itself keep using the distribution's Mesa either way. It is optional and comes as a binary
-release only.
-
-> The scores were measured on one tablet (the author's) and are for orientation only; yours may differ.
+After the install, every application uses the distribution's Mesa. The project also offers its own Mesa build for this
+GPU, Turnip (Vulkan) and rusticl (OpenCL), which is much faster for GPU compute: about 2.7 times the Geekbench 7 OpenCL
+score of Debian's Mesa on one tablet, for orientation only ([Performance → GPU](performance.md#gpu)). OpenGL and the
+desktop keep using the distribution's Mesa either way. It is optional and comes as a binary release only.
 
 - **Try it:** Open Device Helper → **Performance** → Graphics Drivers → **Check Now**, then Download and Install…, and
-  switch on **Use the Project's Mesa**; or `tb323fu-ctl mesa update` and `tb323fu-ctl mesa on`. It is used by
-  applications started after the next login. The distribution's Mesa stays installed next to it.
-- **On trial:** a version you switch on has to be confirmed with **Keep** (the banner on the Performance page, or
-  `tb323fu-ctl mesa keep`). Without Keep, the third start switches back to the distribution's Mesa by itself.
-- **Going back:** switch it off (`tb323fu-ctl mesa off`, used from the next login), or **Go Back…** to the previously
-  installed version.
-- **One program only:** `tb323fu-mesa run COMMAND` runs one program with the project's Mesa and `tb323fu-mesa distro
-  COMMAND` with the distribution's, whatever the setting — handy for comparing, or when one application misbehaves.
+  switch on **Use the Project's Mesa**; or `tb323fu-ctl mesa update` and `tb323fu-ctl mesa on`. Applications started
+  after the next login use it. The distribution's Mesa stays installed.
+- **On trial:** a version you switch on must be confirmed with **Keep** (banner on the Performance page, or
+  `tb323fu-ctl mesa keep`). Without Keep, the third start switches back to the distribution's Mesa.
+- **Going back:** `tb323fu-ctl mesa off` (from the next login), or **Go Back…** to the previously installed version.
+- **One program only:** `tb323fu-mesa run COMMAND` uses the project's Mesa and `tb323fu-mesa distro COMMAND` the
+  distribution's, whatever the setting.
 
 Details, and using a release without the helper: [helper.md → Graphics drivers](helper.md#graphics-drivers-mesa).
-Measured results: [Performance → GPU](performance.md#gpu).
 
 ## Swap (zram)
 
 The root images have no swap partition or file. The platform package sets up compressed swap in RAM at every start
-instead (`tb323fu-zram.service`): a zram device as large as the RAM, zstd, with `vm.swappiness=100` and
-`vm.page-cluster=0`. Memory that programs leave idle is compressed (about 4.5 times in our test), so a working set
-larger than the RAM keeps running instead of a program being closed by the out-of-memory killer. In our test,
-15–17 GB on the 15 GB tablet were killed every time without swap and kept running with zram, with no measurable
-difference in build time or latency.
+(`tb323fu-zram.service`): a zram device as large as the RAM, zstd, `vm.swappiness=100`, `vm.page-cluster=0`. Idle memory
+is compressed, so a working set larger than the RAM keeps running instead of being closed by the out-of-memory
+killer.[^zram-test]
 
 ```sh
 tb323fu-ctl memory zram          # active?, size, stored and compressed, swappiness
@@ -129,38 +103,37 @@ tb323fu-ctl memory zram size 8192   # MiB, or "size ram"
 ```
 
 Without the helper, edit `/etc/tb323fu/zram.conf` (`ENABLED=0|1`, `SIZE=ram|MiB`, `ALGORITHM=zstd`) and run
-`systemctl restart tb323fu-zram`. If the system already has a zram swap (Fedora's zram-generator), the service leaves
-it alone. A swap file next to it is fine: zram is used first (priority 100). On NixOS it is
-`services.tb323fu.zram.enable` (default on) and `services.tb323fu.zram.memoryPercent`.
+`systemctl restart tb323fu-zram`. If the system already has a zram swap (Fedora's zram-generator), the service leaves it
+alone. A swap file next to it is fine: zram is used first (priority 100). On NixOS use `services.tb323fu.zram.enable`
+(default on) and `services.tb323fu.zram.memoryPercent`.
 
-Other sysctls suggested for zram (`vm.watermark_boost_factor=0`, `vm.watermark_scale_factor=125`,
-`vm.vfs_cache_pressure=50`, `vm.dirty_background_ratio=5`, `vm.dirty_ratio=10`) are optional tuning: they showed no gain
-in our test and are not set.
+Other zram sysctls (`vm.watermark_boost_factor=0`, `vm.watermark_scale_factor=125`, `vm.vfs_cache_pressure=50`,
+`vm.dirty_background_ratio=5`, `vm.dirty_ratio=10`) showed no gain and are not set.
 
 ## Screen rotation
 
-The rotation sensor works on every system that has the sensor support ([Distributions](distros.md)); whether the
-screen follows it is the desktop's choice:
+The rotation sensor works on every system that has the sensor support ([Distributions](distros.md)); whether the screen
+follows it is the desktop's choice:
 
-- **GNOME** turns the screen only while no keyboard or mouse is connected, and then also hides the rotation lock tile.
-  To keep rotating with a keyboard or mouse: [`userspace/desktop/gnome`](../userspace/desktop/gnome/README.md#rotation-with-a-keyboard-or-mouse-connected).
+- **GNOME** rotates only while no keyboard or mouse is connected, and then also hides the rotation lock tile. To keep
+  rotating with one connected: [`userspace/desktop/gnome`](../userspace/desktop/gnome/README.md#rotation-with-a-keyboard-or-mouse-connected).
 - **KDE Plasma:** System Settings → Display & Monitor → Orientation **Automatic**; clear "Only when in tablet mode" to
-  keep rotating with a keyboard. It needs Qt Sensors (`qt6-sensors` or similar). Not tried on this tablet.
-- Window managers without automatic rotation (sway, niri, …): `monitor-sensor` shows the orientation that
-  iio-sensor-proxy reports, for a script of your own.
+  keep rotating with a keyboard. Needs Qt Sensors (`qt6-sensors` or similar). Untested.
+- Window managers without automatic rotation (sway, niri, …): `monitor-sensor` shows the orientation iio-sensor-proxy
+  reports, for a script of your own.
 
 ## Another system on the card
 
-Each system lives in its own partition, and all of them share the one kernel in `boot_a`. The guided script puts one
-system on the card; more are added by hand: a partition named `tb323fu-<name>` in the card's free space and a root
-built into it ([Installing by hand, steps 4–5](install-manual.md#4-partition-a-microsd-card)). Which systems have
-been tried and how each one is built: [Distributions](distros.md). Picking one: Open Device Helper → **Systems**, or
-`tb323fu-ctl boot` ([Installing by hand → Multiboot](install-manual.md#multiboot)).
+Each system lives in its own partition, and all share the one kernel in `boot_a`. The guided script puts one system on
+the card; add more by hand: a partition named `tb323fu-<name>` in the card's free space and a root built into it
+([Installing by hand, steps 4–5](install-manual.md#4-partition-a-microsd-card)). Systems tried and how each is built:
+[Distributions](distros.md). To pick one: Open Device Helper → **Systems**, or `tb323fu-ctl boot`
+([Installing by hand → Multiboot](install-manual.md#multiboot)).
 
 ## Removing Linux
 
-Linux never replaces Android: Android's data, apps and system stay as they were (unless you moved the Linux root to
-the internal storage, last row). Going back to the stock tablet, in this order:
+Linux never replaces Android: its data, apps and system stay as they were (unless you moved the Linux root to the
+internal storage, last row). To go back to the stock tablet, in this order:
 
 | Step | How | Status |
 |---|---|---|
@@ -168,7 +141,7 @@ the internal storage, last row). Going back to the stock tablet, in this order:
 | 2. Remove the Switch to Linux module | KernelSU app → Modules → Switch to Linux → uninstall, restart. Its staged image stays in `/data/adb/tb323fu`: `adb shell su -c 'rm -rf /data/adb/tb323fu'` | untested |
 | 3. The card | Android: Settings → Storage → the card → format; or delete the partition (`sgdisk -d`) on a PC | untested |
 | 4. `boot_b` | nothing to do: it is never booted. A stock copy is also in your dump and in the firmware package (same version) | — |
-| 5. The root (KernelSU, `efisp`) | [Recovery → Undoing the root](recovery.md#undoing-the-root) | from LTBox's source |
+| 5. The root (KernelSU, `efisp`) | [Recovery → Undoing the root](recovery.md#undoing-the-root). Erase `efisp` only after step 1 put Lenovo's signed boot back in `boot_a` | Unroot verified; `efisp` erase with stock `boot_a` untested |
 | 6. The OTA apps | turned off while [rooting](rooting.md#3-root-on-android-kernelsu); turn them on again: `adb shell pm enable --user 0 com.lenovo.ota`, the same for `com.tblenovo.center`. Before a firmware update, see [Updating Android firmware](firmware-updates.md) | untested |
 | a Linux root on the internal storage | write the saved table back (`sgdisk -l lun0-gpt.bak $D`) and factory-reset Android again so `userdata` is formatted at full size (Android: Settings → Reset, or LTBox Flash Firmware → Wipe Data) | untested |
 
@@ -189,3 +162,5 @@ tablet's table: the backup contains your device's unique GUIDs. A complete facto
 | a kernel update did not come up | it goes back by itself after the third start; [helper.md → Kernel updates](helper.md#kernel-updates) |
 
 Anything else: open an issue on GitHub with what you did and what you saw.
+
+[^zram-test]: In one test, 15–17 GB of memory on the 15 GB tablet was killed every time without swap and kept running with zram (compression about 4.5 times), with no measurable difference in build time or latency.

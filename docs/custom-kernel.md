@@ -1,34 +1,33 @@
 # Building and installing your own kernel
 
-For contributors: how to build a kernel from this repository, install it on your tablet with the helper (the same
-trial and automatic rollback as an official update), and publish it on your own fork's GitHub Releases so that
-others can get it through their helper.
+For contributors: build a kernel from this repository, install it with the helper (the same trial and automatic
+rollback as an official update), and publish it on your fork's GitHub Releases so others can get it through their
+helper.
 
 Background: [helper.md "Kernel updates"](helper.md#kernel-updates) (what the helper checks and does),
 [the manual install, step 3](install-manual.md#3-the-linux-boot-image) (the boot image), and the design note
 [kernel-updates-design.md](notes/kernel-updates-design.md).
 
-> **Status.** The helper side — `install-local`, the GitHub Releases channel, trial boot, Keep and rollback — is
-> **[verified]** ([labels](hardware-status.md#labels-on-other-pages)) on the development tablet (2026-10-03, with development kernels and a test pre-release; the app's file chooser and update screens were used by a person). The build
-> commands are the ones in [the manual install, 3b](install-manual.md#3b-build-it-yourself) **[from records]**.
+> **Status.** The helper side (`install-local`, the GitHub Releases channel, trial boot, Keep and rollback) is
+> **verified** ([labels](hardware-status.md#evidence-labels)). The build commands are the ones in
+> [the manual install, 3b](install-manual.md#3b-build-it-yourself): **verified**.
 
 ## 1. Build
 
 Follow [the manual install, 3b](install-manual.md#3b-build-it-yourself), with two things that matter for the helper:
 
 - **A release name of your own, unique per build:** `CONFIG_LOCALVERSION="-tb323fu-<something>"` and
-  `make LOCALVERSION=` (no `+`). The release string is how modules and kernels are told apart. To publish through
-  GitHub Releases (step 3) it must end in `-tb323fu-tNN` — `NN` is the serial the helper compares (higher = newer).
-  A release is offered only when its serial is higher than the running kernel's, so a fork's serials must be higher
-  than those of the kernels its users run.
-  For a kernel you only install yourself any name works, e.g. `-tb323fu-tNN-speakerfix`.
-- **Shared modules:** build the initramfs with `kernel/initramfs/build.sh -m mods/lib/modules/<release>` — all
-  modules of the kernel go into the boot image as `/lib/modules/<release>.sqfs`, and the initramfs mounts them on
-  every root it boots. Without `-m` each root needs its own copy of exactly these modules (`own` mode in
-  `/etc/tb323fu/modules`); the helper warns about such a kernel before installing it.
+  `make LOCALVERSION=` (no `+`). The release string tells modules and kernels apart. To publish through GitHub
+  Releases (step 3) it must end in `-tb323fu-tNN`; `NN` is the serial the helper compares. A release is offered only
+  when its serial is higher than the running kernel's, so a fork's serials must exceed those of the kernels its
+  users run. For a kernel you only install yourself any name works, e.g. `-tb323fu-tNN-speakerfix`.
+- **Shared modules:** build the initramfs with `kernel/initramfs/build.sh -m mods/lib/modules/<release>`. All modules
+  go into the boot image as `/lib/modules/<release>.sqfs`, and the initramfs mounts them on every root it boots.
+  Without `-m` each root needs its own copy of exactly these modules (`own` mode in `/etc/tb323fu/modules`); the
+  helper warns about such a kernel before installing it.
 
-What you install is the kernel **`Image`** (`out/arch/arm64/boot/Image`, with the initramfs built in) or a gzip of
-it (`gzip -9 -n`); the bootloader decompresses gzip (not LZ4). A boot image (`build-boot.sh` output) works too — the
+What you install is the kernel **`Image`** (`out/arch/arm64/boot/Image`, initramfs built in) or a gzip of it
+(`gzip -9 -n`); the bootloader decompresses gzip, not LZ4. A boot image (`build-boot.sh` output) works too: the
 helper takes only its kernel.
 
 ## 2. Install it on your tablet
@@ -40,29 +39,19 @@ tb323fu-ctl kernel inspect Image.gz          # release, banner, shared modules o
 sudo tb323fu-ctl kernel install-local Image.gz --name "speaker fix" --reboot
 ```
 
-or in Open Device Helper: **About → Kernel Updates → Install Kernel from File…** (it shows the same information and
-asks before installing). What happens:
+or in Open Device Helper: **About → Kernel Updates → Install Kernel from File…** (same information, asks before
+installing). It is installed like an official update (repacked into your stock boot image, trial, automatic rollback;
+[helper.md → Kernel updates](helper.md#kernel-updates)), with these differences:
 
-1. The helper repacks the kernel into **your own stock boot image** (the copy in `boot_b`, checked against your
-   Android hash) and saves the image that runs now as `linux-good.img` on the state root.
-2. It writes `boot_a`, reads it back and compares; a mismatch puts `linux-good.img` back.
-3. The next start is a **trial**. The initramfs counts the starts of the new kernel; after two starts that were not
-   confirmed, the third start writes `linux-good.img` back and restarts into the previous kernel.
-4. **Confirming:** by default (`--trial`) only **Keep** confirms — `tb323fu-ctl kernel keep`, or the banner in the
-   app. With `--keep` the kernel is kept by itself once a system has run 90 s with it (like a stable release).
+- By default (`--trial`) only **Keep** confirms the kernel: `tb323fu-ctl kernel keep`, or the banner in the app. With
+  `--keep` it is kept by itself once a system has run 90 s with it.
+- `tb323fu-ctl kernel` shows the trial (`trial … "speaker fix" (a local file, start 1 of 2)`), and
+  `tb323fu-ctl kernel rollback --reboot` goes back at any time, before or after confirming.
+- Installing from a file asks for the administrator's password **every time**: nothing but you vouches for the file.
 
-`tb323fu-ctl kernel` shows the trial (`trial … "speaker fix" (a local file, start 1 of 2)`), and `tb323fu-ctl kernel
-rollback --reboot` goes back at any time before or after confirming. A kernel that stops **before** its initramfs
-runs (no boot log on the panel at all) cannot be caught by the trial — its starts are never counted, and fastboot
-is read-only on this bootloader: the way back is EDL, writing `boot_a` from a PC — see
-[recovery.md](recovery.md#linux-does-not-boot). Do not force-restart such a kernel over and over (repeated failures
-can make the bootloader switch to slot `_b`, which does not boot). This happened on the development tablet on
-2026-10-03: a test kernel with pseudo-NMI enabled hung before its initramfs on every start. A kernel that boots but
-breaks something is caught as long as you do not press Keep.
-
-Installing from a file asks for the administrator's password **every time** (polkit `auth_admin`): nothing but you
-vouches for the file. The helper reads the file through a descriptor that `tb323fu-ctl` or the app opened, so it can
-only read files you can read.
+A kernel that stops **before** its initramfs runs (no boot log on the panel at all) is not caught by the trial; the way
+back is EDL ([recovery.md](recovery.md#linux-does-not-boot)). Do not force-restart such a kernel over and over: repeated
+failures can make the bootloader switch to slot `_b`, which does not boot.[^why-nmi]
 
 ## 3. Publish it on your fork
 
@@ -88,9 +77,9 @@ gh release create kernel-tNN out-tNN/* --repo YOU/tb323fu-linux --title "tb323fu
   `<!-- tb323fu: min_helper=X.Y.Z min_platform=X.Y.Z -->` makes older helpers refuse the kernel with a clear message.
 - A **pre-release** is offered only on the `testing` channel and always waits for Keep; turning it into a release
   offers it on `stable` too.
-- Ship the GPL sources with it as the project's releases do: the patch series and configuration (`config-…`) the
-  kernel was built from, and the out-of-tree module sources. The public release script adds the config, the
-  initramfs file list and the BusyBox configuration as further assets; the helper ignores assets it does not know.
+- Ship the GPL sources with it, as the project's releases do: the patch series and configuration (`config-…`) the
+  kernel was built from, and the out-of-tree module sources. The public release script also adds the initramfs file
+  list and the BusyBox configuration; the helper ignores assets it does not know.
 
 Users of your fork set, in `/etc/tb323fu/helper.toml`:
 
@@ -101,14 +90,13 @@ channel = "testing"        # if you publish pre-releases
 ```
 
 then `sudo tb323fu-ctl reload` and `tb323fu-ctl kernel check`. The helper reads public releases without a token. A
-**private** fork needs a token on the tablet: a fine-grained token with read-only access to that repository's
-contents, in `/etc/credstore/tb323fu-github-token` (root, mode 600) — only the download unit reads it.
+**private** fork needs a fine-grained token with read-only access to that repository's contents, in
+`/etc/credstore/tb323fu-github-token` (root, mode 600); only the download unit reads it.
 
-**What users of your fork trust:** `SHA256SUMS` only protects against damaged downloads. Whoever can publish
-releases in your repository decides what their tablets run — use two-factor authentication on the account and keep
-tokens that can write releases out of CI and off shared machines. If you sign `SHA256SUMS` with minisign
-(`kernel-release.py sign out-tNN --key your.key` before uploading), users can set `require_signature = true` and
-`public_keys = ["RW…your public key…"]`.
+**What users of your fork trust:** `SHA256SUMS` only protects against damaged downloads. Whoever can publish releases
+in your repository decides what their tablets run: use two-factor authentication and keep tokens that can write
+releases out of CI and off shared machines. If you sign `SHA256SUMS` with minisign (`kernel-release.py sign out-tNN
+--key your.key` before uploading), users can set `require_signature = true` and `public_keys = ["RW…your public key…"]`.
 
 ## 4. Testing a release without publishing
 
@@ -123,5 +111,7 @@ python3 tools/kernel-release.py fake-api /srv/api --repo YOU/tb323fu-linux --dir
 sudo tb323fu-ctl reload && tb323fu-ctl kernel update
 ```
 
-(`file:///srv/api` works as `api_url` too, with `--base file:///srv/api`; the download unit then needs to be able to
-read that directory.) Set `api_url` back to `https://api.github.com` afterwards.
+`file:///srv/api` works as `api_url` too, with `--base file:///srv/api`; the download unit then needs to read that
+directory. Set `api_url` back to `https://api.github.com` afterwards.
+
+[^why-nmi]: Seen on the development tablet: a test kernel with pseudo-NMI enabled hung before its initramfs on every start.

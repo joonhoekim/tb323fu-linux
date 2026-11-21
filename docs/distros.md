@@ -1,30 +1,25 @@
 # Distributions
 
 The kernel does not depend on a distribution, and **this page is not a list of what is allowed**: it records what has
-been tried. Any arm64 Linux distribution can run on the tablet if its root filesystem has what
-[every root needs](#what-every-root-needs); the systems below are the ones that have been built with the scripts in
-[`rootfs/`](../rootfs/) and booted on a TB323FU, each from its own partition through the initramfs's root selection
+been tried. Any arm64 Linux distribution can run on the tablet if its root has what
+[every root needs](#what-every-root-needs). The systems below were built with the scripts in [`rootfs/`](../rootfs/)
+and booted on a TB323FU, each from its own partition through the initramfs's root selection
 ([kernel/initramfs/README.md](../kernel/initramfs/README.md#root-partitions-and-multiboot), `tb323fu-ctl boot …`,
-[helper.md](helper.md#multiboot)). "Checked" means seen on the device, not "should work"
-([labels](hardware-status.md#labels-on-other-pages)). Several can live side by
-side on the card.
+[helper.md](helper.md#multiboot)). Several can live side by side on the card.
 
-| System | Partition (example) | Builder | Boot to desktop¹ | Checked on the device |
-|---|---|---|---|---|
-| Debian 13 (trixie) | `baldur-root` (UFS) | the original development image | 5.8 s | everything in [hardware-status.md](hardware-status.md) |
-| Ubuntu 26.04 LTS | `tb323fu-ubuntu` | `rootfs/ubuntu` | 8.3 s | GNOME 50 autologin, touch, Wi-Fi, speakers (protection filter, both amplifiers), helper + GNOME extension, sensors (4, also after suspend; first start builds their files), both cameras (libcamera, GNOME Camera) |
-| Arch Linux ARM | `tb323fu-arch` | `rootfs/arch` | 7.5 s | autologin, touch, Wi-Fi, speakers, sensors (4), helper; through the guided installer (2026-10-04, built in WSL2): GNOME, speakers, Wi-Fi password prompt, helper, both ways to Android and back, no sensors |
-| Fedora 44 Workstation + FEX | `tb323fu-fedora` | `rootfs/fedora` | 7.5 s² | GNOME 50 autologin, Wi-Fi, speakers, sensors (4), firewalld³, FEX x86-64, Steam client starts⁴ |
-| NixOS unstable (2026-10-01) | `tb323fu-nixos` | `rootfs/nixos` + `flake.nix` | 11.2 s | stage 2 straight from our initramfs, GNOME autologin, Wi-Fi, speakers, sensors, helper |
-| SteamOS (arm64, community handheld port⁵) | `tb323fu-spare` | `rootfs/steamos` | 14.1 s | Gaming Mode (landscape, seen on the panel; touch lands where tapped after a calibration matrix), Wi-Fi, speakers (protection filter), helper; with the old port release v1.3-odin3-beta1 also Desktop Mode (KDE) both ways. Release v1.3-8elite-beta2 through the guided installer on kernel t39: Gaming Mode, touch, speakers, both ways to Android and back; Switch to Desktop does not work ([known problems](#known-problems)) |
-| Armada 20260926 (Fedora bootc, experimental⁶) | `baldur-root-sd` | `rootfs/armada` | – | through the guided installer on kernel t39 (built in WSL2): boots (a long first-start splash), Gaming Mode with touch after a calibration matrix, Steam's first-start setup; x86 runtime for FEX mounts on kernel t40 (zstd squashfs) ([Armada notes](#armada-notes)) |
+Everything in the "Works" column is **verified** on a tablet ([labels](hardware-status.md#evidence-labels)):
+seen or heard, or measured.
 
-¹ `systemd-analyze` "Startup finished" (kernel + userspace), with automatic login. The time changes with the kernel; these values are not kept up to date.\
-² graphical.target; "Startup finished" is 15 s while first-boot timer jobs (plocate, fstrim) still run. iSCSI and plymouth are masked (see the builder).\
-³ Needs the netfilter set in [kernel/config/baldur-netfilter.fragment](../kernel/config/).\
-⁴ Steam's own client, run with `FEXBash -c "~/steam-launcher/steam -no-cef-sandbox"`; games not tried yet.\
-⁵ [SteamOS ARM for handhelds](https://github.com/hashtagbasit/SteamOS-ARM-Handhelds) v1.3-odin3-beta1 (since withdrawn; the builder pins v1.3-8elite-beta2); unofficial, not affiliated with Valve. See [SteamOS notes](#steamos-notes).\
-⁶ [Armada](https://github.com/armada-os/armada), a gaming distribution for ARM handhelds; its device list ends at SM8750, so this SoC is not one of its targets. See [Armada notes](#armada-notes).
+| System | Partition (example) | Builder | Boot to desktop[^boot-time] | Works | Not working |
+|---|---|---|---|---|---|
+| Debian 13 (trixie) | `baldur-root` (UFS) | the original development image | 5.8 s | everything in [hardware-status.md](hardware-status.md) | – |
+| Debian 13 (trixie) | `tb323fu-ufs` (UFS) | `rootfs/debian` | 4.5 s | GNOME 48 autologin, Wi-Fi password prompt, speakers, touch, pen, sensors, cameras, Bluetooth, suspend, to Android and back[^ufs-installer] | – |
+| Ubuntu 26.04 LTS | `tb323fu-ubuntu` | `rootfs/ubuntu` | 8.3 s | GNOME 50 autologin, touch, Wi-Fi, speakers, helper and GNOME extension, sensors (4), both cameras, suspend, to Android and back[^ubuntu-sensors] | – |
+| Arch Linux ARM | `tb323fu-arch` | `rootfs/arch` | 7.5 s | autologin, touch, Wi-Fi, speakers, helper, both cameras, suspend, to Android and back | sensors through the installer (needs `HEXAGONRPCD_FROM=`) |
+| Fedora 44 Workstation + FEX | `tb323fu-fedora` | `rootfs/fedora` | 7.5 s[^fedora-time] | GNOME 50 autologin, Wi-Fi, speakers, firewalld[^netfilter], FEX x86-64, Steam client starts[^steam-client], suspend, to Android and back | sensors through the installer (needs `HEXAGONRPCD_FROM=`) |
+| NixOS unstable (2026-10-01) | `tb323fu-nixos` | `rootfs/nixos` + `flake.nix` | 11.2 s | stage 2 straight from our initramfs, GNOME autologin, Wi-Fi, speakers, helper, suspend, to Android and back | sensors through the installer |
+| SteamOS (arm64, community handheld port[^steamos-port]) | `tb323fu-spare` | `rootfs/steamos` | 14.1 s | Gaming Mode (landscape; touch lands where tapped after a calibration matrix), Wi-Fi, speakers, helper, suspend, to Android and back | Switch to Desktop ([known problems](#known-problems)); sensors and cameras (the image has no libcamera) |
+| Armada 20260926 (Fedora bootc, experimental[^armada-port]) | `baldur-root-sd` | `rootfs/armada` | – | boots (a long first-start splash), Gaming Mode with touch after a calibration matrix, Steam's first-start setup, suspend, to Android and back; x86 runtime for FEX mounts on kernel t40 ([Armada notes](#armada-notes)) | cameras until `libcamera-ipa pipewire-plugin-libcamera` are installed |
 
 ## Installing each one
 
@@ -37,6 +32,7 @@ top of the file.
 | System | How | Built where | Platform files and helper come from |
 |---|---|---|---|
 | Ubuntu 26.04 | `tools/install/install.sh` (default), or `rootfs/ubuntu/build-rootfs.sh` | any Linux; x86-64 through qemu (WSL2 works) | the `.deb` files of a `helper-v*` release (`DEBS_FROM=`) |
+| Debian 13 | `DISTRO=debian tools/install/install.sh`, or `rootfs/debian/build-rootfs.sh` (the Ubuntu builder with `OS=debian`) | any Linux with `debian-archive-keyring`; x86-64 through qemu | the `.deb` files of a `helper-v*` release (`DEBS_FROM=`) |
 | Arch Linux ARM | `DISTRO=arch tools/install/install.sh`, or `rootfs/arch/build-rootfs.sh` | any Linux; x86-64 through qemu | the release's `.deb` files, unpacked (`DEBS_FROM=`), or your own packages from `packaging/arch/PKGBUILD` (`PKGS_FROM=`) |
 | Fedora 44 | `DISTRO=fedora tools/install/install.sh`, or `rootfs/fedora/build-rootfs.sh` | any Linux; x86-64 through qemu (WSL2 works, about 25 min with GNOME) | built from this repository inside the root (needs network) |
 | NixOS | `DISTRO=nixos tools/install/install.sh`, or `rootfs/nixos/build-rootfs.sh` (a flake: `flake.nix`, `packaging/nix/`) | any Linux with Nix; x86-64 through qemu (`extra-platforms = aarch64-linux`), where the helper is compiled slowly | Nix packages from this repository (`services.tb323fu`) |
@@ -45,8 +41,11 @@ top of the file.
 
 ### What the builders take care of
 
-Everything a distribution needed on this tablet so far is done by its builder; nothing has to be done by hand after
-the build. Besides the list in [What every root needs](#what-every-root-needs):
+Nothing has to be done by hand after a build. The list below is for reference, besides
+[What every root needs](#what-every-root-needs).
+
+<details>
+<summary>What each builder does for its distribution</summary>
 
 - **Ubuntu:** snapd pinned away; `droid-juicer` and `qbootctl` masked; libssc and an iio-sensor-proxy with the SSC
   backend built from pinned sources (a few minutes); `gnome-keyring` (without it the Wi-Fi password
@@ -59,7 +58,7 @@ the build. Besides the list in [What every root needs](#what-every-root-needs):
   without it the root has no rotation sensor.
 - **Fedora:** kernel, bootloader, `linux-firmware` and Qualcomm firmware packages excluded from dnf (they would shadow
   the device firmware); `snd-pcm` loaded without `snd-seq` (the distribution's ALSA config otherwise leaves no
-  sound card); iSCSI and plymouth masked (22.9 s → 7.5 s to the desktop); SELinux permissive (not in this kernel);
+  sound card); iSCSI and plymouth masked; SELinux permissive (not in this kernel);
   `hexagonrpcd` and an `iio-sensor-proxy` with the SSC backend from another root (`*_FROM=`); FEX set up to read its
   x86-64 root through erofsfuse (no EROFS in the kernel).
 - **NixOS:** no initrd and no bootloader (our initramfs starts stage 2); the flake copied to `/etc/nixos` with a
@@ -78,6 +77,8 @@ the build. Besides the list in [What every root needs](#what-every-root-needs):
   SELinux permissive; developer access through a NetworkManager profile, with `usb0` taken out of NetworkManager's
   "unmanaged USB gadget" rule (Armada has no systemd-networkd).
 
+</details>
+
 ### NixOS: your own configuration
 
 The NixOS root carries the flake it was built from in `/etc/nixos`. Only `configuration.nix` there is yours; it
@@ -91,8 +92,7 @@ sudo nixos-rebuild switch --flake /etc/nixos#tb323fu-nixos
 
 The first rebuild downloads nixpkgs (needs the network). The rebuilt system is what the next start boots.
 
-**Your own copy, e.g. `~/nixos-config`** (checked on the tablet: a package added, rebuilt in 57 s, still there after a
-restart):
+**Your own copy, e.g. `~/nixos-config`** (verified):
 
 ```sh
 sudo cp -r /etc/nixos ~/nixos-config && sudo chown -R $USER: ~/nixos-config   # some firmware files are root-only
@@ -111,14 +111,13 @@ sudo nixos-rebuild switch --flake ~/nixos-config#tb323fu-nixos
 
 ### Known problems
 
-- **The USB gadget sometimes does not attach after boot** (seen once each on Arch and NixOS): no USB network or
+- **The USB gadget sometimes does not attach after boot** (seen on Arch and NixOS): no USB network or
   serial shell. `echo connect > /sys/class/udc/*/soft_connect` as root, or unplug and replug the cable.
 - **NixOS:** after a rebuild `/` was once left with mode 777, and sshd then refuses every key: `chmod 755 /`.
 - **Fedora:** the builder keeps firewalld on for release kernels (they have `nft_compat` and `nft_fib_ipv6`) and checks
-  a kernel given with `MODULES_FROM=`. Before 2026-10-30 it turned firewalld off unless given the modules; a root built
-  since then has not been booted yet.
+  a kernel given with `MODULES_FROM=`. A root built with the current builder has not been booted yet (untested).
 - **Fedora, NixOS, SteamOS:** whether GNOME/KDE asks for the Wi-Fi password on first use was not checked after the
-  Ubuntu fix above (Fedora and NixOS install `gnome-keyring` with their GNOME); each was set up with a saved
+  Ubuntu `gnome-keyring` fix (Fedora and NixOS install `gnome-keyring` with their GNOME); each was set up with a saved
   connection (`NM_CONNECTIONS_FROM=`).
 - **SteamOS (port release v1.3-8elite-beta2):** Steam's power menu has no Switch to Desktop, and
   `steamosctl switch-to-desktop-mode` brings Gaming Mode back: SDDM logs in again without taking the temporary
@@ -139,7 +138,6 @@ Not built with the scripts here yet. What is known:
 
 | System | Notes |
 |---|---|
-| Debian 13 through a builder | the development root is Debian (first row above), but it was set up by hand before the builders existed; `rootfs/ubuntu` with a Debian mirror and release is the closest starting point |
 | postmarketOS | aimed at phones and tablets, with its own boot chain; its root would need the same changes as the others |
 
 ## Your own distribution
@@ -211,11 +209,9 @@ The builders in [`rootfs/`](../rootfs/) do all of it.
 - The panel has no orientation property: a profile in Armada's `device-env` (by the device tree's model) turns on
   gamescope's rotation shader, and `/etc/gamescope-session-plus/sessions.d/steam` gives Gaming Mode its orientation
   (`ORIENTATION=`, default `right`, as on SteamOS).
-- Checked on the tablet (2026-10-04, guided installer, kernel t39): the first start shows Armada's own splash for a
-  while, then Gaming Mode; touch lands where tapped once the calibration matrix is set; Steam's first-start setup
-  (language) comes up; the sound card and the helper run.
+- First start: Armada's own splash for a while, then Gaming Mode; Steam's first-start setup (language) comes up; the sound card and the helper run (verified; touch needs the calibration matrix).
 - x86 games: Armada presents its x86-64 runtime for FEX from a squashfs image compressed with zstd: kernel t40 mounts
-  it (`CONFIG_SQUASHFS_ZSTD`), and Decky's plugin loader then starts; a game itself was not tried. On t39 both fail.
+  it (`CONFIG_SQUASHFS_ZSTD`), and Decky's plugin loader then starts; a game itself is untested. On t39 both fail.
 - Not checked yet: Desktop Mode, sound by ear, suspend through Armada's own `suspend-dispatch`, Armada's power
   daemon next to the helper (both set CPU and GPU limits). No sensors (Fedora's `iio-sensor-proxy` has no SSC
   backend).
@@ -224,3 +220,12 @@ The builders in [`rootfs/`](../rootfs/) do all of it.
   step disconnects `usb0` (NetworkManager then leaves it down until the next start).
 
 </details>
+
+[^boot-time]: `systemd-analyze` "Startup finished" (kernel + userspace), with automatic login. The time changes with the kernel; these values are not kept up to date.
+[^ufs-installer]: Also built on the tablet itself, and through the guided installer onto `tb323fu-ufs` with `TARGET=ufs`, built in WSL2. The other systems were also installed onto `tb323fu-ufs` this way; their `tb323fu-check` passes except where "Not working" says otherwise.
+[^ubuntu-sensors]: The first start builds the sensor hub's files; sensors also work after suspend. Speakers run through the protection filter on both amplifiers. Installed with `TARGET=ufs` the desktop comes up in 4.6 s.
+[^fedora-time]: Time to graphical.target; "Startup finished" is 15 s while first-boot timer jobs (plocate, fstrim) still run. iSCSI and plymouth are masked (see the builder). Through the installer onto `tb323fu-ufs`: 3.7 s.
+[^netfilter]: Needs the netfilter set in [kernel/config/baldur-netfilter.fragment](../kernel/config/).
+[^steam-client]: Steam's own client, run with `FEXBash -c "~/steam-launcher/steam -no-cef-sandbox"`; games untested.
+[^steamos-port]: [SteamOS ARM for handhelds](https://github.com/hashtagbasit/SteamOS-ARM-Handhelds); unofficial, not affiliated with Valve. The builder pins v1.3-8elite-beta2. The earlier v1.3-odin3-beta1 (since withdrawn) also switched to Desktop Mode (KDE) and back. See [SteamOS notes](#steamos-notes).
+[^armada-port]: [Armada](https://github.com/armada-os/armada), a gaming distribution for ARM handhelds; its device list ends at SM8750, so this SoC is not one of its targets. See [Armada notes](#armada-notes).

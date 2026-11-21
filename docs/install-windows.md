@@ -1,20 +1,17 @@
 # Installing from Windows
 
-From a rooted TB323FU to Ubuntu with GNOME on the microSD card, using one Ubuntu terminal on Windows and one script.
-The build runs in a WSL distribution of its own, which you remove afterwards; an Ubuntu you already use in WSL is
-not touched.
-Everything happens in that terminal; the script tells you what it is doing, asks before each step and can be run again
-after any failure. [Installing Linux](install.md) shows where this fits; [Installing by hand](install-manual.md) has
-the individual commands.
+From a rooted TB323FU to Ubuntu with GNOME on the microSD card, with one script run in a WSL terminal.
+The build uses a WSL distribution of its own, which you remove afterwards. The script asks before each step and can be
+run again after any failure. [Installing Linux](install.md) shows where this fits; [Installing by hand](install-manual.md)
+has the individual commands.
 
-> **Status: followed end to end** ([labels](hardware-status.md#labels-on-other-pages)) again on 2026-11-05 from Windows 11 with no WSL distribution before it, the `tb323fu` distribution of step 1 and a wiped card (kernel t58, helper 0.4.6; first on 2026-10-04).
-> The first start, Wi-Fi, SSH, switching to Android and `wsl --unregister tb323fu` were checked; the speakers, the sensors and both cameras on 2026-10-29.
+> **Status: verified** ([labels](hardware-status.md#evidence-labels)), including first start, Wi-Fi, SSH, switching to Android and `wsl --unregister tb323fu`.[^tested]
 > If something does not match what you see, stop and open an issue.
 
 ## What you need
 
-- The tablet **rooted**: [rooting.md](rooting.md) steps 1–3 done. That means your own **EDL dump kept somewhere other
-  than this PC**, KernelSU with **Shell** allowed, and the OTA apps disabled.
+- The tablet **rooted**: [rooting.md](rooting.md) steps 1–3 done (your own **EDL dump kept somewhere other than this
+  PC**, KernelSU with **Shell** allowed, OTA apps disabled).
 - A **microSD card** of 64 GB or more in the tablet. **It will be wiped.**
 - A USB-C **data** cable, battery above 50 %.
 - About **30 GB free** on the Windows drive that holds WSL (normally C:).
@@ -28,22 +25,20 @@ In **PowerShell** (as administrator if WSL is not installed yet):
 wsl --install Ubuntu-26.04 --name tb323fu
 ```
 
-Restart Windows if asked. The new Ubuntu starts and asks for a user name and password (your Linux user in it; you
-will type the password when the script installs packages). Later you open it with `wsl -d tb323fu` in PowerShell.
-Check that it is WSL **2**:
+Restart Windows if asked. The new Ubuntu asks for a user name and password (you type the password when the script
+installs packages). Later, open it with `wsl -d tb323fu` in PowerShell. Check that it is WSL **2**:
 
 ```powershell
 wsl -l -v          # tb323fu, VERSION 2
 ```
 
-It holds the packages the script installs and about 30 GB of build files, and nothing of yours: when Linux runs on the
-tablet, you remove it in one command ([step 6](#6-first-start)). Running the script in a WSL distribution you already
-use also works; it then keeps those packages and files.
+It holds the script's packages and about 30 GB of build files; you remove it in one command when Linux runs
+([step 6](#6-first-start)). A WSL distribution you already use also works, but then keeps those packages and files.
 
 ## 2. Install adb on Windows
 
-WSL cannot see USB devices; the script uses the Windows `adb.exe` from Android platform-tools. If you used `adb`
-while rooting, you already have it. Otherwise, in PowerShell:
+WSL cannot see USB devices, so the script uses the Windows `adb.exe` from Android platform-tools. If you used `adb`
+while rooting, you have it. Otherwise, in PowerShell:
 
 ```powershell
 winget install Google.PlatformTools
@@ -51,18 +46,12 @@ winget install Google.PlatformTools
 
 (or unzip [platform-tools](https://developer.android.com/tools/releases/platform-tools) somewhere; the script asks for
 the path of `adb.exe` if it does not find it). Then **close all terminals**, run `wsl --shutdown` in PowerShell, and
-open it again (`wsl -d tb323fu`), so that it sees the new program.
+reopen `wsl -d tb323fu` so that it sees the new program.
 
 ## 3. Prepare the tablet
 
-1. Start the tablet in **Android**. (If it runs this project's Linux: Open Device Helper → **Android** → **Restart
-   into Android**.)
-2. **USB debugging:** Settings → About tablet → tap the build number seven times; then Developer options →
-   **USB debugging** on.
-3. Connect it to the PC. On the tablet, allow USB debugging for this computer (tick **Always allow**).
-4. In the **KernelSU** app → Superuser: allow **Shell**.
-
-Check in PowerShell: `adb devices` lists the tablet as `device`.
+Android running, USB debugging allowed for this PC, **Shell** allowed in KernelSU: [Prepare the tablet](install.md#prepare-the-tablet).
+Check in PowerShell that `adb devices` lists it as `device`.
 
 ## 4. Run the installer
 
@@ -75,54 +64,29 @@ cd tb323fu-linux
 tools/install/install.sh
 ```
 
-Keep the clone in your home directory there (as above), not under `/mnt/c`. Another system instead of Ubuntu:
-`DISTRO=arch tools/install/install.sh` (or `fedora`, `nixos`, `steamos`; [which system](install.md#which-system)).
-
-To see everything the script would do without doing it: `tools/install/install.sh --dry-run`.
+Keep the clone in your home directory there, not under `/mnt/c`. Another system instead of Ubuntu:
+`DISTRO=arch tools/install/install.sh` (or `debian`, `fedora`, `nixos`, `steamos`; [which system](install.md#which-system)).
+`tools/install/install.sh --dry-run` shows what the script would do without doing it.
 
 ## 5. What the script asks
 
-Each step explains itself first. Steps that write to the tablet make you **type a word** (`WRITE BOOT_B`, `ERASE`,
-`WRITE`, `FLASH BOOT_A`); anything else stops without writing. Finished steps are remembered (in
-`~/tb323fu-install/state`): if a step fails, fix what it says and run `tools/install/install.sh` again; it carries on
-where it stopped. `tools/install/install.sh STEP` runs one step again.
-
-| Step | What happens | What you do | Time |
-|---|---|---|---|
-| `host` | installs the Ubuntu packages it needs (`debootstrap`, `qemu-user-binfmt`, `gdisk`, …), checks that arm64 programs run through qemu, finds `adb.exe` | your Ubuntu password | 1–10 min |
-| `tablet` | checks the tablet: TB323FU, slot `_a`, root for Shell, the microSD card, battery | answer the prompts on the tablet; confirm you have your EDL dump | 1 min |
-| `firmware` | copies the firmware Linux needs from Android's `/vendor` to the PC (nothing on the tablet changes) | — | 1 min |
-| `wayback` | makes sure `boot_b` holds your Android boot image (the way back), installs the **Switch to Linux** KernelSU module, saves the hash and your stock boot image | type `WRITE BOOT_B` only if `boot_b` needs the copy | 1 min |
-| `download` | the newest kernel release and the Ubuntu packages for the tablet from GitHub Releases, checked against `SHA256SUMS` | (browser download only without a GitHub login, see above) | 1–3 min |
-| `bootimg` | packs the release kernel into **your own** stock boot image ([why](install-manual.md#why-there-is-no-ready-made-bootimg)) | — | seconds |
-| `sdcard` | builds a partition table on the PC and writes it to the card from Android: one partition `baldur-root-sd` (64 GB on a large card, else the whole card) | pick the size; type `ERASE` | 1 min |
-| `rootfs` | builds Ubuntu 26.04 with GNOME into an image file on the PC (arm64 through qemu), then shrinks and packs it | your user name for the tablet; a password for it (needed for `sudo`, asked after the build) | **20–60 min** |
-| `write` | copies the image to the tablet and writes it into the card's partition, then reads it back and compares | type `WRITE` | 3–10 min |
-| `boot` | writes the Linux boot image to `boot_a` (checked; on a bad write it puts Android back first) and restarts into Linux | type `FLASH BOOT_A` | 1 min |
-| `firstboot` | prints what a good first start looks like and what to check | — | — |
-
-The tablet is not needed during the `rootfs` build; it can stay connected.
+The steps, what you type and how long each takes: [What the script asks](install.md#what-the-script-asks).
+Here the state is in `~/tb323fu-install/state` of the `tb323fu` distribution.
 
 ## 6. First start
 
-The script restarts the tablet into Linux. What a good first start looks like, Wi-Fi and the clock, the checks to run
-and both ways back to Android are in **[After installing](after-install.md)**; try the way back once while you are
-at the desk.
+The script restarts the tablet into Linux. What a good first start looks like, Wi-Fi, the checks and both ways back to
+Android are in **[After installing](after-install.md)**; try the way back once while you are at the desk.
 
-At the end the script copies the files worth keeping (`stock-boot.img`, your stock boot image; `linux-boot.img`;
-`config/`) to `%USERPROFILE%\tb323fu-install` on Windows. Nothing needs cleaning on the tablet: the script removes its
-copies from Android's `/data/local/tmp` itself. If you no longer need the installer's distribution, remove it with
-everything in it, in PowerShell:
+The script copies the files worth keeping (`stock-boot.img`, `linux-boot.img`, `config/`) to
+`%USERPROFILE%\tb323fu-install` on Windows and cleans up the tablet itself. When you no longer need the installer's
+distribution, remove it with everything in it, in PowerShell:
 
 ```powershell
 wsl --unregister tb323fu
 ```
 
-If you ran the script in a distribution you keep, delete `~/tb323fu-install` instead. The WSL disk does not shrink by
-itself when files are deleted; Microsoft's way to give the space back is sparse mode, still marked experimental
-([WSL settings](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)). It returns only space freed after it was
-turned on, so turn it on first (`wsl --shutdown`, then `wsl --manage <name> --set-sparse true`), then delete; the space
-shows up as free space on `C:`, not as a smaller `ext4.vhdx`.
+If you ran the script in a distribution you keep, delete `~/tb323fu-install` instead.[^sparse]
 
 ## Troubleshooting
 
@@ -141,5 +105,8 @@ shows up as free space on `C:`, not as a smaller `ext4.vhdx`.
 | **Linux does not start** | Hold volume up + volume down 10 s for Android; if nothing reacts, see [Recovery](recovery.md#linux-does-not-boot). |
 
 Once Linux runs: [After installing](after-install.md) (switching, updates, removing Linux). On a Linux PC:
-[Installing from Linux](install-linux.md). Other distributions, your own kernel and a root on the
-internal storage are in [Installing by hand](install-manual.md).
+[Installing from Linux](install-linux.md); on a Mac: [Installing from macOS](install-macos.md). Other distributions, your
+own kernel and a root on the internal storage are in [Installing by hand](install-manual.md).
+
+[^tested]: Last full run 2026-11-05 on Windows 11 with a fresh `tb323fu` distribution and a wiped card (kernel t58, helper 0.4.6). Speakers, sensors and both cameras were checked on 2026-10-29.
+[^sparse]: A WSL disk does not shrink when files are deleted. Sparse mode returns only space freed after it was turned on, so turn it on first (`wsl --shutdown`, then `wsl --manage <name> --set-sparse true`), then delete. It is still marked experimental ([WSL settings](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)), and the space shows up as free space on `C:`, not as a smaller `ext4.vhdx`.
