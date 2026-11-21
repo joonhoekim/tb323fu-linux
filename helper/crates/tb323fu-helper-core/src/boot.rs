@@ -444,6 +444,16 @@ fn probe<T>(dev: &str, f: impl FnOnce(&Path) -> T) -> Option<T> {
     r
 }
 
+/// The ext4 superblock magic (0xEF53 at byte 1080); None when `dev` cannot be read.
+fn has_ext4(dev: &str) -> Option<bool> {
+    use std::io::{Read, Seek, SeekFrom};
+    let mut f = fs::File::open(dev).ok()?;
+    let mut m = [0u8; 2];
+    f.seek(SeekFrom::Start(1080)).ok()?;
+    f.read_exact(&mut m).ok()?;
+    Some(m == [0x53, 0xef])
+}
+
 /// Every candidate root with its label and init kind. Mounts other roots
 /// read-only (no journal replay) for a moment; the daemon caches the result.
 pub fn roots() -> Vec<Root> {
@@ -466,6 +476,8 @@ pub fn roots() -> Vec<Root> {
                 look(&at)
             } else if let Some(r) = probe(&dev, &look) {
                 r
+            } else if has_ext4(&dev) == Some(false) {
+                (String::new(), "unknown".to_string(), vec!["no ext4 file system on it (an empty partition?)".to_string()])
             } else {
                 // e.g. an ext4 journal left by an unclean shutdown: a read-only
                 // mount without replay ("noload") refuses it. Not "empty".
@@ -487,6 +499,20 @@ mod tests {
 
     fn fake() -> tempdir::Dir {
         tempdir::Dir::new()
+    }
+
+    #[test]
+    fn ext4_magic() {
+        let d = fake();
+        let (empty, fs4) = (d.0.join("empty"), d.0.join("ext4"));
+        std::fs::write(&empty, vec![0u8; 4096]).unwrap();
+        let mut sb = vec![0u8; 4096];
+        sb[1080] = 0x53;
+        sb[1081] = 0xef;
+        std::fs::write(&fs4, sb).unwrap();
+        assert_eq!(has_ext4(empty.to_str().unwrap()), Some(false));
+        assert_eq!(has_ext4(fs4.to_str().unwrap()), Some(true));
+        assert_eq!(has_ext4(d.0.join("missing").to_str().unwrap()), None);
     }
 
     mod tempdir {

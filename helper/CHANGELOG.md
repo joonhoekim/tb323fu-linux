@@ -1,5 +1,14 @@
 # Open Device Helper changelog
 
+## Unreleased
+
+- **Going to Android leaves the Linux root clean:** `back-to-android` reboots through `systemctl reboot --force`
+  from a running root, which remounts the root read-only first. With `reboot -f` the root needed journal recovery on
+  the next start, and the initramfs then could not read the state root, so `boot next` and `boot default` were
+  ignored after a trip to Android.
+- **Systems:** a partition without a file system is listed as "no ext4 file system on it" instead of "unclean
+  shutdown?".
+
 ## 0.4.9 — 2026-11-19
 
 Platform files only; the helper itself is unchanged.
