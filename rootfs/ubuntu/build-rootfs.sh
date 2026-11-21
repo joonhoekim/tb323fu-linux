@@ -1,17 +1,19 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
-# build-rootfs.sh -- an Ubuntu arm64 root filesystem for the TB323FU, built
-# natively on an arm64 host (for example the tablet itself running Linux)
-# into a mounted, empty ext4 partition.
+# build-rootfs.sh -- an Ubuntu or Debian arm64 root filesystem for the
+# TB323FU, built natively on an arm64 host (for example the tablet itself
+# running Linux) into a mounted, empty ext4 partition.
 #
 #   sh build-rootfs.sh TARGET_DIR [RELEASE]          # default RELEASE resolute (26.04 LTS)
+#   OS=debian sh build-rootfs.sh TARGET_DIR          # Debian, default RELEASE trixie (13)
 #
 # Environment (all optional):
-#   ROOT_PARTLABEL=tb323fu-ubuntu   GPT name of the target partition (fstab)
-#   HOSTNAME_NEW=tb323fu-ubuntu     hostname of the new system
+#   OS=ubuntu                       ubuntu or debian (rootfs/debian/build-rootfs.sh sets it)
+#   ROOT_PARTLABEL=tb323fu-$OS      GPT name of the target partition (fstab)
+#   HOSTNAME_NEW=tb323fu-$OS        hostname of the new system
 #   TIMEZONE=                       e.g. Europe/Berlin; default: the build host's, else UTC
 #   DESKTOP=gnome                   gnome (minimal GNOME + GDM) or none
-#   MIRROR=http://ports.ubuntu.com/ubuntu-ports
+#   MIRROR=http://ports.ubuntu.com/ubuntu-ports, for Debian http://deb.debian.org/debian
 #   MODULES_FROM=                   empty (default): none -- the boot image carries its
 #                                   modules and its initramfs mounts them on
 #                                   /lib/modules/<release> (shared modules). A directory
@@ -29,22 +31,30 @@
 #                                   root is locked and the user has no password
 #   DEV_USER=                       create this user (sudo); with DESKTOP=gnome it is
 #                                   also logged in automatically
-# Needs: debootstrap, ubuntu-keyring (ubuntu-archive-keyring.gpg). Re-running is
-# safe: an existing base system is not bootstrapped again.
+# Needs: debootstrap, ubuntu-keyring (ubuntu-archive-keyring.gpg) or
+# debian-archive-keyring. Re-running is safe: an existing base system is not
+# bootstrapped again.
 set -eu
 T=${1:?usage: build-rootfs.sh TARGET_DIR [RELEASE]}
-REL=${2:-resolute}
-ROOT_PARTLABEL=${ROOT_PARTLABEL:-tb323fu-ubuntu}
-HOSTNAME_NEW=${HOSTNAME_NEW:-tb323fu-ubuntu}
+OS=${OS:-ubuntu}
+case $OS in
+ubuntu) REL=${2:-resolute}; MIRROR=${MIRROR:-http://ports.ubuntu.com/ubuntu-ports}
+	KEYRING=/usr/share/keyrings/ubuntu-archive-keyring.gpg
+	COMPONENTS="main universe restricted multiverse" ;;
+debian) REL=${2:-trixie}; MIRROR=${MIRROR:-http://deb.debian.org/debian}
+	KEYRING=/usr/share/keyrings/debian-archive-keyring.gpg
+	COMPONENTS="main non-free-firmware" ;;
+*) echo "OS=$OS: ubuntu or debian"; exit 1 ;;
+esac
+ROOT_PARTLABEL=${ROOT_PARTLABEL:-tb323fu-$OS}
+HOSTNAME_NEW=${HOSTNAME_NEW:-tb323fu-$OS}
 TIMEZONE=${TIMEZONE:-$(readlink /etc/localtime 2>/dev/null | sed -n "s|.*/zoneinfo/||p")}
 DESKTOP=${DESKTOP:-gnome}
-MIRROR=${MIRROR:-http://ports.ubuntu.com/ubuntu-ports}
 MODULES_FROM=${MODULES_FROM:-}
 FIRMWARE_FROM=${FIRMWARE_FROM:-/lib/firmware}
 CONFIG_FROM=${CONFIG_FROM:-/etc/tb323fu}
 DEV_ACCESS=${DEV_ACCESS:-0}
 DEV_USER=${DEV_USER:-}
-KEYRING=/usr/share/keyrings/ubuntu-archive-keyring.gpg
 NICE="nice -n 19 ionice -c3"
 say() { printf '== %s\n' "$*"; }
 
@@ -61,9 +71,10 @@ esac
 # 1. base system
 if [ ! -e "$T/etc/os-release" ]; then
 	S=/usr/share/debootstrap/scripts
-	[ -e $S/$REL ] || ln -s gutsy $S/$REL     # newer debootstrap knows it; older ones don't
-	say "debootstrap $REL"
-	$NICE debootstrap --arch=arm64 --keyring=$KEYRING --components=main,universe \
+	# newer debootstrap knows the release; older ones don't
+	[ -e $S/$REL ] || ln -s "$([ "$OS" = debian ] && echo sid || echo gutsy)" $S/$REL
+	say "debootstrap $OS $REL"
+	$NICE debootstrap --arch=arm64 --keyring=$KEYRING --components="$(echo $COMPONENTS | tr ' ' ,)" \
 		--include=ca-certificates "$REL" "$T" "$MIRROR"
 fi
 
@@ -74,17 +85,33 @@ trap 'for m in run dev/pts dev sys proc; do umount -l "$T/$m" 2>/dev/null || tru
 rm -f "$T/etc/resolv.conf"; cp -L /etc/resolv.conf "$T/etc/resolv.conf"
 ch() { chroot "$T" /usr/bin/env DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8 "$@"; }
 
-# 2. archive: release + updates + security, main/universe; no snaps
-cat > "$T/etc/apt/sources.list.d/ubuntu.sources" <<EOF
+# 2. archive: release + updates + security; Ubuntu without snaps
+if [ "$OS" = debian ]; then
+	cat > "$T/etc/apt/sources.list.d/debian.sources" <<EOF
+Types: deb
+URIs: $MIRROR
+Suites: $REL $REL-updates
+Components: $COMPONENTS
+Signed-By: $KEYRING
+
+Types: deb
+URIs: http://security.debian.org/debian-security
+Suites: $REL-security
+Components: $COMPONENTS
+Signed-By: $KEYRING
+EOF
+else
+	cat > "$T/etc/apt/sources.list.d/ubuntu.sources" <<EOF
 Types: deb
 URIs: $MIRROR
 Suites: $REL $REL-updates $REL-security
-Components: main universe restricted multiverse
+Components: $COMPONENTS
 Signed-By: $KEYRING
 EOF
+	mkdir -p "$T/etc/apt/preferences.d"
+	printf 'Package: snapd\nPin: release a=*\nPin-Priority: -10\n' > "$T/etc/apt/preferences.d/no-snapd"
+fi
 [ -e "$T/etc/apt/sources.list" ] && : > "$T/etc/apt/sources.list"
-mkdir -p "$T/etc/apt/preferences.d"
-printf 'Package: snapd\nPin: release a=*\nPin-Priority: -10\n' > "$T/etc/apt/preferences.d/no-snapd"
 say "apt update + upgrade"
 ch $NICE apt-get update -q
 ch $NICE apt-get -y -q dist-upgrade
@@ -97,14 +124,15 @@ base="linux-firmware- systemd-resolved network-manager openssh-server sudo bluez
 case $DESKTOP in
 gnome) desk="gdm3 gnome-shell gnome-session gnome-control-center gnome-terminal nautilus \
 	gnome-text-editor gnome-shell-extension-prefs gnome-initial-setup- gnome-keyring \
-	libpam-gnome-keyring mesa-vulkan-drivers libgl1-mesa-dri plymouth plymouth-theme-spinner fonts-noto-core \
-	gstreamer1.0-libcamera gnome-snapshot" ;;
+	libpam-gnome-keyring mesa-vulkan-drivers libgl1-mesa-dri plymouth fonts-noto-core \
+	gstreamer1.0-libcamera gnome-snapshot"
+	if [ "$OS" = debian ]; then desk="$desk plymouth-themes"; else desk="$desk plymouth-theme-spinner"; fi ;;
 *) desk="" ;;
 esac
 say "installing packages"
 # shellcheck disable=SC2086
 ch $NICE apt-get -y -q --no-install-recommends install $(echo $base $desk | tr ' ' '\n' | grep -v -- '-$')
-ch apt-get -y -q purge snapd 2>/dev/null || true
+[ "$OS" = debian ] || ch apt-get -y -q purge snapd 2>/dev/null || true
 
 
 # rmtfs.service runs `rmtfs -r -P -s`, and -s STARTS THE MODEM. Started at boot
@@ -119,7 +147,7 @@ ch systemctl mask rmtfs.service tqftpserv.service >/dev/null 2>&1 || true
 ch systemctl mask droid-juicer.service qbootctl.service >/dev/null 2>&1 || true
 
 # 3b. sensors: libssc and an iio-sensor-proxy with the SSC backend (not packaged
-# by Ubuntu), built from pinned sources; the sensor hub's files are made on the
+# by Ubuntu or Debian), built from pinned sources; the sensor hub's files are made on the
 # tablet at first start (tb323fu-sensors-tree)
 if [ ! -x "$T/usr/local/libexec/iio-sensor-proxy" ]; then
 	say "sensors: libssc + iio-sensor-proxy with SSC (a few minutes)"
@@ -189,7 +217,8 @@ if [ "$DESKTOP" = gnome ]; then
 	printf '#!/bin/sh\n# automatic login never tells plymouth to quit (see userspace/desktop/gnome)\nplymouth quit --retain-splash 2>/dev/null\nexit 0\n' > "$T/etc/gdm3/PostLogin/Default"
 	chmod 755 "$T/etc/gdm3/PostLogin/Default"
 	if [ -n "$DEV_USER" ]; then
-		c=$T/etc/gdm3/custom.conf
+		c=$T/etc/gdm3/custom.conf                                      # Ubuntu
+		[ -e "$T/etc/gdm3/daemon.conf" ] && c=$T/etc/gdm3/daemon.conf   # Debian
 		[ -e "$c" ] || printf '[daemon]\n' > "$c"
 		grep -q '^AutomaticLoginEnable' "$c" || sed -i "s/^\[daemon\]/[daemon]\nAutomaticLoginEnable=true\nAutomaticLogin=$DEV_USER/" "$c"
 	fi
@@ -224,4 +253,4 @@ fi
 
 ch apt-get -y -q clean
 ln -sf ../run/systemd/resolve/stub-resolv.conf "$T/etc/resolv.conf"
-say "done: $(du -sh "$T" 2>/dev/null | cut -f1) in $T ($REL, desktop $DESKTOP)"
+say "done: $(du -sh "$T" 2>/dev/null | cut -f1) in $T ($OS $REL, desktop $DESKTOP)"
