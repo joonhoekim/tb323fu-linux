@@ -90,6 +90,9 @@ echo "boot_a is Android again; rebooting"
 sync
 # A shell on the USB serial gadget ignores SIGTERM and blocks in tcsetattr() while the PC
 # does not read the port; "systemctl reboot --force" then waits 90 s for it.
+# Closing that tty also waits up to 15 s for the unread output, with systemd blocked
+# meanwhile; a detached gadget closes at once.
+for g in /sys/kernel/config/usb_gadget/*/UDC; do [ -e "$g" ] && echo "" > "$g"; done 2>/dev/null
 sid=$(cut -d' ' -f6 /proc/$$/stat)
 for d in /proc/[0-9]*; do
 	ls -l "$d/fd" 2>/dev/null | grep -q '/dev/ttyGS' || continue
