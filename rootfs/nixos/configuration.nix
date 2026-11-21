@@ -110,7 +110,7 @@ in {
     };
 
     # --- system
-    networking.hostName = lib.mkDefault cfg.partlabel;
+    networking.hostName = lib.mkOptionDefault cfg.partlabel;
     time.timeZone = lib.mkDefault "UTC";
     i18n.defaultLocale = "en_US.UTF-8";
     nix.settings.experimental-features = [ "nix-command" "flakes" ];
@@ -136,8 +136,9 @@ in {
     };
 
     # --- desktop
-    services.displayManager.gdm.enable = gnome;
-    services.desktopManager.gnome.enable = gnome;
+    # mkIf: "none" leaves the desktop to the rest of the configuration
+    services.displayManager.gdm.enable = mkIf gnome true;
+    services.desktopManager.gnome.enable = mkIf gnome true;
     services.displayManager.autoLogin = mkIf (gnome && cfg.user != null) {
       enable = true;
       user = cfg.user;

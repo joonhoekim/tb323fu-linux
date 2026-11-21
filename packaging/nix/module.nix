@@ -140,7 +140,7 @@ in {
       zramSwap = {
         enable = true;
         algorithm = lib.mkDefault "zstd";
-        memoryPercent = cfg.zram.memoryPercent;
+        memoryPercent = lib.mkDefault cfg.zram.memoryPercent;
         priority = lib.mkDefault 100;
       };
       boot.kernel.sysctl = {
