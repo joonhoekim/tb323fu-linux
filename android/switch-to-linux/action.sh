@@ -50,12 +50,16 @@ partdev() { [ -b "/dev/block/by-name/$1" ] && { echo "/dev/block/by-name/$1"; re
 state=$(roots | head -n1)
 # <<< state root
 if [ -n "$state" ] && root=$(partdev "$state"); then
-	mkdir -p "$M" && mount -t ext4 -o ro,noload "$root" "$M" 2>/dev/null &&
-		[ -f "$M/var/lib/tb323fu/linux-current.img" ] && {
+	mkdir -p "$M"
+	if ! e=$(mount -t ext4 -o ro,noload "$root" "$M" 2>&1); then
+		echo "- the root partition $state does not mount read-only (${e:-no reason given})"
+	elif [ -f "$M/var/lib/tb323fu/linux-current.img" ]; then
 		img=$M/var/lib/tb323fu/linux-current.img
 		want=$(cut -c1-64 "$img.sha256" 2>/dev/null)
 		src="last running Linux (root partition $state)"
-	}
+	else
+		echo "- no Linux image saved on $state"
+	fi
 fi
 # >>> kernel trial (android/test-state-root.sh runs this part offline)
 # Kernel updates (docs/helper.md): a kernel the helper installed is on trial
