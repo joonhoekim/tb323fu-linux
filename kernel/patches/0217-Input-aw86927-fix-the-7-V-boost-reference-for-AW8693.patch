@@ -1,0 +1,32 @@
+From 68e55278138b5da7b8aedb056f67b57b0ad252d4 Mon Sep 17 00:00:00 2001
+From: Qianhui Xu <xiaqinghuan@mail.ustc.edu.cn>
+Date: Tue, 17 Nov 2026 13:21:07 +0800
+Subject: [PATCH] Input: aw86927 - fix the 7 V boost reference for AW86938
+
+AW86938_PLAYCFG1_BST_7000MV names 7 V, but the register encodes the boost
+voltage as ((mV - 6000) / 2 * 0x8313) >> 22 + 5, so the value used since
+AW86938 support was added, 0x11, selects 9 V.  Program 0x09 for 7 V, the
+value the vendor driver uses for these actuators.
+
+Found while adding the AW86937 variant, which shares the register layout
+and the same wrong value.
+
+Fixes: df53055c540f ("Input: aw86927 - add support for Awinic AW86938")
+Signed-off-by: Qianhui Xu <xiaqinghuan@mail.ustc.edu.cn>
+---
+ drivers/input/misc/aw86927.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/input/misc/aw86927.c b/drivers/input/misc/aw86927.c
+index f53b8f004cb3..02cf7ea74ec2 100644
+--- a/drivers/input/misc/aw86927.c
++++ b/drivers/input/misc/aw86927.c
+@@ -47,7 +47,7 @@
+ #define AW86938_PLAYCFG1_BST_MODE_MASK		GENMASK(5, 5)
+ #define AW86938_PLAYCFG1_BST_MODE_BYPASS	0
+ #define AW86938_PLAYCFG1_BST_VOUT_VREFSET_MASK	GENMASK(4, 0)
+-#define AW86938_PLAYCFG1_BST_7000MV		0x11
++#define AW86938_PLAYCFG1_BST_7000MV		0x09
+ 
+ #define AW86927_PLAYCFG2_REG			0x07
+ 

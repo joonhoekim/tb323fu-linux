@@ -1,0 +1,145 @@
+From 2b4eb8821a817f340af19d0de0b2ae9c9247ec3d Mon Sep 17 00:00:00 2001
+From: Qianhui Xu <xiaqinghuan@mail.ustc.edu.cn>
+Date: Tue, 17 Nov 2026 13:21:11 +0800
+Subject: [PATCH] Input: aw86927 - handle the AW8693X play and boost
+ register layout
+
+AW86937 and AW86938 keep the same register map as the AW86927 but move
+two bits and invert the stop handshake:
+
+  - auto boost lives in bit 2 of PLAYCFG3 instead of bit 4, and the boost
+    mode in PLAYCFG1 is a two-bit field at bit 5 instead of bit 7;
+  - the VBAT mode bit taps the battery voltage instead of the software
+    tracked value;
+  - stopping is a two-step sequence: select PLAY_MODE_STOP in PLAYCFG3 and
+    then issue GO in PLAYCFG4, as the dedicated STOP bit does not exist
+    for these parts.  A standby timeout after that is a real failure, so
+    return it instead of forcing the state machine.
+
+Signed-off-by: Qianhui Xu <xiaqinghuan@mail.ustc.edu.cn>
+---
+ drivers/input/misc/aw86927.c | 65 +++++++++++++++++++++++++++---------
+ 1 file changed, 49 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/input/misc/aw86927.c b/drivers/input/misc/aw86927.c
+index b2a343ec73dd..782ce36349d0 100644
+--- a/drivers/input/misc/aw86927.c
++++ b/drivers/input/misc/aw86927.c
+@@ -49,6 +49,14 @@
+ #define AW86938_PLAYCFG1_BST_VOUT_VREFSET_MASK	GENMASK(4, 0)
+ #define AW86938_PLAYCFG1_BST_7000MV		0x09
+ 
++/*
++ * The AW8693x parts move auto-boost to bit 2 of PLAYCFG3 and stop playback
++ * by selecting the dedicated stop mode and then issuing a GO, unlike the
++ * AW86927 which has an explicit STOP bit in PLAYCFG4.
++ */
++#define AW8693X_PLAYCFG3_AUTO_BST_MASK		BIT(2)
++#define AW8693X_PLAYCFG3_PLAY_MODE_STOP		3
++
+ #define AW86927_PLAYCFG2_REG			0x07
+ 
+ #define AW86927_PLAYCFG3_REG			0x08
+@@ -290,9 +298,14 @@ static int aw86927_play_mode(struct aw86927_data *haptics, u8 play_mode)
+ 
+ 		err = regmap_update_bits(haptics->regmap,
+ 					 AW86927_PLAYCFG1_REG,
+-					 AW86927_PLAYCFG1_BST_MODE_MASK,
++					 haptics->model == AW86927 ?
++					 AW86927_PLAYCFG1_BST_MODE_MASK :
++					 AW86938_PLAYCFG1_BST_MODE_MASK,
++					 haptics->model == AW86927 ?
+ 					 FIELD_PREP(AW86927_PLAYCFG1_BST_MODE_MASK,
+-						    AW86927_PLAYCFG1_BST_MODE_BYPASS));
++						    AW86927_PLAYCFG1_BST_MODE_BYPASS) :
++					 FIELD_PREP(AW86938_PLAYCFG1_BST_MODE_MASK,
++						    AW86938_PLAYCFG1_BST_MODE_BYPASS));
+ 		if (err)
+ 			return err;
+ 
+@@ -300,7 +313,8 @@ static int aw86927_play_mode(struct aw86927_data *haptics, u8 play_mode)
+ 					 AW86927_VBATCTRL_REG,
+ 					 AW86927_VBATCTRL_VBAT_MODE_MASK,
+ 					 FIELD_PREP(AW86927_VBATCTRL_VBAT_MODE_MASK,
+-						    AW86927_VBATCTRL_VBAT_MODE_SW));
++						    haptics->model == AW86927 ?
++						    AW86927_VBATCTRL_VBAT_MODE_SW : 1));
+ 		if (err)
+ 			return err;
+ 
+@@ -312,23 +326,38 @@ static int aw86927_play_mode(struct aw86927_data *haptics, u8 play_mode)
+ 
+ static int aw86927_stop(struct aw86927_data *haptics)
+ {
++	bool aw8693x = haptics->model != AW86927;
+ 	int err;
+ 
+-	err = regmap_write(haptics->regmap, AW86927_PLAYCFG4_REG, AW86927_PLAYCFG4_STOP);
++	if (aw8693x) {
++		err = regmap_update_bits(haptics->regmap, AW86927_PLAYCFG3_REG,
++					 AW86927_PLAYCFG3_PLAY_MODE_MASK,
++					 AW8693X_PLAYCFG3_PLAY_MODE_STOP);
++		if (err)
++			return err;
++	}
++
++	err = regmap_write(haptics->regmap, AW86927_PLAYCFG4_REG,
++			   aw8693x ? AW86927_PLAYCFG4_GO : AW86927_PLAYCFG4_STOP);
+ 	if (err) {
+ 		dev_err(haptics->dev, "Failed to stop playback: %d\n", err);
+ 		return err;
+ 	}
+ 
+ 	err = aw86927_wait_enter_standby(haptics);
+-	if (err) {
+-		dev_err(haptics->dev, "Failed to enter standby, trying to force it\n");
+-		err = aw86927_play_mode(haptics, AW86927_STANDBY_MODE);
+-		if (err)
+-			return err;
+-	}
++	if (!err)
++		return 0;
+ 
+-	return 0;
++	/*
++	 * The AW8693x reliably reaches standby through the stop mode above, so a
++	 * timeout there is fatal; the AW86927 sometimes needs the nudge.
++	 */
++	if (aw8693x)
++		return err;
++
++	dev_err(haptics->dev, "Failed to enter standby, trying to force it\n");
++
++	return aw86927_play_mode(haptics, AW86927_STANDBY_MODE);
+ }
+ 
+ static int aw86927_haptics_play(struct input_dev *dev, void *data, struct ff_effect *effect)
+@@ -364,9 +393,13 @@ static int aw86927_play_sine(struct aw86927_data *haptics)
+ 		return err;
+ 
+ 	err = regmap_update_bits(haptics->regmap, AW86927_PLAYCFG3_REG,
+-				 AW86927_PLAYCFG3_AUTO_BST_MASK,
++				 haptics->model == AW86927 ?
++				 AW86927_PLAYCFG3_AUTO_BST_MASK :
++				 AW8693X_PLAYCFG3_AUTO_BST_MASK,
++				 haptics->model == AW86927 ?
+ 				 FIELD_PREP(AW86927_PLAYCFG3_AUTO_BST_MASK,
+-					    AW86927_PLAYCFG3_AUTO_BST_ENABLE));
++					    AW86927_PLAYCFG3_AUTO_BST_ENABLE) :
++				 AW8693X_PLAYCFG3_AUTO_BST_MASK);
+ 	if (err)
+ 		return err;
+ 
+@@ -604,9 +637,9 @@ static int aw86927_haptic_init(struct aw86927_data *haptics)
+ 
+ 	err = regmap_update_bits(haptics->regmap,
+ 				 AW86927_PLAYCFG3_REG,
+-				 AW86927_PLAYCFG3_AUTO_BST_MASK,
+-				 FIELD_PREP(AW86927_PLAYCFG3_AUTO_BST_MASK,
+-					    AW86927_PLAYCFG3_AUTO_BST_DISABLE));
++				 haptics->model == AW86927 ?
++				 AW86927_PLAYCFG3_AUTO_BST_MASK :
++				 AW8693X_PLAYCFG3_AUTO_BST_MASK, 0);
+ 	if (err)
+ 		return err;
+ 

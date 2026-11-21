@@ -1235,7 +1235,7 @@ index 000000000..47928aaa4
 +
 +	/* vendor "haptic_hv_l", but the right motor */
 +	haptics_l: haptics@5a {
-+		compatible = "awinic,aw86938", "awinic,aw86927";
++		compatible = "awinic,aw86937", "awinic,aw86927";
 +		reg = <0x5a>;
 +		interrupts-extended = <&tlmm 99 IRQ_TYPE_EDGE_FALLING>;
 +		reset-gpios = <&tlmm 216 GPIO_ACTIVE_LOW>;
@@ -1245,7 +1245,7 @@ index 000000000..47928aaa4
 +
 +	/* vendor "haptic_hv_r", but the left motor */
 +	haptics_r: haptics@5b {
-+		compatible = "awinic,aw86938", "awinic,aw86927";
++		compatible = "awinic,aw86937", "awinic,aw86927";
 +		reg = <0x5b>;
 +		interrupts-extended = <&tlmm 95 IRQ_TYPE_EDGE_FALLING>;
 +		reset-gpios = <&tlmm 215 GPIO_ACTIVE_LOW>;

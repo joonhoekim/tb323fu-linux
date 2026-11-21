@@ -24,7 +24,7 @@ The series by subsystem. Origin, author and status of each patch: [PROVENANCE.md
 | Clocks and power domains | 0046, 0072, 0073, 0103 |
 | Wi-Fi, Bluetooth, PCIe | 0024, 0058, 0113, 0209, 0210 (ath12k; 0209-0210: a fixed permanent MAC address), 0030, 0130 (Bluetooth), 0049, 0056 (PCIe), 0078 |
 | Remoteproc and QRTR | 0114 (QRTR name service; the modem) |
-| Input, haptics, LEDs | 0025-0027, 0053 (NT36536 touch and pen), 0143, 0145, 0146, 0153 (Tab Pen Plus report formats, pressure range, tilt axes), 0038 (AW86937 haptics), 0048, 0154 (AW22127 LED ring: color effects, zones, LED current) |
+| Input, haptics, LEDs | 0025-0027, 0053 (NT36536 touch and pen), 0143, 0145, 0146, 0153 (Tab Pen Plus report formats, pressure range, tilt axes), 0217-0222 (AW86937 haptics), 0048, 0154 (AW22127 LED ring: color effects, zones, LED current) |
 | Storage | 0012 (UFS) |
 | Board device tree, config, boot | 0054 (board DTs), 0055 (config fragments), 0148 (no `no_console_suspend`), 0156 (dwc3 glue built in), 0214 (system clock not set from the PMIC RTC), 0011 (defconfig fragment), 0021 (built-in DTB), 0022 (boot progress marks, debug) |
 

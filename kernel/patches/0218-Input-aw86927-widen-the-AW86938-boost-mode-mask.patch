@@ -1,0 +1,31 @@
+From 6ce80b95cd536346c0ec627447fcdcd48ca57de1 Mon Sep 17 00:00:00 2001
+From: Qianhui Xu <xiaqinghuan@mail.ustc.edu.cn>
+Date: Tue, 17 Nov 2026 13:21:08 +0800
+Subject: [PATCH] Input: aw86927 - widen the AW86938 boost mode mask
+
+The boost mode of the AW86938 and AW86937 is a two-bit field at bits 6:5
+of PLAYCFG1, but the mask is defined as GENMASK(5, 5).  When the driver
+selects bypass mode it only clears bit 5 and leaves bit 6 at whatever the
+bootloader left in the register, so the part may keep a boost mode that
+the driver did not ask for.  Widen the mask so that both bits are
+programmed.
+
+Fixes: df53055c540f ("Input: aw86927 - add support for Awinic AW86938")
+Signed-off-by: Qianhui Xu <xiaqinghuan@mail.ustc.edu.cn>
+---
+ drivers/input/misc/aw86927.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/input/misc/aw86927.c b/drivers/input/misc/aw86927.c
+index 02cf7ea74ec2..53e48406d723 100644
+--- a/drivers/input/misc/aw86927.c
++++ b/drivers/input/misc/aw86927.c
+@@ -44,7 +44,7 @@
+ #define AW86927_PLAYCFG1_BST_8500MV		0x50
+ 
+ #define AW86938_PLAYCFG1_REG			0x06
+-#define AW86938_PLAYCFG1_BST_MODE_MASK		GENMASK(5, 5)
++#define AW86938_PLAYCFG1_BST_MODE_MASK		GENMASK(6, 5)
+ #define AW86938_PLAYCFG1_BST_MODE_BYPASS	0
+ #define AW86938_PLAYCFG1_BST_VOUT_VREFSET_MASK	GENMASK(4, 0)
+ #define AW86938_PLAYCFG1_BST_7000MV		0x09

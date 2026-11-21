@@ -1,0 +1,53 @@
+From 099067aa12c54266a75ea6a5e49ad07b0abc8a3a Mon Sep 17 00:00:00 2001
+From: Qianhui Xu <xiaqinghuan@mail.ustc.edu.cn>
+Date: Tue, 17 Nov 2026 13:21:10 +0800
+Subject: [PATCH] Input: aw86927 - add support for Awinic AW86937
+
+The AW86937 reports CHIPID 0x9370 and is register compatible with the
+AW86938 as far as the boost setup is concerned, so it joins that branch of
+the haptic initialisation.  Detection stays by CHIPID, so the existing
+AW86927 compatible keeps working as fallback.
+
+Signed-off-by: Qianhui Xu <xiaqinghuan@mail.ustc.edu.cn>
+---
+ drivers/input/misc/aw86927.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/input/misc/aw86927.c b/drivers/input/misc/aw86927.c
+index 53e48406d723..b2a343ec73dd 100644
+--- a/drivers/input/misc/aw86927.c
++++ b/drivers/input/misc/aw86927.c
+@@ -146,6 +146,7 @@
+ #define AW86927_CHIPIDH_REG			0x57
+ #define AW86927_CHIPIDL_REG			0x58
+ #define AW86927_CHIPID				0x9270
++#define AW86937_CHIPID				0x9370
+ #define AW86938_CHIPID				0x9380
+ 
+ #define AW86927_TMCFG_REG			0x5b
+@@ -182,6 +183,7 @@ enum aw86927_work_mode {
+ 
+ enum aw86927_model {
+ 	AW86927,
++	AW86937,
+ 	AW86938,
+ };
+ 
+@@ -588,6 +590,7 @@ static int aw86927_haptic_init(struct aw86927_data *haptics)
+ 		if (err)
+ 			return err;
+ 		break;
++	case AW86937:
+ 	case AW86938:
+ 		err = regmap_update_bits(haptics->regmap,
+ 					 AW86938_PLAYCFG1_REG,
+@@ -750,6 +753,9 @@ static int aw86927_detect(struct aw86927_data *haptics)
+ 	case AW86927_CHIPID:
+ 		haptics->model = AW86927;
+ 		break;
++	case AW86937_CHIPID:
++		haptics->model = AW86937;
++		break;
+ 	case AW86938_CHIPID:
+ 		haptics->model = AW86938;
+ 		break;

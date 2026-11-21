@@ -18,7 +18,7 @@ column names the source; see that tree's history for the individual authors.
 
 ## Patches
 
-0208 is held for pull request #58. Numbers 0067-0071, 0135, 0136, 0140 and 0149 are free (0135, 0136 and 0149 were the earlier versions of 0212 and 0213): those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
+0208 is held for pull request #58. Number 0038 is free (its patch was replaced by 0217-0222). Numbers 0067-0071, 0135, 0136, 0140 and 0149 are free (0135, 0136 and 0149 were the earlier versions of 0212 and 0213): those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
 0111-0114, 0116-0119, 0128-0139, 0141-0156 and 0200-0203, 0205, 0210 and 0212-0215 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
@@ -43,7 +43,7 @@ column names the source; see that tree's history for the individual authors.
 | `0016` | phy: core: Add devm_phy_get_by_of_node() | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `817f8719483fe113` |
 | `0017` | phy: core: Add missing kerneldoc colon in two locations | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `b8cbeb9396891401` |
 | `0018` | dt-bindings: phy: qcom: Add CSI2 C-PHY/DPHY schema | Bryan O'Donoghue | linux-next next-20260925 (Link: in patch) | upstream (linux-next) | `8aa24a69edcaf633` |
-| `0019` | arm64: dts: qcom: kaanapali: add the second DSI controller and PHY | Joonhoe Kim | this project | local | `c769986050891505` |
+| `0019` | arm64: dts: qcom: kaanapali: Add the second DSI controller and PHY | Venkat Yadlapati | mailing list: Molokai SoC v3 08/11 ([lore](https://lore.kernel.org/all/20261120-molokai-soc-v3-8-403d763685d9@yahoo.com/)) | pending upstream[^0019-ours] | `65ab3eda31ba59dd` |
 | `0020` | drm/panel: nt36523: add DSC, and the Lenovo TB323FU CSOT panel | Joonhoe Kim | this project | local | `c3acca2bc457c0a3` |
 | `0021` | arm64: carry a devicetree inside the kernel image | Joonhoe Kim | this project | local (built-in DTB; bootloader workaround) | `1128b471f7e3048a` |
 | `0022` | arm64: paint boot progress marks into the bootloader's framebuffer | Joonhoe Kim | this project | local (debug: boot progress marks) | `24cfc04be4e0288f` |
@@ -62,7 +62,6 @@ column names the source; see that tree's history for the individual authors.
 | `0035` | ASoC: codecs: lpass-tx-macro: board tuning of the decimator filter block | Joonhoe Kim | this project | local | `a2c42b9833425881` |
 | `0036` | usb: gadget: f_ncm: restart the TX timer when the freelist is empty | Joonhoe Kim | this project | local | `a14d12dc20d08fb1` |
 | `0037` | ASoC: codecs: wcd939x: read the ADC/DMIC switches per channel | Joonhoe Kim | this project | applied upstream 2026-10-12 (ASoC `for-7.4`, `e7860dc5d8d4`, [lore](https://lore.kernel.org/all/20261007123954.1709-1-26rote@gmail.com/)) | `532cb19ba893beee` |
-| `0038` | Input: aw86927 - accept the AW86937 | Joonhoe Kim | this project | local | `6b7c1b306e3d1ad6` |
 | `0039` | pmic5-gen4-adc: mailing-list series (squashed) | Joonhoe Kim | mailing list: PMIC5 Gen4 ADC series (Jishnu Prakash), squashed | pending upstream | `6f8b4db43443da58` |
 | `0040` | media-qcom-camss-kaanapali-v16: mailing-list series (squashed) | Joonhoe Kim | mailing list: CAMSS kaanapali v16 (Hangxiang Ma), squashed | pending upstream | `022134299180050c` |
 | `0041` | media-i2c-s5kjn5-v4: mailing-list series (squashed) | Joonhoe Kim | mailing list: S5KJN5 sensor v4 (Wenmeng Liu), squashed | pending upstream | `e800e4554ddb6dd9` |
@@ -78,7 +77,7 @@ column names the source; see that tree's history for the individual authors.
 | `0051` | drm/msm/dp: add kaanapali (DP0 descriptor) | Joonhoe Kim | this project | local | `2322d7fe7058b5b6` |
 | `0052` | drm/msm/dpu: add the SSPP rec0/rec1 blocks to the snapshot | Joonhoe Kim | this project | sent upstream 2026-10-07, reviewed ([lore](https://lore.kernel.org/all/20261007123945.1694-1-26rote@gmail.com/)) | `7928b4b5ebef95d8` |
 | `0053` | input: nt36536: make the pen a tablet libinput accepts | Joonhoe Kim | this project | local | `8b0e4c4efaaecc8c` |
-| `0054` | arm64: dts: qcom: add Lenovo Legion Tab Y700 gen5 (TB323FU, baldur) board DTs | Joonhoe Kim | this project | local | `beb900dd9a382dc3` |
+| `0054` | arm64: dts: qcom: add Lenovo Legion Tab Y700 gen5 (TB323FU, baldur) board DTs | Joonhoe Kim | this project | local | `a8c0230b4c76497c` |
 | `0055` | arm64: configs: add the baldur config fragments | Joonhoe Kim | this project | local | `ad5a02f65cb534fe` |
 | `0056` | PCI: qcom: parse iommu-map with the target #iommu-cells | Joonhoe Kim | this project | local; superseded by linux-next (`qcom_pcie_config_sid_1_9_0`) | `ab5de4888eaeef17` |
 | `0057` | drm/msm/dp: retrain the link on a quick replug while streaming | Joonhoe Kim | this project | local | `9649c3d9940a0dff` |
@@ -229,6 +228,15 @@ column names the source; see that tree's history for the individual authors.
 | `0214` | arm64: configs: baldur: do not set the clock from the PMIC RTC | Joonhoe Kim | this project | local | `bd7362a0a1256cef` |
 | `0215` | arm64: dts: qcom: baldur: drive the SD card pads at 6 mA | Joonhoe Kim | this project (issue #26) | local | `71e4f2f3518de1b0` |
 | `0216` | drm/msm/dpu: baldur: bound the timeouts by the slowest idle rate | li-yiyang | contributed in #62 (follow-up to 0110) | local | `ab0ac5d53b67fac8` |
+| `0217` | Input: aw86927 - fix the 7 V boost reference for AW86938 | Qianhui Xu | mailing list: aw86927 AW86937 v2 1/6 ([lore](https://lore.kernel.org/all/20261117052112.32527-2-xiaqinghuan@mail.ustc.edu.cn/)) | pending upstream[^0038-ours] | `cc9bbede1b5acacf` |
+| `0218` | Input: aw86927 - widen the AW86938 boost mode mask | Qianhui Xu | mailing list: aw86927 AW86937 v2 2/6 ([lore](https://lore.kernel.org/all/20261117052112.32527-3-xiaqinghuan@mail.ustc.edu.cn/)) | pending upstream | `432ae7c3393621a4` |
+| `0219` | dt-bindings: input: awinic,aw86927: document the AW86937 variant | Qianhui Xu | mailing list: aw86927 AW86937 v2 3/6 ([lore](https://lore.kernel.org/all/20261117052112.32527-4-xiaqinghuan@mail.ustc.edu.cn/)) | pending upstream | `3cde8574ec63b023` |
+| `0220` | Input: aw86927 - add support for Awinic AW86937 | Qianhui Xu | mailing list: aw86927 AW86937 v2 4/6 ([lore](https://lore.kernel.org/all/20261117052112.32527-5-xiaqinghuan@mail.ustc.edu.cn/)) | pending upstream | `13f5cc333d2ce44f` |
+| `0221` | Input: aw86927 - handle the AW8693X play and boost register layout | Qianhui Xu | mailing list: aw86927 AW86937 v2 5/6 ([lore](https://lore.kernel.org/all/20261117052112.32527-6-xiaqinghuan@mail.ustc.edu.cn/)) | pending upstream | `79c303e42db9a5cd` |
+| `0222` | Input: aw86927 - stop playback over suspend and on shutdown | Qianhui Xu | mailing list: aw86927 AW86937 v2 6/6 ([lore](https://lore.kernel.org/all/20261117052112.32527-7-xiaqinghuan@mail.ustc.edu.cn/)) | pending upstream | `af3a9b0791a041d9` |
+
+[^0019-ours]: Replaces this project's own [0019](https://github.com/joonhoekim/tb323fu-linux/blob/kernel-t63/kernel/patches/0019-arm64-dts-qcom-kaanapali-add-the-second-DSI-controll.patch) (up to `kernel-t63`), which added the same two nodes but did not feed the PHY clocks to the display clock controller.
+[^0038-ours]: 0217-0222 replace this project's own [0038](https://github.com/joonhoekim/tb323fu-linux/blob/kernel-t63/kernel/patches/0038-Input-aw86927-accept-the-AW86937.patch) (up to `kernel-t63`), which only accepted the AW86937 chip ID and drove it like the AW86938.
 
 ## Out-of-tree
 
