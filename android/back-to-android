@@ -95,8 +95,12 @@ for d in /proc/[0-9]*; do
 	ls -l "$d/fd" 2>/dev/null | grep -q '/dev/ttyGS' || continue
 	[ "$(cut -d' ' -f6 "$d/stat" 2>/dev/null)" = "$sid" ] || kill -KILL "${d#/proc/}" 2>/dev/null
 done
-# busybox's reboot in the initramfs; systemd's in a root. Run by the helper
-# (a sandboxed service: ProtectSystem=strict) systemd's "reboot -f" cannot
-# write /run and gives up without rebooting -- then ask the
-# service manager, and as the last resort the kernel.
-reboot -f || systemctl reboot --force || { sleep 2; echo b > /proc/sysrq-trigger; }
+# In a root, "systemctl reboot --force" so that the root is remounted read-only
+# first; systemd's "reboot -f" skips that and leaves it to journal recovery,
+# which the initramfs's read-only mount of the state root does not survive.
+# busybox's reboot -f in the initramfs; the kernel as the last resort.
+if [ "$(cat /proc/1/comm 2>/dev/null)" = systemd ]; then
+	systemctl reboot --force || reboot -f
+else
+	reboot -f
+fi || { sleep 2; echo b > /proc/sysrq-trigger; }
