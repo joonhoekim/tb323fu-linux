@@ -228,6 +228,7 @@ column names the source; see that tree's history for the individual authors.
 | `0213` | usb: dwc3: qcom: Use the UTMI clock as PIPE clock in DisplayPort-only modes | Joonhoe Kim | this project | sent upstream (v4, 2026-11-19, same series) | `4cdd34de7561a13c` |
 | `0214` | arm64: configs: baldur: do not set the clock from the PMIC RTC | Joonhoe Kim | this project | local | `bd7362a0a1256cef` |
 | `0215` | arm64: dts: qcom: baldur: drive the SD card pads at 6 mA | Joonhoe Kim | this project (issue #26) | local | `71e4f2f3518de1b0` |
+| `0216` | drm/msm/dpu: baldur: bound the timeouts by the slowest idle rate | li-yiyang | contributed in #62 (follow-up to 0110) | local | `ab0ac5d53b67fac8` |
 
 ## Out-of-tree
 
