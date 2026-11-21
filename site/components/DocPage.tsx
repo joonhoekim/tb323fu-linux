@@ -2,6 +2,7 @@
 import DocsSidebar from "./DocsSidebar";
 import { TocAside, TocInline } from "./Toc";
 import PanelToggles from "./PanelToggles";
+import FootnotePopovers from "./FootnotePopovers";
 import { githubUrl } from "@/lib/config";
 import { readDocSource, type DocEntry } from "@/lib/docs";
 import { renderMarkdown } from "@/lib/markdown";
@@ -30,6 +31,7 @@ export default async function DocPage({ entry }: { entry: DocEntry }) {
         </article>
       </main>
       <TocAside items={doc.toc} />
+      <FootnotePopovers />
     </div>
   );
 }

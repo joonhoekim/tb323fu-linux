@@ -984,3 +984,51 @@ html[data-nav-hidden][data-toc-hidden] .doc {
     scroll-behavior: smooth;
   }
 }
+
+/* footnote popovers: the note's text next to its reference (lib/markdown.ts) */
+.prose .fn {
+  position: relative;
+}
+.prose .fn sup a {
+  text-decoration: none;
+  padding: 0 0.15em;
+}
+.prose .fn-pop {
+  display: none;
+  position: absolute;
+  z-index: 20;
+  left: 50%;
+  bottom: calc(100% + 0.35rem);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(26rem, calc(100vw - 2rem));
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-raised);
+  color: var(--fg);
+  font-size: 0.85rem;
+  font-weight: normal;
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.14);
+}
+@media (hover: hover) {
+  .prose .fn:hover .fn-pop {
+    display: block;
+  }
+}
+.prose .fn:focus-within .fn-pop {
+  display: block;
+}
+@media print {
+  .prose .fn-pop {
+    display: none !important;
+  }
+}
+.fn-js .prose .fn-pop {
+  position: fixed;
+  bottom: auto;
+  transform: none;
+}

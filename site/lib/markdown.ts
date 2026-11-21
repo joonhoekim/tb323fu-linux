@@ -145,6 +145,47 @@ function rehypeSite(opts: { file: string; toc: TocItem[] }) {
   };
 }
 
+/**
+ * rehype: a copy of each footnote's text next to its reference, shown on hover or focus
+ * (CSS only, the page is static); the list at the end stays for touch, print and GitHub.
+ */
+function rehypeFootnotePopovers() {
+  return (tree: HRoot) => {
+    const notes = new Map<string, Element["children"]>();
+    visit(tree, "element", (node: Element) => {
+      const id = node.properties.id;
+      if (node.tagName !== "li" || typeof id !== "string" || !id.startsWith("user-content-fn-")) return;
+      const body: Element["children"] = [];
+      visit(node, "element", (el: Element) => {
+        if (el.tagName === "p") body.push(...structuredClone(el.children));
+      });
+      // drop the "back to the text" links
+      notes.set(
+        id,
+        body.filter((c) => !(c.type === "element" && "dataFootnoteBackref" in c.properties)),
+      );
+    });
+    if (!notes.size) return;
+    visit(tree, "element", (node: Element, index, parent) => {
+      if (node.tagName !== "sup" || !parent || typeof index !== "number") return;
+      const a = node.children.find((c): c is Element => c.type === "element" && c.tagName === "a");
+      if (!a || !("dataFootnoteRef" in a.properties) || typeof a.properties.href !== "string") return;
+      const body = notes.get(a.properties.href.slice(1));
+      if (!body) return;
+      parent.children[index] = {
+        type: "element",
+        tagName: "span",
+        properties: { className: ["fn"] },
+        children: [
+          node,
+          { type: "element", tagName: "span", properties: { className: ["fn-pop"], role: "note" }, children: body },
+        ],
+      };
+      return SKIP;
+    });
+  };
+}
+
 export async function renderMarkdown(source: string, file: string, fallbackTitle: string): Promise<Rendered> {
   const meta = { title: "" };
   const toc: TocItem[] = [];
@@ -152,7 +193,12 @@ export async function renderMarkdown(source: string, file: string, fallbackTitle
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkRepo, { file, meta })
-    .use(remarkRehype, { allowDangerousHtml: true, footnoteLabelTagName: "h2" })
+    .use(remarkRehype, {
+      allowDangerousHtml: true,
+      footnoteLabelTagName: "h2",
+      // U+FE0E: the text glyph; without it some systems draw the emoji
+      footnoteBackContent: "↩︎",
+    })
     .use(rehypeRaw)
     .use(rehypeSlug)
     .use(rehypeShiki, {
@@ -162,6 +208,7 @@ export async function renderMarkdown(source: string, file: string, fallbackTitle
       fallbackLanguage: "text",
     })
     .use(rehypeSite, { file, toc })
+    .use(rehypeFootnotePopovers)
     .use(rehypeStringify)
     .process(source);
   return { title: meta.title || fallbackTitle, html: String(processed), toc };

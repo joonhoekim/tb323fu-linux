@@ -35,7 +35,8 @@ export function getDistros(): Distro[] {
   const head = cells(table.children[0]).map((h) => h.toLowerCase());
   const iSys = head.findIndex((h) => h.startsWith("system"));
   if (iSys < 0) return [];
-  return table.children.slice(1).map((r) => ({ system: cells(r)[iSys] ?? "" }));
+  const systems = table.children.slice(1).map((r) => cells(r)[iSys] ?? "");
+  return [...new Set(systems.filter(Boolean))].map((system) => ({ system }));
 }
 
 export type StatusKey = "works" | "partial" | "broken" | "unverified" | "na";
