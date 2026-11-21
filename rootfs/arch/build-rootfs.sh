@@ -123,9 +123,11 @@ ch "pacman -Q linux-aarch64 >/dev/null 2>&1 && pacman -Rns --noconfirm linux-aar
 ch "pacman -Syu --noconfirm"
 pk="networkmanager pipewire pipewire-pulse pipewire-alsa wireplumber bluez bluez-utils
     iio-sensor-proxy libssc openssh sudo mesa vulkan-freedreno alsa-ucm-conf alsa-utils
-    polkit dbus qrtr-git rmtfs-git swh-plugins wireless-regdb"
+    polkit dbus qrtr-git rmtfs-git swh-plugins wireless-regdb
+    libcamera libcamera-ipa pipewire-libcamera"
 [ "$DESKTOP" = gnome ] && pk="$pk gnome-shell gdm gnome-control-center gnome-terminal nautilus
-    gnome-settings-daemon gnome-session gnome-keyring xdg-user-dirs-gtk libadwaita gtk4"
+    gnome-settings-daemon gnome-session gnome-keyring xdg-user-dirs-gtk libadwaita gtk4
+    gst-plugin-libcamera snapshot"
 ch "pacman -S --noconfirm --needed $(echo $pk)"
 ch "systemctl mask rmtfs tqftpserv >/dev/null 2>&1 || true"   # rmtfs -s starts the modem; a modem crash resets the SoC
 

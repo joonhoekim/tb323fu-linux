@@ -101,6 +101,9 @@ amps=0
 for a in /sys/bus/i2c/drivers/aw882xx_smartpa/[0-9]*-*; do [ -e "$a" ] && amps=$((amps + 1)); done
 if grep -q TB323FU /proc/asound/cards 2>/dev/null && [ "$amps" -ge 2 ]; then
 	row PASS audio "sound card, $amps speaker amplifiers"
+elif [ "$amps" -ge 2 ] && [ "$(cut -d. -f1 /proc/uptime)" -lt 60 ]; then
+	row WARN audio "no sound card yet ($(cut -d. -f1 /proc/uptime) s after the start)" \
+		"the audio DSP brings it up within seconds of starting: run the check again in a minute"
 else
 	row FAIL audio "sound card: $(grep -q TB323FU /proc/asound/cards 2>/dev/null && echo yes || echo no), speaker amplifiers: $amps of 2" \
 		"the amplifier driver ships with the kernel release; the audio DSP firmware comes from Android"
@@ -135,10 +138,12 @@ if ! ls /dev/media* >/dev/null 2>&1; then
 	row FAIL camera "no media device" "kernel or device tree problem: report it"
 elif [ -e /etc/NIXOS ]; then
 	row SKIP camera "media device present; libraries not checked on NixOS (store paths)"
+elif grep -qx 'ID=steamos' /etc/os-release 2>/dev/null && ! libfind 'libcamera.so.*' >/dev/null; then
+	row SKIP camera "media device present; the SteamOS image has no libcamera (its repository's is too old)"
 elif ! libfind 'libcamera.so.*' >/dev/null; then
-	row FAIL camera "libcamera is not installed" "install libcamera (Debian/Ubuntu: libcamera-ipa libspa-0.2-libcamera)"
+	row FAIL camera "libcamera is not installed" "install libcamera (Debian/Ubuntu: libcamera-ipa libspa-0.2-libcamera; Arch: libcamera-ipa pipewire-libcamera; Fedora, Armada: libcamera-ipa pipewire-plugin-libcamera)"
 elif ! libfind 'spa-0.2/libcamera/libspa-libcamera.so' >/dev/null; then
-	row FAIL camera "PipeWire's libcamera plugin is not installed" "Debian/Ubuntu: libspa-0.2-libcamera; apps see cameras through PipeWire"
+	row FAIL camera "PipeWire's libcamera plugin is not installed" "Debian/Ubuntu: libspa-0.2-libcamera; Arch: pipewire-libcamera; Fedora: pipewire-plugin-libcamera; apps see cameras through PipeWire"
 else
 	row PASS camera "media device, libcamera, PipeWire plugin"
 fi

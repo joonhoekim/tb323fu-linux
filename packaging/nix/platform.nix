@@ -3,8 +3,8 @@
 # store path when PREFIX is not /usr; configuration stays under /etc/tb323fu
 # (mutable -- the helper writes there), so the defaults are shipped under
 # share/tb323fu/etc and copied by the NixOS module when absent. NixOS has no
-# /lib/firmware: the units name /run/current-system/firmware instead, which
-# the module links to hardware.firmware.
+# /lib/firmware: the units and their scripts name /run/current-system/firmware
+# instead, which the module links to hardware.firmware.
 { lib, stdenv, busybox, src }:
 stdenv.mkDerivation {
   pname = "tb323fu-platform";
@@ -20,7 +20,7 @@ stdenv.mkDerivation {
     cp -a $stage$out/. $out/
     mkdir -p $out/share/tb323fu
     cp -a $stage/etc $out/share/tb323fu/etc
-    for u in $out/lib/systemd/system/*.service; do
+    for u in $(grep -l /lib/firmware/ $out/lib/systemd/system/*.service $out/libexec/tb323fu/*); do
       substituteInPlace "$u" --replace-quiet /lib/firmware/ /run/current-system/firmware/
     done
     # back-to-android is also the initramfs' copy: it runs under busybox sh
