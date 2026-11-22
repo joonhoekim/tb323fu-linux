@@ -1,13 +1,15 @@
 # Open Device Helper changelog
 
-## Unreleased
+## 0.4.10 — 2026-11-22
 
 - **Going to Android leaves the Linux root clean:** `back-to-android` reboots through `systemctl reboot --force`
   from a running root, which remounts the root read-only first. With `reboot -f` the root needed journal recovery on
   the next start, and the initramfs then could not read the state root, so `boot next` and `boot default` were
   ignored after a trip to Android.
-- **Systems:** a partition without a file system is listed as "no ext4 file system on it" instead of "unclean
-  shutdown?".
+- `back-to-android` detaches the USB gadget before it reboots, so a root shell on the USB serial port (developer
+  access) no longer delays the reboot by up to 15 s.
+- **Systems:** a root partition that is not ext4 (empty, or formatted with another file system) is listed as such,
+  with a note that roots must be ext4, instead of "unclean shutdown?".
 
 ## 0.4.9 — 2026-11-19
 

@@ -477,7 +477,7 @@ pub fn roots() -> Vec<Root> {
             } else if let Some(r) = probe(&dev, &look) {
                 r
             } else if has_ext4(&dev) == Some(false) {
-                (String::new(), "unknown".to_string(), vec!["no ext4 file system on it (an empty partition?)".to_string()])
+                (String::new(), "unknown".to_string(), vec!["not ext4 (empty, or another file system; roots must be ext4)".to_string()])
             } else {
                 // e.g. an ext4 journal left by an unclean shutdown: a read-only
                 // mount without replay ("noload") refuses it. Not "empty".
