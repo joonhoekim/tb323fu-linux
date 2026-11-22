@@ -44,7 +44,7 @@ or listening while a script drives the feature. After a large kernel rebase the 
 | Internal panel (CSOT, Novatek NT36536 TDDI, dual DSI) | ✅ | verified | used daily |
 | DSC 1.2, 10 bpc | ✅ | verified | |
 | 120 Hz | ✅ | verified | default mode |
-| Idle refresh 60 / 30 Hz | ✅ | verified | the mode stays 120 Hz and only the vertical porch is stretched, so the desktop sees no mode change; back to 120 Hz before suspend and display off |
+| Idle refresh 60 / 30 Hz | ✅ | verified | the mode stays 120 Hz and only the vertical porch is stretched, so the desktop sees no mode change; back to 120 Hz before suspend and display off. From 164 Hz too: switching between 164 and 30 Hz with an animated external display ran 120 s without display errors on `kernel-t64` (patch 0216) |
 | 90 Hz | ✅ | verified | vendor timing |
 | 165 Hz (offered as 164 Hz) | ✅ | verified | SteamOS picks it by default; long sessions not watched[^why-164] |
 | 144 Hz | ✅ | verified | on `kernel-t53` and later (patch 0142); one of six switches once showed the picture shifted up, not seen again[^why-144] |
@@ -76,7 +76,7 @@ or listening while a script drives the feature. After a large kernel rebase the 
 | Torch | ✅ | verified | also from the helper's quick settings |
 | Flash strobe | ✅ | verified | `/sys/class/leds/white:flash`; libcamera does not drive the flash yet |
 | RGB ring light | ✅ | verified | charge indicator, solid colors (nine in the helper) and breathing run by the chip (`hw_pattern`). Known limitation: every brightness or color change goes dark for about 45 ms while the chip's program restarts |
-| Haptics (2 motors) | ✅ | verified | |
+| Haptics (2 motors) | ✅ | verified | two AW86937; from `kernel-t64` with the posted driver patches for their register layout (0217–0222). Each motor checked by hand, before and after suspend |
 | Volume and power keys | ✅ | verified | power key suspends and resumes |
 | Emergency key (volume up + down, 10 s → back to Android) | ✅ | verified | switching back to Linux from Android works |
 
@@ -112,8 +112,8 @@ or listening while a script drives the feature. After a large kernel rebase the 
 | USB host (SuperSpeed+, hubs) | ✅ | verified | the second port is USB 2.0 only |
 | USB low-speed devices | ✅ | verified | e.g. the device inside a USB-C to HDMI cable; kernels before t52 sometimes failed with `-71`/`-110` |
 | USB gadget (network, serial) | ✅ | verified | |
-| DisplayPort alt mode | ✅ | verified | 4 lanes HBR3 with pin assignment C: a 5120×2160 USB-C monitor at 75 Hz with its USB 2.0 hub; a TV through a USB-C to HDMI adapter at 4K 30. Sinks in pin assignment D (which keep USB 3) are untested[^dp] |
-| DisplayPort MST (daisy chain / "extend" on MST hubs) | 🟡 | verified | on `kernel-t61`, with patches 0157-0205 (upstream MST v7, under review, and five fixes). A Realtek MST hub with two 1920×1200 panels shows two separate displays next to the built-in one, also after suspend and replugs. With this monitor a replug sometimes leaves one or both screens dark (its hub drops HPD or stops answering; Android shows the same): unplug and plug again, or reconnect the monitor's power. Daisy chains, 4K and audio over MST untested[^mst] |
+| DisplayPort alt mode | ✅ | verified | 4 lanes HBR3 with pin assignment C: a 5120×2160 USB-C monitor at 75 Hz with its USB 2.0 hub; a TV through a USB-C to HDMI adapter at 4K 30. With an adapter that keeps USB 3 next to DisplayPort (pin assignment D), USB 3 stays at SuperSpeed (5 Gbit/s); a picture through such an adapter is untested[^dp] |
+| DisplayPort MST (daisy chain / "extend" on MST hubs) | 🟡 | verified | from `kernel-t61` (checked again on `kernel-t64`), with patches 0157-0205 (upstream MST v7, under review, and five fixes). A Realtek MST hub with two 1920×1200 panels shows two separate displays next to the built-in one, also after suspend and replugs. With this monitor a replug sometimes leaves one or both screens dark (its hub drops HPD or stops answering; Android shows the same): unplug and plug again, or reconnect the monitor's power. Once, on a test kernel, a replug whose link training failed hung the tablet until the watchdog reset it (not seen in 12 replugs on `kernel-t63`). Daisy chains, 4K and audio over MST untested[^mst] |
 | DisplayPort audio | ✅ | verified | on `kernel-t62`, platform 0.4.9: sound on a DisplayPort monitor and on an HDMI monitor through a USB-C to HDMI cable, at the same time as the speakers; the PipeWire device follows plug and unplug. A stream pinned to the display output stops when the display is unplugged until the application is restarted ([#53](https://github.com/joonhoekim/tb323fu-linux/issues/53)). Over MST: untested |
 | UFS storage | ✅ | verified | multi-queue mode (patch 0119), kept over suspend (0128); fixes for a deadlock that rebooted the tablet after hours of use (0129) and for recovery after a controller reset (0141 and Linux 7.3). Numbers in [Performance](performance.md#storage) |
 | microSD | ✅ | verified | UHS-I SDR104; also used for the multiboot roots |
@@ -128,7 +128,7 @@ or listening while a script drives the feature. After a large kernel rebase the 
 
 ## Known issues
 
-- **CPU cluster idle state left out of runtime idle** (patch 0118): with it the tablet reset when idle, without an error message. Leaving it out avoids that at the same idle power; the cause in the cluster's power-down path is not fixed, and suspend still uses the state (knob: `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off`).
+- **CPU cluster idle state left out of runtime idle** (patch 0118): with it the tablet reset when idle, without an error message. Leaving it out avoids that at the same idle power (on `kernel-t64`, about 7 hours idle at the login screen with the screen on passed without a reset); the cause in the cluster's power-down path is not fixed, and suspend still uses the state (knob: `/sys/module/cpuidle_psci_domain/parameters/allow_cluster_off`).
 - **8K HEVC 10-bit video does not decode**: with `kernel-t60` and older, hardware decoding of an 8K (7680×4320) HEVC Main10 stream resets the tablet; from `kernel-t61` (patch 0206) it fails with a decode error instead. 8K 8-bit HEVC, VP9 and AV1 (also 10-bit) decode fine; H.264 and encoding do not work at 8K.
 - **Bypass charging** works; with the Charge Limit method the kernel battery `status` still reads "Charging" and the charger drops to 5 V (the Charge Current method keeps 9 V).
 - **Charging can stop below the limit**: the firmware stops at 5 V and resumes only when the limit is moved below the current charge and back; the helper's Restart Stalled Charging does this automatically. Cause not found.
@@ -146,22 +146,6 @@ gaps in the Linux port.
 - **Compass**: relative rotation is right, the absolute heading is off; Android's map apps are off on this device too.
 - **Fast USB-C replugs**: replugging a USB-C monitor within about a second sometimes ends without a power-delivery
   contract (no picture, no hub); unplug and plug again. Android shows "Check the charger connection" in the same case.
-
-## Still to test
-
-In rough order of value. Rows above marked ❓ or 🟡, and rows last checked before a relevant kernel change, are here.
-
-| What | How it will be settled | Needs a person |
-|---|---|---|
-| 164 Hz in long sessions, SteamOS orientation and UI size, touch on Fedora and NixOS | 10+ minutes in Gaming Mode with underrun counters; first taps on each desktop | eyes, hands |
-| Long idle with patch 0118 | hours of idle and display-off time without a reset, against the 78-minute baseline with the cluster state allowed | no (scripted) |
-| AV1 in applications | newer GStreamer / FFmpeg on Arch, Fedora or NixOS, compared bit-exact with a software decoder | no (scripted) |
-| 144 Hz | long sessions, after suspend and with idle refresh; the shifted picture seen once | eyes, hands |
-| From the spec sheet | full-resolution (50 MP) rear capture (needs a new sensor mode), touch report rate (up to 480 Hz), HDR, film-grain video | mostly no; touch rate needs a finger |
-| Flash strobe | trigger the strobe control and watch | eyes |
-| Board thermal above 45 °C | 20–30 minutes of CPU + GPU load, steps and frequencies logged, desktop smoothness watched | eyes (optional) |
-| Charging stall and the 2.4 A input cap | battery and charger values logged until the next stall; the input limit on other chargers | no (scripted) |
-| Needs hardware not at hand | pen, Bluetooth LE Audio, USB audio adapters, the original folio case, the 68 W charger, a 6 GHz / 320 MHz / MLO access point | hands |
 
 ## Spec sheet vs status
 
