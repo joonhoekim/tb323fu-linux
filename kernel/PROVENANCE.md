@@ -21,7 +21,7 @@ column names the source; see that tree's history for the individual authors.
 0208 is held for pull request #58. Number 0038 is free (its patch was replaced by 0217-0222). Numbers 0067-0071, 0135, 0136, 0140 and 0149 are free (0135, 0136 and 0149 were the earlier versions of 0212 and 0213): those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114, 0116-0119, 0128-0139, 0141-0156 and 0200-0203, 0205, 0210, 0212-0215 and 0223 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
+0111-0114, 0116-0119, 0128-0139, 0141-0156 and 0200-0203, 0205, 0210, 0212-0215 and 0223 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).  0224-0226 are this project's own patches, signed off by `li-yiyang <yiyang.li.11pro@outlook.com>`.
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -237,6 +237,7 @@ column names the source; see that tree's history for the individual authors.
 | `0223` | arm64: dts: qcom: baldur: limit the microSD slot to 100 MHz | Joonhoe Kim | this project (issue [#26](https://github.com/joonhoekim/tb323fu-linux/issues/26), PR [#66](https://github.com/joonhoekim/tb323fu-linux/pull/66)) | local, until the BH201 retimer is calibrated | `fd9ea7b569717ebe` |
 | `0224` | dt-bindings: mmc: qcom,sdhci-msm: document lenovo,bh201-retimer | li-yiyang | this project (issue #26) | local | `c1da0ff1f544b8d6` |
 | `0225` | mmc: sdhci-msm: calibrate the BH201 SD retimer for SDR104 | li-yiyang | this project (issue #26) | local | `ccf471bfb61dc267` |
+| `0226` | arm64: dts: qcom: baldur: run the microSD slot at 202 MHz | li-yiyang | this project (issue #26) | local | `85b957681b89bfef` |
 
 [^0019-ours]: Replaces this project's own [0019](https://github.com/joonhoekim/tb323fu-linux/blob/kernel-t63/kernel/patches/0019-arm64-dts-qcom-kaanapali-add-the-second-DSI-controll.patch) (up to `kernel-t63`), which added the same two nodes but did not feed the PHY clocks to the display clock controller.
 [^0038-ours]: 0217-0222 replace this project's own [0038](https://github.com/joonhoekim/tb323fu-linux/blob/kernel-t63/kernel/patches/0038-Input-aw86927-accept-the-AW86937.patch) (up to `kernel-t63`), which only accepted the AW86937 chip ID and drove it like the AW86938.

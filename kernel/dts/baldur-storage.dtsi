@@ -43,6 +43,9 @@
 	vmmc-supply = <&vreg_l9b_2p9>;
 	vqmmc-supply = <&vreg_l8b_1p8>;
 
+	/* O2Micro/BayHub BH201 retimer between the SoC and the card slot. */
+	lenovo,bh201-retimer;
+
 	cd-gpios = <&tlmm 55 GPIO_ACTIVE_HIGH>;
 	bus-width = <4>;
 	no-sdio;
@@ -55,8 +58,14 @@
 	/* the card needs about 45 ms between power-on and CMD8 */
 	post-power-on-delay-ms = <100>;
 
-	/* CRC errors at 202 MHz until the BH201 retimer is calibrated */
-	max-frequency = <100000000>;
+	/*
+	 * SDR104 at 202 MHz.  The BH201's 200 MHz TX phase is per card and
+	 * power-up, so the host has to calibrate it before using SDR104; without
+	 * that, host tuning passes but every data read fails with a CRC error.
+	 * The host's own tuning runs first because sdhci-msm enables its
+	 * clock-data-recovery from there.
+	 */
+	max-frequency = <202000000>;
 
 	status = "okay";
 };
