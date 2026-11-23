@@ -17,6 +17,7 @@ A firmware update **cannot be undone**: it raises the rollback index, so the old
 | 18.0.12.104 | ROW | works (the development tablet) | matches ([map](../firmware/memory-map-zui-18.0.12.104.txt)) | — |
 | 18.0.12.187 | ROW | hangs early in boot | not checked yet | [#9](https://github.com/joonhoekim/tb323fu-linux/issues/9) |
 | ZUXOS 2.0.10.026 | PRC (24 GB) | boots to the desktop (Arch Linux ARM); DSPs, audio, suspend and the switch to Android work[^zuxos-test] | matches; only `/memory` differs, as expected with 24 GB | [#52](https://github.com/joonhoekim/tb323fu-linux/issues/52) |
+| ZUXOS 2.0.12.088 | PRC (16 GB) | not tried | matches; identical to 18.0.12.104, `/memory` included | [#65](https://github.com/joonhoekim/tb323fu-linux/issues/65) |
 
 Every other version is untested. All reports:
 [issues labelled `firmware`](https://github.com/joonhoekim/tb323fu-linux/issues?q=is%3Aissue+label%3Afirmware).
