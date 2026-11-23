@@ -55,6 +55,9 @@
 	/* the card needs about 45 ms between power-on and CMD8 */
 	post-power-on-delay-ms = <100>;
 
+	/* CRC errors at 202 MHz until the BH201 retimer is calibrated */
+	max-frequency = <100000000>;
+
 	status = "okay";
 };
 
