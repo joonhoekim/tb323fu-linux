@@ -1,0 +1,35 @@
+From 57f0ecf3b360ca9964f4ae278dcda41d17b82787 Mon Sep 17 00:00:00 2001
+From: li-yiyang <yiyang.li.11pro@outlook.com>
+Date: Mon, 23 Nov 2026 23:24:01 +0900
+Subject: [PATCH] dt-bindings: mmc: qcom,sdhci-msm: document
+ lenovo,bh201-retimer
+
+The microSD slot on the Lenovo Y700 Gen 5 (TB323FU) has a BayHub BH201 SD
+retimer between the controller and the card. Document the board property
+that tells the host driver to configure it with this board's table.
+
+Signed-off-by: li-yiyang <yiyang.li.11pro@outlook.com>
+[Joonhoe Kim: describe the property as the board's table]
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ Documentation/devicetree/bindings/mmc/qcom,sdhci-msm.yaml | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/mmc/qcom,sdhci-msm.yaml b/Documentation/devicetree/bindings/mmc/qcom,sdhci-msm.yaml
+index b3fcc1673c10..a540186b5159 100644
+--- a/Documentation/devicetree/bindings/mmc/qcom,sdhci-msm.yaml
++++ b/Documentation/devicetree/bindings/mmc/qcom,sdhci-msm.yaml
+@@ -137,6 +137,13 @@ properties:
+   resets:
+     maxItems: 1
+ 
++  lenovo,bh201-retimer:
++    type: boolean
++    description:
++      The SD slot has a BayHub BH201 SD retimer between the controller and
++      the card, configured with this board's table. SDR104 needs its 200 MHz
++      TX phase calibrated for the card.
++
+   qcom,ddr-config:
+     $ref: /schemas/types.yaml#/definitions/uint32
+     description: platform specific settings for DDR_CONFIG reg.
