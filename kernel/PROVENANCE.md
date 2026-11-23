@@ -236,6 +236,7 @@ column names the source; see that tree's history for the individual authors.
 | `0222` | Input: aw86927 - stop playback over suspend and on shutdown | Qianhui Xu | mailing list: aw86927 AW86937 v2 6/6 ([lore](https://lore.kernel.org/all/20261117052112.32527-7-xiaqinghuan@mail.ustc.edu.cn/)) | pending upstream | `af3a9b0791a041d9` |
 | `0223` | arm64: dts: qcom: baldur: limit the microSD slot to 100 MHz | Joonhoe Kim | this project (issue [#26](https://github.com/joonhoekim/tb323fu-linux/issues/26), PR [#66](https://github.com/joonhoekim/tb323fu-linux/pull/66)) | local, until the BH201 retimer is calibrated | `fd9ea7b569717ebe` |
 | `0224` | dt-bindings: mmc: qcom,sdhci-msm: document lenovo,bh201-retimer | li-yiyang | this project (issue #26) | local | `c1da0ff1f544b8d6` |
+| `0225` | mmc: sdhci-msm: calibrate the BH201 SD retimer for SDR104 | li-yiyang | this project (issue #26) | local | `ccf471bfb61dc267` |
 
 [^0019-ours]: Replaces this project's own [0019](https://github.com/joonhoekim/tb323fu-linux/blob/kernel-t63/kernel/patches/0019-arm64-dts-qcom-kaanapali-add-the-second-DSI-controll.patch) (up to `kernel-t63`), which added the same two nodes but did not feed the PHY clocks to the display clock controller.
 [^0038-ours]: 0217-0222 replace this project's own [0038](https://github.com/joonhoekim/tb323fu-linux/blob/kernel-t63/kernel/patches/0038-Input-aw86927-accept-the-AW86937.patch) (up to `kernel-t63`), which only accepted the AW86937 chip ID and drove it like the AW86938.
