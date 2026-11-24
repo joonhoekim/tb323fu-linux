@@ -1,11 +1,11 @@
-From f97e966fb8e89ae78cb724848130607e7e6d1d78 Mon Sep 17 00:00:00 2001
+From 476850bd9cf424da32aa508e63174ef37784fdb8 Mon Sep 17 00:00:00 2001
 From: li-yiyang <yiyang.li.11pro@outlook.com>
 Date: Mon, 23 Nov 2026 23:25:35 +0900
 Subject: [PATCH] arm64: dts: qcom: baldur: describe the microSD slot's BH201
  retimer
 
 Mark the microSD slot as having the BH201 retimer, so that its driver
-configures it. The driver keeps the slot at SDR50 (100 MHz) unless
+configures it. The driver keeps the slot at 100 MHz unless
 calibration is turned on.
 
 Signed-off-by: li-yiyang <yiyang.li.11pro@outlook.com>

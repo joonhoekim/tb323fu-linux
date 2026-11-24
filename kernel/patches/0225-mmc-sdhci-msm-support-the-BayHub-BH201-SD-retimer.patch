@@ -1,4 +1,4 @@
-From e26d0dce5f0c47c6e4da3d44795e5c0c79f787b5 Mon Sep 17 00:00:00 2001
+From c461b798f301a310ed8bb2a5768a193aecb6b2d0 Mon Sep 17 00:00:00 2001
 From: li-yiyang <yiyang.li.11pro@outlook.com>
 Date: Mon, 23 Nov 2026 23:24:01 +0900
 Subject: [PATCH] mmc: sdhci-msm: support the BayHub BH201 SD retimer
@@ -15,40 +15,42 @@ which the card ignores), and calibrate the 200 MHz phase from
 execute_tuning: try two known phases first, then sweep all 121 if they
 fail. A phase is accepted after it reads LBA0 back three times and 4 MiB
 without a CRC error on two fresh attaches in a row; each trial fails the
-attach so that the core re-initialises the card with the next phase. On
-the card tested here the known phase passes in about 0.6 s; the full
-sweep takes about 50 s.
+attach so that the core re-initialises the card with the next phase.
+Depending on the card, a known phase passes in under a second or the
+sweep takes under a minute.
 
-Calibration is off by default: the slot runs at SDR50 (100 MHz). The
-module parameter sd_retimer_o2.calibrate turns it on for the next card
-attach. If no phase passes, the card attaches at SDR50. If a calibrated
-phase stops reading after a resume or a retune, the card stays attached
-at 100 MHz, since failing that attach could remove the block device
-under a mounted root, and the next attach uses SDR50. The card state is
-checked with CMD13 before each configuration write, and the driver stops
-using the retimer if LBA0 reads back different from the previous attach.
+Calibration is off by default: the slot runs at 100 MHz, where SDR104
+needs no calibration, and the retimer is left alone. The module
+parameter sd_retimer_o2.calibrate turns it on from the next card
+insertion or rebind. If no phase passes, the card stays at 100 MHz. If a
+calibrated phase stops reading after a resume or a retune, that attach
+is lowered to 100 MHz rather than failed, since failing it could remove
+the block device under a mounted root; the next attach also runs at
+100 MHz and the one after re-checks the phase. The card state is checked
+with CMD13 before the configuration writes, and the driver stops using
+the retimer if LBA0 reads back different from the previous attach.
 
-Based on Lenovo/BayHub's sdhci-bayhub.c. The resume clamp is from
-li-yiyang's follow-up patch.
+Based on sdhci-bayhub.c by Bayhub Technologies. The resume clamp and the
+one attach at 100 MHz after it are from li-yiyang's follow-up patches.
 
 Signed-off-by: li-yiyang <yiyang.li.11pro@outlook.com>
 Co-developed-by: Joonhoe Kim <26rote@gmail.com>
 Signed-off-by: Joonhoe Kim <26rote@gmail.com>
 ---
- drivers/mmc/host/Kconfig         |  13 +
+ drivers/mmc/host/Kconfig         |  14 +
  drivers/mmc/host/Makefile        |   1 +
- drivers/mmc/host/sd-retimer-o2.c | 681 +++++++++++++++++++++++++++++++
+ drivers/mmc/host/sd-retimer-o2.c | 704 +++++++++++++++++++++++++++++++
  drivers/mmc/host/sd-retimer-o2.h |  36 ++
  drivers/mmc/host/sdhci-msm.c     |  26 ++
- 5 files changed, 757 insertions(+)
+ 5 files changed, 781 insertions(+)
  create mode 100644 drivers/mmc/host/sd-retimer-o2.c
  create mode 100644 drivers/mmc/host/sd-retimer-o2.h
 
 diff --git a/drivers/mmc/host/Kconfig b/drivers/mmc/host/Kconfig
-index 4f060d3e5636..50f9c92665cb 100644
+index 4f060d3e5636..ecae69e1451b 100644
 --- a/drivers/mmc/host/Kconfig
 +++ b/drivers/mmc/host/Kconfig
-@@ -621,6 +621,19 @@ config MMC_SDHCI_MSM
+@@ -621,6 +621,20 @@ config MMC_SDHCI_MSM
  
  	  If unsure, say N.
  
@@ -58,10 +60,11 @@ index 4f060d3e5636..50f9c92665cb 100644
 +	help
 +	  Support for the BayHub BH201 SD retimer between the SDHCI
 +	  controller and the card on the Lenovo Y700 Gen 5 (TB323FU), whose
-+	  configuration table the driver carries. The slot runs at SDR50
-+	  (100 MHz). With the module parameter sd_retimer_o2.calibrate=1 the
-+	  next card attach calibrates the retimer's 200 MHz phase and uses
-+	  SDR104 (202 MHz); if no phase reads, it stays at SDR50.
++	  configuration table the driver carries. The slot runs at 100 MHz.
++	  With the module parameter sd_retimer_o2.calibrate=1 the next card
++	  insertion (or a rebind of the slot) calibrates the retimer's 200 MHz
++	  phase and runs the card at 202 MHz; if no phase reads, it stays at
++	  100 MHz.
 +
 +	  If unsure, say N.
 +
@@ -82,16 +85,18 @@ index ee412e6b84d6..ddfb8a5d3a5b 100644
  obj-$(CONFIG_MMC_SDHCI_BRCMSTB)		+= sdhci-brcmstb.o
 diff --git a/drivers/mmc/host/sd-retimer-o2.c b/drivers/mmc/host/sd-retimer-o2.c
 new file mode 100644
-index 000000000000..38fef47e2c9a
+index 000000000000..f56f3d91a96e
 --- /dev/null
 +++ b/drivers/mmc/host/sd-retimer-o2.c
-@@ -0,0 +1,681 @@
+@@ -0,0 +1,704 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * BayHub BH201 SD retimer on Qualcomm SDHCI hosts
 + *
-+ * Based on Lenovo/BayHub's sdhci-bayhub.c. The configuration table is the
-+ * one the TB323FU Android kernel uses.
++ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
++ *
++ * Based on sdhci-bayhub.c by Bayhub Technologies, as shipped by Lenovo. The
++ * configuration table is the one the TB323FU Android kernel uses.
 + *
 + * Retimer protocol (sdhci-bayhub.c): with the card deselected, CMD7(0) twice
 + * enters the retimer, CMD24 with argument 0 writes its configuration and
@@ -125,7 +130,7 @@ index 000000000000..38fef47e2c9a
 +static bool calibrate;
 +module_param(calibrate, bool, 0644);
 +MODULE_PARM_DESC(calibrate,
-+		 "Calibrate the BH201 and use SDR104 (202 MHz) from the next card attach; off: SDR50 (100 MHz)");
++		 "Calibrate the BH201 and run the card at 202 MHz from the next card insertion or rebind; off: 100 MHz");
 +
 +static bool full_sweep;
 +module_param(full_sweep, bool, 0644);
@@ -142,6 +147,7 @@ index 000000000000..38fef47e2c9a
 +#define O2_MAX_CAND		4
 +#define O2_BURST_BYTES		SZ_64K
 +#define O2_BURST_COUNT		64	/* 4 MiB read before a phase is accepted */
++#define O2_SLOW_HZ		100000000	/* no calibration needed here */
 +
 +enum o2_stage {
 +	O2_STAGE_FAST,		/* known-good phases, tried before a sweep */
@@ -184,8 +190,7 @@ index 000000000000..38fef47e2c9a
 +	u8 cid[16];
 +	bool cid_valid;
 +
-+	bool caps_saved;
-+	bool had_sdr104;
++	unsigned int f_max;	/* the host's limit before this driver */
 +	bool unsafe;		/* a configuration write reached the card */
 +
 +	int def_sela, def_selb;
@@ -541,7 +546,7 @@ index 000000000000..38fef47e2c9a
 +static int o2_calib_fail(struct o2_retimer *o2, struct mmc_host *mmc,
 +			 const char *why)
 +{
-+	dev_err(mmc->parent, "BH201: %s, staying at SDR50\n", why);
++	dev_err(mmc->parent, "BH201: %s, staying at 100 MHz\n", why);
 +	o2->calib_failed = true;
 +	o2_make_cfg(o2, o2->trial_cfg, o2->def_sela, o2->def_selb);
 +	return o2_retry(mmc);
@@ -567,9 +572,11 @@ index 000000000000..38fef47e2c9a
 +			 struct mmc_card *card, int host_rc)
 +{
 +	int score = host_rc ? 0 : o2_score_lba0(o2, mmc);
-+	bool pass;
++	bool pass = false;
 +
 +	if (o2->stage == O2_STAGE_SWEEP) {
++		dev_dbg(mmc->parent, "BH201: sweep phase %d/%d tuning %d lba0 %d/3\n",
++			o2->sela, o2->selb, host_rc, score);
 +		if (score >= 2)
 +			o2->pass_row[o2->sela] |= BIT(o2->selb);
 +		if (o2->trial + 1 < O2_SWEEP_COUNT) {
@@ -584,7 +591,11 @@ index 000000000000..38fef47e2c9a
 +		return o2_retry(mmc);
 +	}
 +
-+	pass = score == 3 && o2_burst_ok(mmc, card);
++	if (score == 3)
++		pass = o2_burst_ok(mmc, card);
++	dev_dbg(mmc->parent, "BH201: stage %d phase %d/%d tuning %d lba0 %d/3 burst %s\n",
++		o2->stage, o2->sela, o2->selb, host_rc, score,
++		score == 3 ? (pass ? "ok" : "failed") : "-");
 +	if (pass) {
 +		if (++o2->passes >= 2) {
 +			o2_calib_done(o2, mmc);
@@ -594,6 +605,10 @@ index 000000000000..38fef47e2c9a
 +	}
 +
 +	if (o2->stage == O2_STAGE_FAST) {
++		if (++o2->tries < 3) {
++			o2->passes = 0;
++			return o2_retry(mmc);
++		}
 +		if (o2->trial + 1 < ARRAY_SIZE(o2_fast)) {
 +			o2_set_trial(o2, O2_STAGE_FAST, o2->trial + 1);
 +			return o2_retry(mmc);
@@ -627,7 +642,7 @@ index 000000000000..38fef47e2c9a
 +	int host_rc;
 +
 +	if (!o2 || mmc->ios.timing != MMC_TIMING_UHS_SDR104 ||
-+	    mmc->ios.clock <= 100000000)
++	    mmc->ios.clock <= O2_SLOW_HZ)
 +		return tune(mmc, opcode);
 +
 +	/* sdhci-msm sets up its DLL and clock-data recovery here */
@@ -637,11 +652,11 @@ index 000000000000..38fef47e2c9a
 +		if (o2->calib_done && !host_rc && !force_miss &&
 +		    o2_score_lba0(o2, mmc) >= 2)
 +			return 0;
-+		dev_err(mmc->parent, "BH201: phase %d/%d no longer reads, 100 MHz for now and SDR50 from the next attach\n",
++		dev_err(mmc->parent, "BH201: phase %d/%d no longer reads, 100 MHz for this attach and the next\n",
 +			o2->sela, o2->selb);
 +		force_miss = false;
 +		o2->stale = true;
-+		mmc->ios.clock = 100000000;
++		mmc->ios.clock = O2_SLOW_HZ;
 +		mmc->ops->set_ios(mmc, &mmc->ios);
 +		return 0;
 +	}
@@ -674,10 +689,8 @@ index 000000000000..38fef47e2c9a
 +	if (!mmc_card_sd(card))
 +		return;
 +
-+	if (!o2->caps_saved) {
-+		o2->had_sdr104 = mmc->caps & MMC_CAP_UHS_SDR104;
-+		o2->caps_saved = true;
-+	}
++	if (!o2->f_max)
++		o2->f_max = mmc->f_max;
 +	o2->pending = card;
 +
 +	if (o2->cid_valid && memcmp(o2->cid, card->raw_cid, sizeof(o2->cid)))
@@ -685,13 +698,21 @@ index 000000000000..38fef47e2c9a
 +	memcpy(o2->cid, card->raw_cid, sizeof(o2->cid));
 +	o2->cid_valid = true;
 +
-+	if (!calibrate || o2->unsafe || o2->calib_failed || o2->stale)
-+		goto sdr50;
++	/* the same card inserted again is calibrated again */
++	if (!mmc->card && o2->calib_done) {
++		o2->started = false;
++		o2->calib_done = false;
++	}
++
++	/* a registered card is calibrated only at its next insertion or rebind */
++	if (!calibrate || o2->unsafe || o2->calib_failed || o2->stale ||
++	    (mmc->card && !o2->calib_done))
++		goto slow;
 +
 +	err = o2_cmd(mmc, SD_SEND_RELATIVE_ADDR, 0, MMC_RSP_R6 | MMC_CMD_BCR, 3,
 +		     &resp);
 +	if (err || !(resp >> 16))
-+		goto sdr50;
++		goto slow;
 +	card->rca = resp >> 16;
 +
 +	if (!o2->started) {
@@ -704,7 +725,7 @@ index 000000000000..38fef47e2c9a
 +
 +	before = kmemdup(o2->golden, 512, GFP_KERNEL);
 +	if (!before)
-+		goto sdr50;
++		goto slow;
 +
 +	/* CMD24 must never reach the card: it ignores it only in standby */
 +	err = o2_card_state(mmc, card);
@@ -716,7 +737,11 @@ index 000000000000..38fef47e2c9a
 +		u8 enter[O2_CFG_BYTES];
 +
 +		memcpy(enter, o2_ggc_cfg, O2_CFG_BYTES);
-+		enter[4] = 0x32;	/* values sdhci-bayhub.c writes first */
++		/*
++		 * sdhci-bayhub.c bht_load_hw_inject(): byte 4 as the vendor
++		 * writes it, 46-50 the SDR104 and SDR50 SELB hardware inject
++		 */
++		enter[4] = 0x32;
 +		memcpy(&enter[46], "\x31\x77\x77\x57\x72", 5);
 +
 +		o2_select(mmc, NULL, false);
@@ -735,18 +760,19 @@ index 000000000000..38fef47e2c9a
 +	o2->golden_valid = !err;
 +	o2_restore_card(mmc, card);
 +	if (err) {
-+		dev_err(dev, "BH201: configuration failed (%d), SDR50 from the next attach\n",
++		dev_err(dev, "BH201: configuration failed (%d), staying at 100 MHz\n",
 +			err);
 +		o2->calib_failed = true;
 +		mmc_detect_change(mmc, 0);
-+		goto sdr50;
++		goto slow;
 +	}
-+	if (o2->had_sdr104)
-+		mmc->caps |= MMC_CAP_UHS_SDR104;
++	mmc->f_max = o2->f_max;
 +	return;
 +
-+sdr50:
-+	mmc->caps &= ~MMC_CAP_UHS_SDR104;
++slow:
++	/* one attach at 100 MHz after a miss, then the stored phase again */
++	o2->stale = false;
++	mmc->f_max = min(o2->f_max, O2_SLOW_HZ);
 +}
 +
 +struct o2_retimer *o2_retimer_probe(struct sdhci_host *host)
