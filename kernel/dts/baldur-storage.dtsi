@@ -43,6 +43,8 @@
 	vmmc-supply = <&vreg_l9b_2p9>;
 	vqmmc-supply = <&vreg_l8b_1p8>;
 
+	lenovo,bh201-retimer;
+
 	cd-gpios = <&tlmm 55 GPIO_ACTIVE_HIGH>;
 	bus-width = <4>;
 	no-sdio;
@@ -54,9 +56,6 @@
 
 	/* the card needs about 45 ms between power-on and CMD8 */
 	post-power-on-delay-ms = <100>;
-
-	/* CRC errors at 202 MHz until the BH201 retimer is calibrated */
-	max-frequency = <100000000>;
 
 	status = "okay";
 };

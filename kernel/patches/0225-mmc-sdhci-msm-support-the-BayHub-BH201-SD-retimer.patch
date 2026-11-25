@@ -1,0 +1,895 @@
+From c461b798f301a310ed8bb2a5768a193aecb6b2d0 Mon Sep 17 00:00:00 2001
+From: li-yiyang <yiyang.li.11pro@outlook.com>
+Date: Mon, 23 Nov 2026 23:24:01 +0900
+Subject: [PATCH] mmc: sdhci-msm: support the BayHub BH201 SD retimer
+
+The microSD slot on the Lenovo Y700 Gen 5 (TB323FU) has a BayHub BH201
+retimer between the controller and the card. The retimer has its own TX
+phase for SDR104, and the power-on phase leaves some cards with data CRC
+errors at 202 MHz. The host's tuning only moves the controller's sampling
+point, so it passes while reads still fail.
+
+Configure the retimer from init_card as the vendor driver does (a
+configuration block written with CMD24 while the card is in standby,
+which the card ignores), and calibrate the 200 MHz phase from
+execute_tuning: try two known phases first, then sweep all 121 if they
+fail. A phase is accepted after it reads LBA0 back three times and 4 MiB
+without a CRC error on two fresh attaches in a row; each trial fails the
+attach so that the core re-initialises the card with the next phase.
+Depending on the card, a known phase passes in under a second or the
+sweep takes under a minute.
+
+Calibration is off by default: the slot runs at 100 MHz, where SDR104
+needs no calibration, and the retimer is left alone. The module
+parameter sd_retimer_o2.calibrate turns it on from the next card
+insertion or rebind. If no phase passes, the card stays at 100 MHz. If a
+calibrated phase stops reading after a resume or a retune, that attach
+is lowered to 100 MHz rather than failed, since failing it could remove
+the block device under a mounted root; the next attach also runs at
+100 MHz and the one after re-checks the phase. The card state is checked
+with CMD13 before the configuration writes, and the driver stops using
+the retimer if LBA0 reads back different from the previous attach.
+
+Based on sdhci-bayhub.c by Bayhub Technologies. The resume clamp and the
+one attach at 100 MHz after it are from li-yiyang's follow-up patches.
+
+Signed-off-by: li-yiyang <yiyang.li.11pro@outlook.com>
+Co-developed-by: Joonhoe Kim <26rote@gmail.com>
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ drivers/mmc/host/Kconfig         |  14 +
+ drivers/mmc/host/Makefile        |   1 +
+ drivers/mmc/host/sd-retimer-o2.c | 704 +++++++++++++++++++++++++++++++
+ drivers/mmc/host/sd-retimer-o2.h |  36 ++
+ drivers/mmc/host/sdhci-msm.c     |  26 ++
+ 5 files changed, 781 insertions(+)
+ create mode 100644 drivers/mmc/host/sd-retimer-o2.c
+ create mode 100644 drivers/mmc/host/sd-retimer-o2.h
+
+diff --git a/drivers/mmc/host/Kconfig b/drivers/mmc/host/Kconfig
+index 4f060d3e5636..ecae69e1451b 100644
+--- a/drivers/mmc/host/Kconfig
++++ b/drivers/mmc/host/Kconfig
+@@ -621,6 +621,20 @@ config MMC_SDHCI_MSM
+ 
+ 	  If unsure, say N.
+ 
++config MMC_SD_RETIMER_O2
++	bool "BayHub BH201 SD retimer"
++	depends on MMC_SDHCI_MSM=y
++	help
++	  Support for the BayHub BH201 SD retimer between the SDHCI
++	  controller and the card on the Lenovo Y700 Gen 5 (TB323FU), whose
++	  configuration table the driver carries. The slot runs at 100 MHz.
++	  With the module parameter sd_retimer_o2.calibrate=1 the next card
++	  insertion (or a rebind of the slot) calibrates the retimer's 200 MHz
++	  phase and runs the card at 202 MHz; if no phase reads, it stays at
++	  100 MHz.
++
++	  If unsure, say N.
++
+ config MMC_MXC
+ 	tristate "Freescale i.MX21/27/31 or MPC512x Multimedia Card support"
+ 	depends on ARCH_MXC || PPC_MPC512x || COMPILE_TEST
+diff --git a/drivers/mmc/host/Makefile b/drivers/mmc/host/Makefile
+index ee412e6b84d6..ddfb8a5d3a5b 100644
+--- a/drivers/mmc/host/Makefile
++++ b/drivers/mmc/host/Makefile
+@@ -97,6 +97,7 @@ obj-$(CONFIG_MMC_SDHCI_BCM_KONA)	+= sdhci-bcm-kona.o
+ obj-$(CONFIG_MMC_SDHCI_IPROC)		+= sdhci-iproc.o
+ obj-$(CONFIG_MMC_SDHCI_NPCM)		+= sdhci-npcm.o
+ obj-$(CONFIG_MMC_SDHCI_MSM)		+= sdhci-msm.o
++obj-$(CONFIG_MMC_SD_RETIMER_O2)		+= sd-retimer-o2.o
+ obj-$(CONFIG_MMC_SDHCI_ST)		+= sdhci-st.o
+ obj-$(CONFIG_MMC_SDHCI_MICROCHIP_PIC32)	+= sdhci-pic32.o
+ obj-$(CONFIG_MMC_SDHCI_BRCMSTB)		+= sdhci-brcmstb.o
+diff --git a/drivers/mmc/host/sd-retimer-o2.c b/drivers/mmc/host/sd-retimer-o2.c
+new file mode 100644
+index 000000000000..f56f3d91a96e
+--- /dev/null
++++ b/drivers/mmc/host/sd-retimer-o2.c
+@@ -0,0 +1,704 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * BayHub BH201 SD retimer on Qualcomm SDHCI hosts
++ *
++ * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
++ *
++ * Based on sdhci-bayhub.c by Bayhub Technologies, as shipped by Lenovo. The
++ * configuration table is the one the TB323FU Android kernel uses.
++ *
++ * Retimer protocol (sdhci-bayhub.c): with the card deselected, CMD7(0) twice
++ * enters the retimer, CMD24 with argument 0 writes its configuration and
++ * CMD7(0) leaves it. The first 64 bytes of the block are the configuration,
++ * six bits per byte, counted down from bit 383.
++ */
++
++#include <linux/delay.h>
++#include <linux/device.h>
++#include <linux/kernel.h>
++#include <linux/ktime.h>
++#include <linux/mmc/card.h>
++#include <linux/mmc/core.h>
++#include <linux/mmc/host.h>
++#include <linux/mmc/mmc.h>
++#include <linux/mmc/sd.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/scatterlist.h>
++#include <linux/sizes.h>
++#include <linux/slab.h>
++#include <linux/string.h>
++
++#include "sdhci.h"
++#include "sd-retimer-o2.h"
++
++#ifndef SD_APP_SET_CLR_CARD_DETECT
++#define SD_APP_SET_CLR_CARD_DETECT	42
++#endif
++
++static bool calibrate;
++module_param(calibrate, bool, 0644);
++MODULE_PARM_DESC(calibrate,
++		 "Calibrate the BH201 and run the card at 202 MHz from the next card insertion or rebind; off: 100 MHz");
++
++static bool full_sweep;
++module_param(full_sweep, bool, 0644);
++MODULE_PARM_DESC(full_sweep, "Skip the known phases and sweep all of them");
++
++static bool force_miss;
++module_param(force_miss, bool, 0644);
++MODULE_PARM_DESC(force_miss, "Treat the next check of a calibrated phase as a miss (testing)");
++
++#define O2_MAX_CFG_BIT		383
++#define O2_CFG_BYTES		64
++#define O2_PHASES		11
++#define O2_SWEEP_COUNT		(O2_PHASES * O2_PHASES)
++#define O2_MAX_CAND		4
++#define O2_BURST_BYTES		SZ_64K
++#define O2_BURST_COUNT		64	/* 4 MiB read before a phase is accepted */
++#define O2_SLOW_HZ		100000000	/* no calibration needed here */
++
++enum o2_stage {
++	O2_STAGE_FAST,		/* known-good phases, tried before a sweep */
++	O2_STAGE_SWEEP,		/* every (sela, selb) */
++	O2_STAGE_CAND,		/* the widest pass windows of the sweep */
++};
++
++/* Phases tried first: the one most calibrations end on, then the table's. */
++static const u8 o2_fast[][2] = { { 7, 6 }, { 4, 4 } };
++
++/* TB323FU configuration table, from the Android sdhci-msm.ko. */
++static const u8 o2_ggc_cfg[O2_CFG_BYTES] = {
++	0x00, 0x00, 0x00, 0x07, 0x22, 0x40, 0x36, 0x07,
++	0x12, 0x54, 0x01, 0x01, 0x00, 0x24, 0x06, 0x01,
++	0x76, 0x00, 0x40, 0x10, 0x32, 0x54, 0x02, 0x00,
++	0x76, 0x60, 0x04, 0x01, 0x00, 0x10, 0x01, 0x62,
++	0x06, 0x31, 0x50, 0x31, 0x31, 0x17, 0x14, 0x64,
++	0x13, 0x75, 0x05, 0x10, 0x00, 0x62, 0x33, 0x00,
++	0x06, 0x00, 0x02, 0x00, 0x00, 0x14, 0x00, 0x40,
++	0x10, 0x03, 0x20, 0x12, 0x77, 0x66, 0x41, 0x4a,
++};
++
++/* Bit offsets in the configuration */
++#define O2_SELA_200M_CFG	130
++#define O2_SELB_200M_CFG	144
++#define O2_INT_TUNING_200M	172
++#define O2_SELB_200M_EN		184
++
++struct o2_cand {
++	u8 sela, selb, run;
++};
++
++struct o2_retimer {
++	struct sdhci_host *host;
++
++	u8 base_cfg[O2_CFG_BYTES];
++	u8 trial_cfg[O2_CFG_BYTES];
++	u8 golden[512];
++	bool golden_valid;
++	u8 cid[16];
++	bool cid_valid;
++
++	unsigned int f_max;	/* the host's limit before this driver */
++	bool unsafe;		/* a configuration write reached the card */
++
++	int def_sela, def_selb;
++	enum o2_stage stage;
++	int trial;
++	int sela, selb;
++	int passes;		/* fresh attaches the current phase passed */
++	int tries;		/* attaches spent on the current candidate */
++	struct o2_cand cand[O2_MAX_CAND];
++	int ncand;
++	u16 pass_row[O2_PHASES];
++	ktime_t start;
++	bool started;
++	bool calib_done;
++	bool calib_failed;
++	bool stale;
++	struct mmc_card *pending;	/* the card being attached */
++};
++
++static int o2_cmd(struct mmc_host *mmc, u32 opcode, u32 arg, u32 flags,
++		  unsigned int retries, u32 *resp)
++{
++	struct mmc_command cmd = { };
++	int err;
++
++	cmd.opcode = opcode;
++	cmd.arg = arg;
++	cmd.flags = flags;
++
++	err = mmc_wait_for_cmd(mmc, &cmd, retries);
++	if (resp)
++		*resp = cmd.resp[0];
++	return err;
++}
++
++static int o2_data(struct mmc_host *mmc, u32 opcode, u32 arg, void *buf,
++		   unsigned int blksz, unsigned int blocks, bool write,
++		   u64 timeout_ns)
++{
++	struct mmc_request mrq = { };
++	struct mmc_command cmd = { };
++	struct mmc_command stop = { };
++	struct mmc_data data = { };
++	struct scatterlist sg;
++
++	sg_init_one(&sg, buf, blksz * blocks);
++
++	cmd.opcode = opcode;
++	cmd.arg = arg;
++	cmd.flags = MMC_RSP_R1 | MMC_CMD_ADTC;
++
++	data.blksz = blksz;
++	data.blocks = blocks;
++	data.flags = write ? MMC_DATA_WRITE : MMC_DATA_READ;
++	data.timeout_ns = timeout_ns;
++	data.sg = &sg;
++	data.sg_len = 1;
++
++	mrq.cmd = &cmd;
++	mrq.data = &data;
++	if (blocks > 1) {
++		stop.opcode = MMC_STOP_TRANSMISSION;
++		stop.flags = MMC_RSP_R1B | MMC_CMD_AC;
++		mrq.stop = &stop;
++	}
++
++	mmc_wait_for_req(mmc, &mrq);
++
++	if (cmd.error)
++		return cmd.error;
++	if (data.error)
++		return data.error;
++	return stop.error;
++}
++
++static int o2_select(struct mmc_host *mmc, struct mmc_card *card, bool select)
++{
++	if (select)
++		return o2_cmd(mmc, MMC_SELECT_CARD, card->rca << 16,
++			      MMC_RSP_R1B | MMC_CMD_AC, 0, NULL);
++	return o2_cmd(mmc, MMC_SELECT_CARD, 0, MMC_RSP_NONE | MMC_CMD_AC, 3,
++		      NULL);
++}
++
++static int o2_app_cmd(struct mmc_host *mmc, struct mmc_card *card, u32 opcode,
++		      u32 arg)
++{
++	int err;
++
++	err = o2_cmd(mmc, MMC_APP_CMD, card->rca << 16,
++		     MMC_RSP_R1 | MMC_CMD_AC, 0, NULL);
++	if (err)
++		return err;
++	return o2_cmd(mmc, opcode, arg, MMC_RSP_R1 | MMC_CMD_AC, 0, NULL);
++}
++
++static int o2_app_read(struct mmc_host *mmc, struct mmc_card *card, u32 opcode,
++		       void *buf, unsigned int len)
++{
++	int err;
++
++	err = o2_cmd(mmc, MMC_APP_CMD, card->rca << 16,
++		     MMC_RSP_R1 | MMC_CMD_AC, 0, NULL);
++	if (err)
++		return err;
++	return o2_data(mmc, opcode, 0, buf, len, 1, false, NSEC_PER_SEC);
++}
++
++static int o2_card_state(struct mmc_host *mmc, struct mmc_card *card)
++{
++	u32 status;
++	int err;
++
++	err = o2_cmd(mmc, MMC_SEND_STATUS, card->rca << 16,
++		     MMC_RSP_R1 | MMC_CMD_AC, 3, &status);
++	return err ? err : R1_CURRENT_STATE(status);
++}
++
++static void o2_cfg_bit(int tar, int *byt, int *bit)
++{
++	static const u8 map[6] = { 6, 5, 4, 2, 1, 0 };
++	int t = O2_MAX_CFG_BIT - tar;
++
++	*byt = t / 6;
++	*bit = map[t % 6];
++}
++
++static void o2_cfg_write_bits(u8 *cfg, u32 ofs, u32 mask, u32 value)
++{
++	u32 v = value & mask;
++	int i = 0, byt, bit;
++
++	do {
++		o2_cfg_bit(ofs + i, &byt, &bit);
++		if (v & 1)
++			cfg[byt] |= BIT(bit);
++		else
++			cfg[byt] &= ~BIT(bit);
++		i++;
++		v >>= 1;
++		mask >>= 1;
++	} while (mask);
++}
++
++static u32 o2_cfg_read_bits(const u8 *cfg, u32 ofs, u32 mask)
++{
++	u32 v = 0;
++	int i = 0, byt, bit;
++
++	do {
++		o2_cfg_bit(ofs + i, &byt, &bit);
++		if (cfg[byt] & BIT(bit))
++			v |= BIT(i);
++		i++;
++		mask >>= 1;
++	} while (mask);
++	return v;
++}
++
++/* The caller has checked that the card is in standby. */
++static int o2_write_cfg(struct o2_retimer *o2, const u8 *cfg)
++{
++	struct sdhci_host *host = o2->host;
++	struct mmc_host *mmc = host->mmc;
++	u8 *buf;
++	int err;
++
++	buf = kzalloc(512, GFP_KERNEL);
++	if (!buf)
++		return -ENOMEM;
++	memcpy(buf, cfg, O2_CFG_BYTES);
++
++	sdhci_set_bus_width(host, MMC_BUS_WIDTH_4);
++	sdhci_reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
++
++	err = o2_select(mmc, NULL, false);
++	if (!err)
++		err = o2_data(mmc, MMC_WRITE_BLOCK, 0, buf, 512, 1, true,
++			      NSEC_PER_SEC);
++	o2_select(mmc, NULL, false);
++
++	sdhci_set_bus_width(host, MMC_BUS_WIDTH_1);
++	kfree(buf);
++	return err;
++}
++
++static int o2_read_lba0(struct mmc_host *mmc, struct mmc_card *card, u8 *buf)
++{
++	int err;
++
++	err = o2_select(mmc, card, true);
++	if (err)
++		return err;
++	err = o2_data(mmc, MMC_READ_SINGLE_BLOCK, 0, buf, 512, 1, false,
++		      NSEC_PER_SEC);
++	o2_select(mmc, card, false);
++	return err;
++}
++
++/* The state the core expects after init_card (sdhci-bayhub.c bht_load()). */
++static void o2_restore_card(struct mmc_host *mmc, struct mmc_card *card)
++{
++	u8 *buf;
++
++	buf = kzalloc(64, GFP_KERNEL);
++	if (!buf)
++		return;
++
++	o2_cmd(mmc, MMC_SEND_CSD, card->rca << 16, MMC_RSP_R2 | MMC_CMD_AC, 0,
++	       NULL);
++	o2_select(mmc, card, true);
++	o2_app_read(mmc, card, SD_APP_SEND_SCR, buf, 8);
++	o2_data(mmc, SD_SWITCH, 0x00ffffff, buf, 64, 1, false, NSEC_PER_SEC);
++	o2_app_cmd(mmc, card, SD_APP_SET_BUS_WIDTH, SD_BUS_WIDTH_1);
++	o2_app_cmd(mmc, card, SD_APP_SET_CLR_CARD_DETECT, 0);
++	o2_select(mmc, card, false);
++
++	kfree(buf);
++}
++
++static void o2_make_cfg(struct o2_retimer *o2, u8 *cfg, int sela, int selb)
++{
++	memcpy(cfg, o2->base_cfg, O2_CFG_BYTES);
++	o2_cfg_write_bits(cfg, O2_SELA_200M_CFG, 0xf, sela);
++	o2_cfg_write_bits(cfg, O2_SELB_200M_CFG, 0xf, selb);
++	o2_cfg_write_bits(cfg, O2_SELB_200M_EN, 1, 1);
++	o2_cfg_write_bits(cfg, O2_INT_TUNING_200M, 1, 0);
++}
++
++static void o2_set_trial(struct o2_retimer *o2, enum o2_stage stage, int trial)
++{
++	o2->stage = stage;
++	o2->trial = trial;
++	o2->passes = 0;
++	o2->tries = 0;
++
++	switch (stage) {
++	case O2_STAGE_FAST:
++		o2->sela = o2_fast[trial][0];
++		o2->selb = o2_fast[trial][1];
++		break;
++	case O2_STAGE_SWEEP:
++		o2->sela = trial / O2_PHASES;
++		o2->selb = trial % O2_PHASES;
++		break;
++	case O2_STAGE_CAND:
++		o2->sela = o2->cand[trial].sela;
++		o2->selb = o2->cand[trial].selb;
++		break;
++	}
++	o2_make_cfg(o2, o2->trial_cfg, o2->sela, o2->selb);
++}
++
++/* Every unbroken run of passing selb cells in a row, widest first. */
++static int o2_build_candidates(struct o2_retimer *o2)
++{
++	struct o2_cand all[O2_PHASES * 6];
++	int n = 0, sela, selb, i, j;
++
++	for (sela = 0; sela < O2_PHASES; sela++) {
++		int run = 0, start = 0;
++
++		for (selb = 0; selb <= O2_PHASES; selb++) {
++			bool pass = selb < O2_PHASES &&
++				    (o2->pass_row[sela] & BIT(selb));
++
++			if (pass) {
++				if (!run)
++					start = selb;
++				run++;
++			} else if (run) {
++				if (n < ARRAY_SIZE(all)) {
++					all[n].sela = sela;
++					all[n].selb = start + (run - 1) / 2;
++					all[n].run = run;
++					n++;
++				}
++				run = 0;
++			}
++		}
++	}
++
++	o2->ncand = 0;
++	for (i = 0; i < O2_MAX_CAND; i++) {
++		int best = -1;
++
++		for (j = 0; j < n; j++)
++			if (all[j].run && (best < 0 || all[j].run > all[best].run))
++				best = j;
++		if (best < 0)
++			break;
++		o2->cand[o2->ncand++] = all[best];
++		all[best].run = 0;
++	}
++
++	return o2->ncand;
++}
++
++/* LBA0 reads at 202 MHz that complete and match the golden block, of 3. */
++static int o2_score_lba0(struct o2_retimer *o2, struct mmc_host *mmc)
++{
++	u8 *buf;
++	int i, ok = 0;
++
++	if (!o2->golden_valid)
++		return 0;
++
++	buf = kmalloc(512, GFP_KERNEL);
++	if (!buf)
++		return 0;
++
++	for (i = 0; i < 3; i++) {
++		if (!o2_data(mmc, MMC_READ_SINGLE_BLOCK, 0, buf, 512, 1, false,
++			     100 * NSEC_PER_MSEC) &&
++		    !memcmp(buf, o2->golden, 512))
++			ok++;
++	}
++	kfree(buf);
++
++	return ok;
++}
++
++/* Multi-block reads from the start of the card, with no CRC error. */
++static bool o2_burst_ok(struct mmc_host *mmc, struct mmc_card *card)
++{
++	unsigned int blocks = O2_BURST_BYTES / 512;
++	bool ok = true;
++	void *buf;
++	int i;
++
++	buf = kmalloc(O2_BURST_BYTES, GFP_KERNEL);
++	if (!buf)
++		return false;
++
++	for (i = 0; i < O2_BURST_COUNT && ok; i++) {
++		u32 arg = i * blocks;
++
++		if (!mmc_card_is_blockaddr(card))
++			arg *= 512;
++		ok = !o2_data(mmc, MMC_READ_MULTIPLE_BLOCK, arg, buf, 512,
++			      blocks, false, NSEC_PER_SEC);
++	}
++	kfree(buf);
++	return ok;
++}
++
++static int o2_retry(struct mmc_host *mmc)
++{
++	mmc_detect_change(mmc, 0);
++	return -EIO;
++}
++
++static int o2_calib_fail(struct o2_retimer *o2, struct mmc_host *mmc,
++			 const char *why)
++{
++	dev_err(mmc->parent, "BH201: %s, staying at 100 MHz\n", why);
++	o2->calib_failed = true;
++	o2_make_cfg(o2, o2->trial_cfg, o2->def_sela, o2->def_selb);
++	return o2_retry(mmc);
++}
++
++static void o2_calib_done(struct o2_retimer *o2, struct mmc_host *mmc)
++{
++	o2->calib_done = true;
++	dev_info(mmc->parent, "BH201: phase %d/%d, calibrated in %lld ms\n",
++		 o2->sela, o2->selb,
++		 ktime_ms_delta(ktime_get(), o2->start));
++}
++
++static int o2_start_sweep(struct o2_retimer *o2, struct mmc_host *mmc)
++{
++	memset(o2->pass_row, 0, sizeof(o2->pass_row));
++	o2_set_trial(o2, O2_STAGE_SWEEP, 0);
++	return o2_retry(mmc);
++}
++
++/* One fresh attach per call; a phase is accepted after two in a row. */
++static int o2_calib_step(struct o2_retimer *o2, struct mmc_host *mmc,
++			 struct mmc_card *card, int host_rc)
++{
++	int score = host_rc ? 0 : o2_score_lba0(o2, mmc);
++	bool pass = false;
++
++	if (o2->stage == O2_STAGE_SWEEP) {
++		dev_dbg(mmc->parent, "BH201: sweep phase %d/%d tuning %d lba0 %d/3\n",
++			o2->sela, o2->selb, host_rc, score);
++		if (score >= 2)
++			o2->pass_row[o2->sela] |= BIT(o2->selb);
++		if (o2->trial + 1 < O2_SWEEP_COUNT) {
++			o2_set_trial(o2, O2_STAGE_SWEEP, o2->trial + 1);
++			return o2_retry(mmc);
++		}
++		if (!o2_build_candidates(o2))
++			return o2_calib_fail(o2, mmc, "no phase reads");
++		dev_info(mmc->parent, "BH201: swept, widest window at %d/%d (%d phases)\n",
++			 o2->cand[0].sela, o2->cand[0].selb, o2->cand[0].run);
++		o2_set_trial(o2, O2_STAGE_CAND, 0);
++		return o2_retry(mmc);
++	}
++
++	if (score == 3)
++		pass = o2_burst_ok(mmc, card);
++	dev_dbg(mmc->parent, "BH201: stage %d phase %d/%d tuning %d lba0 %d/3 burst %s\n",
++		o2->stage, o2->sela, o2->selb, host_rc, score,
++		score == 3 ? (pass ? "ok" : "failed") : "-");
++	if (pass) {
++		if (++o2->passes >= 2) {
++			o2_calib_done(o2, mmc);
++			return 0;
++		}
++		return o2_retry(mmc);
++	}
++
++	if (o2->stage == O2_STAGE_FAST) {
++		if (++o2->tries < 3) {
++			o2->passes = 0;
++			return o2_retry(mmc);
++		}
++		if (o2->trial + 1 < ARRAY_SIZE(o2_fast)) {
++			o2_set_trial(o2, O2_STAGE_FAST, o2->trial + 1);
++			return o2_retry(mmc);
++		}
++		return o2_start_sweep(o2, mmc);
++	}
++
++	if (++o2->tries < 2) {
++		o2->passes = 0;
++		return o2_retry(mmc);
++	}
++	if (o2->trial + 1 < o2->ncand) {
++		o2_set_trial(o2, O2_STAGE_CAND, o2->trial + 1);
++		return o2_retry(mmc);
++	}
++	return o2_calib_fail(o2, mmc, "no candidate phase reads");
++}
++
++/*
++ * Called at SDR104 202 MHz. Calibration needs fresh attaches, which are only
++ * safe before the card is registered. Once it is, a failing attach could
++ * remove the block device under a mounted root, so a miss keeps the card and
++ * lowers this attach to 100 MHz, where the SDR104 timing needs no
++ * calibration.
++ */
++int o2_retimer_execute_tuning(struct o2_retimer *o2, struct mmc_host *mmc,
++			      u32 opcode,
++			      int (*tune)(struct mmc_host *mmc, u32 opcode))
++{
++	struct mmc_card *card = mmc->card;
++	int host_rc;
++
++	if (!o2 || mmc->ios.timing != MMC_TIMING_UHS_SDR104 ||
++	    mmc->ios.clock <= O2_SLOW_HZ)
++		return tune(mmc, opcode);
++
++	/* sdhci-msm sets up its DLL and clock-data recovery here */
++	host_rc = tune(mmc, opcode);
++
++	if (card) {
++		if (o2->calib_done && !host_rc && !force_miss &&
++		    o2_score_lba0(o2, mmc) >= 2)
++			return 0;
++		dev_err(mmc->parent, "BH201: phase %d/%d no longer reads, 100 MHz for this attach and the next\n",
++			o2->sela, o2->selb);
++		force_miss = false;
++		o2->stale = true;
++		mmc->ios.clock = O2_SLOW_HZ;
++		mmc->ops->set_ios(mmc, &mmc->ios);
++		return 0;
++	}
++
++	if (!o2->golden_valid)
++		return o2_calib_fail(o2, mmc, "no golden block");
++
++	return o2_calib_step(o2, mmc, o2->pending, host_rc);
++}
++
++static void o2_forget_card(struct o2_retimer *o2)
++{
++	o2->golden_valid = false;
++	o2->started = false;
++	o2->calib_done = false;
++	o2->calib_failed = false;
++	o2->stale = false;
++	o2->ncand = 0;
++}
++
++/* Called before the core's own CMD3, with the card in the identification state. */
++void o2_retimer_init_card(struct o2_retimer *o2, struct mmc_host *mmc,
++			  struct mmc_card *card)
++{
++	struct device *dev = mmc->parent;
++	u8 *before;
++	u32 resp;
++	int err;
++
++	if (!mmc_card_sd(card))
++		return;
++
++	if (!o2->f_max)
++		o2->f_max = mmc->f_max;
++	o2->pending = card;
++
++	if (o2->cid_valid && memcmp(o2->cid, card->raw_cid, sizeof(o2->cid)))
++		o2_forget_card(o2);
++	memcpy(o2->cid, card->raw_cid, sizeof(o2->cid));
++	o2->cid_valid = true;
++
++	/* the same card inserted again is calibrated again */
++	if (!mmc->card && o2->calib_done) {
++		o2->started = false;
++		o2->calib_done = false;
++	}
++
++	/* a registered card is calibrated only at its next insertion or rebind */
++	if (!calibrate || o2->unsafe || o2->calib_failed || o2->stale ||
++	    (mmc->card && !o2->calib_done))
++		goto slow;
++
++	err = o2_cmd(mmc, SD_SEND_RELATIVE_ADDR, 0, MMC_RSP_R6 | MMC_CMD_BCR, 3,
++		     &resp);
++	if (err || !(resp >> 16))
++		goto slow;
++	card->rca = resp >> 16;
++
++	if (!o2->started) {
++		o2->started = true;
++		o2->start = ktime_get();
++		memset(o2->pass_row, 0, sizeof(o2->pass_row));
++		o2_set_trial(o2, full_sweep ? O2_STAGE_SWEEP : O2_STAGE_FAST, 0);
++		dev_info(dev, "BH201: calibrating\n");
++	}
++
++	before = kmemdup(o2->golden, 512, GFP_KERNEL);
++	if (!before)
++		goto slow;
++
++	/* CMD24 must never reach the card: it ignores it only in standby */
++	err = o2_card_state(mmc, card);
++	if (err != R1_STATE_STBY)
++		err = err < 0 ? err : -EBUSY;
++	else
++		err = 0;
++	if (!err) {
++		u8 enter[O2_CFG_BYTES];
++
++		memcpy(enter, o2_ggc_cfg, O2_CFG_BYTES);
++		/*
++		 * sdhci-bayhub.c bht_load_hw_inject(): byte 4 as the vendor
++		 * writes it, 46-50 the SDR104 and SDR50 SELB hardware inject
++		 */
++		enter[4] = 0x32;
++		memcpy(&enter[46], "\x31\x77\x77\x57\x72", 5);
++
++		o2_select(mmc, NULL, false);
++		err = o2_write_cfg(o2, enter);
++		if (!err)
++			err = o2_write_cfg(o2, o2->trial_cfg);
++	}
++	if (!err)
++		err = o2_read_lba0(mmc, card, o2->golden);
++	if (!err && o2->golden_valid && memcmp(before, o2->golden, 512)) {
++		dev_crit(dev, "BH201: LBA0 changed while configuring the retimer; not using it again\n");
++		o2->unsafe = true;
++		err = -EIO;
++	}
++	kfree(before);
++	o2->golden_valid = !err;
++	o2_restore_card(mmc, card);
++	if (err) {
++		dev_err(dev, "BH201: configuration failed (%d), staying at 100 MHz\n",
++			err);
++		o2->calib_failed = true;
++		mmc_detect_change(mmc, 0);
++		goto slow;
++	}
++	mmc->f_max = o2->f_max;
++	return;
++
++slow:
++	/* one attach at 100 MHz after a miss, then the stored phase again */
++	o2->stale = false;
++	mmc->f_max = min(o2->f_max, O2_SLOW_HZ);
++}
++
++struct o2_retimer *o2_retimer_probe(struct sdhci_host *host)
++{
++	struct device *dev = mmc_dev(host->mmc);
++	struct o2_retimer *o2;
++
++	if (!of_property_read_bool(dev->of_node, "lenovo,bh201-retimer"))
++		return NULL;
++
++	o2 = devm_kzalloc(dev, sizeof(*o2), GFP_KERNEL);
++	if (!o2)
++		return NULL;
++
++	o2->host = host;
++	memcpy(o2->base_cfg, o2_ggc_cfg, O2_CFG_BYTES);
++	o2->def_sela = o2_cfg_read_bits(o2->base_cfg, O2_SELA_200M_CFG, 0xf);
++	o2->def_selb = o2_cfg_read_bits(o2->base_cfg, O2_SELB_200M_CFG, 0xf);
++	return o2;
++}
+diff --git a/drivers/mmc/host/sd-retimer-o2.h b/drivers/mmc/host/sd-retimer-o2.h
+new file mode 100644
+index 000000000000..c82864347527
+--- /dev/null
++++ b/drivers/mmc/host/sd-retimer-o2.h
+@@ -0,0 +1,36 @@
++/* SPDX-License-Identifier: GPL-2.0-only */
++#ifndef __SD_RETIMER_O2_H
++#define __SD_RETIMER_O2_H
++
++struct mmc_card;
++struct mmc_host;
++struct o2_retimer;
++struct sdhci_host;
++
++#if IS_ENABLED(CONFIG_MMC_SD_RETIMER_O2)
++struct o2_retimer *o2_retimer_probe(struct sdhci_host *host);
++void o2_retimer_init_card(struct o2_retimer *o2, struct mmc_host *mmc,
++			  struct mmc_card *card);
++int o2_retimer_execute_tuning(struct o2_retimer *o2, struct mmc_host *mmc,
++			      u32 opcode,
++			      int (*tune)(struct mmc_host *mmc, u32 opcode));
++#else
++static inline struct o2_retimer *o2_retimer_probe(struct sdhci_host *host)
++{
++	return NULL;
++}
++
++static inline void o2_retimer_init_card(struct o2_retimer *o2,
++					struct mmc_host *mmc,
++					struct mmc_card *card) { }
++
++static inline int o2_retimer_execute_tuning(struct o2_retimer *o2,
++					    struct mmc_host *mmc, u32 opcode,
++					    int (*tune)(struct mmc_host *mmc,
++							u32 opcode))
++{
++	return tune(mmc, opcode);
++}
++#endif
++
++#endif /* __SD_RETIMER_O2_H */
+diff --git a/drivers/mmc/host/sdhci-msm.c b/drivers/mmc/host/sdhci-msm.c
+index 4aff965f0e2e..cb02027e1d68 100644
+--- a/drivers/mmc/host/sdhci-msm.c
++++ b/drivers/mmc/host/sdhci-msm.c
+@@ -21,6 +21,7 @@
+ #include <soc/qcom/ice.h>
+ 
+ #include "sdhci-cqhci.h"
++#include "sd-retimer-o2.h"
+ #include "sdhci-pltfm.h"
+ #include "cqhci.h"
+ 
+@@ -279,6 +280,7 @@ struct sdhci_msm_variant_info {
+ 
+ struct sdhci_msm_host {
+ 	struct platform_device *pdev;
++	struct o2_retimer *retimer;
+ 	void __iomem *core_mem;	/* MSM SDCC mapped address */
+ 	int pwr_irq;		/* power irq */
+ 	struct clk *bus_clk;	/* SDHC bus voter clock */
+@@ -2641,6 +2643,25 @@ static int sdhci_msm_gcc_reset(struct device *dev, struct sdhci_host *host)
+ 	return ret;
+ }
+ 
++static void sdhci_msm_init_card(struct mmc_host *mmc, struct mmc_card *card)
++{
++	struct sdhci_host *host = mmc_priv(mmc);
++	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
++	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
++
++	o2_retimer_init_card(msm_host->retimer, mmc, card);
++}
++
++static int sdhci_msm_retimer_tuning(struct mmc_host *mmc, u32 opcode)
++{
++	struct sdhci_host *host = mmc_priv(mmc);
++	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
++	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
++
++	return o2_retimer_execute_tuning(msm_host->retimer, mmc, opcode,
++					 sdhci_msm_execute_tuning);
++}
++
+ static int sdhci_msm_probe(struct platform_device *pdev)
+ {
+ 	struct sdhci_host *host;
+@@ -2885,6 +2906,11 @@ static int sdhci_msm_probe(struct platform_device *pdev)
+ 	host->mmc_host_ops.start_signal_voltage_switch =
+ 		sdhci_msm_start_signal_voltage_switch;
+ 	host->mmc_host_ops.execute_tuning = sdhci_msm_execute_tuning;
++	msm_host->retimer = o2_retimer_probe(host);
++	if (msm_host->retimer) {
++		host->mmc_host_ops.init_card = sdhci_msm_init_card;
++		host->mmc_host_ops.execute_tuning = sdhci_msm_retimer_tuning;
++	}
+ 	if (of_property_read_bool(node, "supports-cqe"))
+ 		ret = sdhci_msm_cqe_add_host(host, pdev);
+ 	else

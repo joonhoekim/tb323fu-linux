@@ -18,10 +18,10 @@ column names the source; see that tree's history for the individual authors.
 
 ## Patches
 
-0208 is held for pull request #58. Number 0038 is free (its patch was replaced by 0217-0222). Numbers 0067-0071, 0135, 0136, 0140 and 0149 are free (0135, 0136 and 0149 were the earlier versions of 0212 and 0213): those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
+0208 is held for pull request #58. Numbers 0038 and 0223 are free (replaced by 0217-0222 and by 0224-0226). Numbers 0067-0071, 0135, 0136, 0140 and 0149 are free (0135, 0136 and 0149 were the earlier versions of 0212 and 0213): those patches are in v7.3 and were dropped when the base moved from v7.3-rc4 to v7.3.
 
 `sha256` is the first 16 hex digits of the SHA-256 of the patch file as stored here.
-0111-0114, 0116-0119, 0128-0139, 0141-0156 and 0200-0203, 0205, 0210, 0212-0215 and 0223 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
+0111-0114, 0116-0119, 0128-0139, 0141-0156 and 0200-0203, 0205, 0210, 0212-0215 are this project's own patches, signed off by the author (`Signed-off-by: Joonhoe Kim`).
 
 | # | Subject | Author (`From:`) | Origin | Status | sha256 |
 |---|---|---|---|---|---|
@@ -234,10 +234,13 @@ column names the source; see that tree's history for the individual authors.
 | `0220` | Input: aw86927 - add support for Awinic AW86937 | Qianhui Xu | mailing list: aw86927 AW86937 v2 4/6 ([lore](https://lore.kernel.org/all/20261117052112.32527-5-xiaqinghuan@mail.ustc.edu.cn/)) | pending upstream | `13f5cc333d2ce44f` |
 | `0221` | Input: aw86927 - handle the AW8693X play and boost register layout | Qianhui Xu | mailing list: aw86927 AW86937 v2 5/6 ([lore](https://lore.kernel.org/all/20261117052112.32527-6-xiaqinghuan@mail.ustc.edu.cn/)) | pending upstream | `79c303e42db9a5cd` |
 | `0222` | Input: aw86927 - stop playback over suspend and on shutdown | Qianhui Xu | mailing list: aw86927 AW86937 v2 6/6 ([lore](https://lore.kernel.org/all/20261117052112.32527-7-xiaqinghuan@mail.ustc.edu.cn/)) | pending upstream | `af3a9b0791a041d9` |
-| `0223` | arm64: dts: qcom: baldur: limit the microSD slot to 100 MHz | Joonhoe Kim | this project (issue [#26](https://github.com/joonhoekim/tb323fu-linux/issues/26), PR [#66](https://github.com/joonhoekim/tb323fu-linux/pull/66)) | local, until the BH201 retimer is calibrated | `fd9ea7b569717ebe` |
+| `0224` | dt-bindings: mmc: qcom,sdhci-msm: document lenovo,bh201-retimer | li-yiyang | contributed in [#66](https://github.com/joonhoekim/tb323fu-linux/pull/66), reworked by Joonhoe Kim | local | `9f665db2d017e19c` |
+| `0225` | mmc: sdhci-msm: support the BayHub BH201 SD retimer | li-yiyang | contributed in [#66](https://github.com/joonhoekim/tb323fu-linux/pull/66) (with the resume clamp of its 0227 and the one attach at 100 MHz after it from the 0228 proposal), reworked by Joonhoe Kim; based on Lenovo/BayHub's `sdhci-bayhub.c` and the table of the Android `sdhci-msm.ko` | local[^0223-cap] | `686a2e9d9c79bc42` |
+| `0226` | arm64: dts: qcom: baldur: describe the microSD slot's BH201 retimer | li-yiyang | contributed in [#66](https://github.com/joonhoekim/tb323fu-linux/pull/66), reworked by Joonhoe Kim | local | `0ee3ec4237813a9c` |
 
 [^0019-ours]: Replaces this project's own [0019](https://github.com/joonhoekim/tb323fu-linux/blob/kernel-t63/kernel/patches/0019-arm64-dts-qcom-kaanapali-add-the-second-DSI-controll.patch) (up to `kernel-t63`), which added the same two nodes but did not feed the PHY clocks to the display clock controller.
 [^0038-ours]: 0217-0222 replace this project's own [0038](https://github.com/joonhoekim/tb323fu-linux/blob/kernel-t63/kernel/patches/0038-Input-aw86927-accept-the-AW86937.patch) (up to `kernel-t63`), which only accepted the AW86937 chip ID and drove it like the AW86938.
+[^0223-cap]: In `kernel-t65`, [0223](https://github.com/joonhoekim/tb323fu-linux/blob/kernel-t65/kernel/patches/0223-arm64-dts-qcom-baldur-limit-the-microSD-slot-to-100-.patch) capped the slot at 100 MHz in the device tree; the driver now keeps that limit unless calibration is turned on.
 
 ## Out-of-tree
 

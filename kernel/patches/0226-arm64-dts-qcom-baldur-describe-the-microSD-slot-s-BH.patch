@@ -1,0 +1,30 @@
+From 476850bd9cf424da32aa508e63174ef37784fdb8 Mon Sep 17 00:00:00 2001
+From: li-yiyang <yiyang.li.11pro@outlook.com>
+Date: Mon, 23 Nov 2026 23:25:35 +0900
+Subject: [PATCH] arm64: dts: qcom: baldur: describe the microSD slot's BH201
+ retimer
+
+Mark the microSD slot as having the BH201 retimer, so that its driver
+configures it. The driver keeps the slot at 100 MHz unless
+calibration is turned on.
+
+Signed-off-by: li-yiyang <yiyang.li.11pro@outlook.com>
+[Joonhoe Kim: keep only the property; the driver caps the slot]
+Signed-off-by: Joonhoe Kim <26rote@gmail.com>
+---
+ arch/arm64/boot/dts/qcom/baldur-storage.dtsi | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/qcom/baldur-storage.dtsi b/arch/arm64/boot/dts/qcom/baldur-storage.dtsi
+index e6372881ccce..f9567e829729 100644
+--- a/arch/arm64/boot/dts/qcom/baldur-storage.dtsi
++++ b/arch/arm64/boot/dts/qcom/baldur-storage.dtsi
+@@ -43,6 +43,8 @@ &sdhc_2 {
+ 	vmmc-supply = <&vreg_l9b_2p9>;
+ 	vqmmc-supply = <&vreg_l8b_1p8>;
+ 
++	lenovo,bh201-retimer;
++
+ 	cd-gpios = <&tlmm 55 GPIO_ACTIVE_HIGH>;
+ 	bus-width = <4>;
+ 	no-sdio;

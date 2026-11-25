@@ -65,6 +65,9 @@ CONFIG_FONT_TER16x32=y
 # for the SD host when no card comes up.
 CONFIG_DYNAMIC_DEBUG=y
 
+# The BayHub BH201 retimer in front of the microSD slot (patch 0225).
+CONFIG_MMC_SD_RETIMER_O2=y
+
 # SCMI reaches CPUCP through this mailbox. As a module (=m in the OnePlus
 # fragment) it never loads, since the initramfs has no modules, so arm-scmi
 # stays deferred and there is no cpufreq.
