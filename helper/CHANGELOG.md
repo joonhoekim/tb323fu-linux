@@ -1,5 +1,19 @@
 # Open Device Helper changelog
 
+## Unreleased
+
+Platform files:
+
+- **Sensors after boot on every distribution:** iio-sensor-proxy is started again when it exits, as it does when it
+  starts before the sensor hub is up. The restart was only in the optional Debian/Ubuntu/Fedora drop-in, so on NixOS
+  (and other roots without it) the accelerometer was missing after most boots until the proxy was restarted by hand.
+- **NixOS: the sensor stream stops during sleep.** The module links the `tb323fu-sensors` sleep hook into
+  `/etc/systemd/system-sleep`, the only place NixOS' systemd-sleep reads. Without it, auto-rotation kept the sensor
+  hub streaming through s2idle and the SoC out of its deepest idle state.
+- **NixOS: sensors keep working after a restart of the proxy.** The module builds iio-sensor-proxy with the patch the
+  Debian and Ubuntu roots already use: a client that claimed a sensor while the proxy was starting (auto-rotation
+  after every resume, now that the sleep hook runs) got its first value and then no updates.
+
 ## 0.4.10 — 2026-11-22
 
 - **Going to Android leaves the Linux root clean:** `back-to-android` reboots through `systemctl reboot --force`
