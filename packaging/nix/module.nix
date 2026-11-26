@@ -99,6 +99,9 @@ in {
       # udev RUN+= helpers (usb-port, audio-defaults) get udev's PATH
       services.udev.path = toolPath ++ [ platform ];
       systemd.packages = [ platform ];
+      # systemd-sleep runs hooks only from /etc/systemd/system-sleep here
+      environment.etc."systemd/system-sleep/tb323fu-sensors".source =
+        "${platform}/lib/systemd/system-sleep/tb323fu-sensors";
       environment.systemPackages = [ platform pkgs.ladspaPlugins ];
       # the firmware leaves the SoC watchdog running; the initramfs feeds it until
       # the hand-over, from then on systemd does (tb323fu-watchdog.conf elsewhere)
