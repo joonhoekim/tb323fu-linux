@@ -171,6 +171,12 @@ in {
       };
       # iio-sensor-proxy with its libssc backend (81-tb323fu-sensors.rules starts it)
       hardware.sensor.iio.enable = true;
+      # the sleep hook restarts the proxy while clients stay connected: they claim again at once
+      hardware.sensor.iio.package = lib.mkDefault (pkgs.iio-sensor-proxy.overrideAttrs (o: {
+        patches = (o.patches or [ ]) ++ [
+          "${self}/rootfs/patches/iio-sensor-proxy/0001-start-sensors-claimed-before-they-were-opened.patch"
+        ];
+      }));
       systemd.services.iio-sensor-proxy.serviceConfig.TimeoutStopSec = 3;
     })
     (lib.mkIf cfg.helper.enable {
