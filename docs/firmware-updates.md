@@ -7,7 +7,7 @@ its memory map with the kernel's in a minute, from Android ([Checking a new firm
 **On a version not in the table, please run the check and send the result as an issue ([how](#tell-us))**, even if
 you do not start Linux on it. Each report fills a row for the next person.
 
-A firmware update **cannot be undone**: it raises the rollback index, so the older firmware will not boot again.
+Treat a firmware update as **one-way**: verified boot can refuse an image whose rollback version is lower than the one the device has recorded ("Rollback protection" in [Verified Boot](https://source.android.com/docs/security/features/verifiedboot/verified-boot)), so older firmware may not boot again. A downgrade has not been tried here.
 
 ## Firmware versions
 

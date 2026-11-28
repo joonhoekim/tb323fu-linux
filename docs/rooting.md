@@ -40,7 +40,7 @@ The bootloader stays **locked** the whole time (`ro.boot.flash.locked=1`, verifi
 - **Slot `_b` is not a fallback.** The tablet uses virtual A/B: `super` holds only `_a` system partitions, so slot `_b`
   has no system to boot. That is why `boot_b` can store the Android boot image.
 - **OTA updates.** An OTA overwrites `init_boot` (root is lost) and can overwrite `boot_b` (your way back from
-  Linux). Step 3 disables the OTA apps; a firmware update cannot be undone: [Updating Android firmware](firmware-updates.md).
+  Linux). Step 3 disables the OTA apps; treat a firmware update as one-way: [Updating Android firmware](firmware-updates.md).
 
 ## Verified on
 
